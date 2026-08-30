@@ -1,0 +1,32 @@
+This package's own code — everything under lib/, bin/ and verify/ — is licensed under the
+Apache License, Version 2.0. See LICENSE.
+
+The assets/ directory redistributes third-party files unmodified except where noted below.
+Each is listed with its upstream project, upstream URL, copyright holder and licence:
+
+- assets/d3.v7.min.js
+  Upstream: D3 7.9.0 — https://d3js.org
+  Copyright 2010-2023 Mike Bostock
+  Licence: ISC
+
+- assets/fonts/Bricolage-var.woff2
+  Upstream: Bricolage Grotesque — https://github.com/ateliertriay/bricolage
+  Licence: SIL Open Font License, Version 1.1
+
+- assets/fonts/InstrumentSans-var.woff2
+  Upstream: Instrument Sans — https://github.com/Instrument/instrument-sans
+  Licence: SIL Open Font License, Version 1.1
+
+- assets/fonts/PlexMono-400.woff2
+  Upstream: IBM Plex Mono — https://github.com/IBM/plex
+  Licence: SIL Open Font License, Version 1.1
+
+- assets/fonts/PlexMono-600.woff2
+  Upstream: IBM Plex Mono — https://github.com/IBM/plex
+  Licence: SIL Open Font License, Version 1.1
+
+A note on the Plex Mono file names: these two faces are shipped here under the family name
+"Plex Mono", not "IBM Plex Mono". The OFL 1.1 reserves the upstream Reserved Font Name for
+the original, unmodified font, so a modified or subsetted build must be distributed under a
+different name. This rename is OFL compliance, not a typo — do not "correct" it back to
+"IBM Plex Mono".

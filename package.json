@@ -9,7 +9,7 @@
   "bugs": { "url": "https://github.com/robertblust/design/issues" },
   "engines": { "node": ">=22" },
   "publishConfig": { "access": "public", "provenance": true },
-  "files": ["lib", "bin", "verify", "assets"],
+  "files": ["lib", "bin", "verify", "assets", "NOTICE"],
   "bin": { "design": "./bin/design.mjs" },
   "exports": {
     ".": "./lib/sync.mjs",
