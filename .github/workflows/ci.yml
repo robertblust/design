@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # The job id — `test` — is the status-check context a branch ruleset would require, not the
+  # workflow name. If this repository ever gets a protect-main ruleset, it names `test`; rename
+  # the job afterwards and the branch looks protected while nothing ever reports again. The
+  # three sites hit exactly this and settled on the job id `verify`; this one differs because
+  # it runs unit tests rather than a rendered-page suite, and that is the only reason.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      # No `npm ci`: this package has no dependencies, and having none is a property worth
+      # keeping. Three sites install it, and every transitive dependency it took would land
+      # in all three.
+      - name: The sync tool still does what it says
+        run: npm test

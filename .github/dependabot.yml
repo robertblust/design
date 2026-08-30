@@ -1,0 +1,12 @@
+# This package takes no runtime dependencies and intends to keep it that way — three sites
+# install it, so anything it pulled in would land in all three. That leaves the actions.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
