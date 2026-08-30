@@ -46,6 +46,14 @@ test("readConfig rejects a group this package does not ship", () => {
   assert.throws(() => readConfig(root), /confetti/);
 });
 
+// An empty groups array would make `design sync --check` print "✓ 0 file(s) match" and exit
+// 0 — the CI check passing while checking nothing. A truncated or half-edited config should
+// not be softer than a deleted one, which already exits 2.
+test("readConfig rejects an empty groups array", () => {
+  const root = site({}, { groups: [] });
+  assert.throws(() => readConfig(root), /design\.config\.json/);
+});
+
 test("a site with nothing yet reports every file missing", () => {
   const root = site({}, { groups: ["fonts"] });
   const entries = planSync(root, { groups: ["fonts"] });
