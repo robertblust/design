@@ -17,6 +17,6 @@
     "./verify/stage": "./verify/stage.mjs"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test"
   }
 }
