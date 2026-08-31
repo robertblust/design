@@ -8,21 +8,49 @@ import { blockFor, FENCES } from "../lib/fences.mjs";
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
 
+// Fixture fences for the tests below: registered directly on the live `FENCES` object rather
+// than added to lib/fences.mjs, and always removed in a `finally` — they exist only for the
+// duration of one test and must never leak into FENCE_NAMES or any other test file. `files` are
+// written under test/fixtures/ before the fence is registered and unlinked again afterward,
+// whether the test's callback throws or not.
+function withFixtureFence(name, spec, files, run) {
+  fs.mkdirSync(path.join(PKG, "test/fixtures"), { recursive: true });
+  for (const [rel, body] of Object.entries(files)) fs.writeFileSync(path.join(PKG, rel), body);
+  FENCES[name] = spec;
+  try {
+    run();
+  } finally {
+    delete FENCES[name];
+    for (const rel of Object.keys(files)) fs.unlinkSync(path.join(PKG, rel));
+    try { fs.rmdirSync(path.join(PKG, "test/fixtures")); } catch { /* not empty; other test's fixture is mid-flight */ }
+  }
+}
+
 test("the prose reset block defines .mono, which two landing pages had lost", () => {
   assert.match(blockFor("prose reset", null),
     /\.mono\{font-family:"Plex Mono", ui-monospace, "SF Mono", Menlo, monospace\}/);
 });
 
-test("the prose reset block names no font family the sites do not ship", () => {
+test("no block the package ships names a font family the sites do not ship", () => {
+  // Generalised from a check that covered only "prose reset": blocks/footer.css and
+  // blocks/footer-credit.css each name a family too, and the latter is never a fence source in
+  // its own right — it only reaches a page through a part — so driving this off FENCE_NAMES
+  // and blockFor would still miss it. Reads every file under blocks/ directly instead.
   const shipped = new Set([
     "instrument sans", "plex mono", "bricolage grotesque",                    // @font-face'd
     "ui-sans-serif", "system-ui", "sans-serif", "ui-monospace", "monospace",  // generic
     "-apple-system", "sf mono", "menlo",                                      // platform
   ]);
-  const named = [...blockFor("prose reset", null).matchAll(/font-family:([^;}\n]+)/g)]
-    .flatMap((m) => m[1].split(",").map((f) => f.trim().replace(/^["']|["']$/g, "").toLowerCase()));
-  const unknown = named.filter((f) => !shipped.has(f));
-  assert.deepEqual(unknown, [], `names ${unknown.join(", ")}`);
+  const blocksDir = path.join(PKG, "blocks");
+  const files = fs.readdirSync(blocksDir).filter((f) => /\.(css|js)$/.test(f));
+  assert.ok(files.length > 0, "found no block files under blocks/ to check");
+  for (const file of files) {
+    const text = fs.readFileSync(path.join(blocksDir, file), "utf8");
+    const named = [...text.matchAll(/font-family:([^;}\n]+)/g)]
+      .flatMap((m) => m[1].split(",").map((f) => f.trim().replace(/^["']|["']$/g, "").toLowerCase()));
+    const unknown = named.filter((f) => !shipped.has(f));
+    assert.deepEqual(unknown, [], `${file} names ${unknown.join(", ")}`);
+  }
 });
 
 test("the prose reset block balances every brace it opens", () => {
@@ -94,4 +122,42 @@ test("a prose footer variant that does not exist is refused", () => {
 test("a part is supplied only to the variants that declare it", () => {
   // The mechanism, asserted independently of this one fence's content.
   assert.deepEqual(FENCES["prose footer"].parts.credit.variants, ["credit"]);
+});
+
+test("a part is substituted before params, so a param slot inside a part's text is filled", () => {
+  // Pins the order the parts loop must run in relative to the params loop: parts after
+  // {{variant}}, before params. Moving either loop leaves npm test at the same total everywhere
+  // else, because "prose footer" (the only shipped fence with a part) has no params — nothing
+  // else in this file can tell the two orders apart. Needs a fixture fence that declares both a
+  // part and a param, built here rather than added to the shipped manifest for one test.
+  const sourceRel = "test/fixtures/ordering-source.css";
+  const partRel = "test/fixtures/ordering-part.css";
+  withFixtureFence("ordering fixture", {
+    key: "orderingFixture", source: sourceRel, version: "v0",
+    variants: ["on"], closes: null, params: ["p"],
+    parts: { slot: { file: partRel, variants: ["on"] } },
+  }, {
+    [sourceRel]: "before\n{{slot}}after\n",
+    [partRel]: "part-has-{{p}}-inside\n",
+  }, () => {
+    const out = blockFor("ordering fixture", "on", { p: "X" });
+    assert.match(out, /part-has-X-inside/);
+  });
+});
+
+test("a duplicated part slot is refused rather than shipping the part twice", () => {
+  // The reviewer found this by hand: adding a second "{{credit}}" to blocks/footer.css shipped
+  // the nine credit rules twice and still passed 104/104, because "both prose footer variants
+  // agree on everything but the credit" strips credit lines by set membership from both sides
+  // and cannot see how many times the part was actually spliced in.
+  const sourceRel = "test/fixtures/duplicate-slot-source.css";
+  withFixtureFence("duplicate slot fixture", {
+    key: "dupFixture", source: sourceRel, version: "v0",
+    variants: ["on"], closes: null,
+    parts: { slot: { file: FENCES["prose footer"].parts.credit.file, variants: ["on"] } },
+  }, {
+    [sourceRel]: "before\n{{slot}}middle\n{{slot}}after\n",
+  }, () => {
+    assert.throws(() => blockFor("duplicate slot fixture", "on"), /appears 2 times/);
+  });
 });
