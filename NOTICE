@@ -1,8 +1,11 @@
 This package's own code — everything under lib/, bin/ and verify/ — is licensed under the
 Apache License, Version 2.0. See LICENSE.
 
-The assets/ directory redistributes third-party files unmodified except where noted below.
-Each is listed with its upstream project, upstream URL, copyright holder and licence:
+The assets/ directory is mostly third-party files, redistributed unmodified except where
+noted below. `assets/stage.js` and `assets/stage.css` are the exception: they are this
+package's own code, under the same Apache License, Version 2.0 as `lib/`, `bin/` and
+`verify/`, not third-party redistribution. The remaining files are listed below with their
+upstream project, upstream URL, copyright holder and licence:
 
 - assets/d3.v7.min.js
   Upstream: D3 7.9.0 — https://d3js.org
