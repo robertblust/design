@@ -63,7 +63,23 @@ test("does not confuse one fence for another with a shared prefix", () => {
     "  /* ─── end stage ─── */",
   );
   assert.equal(findFence(two, "stage").start, 3);
+  assert.equal(findFence(two, "stage").end, 5);
   assert.equal(findFence(two, "stage contract").start, 0);
+  assert.equal(findFence(two, "stage contract").end, 2);
+});
+
+test("the close marker for a longer name does not match a shorter one", () => {
+  const nested = doc(
+    "  /* ─── stage · v1 · x ───",
+    "  .b{}",
+    "  /* ─── end stage contract ─── */",
+    "  .c{}",
+    "  /* ─── end stage ─── */",
+  );
+  const f = findFence(nested, "stage");
+  assert.equal(f.start, 0);
+  assert.equal(f.end, 4);
+  assert.ok(f.body.includes(".c{}"));
 });
 
 test("replaceFence swaps the whole block and leaves every other line alone", () => {
