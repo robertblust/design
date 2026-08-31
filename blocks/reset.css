@@ -1,0 +1,31 @@
+  /* ─── prose reset · v1 · {{variant}} ────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The first thing every prose page declares, after its tokens and before
+     anything of its own. Five rules, and four of the five had drifted:
+
+       .mono   missing entirely from two landing pages, and one of those marked
+               an element as data and rendered it as prose, in production
+       a       missing from one
+       body    gained "Segoe UI" on five pages, and lost ui-sans-serif,
+               -apple-system and -webkit-font-smoothing on one
+
+     `*` and `.shell` agreed everywhere. They are here because the block is the
+     whole contiguous run, not the drifted subset of it — a fence that covered
+     only the rules that had gone wrong would leave the next drift uncovered.
+
+     Nothing here may name a family the sites do not ship. `fontsAvailable`
+     fails the build for it, and a name no machine has falls through silently to
+     whatever the OS picked. */
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{
+    font-family:"Instrument Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    background:var(--ground); color:var(--ink); line-height:1.5; min-height:100vh;
+    background-image:var(--sky); background-repeat:no-repeat;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+  }
+  .mono{font-family:"Plex Mono", ui-monospace, "SF Mono", Menlo, monospace}
+  a{color:inherit}
+  .shell{width:100%; max-width:1180px; margin:0 auto; padding:0 7vw}
+  /* ─── end prose reset ───────────────────────────────────────────────────*/
