@@ -16,9 +16,10 @@ import { findFence } from "../lib/rewrite.mjs";
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
 
-test("names exactly the five fences this release ships", () => {
+test("names exactly the six fences this release ships", () => {
   assert.deepEqual([...FENCE_NAMES].sort(),
-    ["design tokens", "header contract", "language", "prose reset", "stage contract"]);
+    ["design tokens", "header contract", "language", "prose footer", "prose reset",
+     "stage contract"]);
 });
 
 test("every block source exists", () => {

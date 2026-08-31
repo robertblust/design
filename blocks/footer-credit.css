@@ -1,0 +1,11 @@
+  footer .credit{display:inline-flex; align-items:center; gap:.5em; vertical-align:-.25em;
+                 font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+                 font-size:.84rem; letter-spacing:0; color:var(--ink)}
+  footer .credit .rbmark{display:flex}
+  footer .credit .rbmark svg{width:14px; height:14px; display:block}
+  footer .credit .plate{fill:var(--raise); stroke:var(--rule); stroke-width:1.5}
+  footer .credit .rb{fill:var(--c-mid)}
+  footer .credit b{font-weight:600}
+  footer .credit b em{font-style:normal; color:var(--c-mid)}
+  footer .credit:hover, footer .credit:focus-visible{text-decoration:none}
+  footer .credit:hover b em, footer .credit:focus-visible b em{color:var(--ink)}

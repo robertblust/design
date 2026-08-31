@@ -3,5 +3,6 @@
   "header": "v2",
   "stage": "v2",
   "reset": "v1",
-  "lang": "v2"
+  "lang": "v2",
+  "footer": "v1"
 }
