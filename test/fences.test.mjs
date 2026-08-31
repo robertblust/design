@@ -53,7 +53,8 @@ test("the page variant closes the :root brace and the deck variant does not", ()
 });
 
 test("the stored token block carries no closing brace of its own", () => {
-  const raw = fs.readFileSync(path.join(PKG, FENCES["design tokens"].source), "utf8").split("\n");
+  const raw = fs.readFileSync(path.join(PKG, FENCES["design tokens"].source), "utf8")
+    .replace(/\n$/, "").split("\n");
   assert.notEqual(raw[raw.length - 2].trim(), "}",
     "blocks/tokens.css still has the brace — the deck variant would emit it too");
 });
