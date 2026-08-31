@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { findPages, planFences, applyFences } from "../lib/sync.mjs";
+import { findPages, planFences, applyFences, otherVariantMatch } from "../lib/sync.mjs";
 import { blockFor } from "../lib/fences.mjs";
 
 function site(files) {
@@ -134,4 +134,50 @@ test("a prose page's fence declaring deck throws, because its block already clos
   });
   assert.throws(() => planFences(root), e =>
     e.name === "FenceError" && /declares "deck".*closes/.test(e.message));
+});
+
+// planFences wires the general guard to `FENCES[fence].variants` alone — nothing in the wiring
+// checks `closes` — so it runs for "language" (`closes: null`) exactly as it does for "design
+// tokens". What it finds when it runs is a separate question, tested below on the comparison
+// itself: today's fences cannot demonstrate a `closes: null` fence whose variants genuinely
+// differ, because the only thing that currently makes two variants differ by more than their
+// label is the brace logic gated on `closes` — that capability arrives with a future fence. So
+// the mismatch case is proved directly against `otherVariantMatch`, with fabricated content
+// standing in for that fence, rather than through a `closes: null` fence that does not exist yet.
+
+// The declared word is "a", but the content past the opening line is word-for-word "b"'s —
+// exactly what a deck-footer lockup written in the wrong form would look like once a future
+// fence has two variants that emit different bytes with no brace involved.
+test("otherVariantMatch catches a mislabelled body when the variants genuinely differ", () => {
+  const candidates = {
+    a: ["/* ─── lockup · v1 · a ───", "  nine lines of the short form", "/* ─── end lockup ───"].join("\n"),
+    b: ["/* ─── lockup · v1 · b ───", "  thirty-one lines of the long form", "/* ─── end lockup ───"].join("\n"),
+  };
+  const mislabeled = ["/* ─── lockup · v1 · a ───", "  thirty-one lines of the long form", "/* ─── end lockup ───"].join("\n");
+  assert.equal(otherVariantMatch("a", mislabeled, candidates), "b");
+});
+
+// A body correctly labeled "a" must never be flagged against "b", even if unrelated stray edits
+// mean neither candidate matches exactly — proves the check does not fire on ordinary "differs".
+test("otherVariantMatch does not fire when the body simply differs from every candidate", () => {
+  const candidates = {
+    a: ["/* ─── lockup · v1 · a ───", "  nine lines", "/* ─── end lockup ───"].join("\n"),
+    b: ["/* ─── lockup · v1 · b ───", "  thirty-one lines", "/* ─── end lockup ───"].join("\n"),
+  };
+  const edited = ["/* ─── lockup · v1 · a ───", "  someone's hand-edited line", "/* ─── end lockup ───"].join("\n");
+  assert.equal(otherVariantMatch("a", edited, candidates), null);
+});
+
+// The companion fact, exercised through the real pipeline this time: when a fence's variants
+// emit identical bytes outside the label — true of "language" — the general guard runs (it is
+// wired unconditionally for any fence with `variants`) and correctly finds nothing to catch.
+test("the general variant guard finds nothing for a fence whose variants are byte-identical", () => {
+  const root = site({
+    "index.html": ["<script>", "  // before",
+      blockFor("language", "page", { langKey: "rb-lang" }), "  // after", "</script>"].join("\n"),
+  });
+  fs.writeFileSync(path.join(root, "design.config.json"),
+    JSON.stringify({ groups: ["fonts"], langKey: "rb-lang" }));
+  const e = planFences(root).find(x => x.fence === "language");
+  assert.equal(e.state, "same");
 });
