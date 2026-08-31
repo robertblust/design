@@ -1,0 +1,30 @@
+  /* ─── design tokens · v4 · {{variant}} ───────────────────────────────
+     These sites share no stylesheet by design — a deck has to open from
+     file:// — so this block is a copy, generated from @robertblust/design.
+     Editing it here has no effect: the next `npm run design` overwrites it
+     from the package. Change it there, not here.
+
+     Brightness is confidence. Each stop has exactly one job:
+       --c-weak  a candidate: considered, not accepted
+       --c-mid   anything interactive — links, controls, the brand accent
+       --c-firm  the resolved thing — the thesis, the current page
+       --c-flag  a reversal; at most one per page, never decoration
+
+     And one name for a job the four stops do not cover:
+       --c-path  where you are and how you got here — in the drawing, the
+                 ancestors of the focused node and the line through them
+
+     It carries --c-firm's value, and naming it is the point: the places that
+     draw a path mean "the way back to the root", not "the resolved thing",
+     and the two only happen to look alike. A green was considered and
+     refused — the grammar here is one hue at four brightnesses, and a second
+     hue would have made colour mean two things at once. If it is ever wanted,
+     this is the one line that changes.
+  */
+  :root{
+    --ground:#0C0E13; --raise:#171A21; --rule:#232833;
+    --sky:radial-gradient(120% 60% at 50% -10%, var(--raise) 0%, var(--ground) 60%);
+    --ink:#EFEDE8;    --dim:#8A8B86;
+    --c-weak:#3E5878; --c-mid:#7FA3D8; --c-firm:#B8D0FF; --c-flag:#D9A44F;
+    --c-path:#B8D0FF;
+  /* ─── end design tokens ─────────────────────────────────────────────── */

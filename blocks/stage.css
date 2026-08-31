@@ -1,0 +1,30 @@
+  /* ─── stage contract · v2 · shared ───────────────────────────────────
+     `stage.css` styles the drawing, the card and the dialog, and says in its own header that
+     the page keeps `.figure-section`, `.figcap` and its prose. This is that remainder: the few
+     rules a page must bring for a stage to sit on it properly. They are generated from
+     @robertblust/design, like the tokens and the header above them. Editing them here has no
+     effect — the next `npm run design` overwrites them. Change them in the package.
+
+     What the contract says:
+       · the figure     gets its own air above it, and its caption sits clear of the canvas
+                        rather than hard against it, at a measure prose can be read at.
+       · the hint       how to move the drawing is not a sentence about the drawing, so it is
+                        its own line above the caption rather than a clause inside it. Small
+                        and dim: subordinate to the caption, and read first only by someone
+                        looking for a control. Not mono — mono means data here, and an
+                        instruction is prose. `monoScope` would not catch it either way: it
+                        inspects a fixed list of selectors and this class is not on one.
+       · the provenance mono end to end. It is the one line on the page that is entirely
+                        record — a repository, a commit, the folder the block was read from —
+                        and setting only the link and the commit in mono left the sentence
+                        around them looking like prose that happened to contain data.
+
+     The drawing's own behaviour is in `stage.js` and `stage.css`, which are byte-identical
+     copies too. A page that carries a stage carries all of it. */
+  .figure-section{margin-top:clamp(2rem,5vh,3.5rem)}
+  .figcap{margin-top:1.1rem; color:var(--dim); font-size:clamp(1rem,1.3vw,1.14rem); line-height:1.5; max-width:68ch}
+  .figcap b{color:var(--ink); font-weight:600}
+  .stagehint{margin-top:.7rem; font-size:.82rem; color:var(--dim)}
+  .derived{margin-top:2.6rem; font-family:"Plex Mono",monospace; font-size:.78rem;
+           letter-spacing:.06em; color:var(--dim)}
+  /* ─── end stage contract ────────────────────────────────────────────────── */

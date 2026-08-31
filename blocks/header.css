@@ -1,0 +1,98 @@
+  /* ─── header contract · v2 · shared ──────────────────────────────────
+     One row, three sites, and no stylesheet between them — a deck opens from file://, so
+     this is a copy, generated from @robertblust/design. Editing it here has no effect — the
+     next `npm run design` overwrites it. Change it in the package.
+
+     Inside the fence is the row's behaviour, byte-identical on all fifteen pages. Outside
+     it is each site's own: the brand mark's colours, the bar's gap. The wordmark's
+     `white-space:nowrap` is outside for that reason — the contract is that it never breaks,
+     not that every site declares it the same way, and `mobileNav` asserts the outcome.
+
+     The contract:
+       · order      Ideas, Principles, Model, Example, Talks, Billing, Privacy, then the
+                    language control. A site skips what it does not have and reorders
+                    nothing. Read right to left, the switcher is at the edge and each step
+                    left is more the site's own subject.
+       · baseline   One line runs through the middle of every text in the row. The links
+                    carry equal space above and below, because the hover underline hangs
+                    below and centring the boxes would otherwise ride the text high.
+       · states     Hover is an underline and nothing else. The current page is brighter
+                    ink and carries no line. When both drew a line, the page you were on
+                    read as permanently hovered.
+       · collapse   Under 640px the links go behind a button. The language control stays on
+                    the bar — two characters, reached for constantly by a bilingual
+                    audience — and the button sits to its left, so the order still reads.
+
+     `navOrder`, `headerBaseline` and `mobileNav` in this repo's verify suite assert all of
+     it. They cannot see the other two repositories: that is what the version is for.
+  */
+  /* `align-items:center`, not the default `stretch`: a stretched link is a box the height of
+     the whole row with its text at the top, which put the words above the language control
+     beside them. Centred, each box is its own height and one line runs through every text. */
+  nav{display:flex; align-items:center; gap:1.9rem; font-size:.76rem; font-weight:500;
+      letter-spacing:.14em; text-transform:uppercase; position:relative}
+  .navlinks{display:flex; align-items:center; gap:1.9rem}
+  /* Hidden until the row runs out of width; the media query at the end of this sheet
+     is the only place it appears. The two icons swap on aria-expanded, the way the
+     deck's play button swaps its own. */
+  .burger{display:none; align-items:center; justify-content:center; width:40px; height:40px;
+          background:none; border:1px solid var(--rule); border-radius:8px;
+          color:var(--dim); cursor:pointer; padding:0;
+          transition:color .15s ease, border-color .15s ease}
+  .burger:hover{color:var(--ink); border-color:var(--c-mid)}
+  .burger svg{width:18px; height:18px; fill:none; stroke:currentColor;
+              stroke-width:1.7; stroke-linecap:round}
+  .burger .ix{display:none}
+  .burger[aria-expanded="true"]{color:var(--c-mid); border-color:var(--c-mid)}
+  .burger[aria-expanded="true"] .ibars{display:none}
+  .burger[aria-expanded="true"] .ix{display:block}
+  nav a{color:var(--dim); text-decoration:none; padding:.2rem 0;
+        border-top:1px solid transparent; border-bottom:1px solid transparent}
+  /* Hover is an underline and nothing else: `border-bottom-color`, not `border-color`,
+     because the box now has a transparent border on both edges to keep its text centred,
+     and `border-color` painted a line above the word as well as under it.
+     The current page is not underlined — it is brighter. A page marks where you are with
+     a different weight of ink; the underline is what follows the pointer. When both used
+     the same line, the selected item read as permanently hovered. */
+  nav a:hover, nav a:focus-visible{border-bottom-color:var(--c-mid)}
+  /* the bar is the same component on both pages, so this page says which one you are on
+     rather than dropping the item and leaving the header subtly different */
+  nav a[aria-current="page"]{color:var(--c-firm)}
+  /* The segmented control the decks put in their transport, at nav scale. Two real buttons
+     in one bordered box, the pressed one filled — someone who has used the deck already
+     knows what it is. It replaces one button with two clickable spans inside it, which said
+     one thing to a pointer and another to a screen reader. */
+  .seg{display:inline-flex; border:1px solid var(--rule); border-radius:8px; overflow:hidden;
+       flex:0 0 auto}
+  .seg button{font:inherit; letter-spacing:inherit; text-transform:inherit; background:none;
+              border:0; cursor:pointer; padding:.26rem .5rem; color:var(--dim);
+              transition:color .15s ease, background-color .15s ease}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed="true"]{color:var(--c-mid); background:#1b2231; font-weight:600}
+  .seg button:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
+  /* The row narrows before it collapses. */
+  @media (max-width:900px){
+    nav{gap:1.4rem}
+  }
+  /* One mobile behaviour for the whole family. Below this width the links do not fit beside
+     the wordmark, and every page in the three sites used to answer that differently — some
+     wrapped the bar, some wrapped the nav, and the two whose `.bar` had no `flex-wrap` at
+     all let the wordmark itself break in half. They collapse behind a button instead.
+
+     The language control stays on the bar. It is two characters, it is used constantly by a
+     bilingual audience, and a language a visitor cannot find is worse than one menu tap
+     saved. The button sits to its left, which keeps the family's order: the switcher is
+     still the rightmost thing in the row, and the menu holds everything left of it. */
+  @media (max-width:640px){
+    nav{gap:.8rem}
+    .burger{display:inline-flex}
+    .navlinks{display:none; position:absolute; top:calc(100% + .85rem); right:0; z-index:30;
+              flex-direction:column; align-items:flex-start; gap:0;
+              min-width:11rem; padding:.3rem 1.1rem;
+              background:var(--raise); border:1px solid var(--rule); border-radius:10px}
+    .navlinks[data-open="true"]{display:flex}
+    /* Tall enough to be a comfortable target; the underline still hugs the word, because
+       each item is only as wide as its own text. */
+    .navlinks a{padding:.8rem 0}
+  }
+  /* ─── end header contract ───────────────────────────────────────────── */

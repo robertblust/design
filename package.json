@@ -8,12 +8,13 @@
   "homepage": "https://github.com/robertblust/design#readme",
   "bugs": { "url": "https://github.com/robertblust/design/issues" },
   "engines": { "node": ">=22" },
-  "files": ["lib", "bin", "verify", "assets", "NOTICE"],
+  "files": ["lib", "bin", "verify", "assets", "blocks", "versions.json", "NOTICE"],
   "bin": { "design": "./bin/design.mjs" },
   "exports": {
     ".": "./lib/sync.mjs",
     "./groups": "./lib/groups.mjs",
-    "./verify/stage": "./verify/stage.mjs"
+    "./verify/stage": "./verify/stage.mjs",
+    "./fences": "./lib/fences.mjs"
   },
   "scripts": {
     "test": "node --test"
