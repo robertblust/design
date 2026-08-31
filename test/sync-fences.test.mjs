@@ -79,6 +79,29 @@ test("a second run writes nothing and reports every fence same", () => {
   assert.deepEqual(applyFences(root, second), []);
 });
 
+test("a CRLF page compares on content, not line endings, and a write keeps it CRLF", () => {
+  const crlf = (s) => s.replace(/\n/g, "\r\n");
+
+  // A CRLF page already carrying the shipped block must report "same" on the very first plan —
+  // findFence joins a CRLF document's body with \r\n, and blockFor's \n-joined text must not be
+  // compared against it byte-for-byte, or a page that is genuinely in sync reports "differs"
+  // forever.
+  const freshRoot = site({ "index.html": crlf(wrap(blockFor("design tokens", "page"))) });
+  const fresh = planFences(freshRoot).find(e => e.fence === "design tokens");
+  assert.equal(fresh.state, "same");
+
+  // A CRLF page carrying a stale block: after applyFences, a re-plan must reach "same" (the
+  // property design:check rests on), and the file on disk must still be CRLF — fixing the
+  // comparison must not be done by silently converting the page to LF on write.
+  const root = site({ "index.html": crlf(stale("page")) });
+  applyFences(root, planFences(root));
+  const second = planFences(root).find(e => e.fence === "design tokens");
+  assert.equal(second.state, "same");
+  const out = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  assert.ok(out.includes("\r\n"), "the page lost its CRLF line endings entirely");
+  assert.ok(!/(?<!\r)\n/.test(out), "a bare LF crept into what must remain an all-CRLF file");
+});
+
 test("a page with no fences produces no entries and is never rewritten", () => {
   const root = site({ "plain.html": "<style>  body{}</style>" });
   assert.deepEqual(planFences(root).filter(e => e.page === "plain.html"), []);
