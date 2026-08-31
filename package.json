@@ -31,7 +31,8 @@
     ".": "./lib/sync.mjs",
     "./groups": "./lib/groups.mjs",
     "./verify/stage": "./verify/stage.mjs",
-    "./fences": "./lib/fences.mjs"
+    "./fences": "./lib/fences.mjs",
+    "./family": "./lib/family.mjs"
   },
   "scripts": {
     "test": "node --test"
