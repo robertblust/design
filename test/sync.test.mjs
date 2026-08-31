@@ -54,6 +54,25 @@ test("readConfig rejects an empty groups array", () => {
   assert.throws(() => readConfig(root), /design\.config\.json/);
 });
 
+// readConfig has no hardcoded list of parameter names — paramsFor reads config[key] generically
+// by whatever a fence declares, so readConfig has to hand back whatever the config carries. Using
+// a name no fence currently declares ("lockup") is deliberate: it proves the path is generic,
+// not a second hardcoded key alongside langKey.
+test("readConfig returns any parameter-shaped key the config carries, not just langKey", () => {
+  const root = site({}, { groups: ["fonts"], langKey: "rb-lang", lockup: "person" });
+  assert.deepEqual(readConfig(root), { groups: ["fonts"], langKey: "rb-lang", lockup: "person" });
+});
+
+test("readConfig rejects a malformed parameter regardless of its name, naming the file and the key", () => {
+  const wrongType = site({}, { groups: ["fonts"], lockup: 12 });
+  assert.throws(() => readConfig(wrongType), (e) =>
+    /lockup/.test(e.message) && /design\.config\.json/.test(e.message));
+
+  const empty = site({}, { groups: ["fonts"], lockup: "" });
+  assert.throws(() => readConfig(empty), (e) =>
+    /lockup/.test(e.message) && /design\.config\.json/.test(e.message));
+});
+
 test("a site with nothing yet reports every file missing", () => {
   const root = site({}, { groups: ["fonts"] });
   const entries = planSync(root, { groups: ["fonts"] });
