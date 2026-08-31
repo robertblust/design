@@ -1,9 +1,9 @@
-  /* ─── header contract · v2 · shared ──────────────────────────────────
+  /* ─── header contract · v3 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
 
-     Inside the fence is the row's behaviour, byte-identical on all fifteen pages. Outside
+     Inside the fence is the row's behaviour, byte-identical on all sixteen pages. Outside
      it is each site's own: the brand mark's colours, the bar's gap. The wordmark's
      `white-space:nowrap` is outside for that reason — the contract is that it never breaks,
      not that every site declares it the same way, and `mobileNav` asserts the outcome.
