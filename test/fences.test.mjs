@@ -16,8 +16,9 @@ import { findFence } from "../lib/rewrite.mjs";
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
 
-test("names exactly the three fences this release ships", () => {
-  assert.deepEqual([...FENCE_NAMES].sort(), ["design tokens", "header contract", "stage contract"]);
+test("names exactly the four fences this release ships", () => {
+  assert.deepEqual([...FENCE_NAMES].sort(),
+    ["design tokens", "header contract", "language", "stage contract"]);
 });
 
 test("every block source exists", () => {
@@ -29,14 +30,26 @@ test("every fence's version matches versions.json", () => {
   for (const n of FENCE_NAMES) assert.equal(FENCES[n].version, versions[FENCES[n].key], n);
 });
 
+// A placeholder value for each parameter a fence declares. What the values are does not matter
+// to the test below — only that every declared parameter is supplied, so the call succeeds
+// regardless of which fences declare params or what they are named.
+function paramsFor(spec) {
+  return Object.fromEntries((spec.params ?? []).map((name) => [name, `${name}-value`]));
+}
+
 test("each block carries its own opening and closing markers", () => {
+  const visited = [];
   for (const n of FENCE_NAMES) {
-    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null);
+    visited.push(n);
+    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null, paramsFor(FENCES[n]));
     const f = findFence(text, n);
     assert.ok(f, `${n}: the emitted block is not a findable fence`);
     assert.equal(f.start, 0, `${n}: the block must start at its own opening marker`);
     assert.equal(f.end, text.split("\n").length - 1, `${n}: the block must end at its own marker`);
   }
+  // Guard against the loop silently short-circuiting: every fence must actually have been tried,
+  // not just declared.
+  assert.deepEqual(visited, [...FENCE_NAMES], "the loop must reach every fence, not stop early");
 });
 
 test("the emitted version is the one versions.json declares, not whatever the file said", () => {
