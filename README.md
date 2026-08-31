@@ -29,8 +29,14 @@ site's suite a few checks.
   "design": "design sync",
   "design:check": "design sync --check"
 },
-"devDependencies": { "@robertblust/design": "0.1.0" }   // exact, never ^
+"devDependencies": { "@robertblust/design": "github:robertblust/design#v0.1.0" }
 ```
+
+The ref is a tag, not a range, for the same reason the sites pin `"d3": "7.9.0"` exactly:
+this package's bytes end up committed in the consuming repository, so the version should be
+a visible, reviewable line, not a range that can move under a lockfile refresh. `npm ci`
+records the resolved commit SHA in the lockfile, so installs stay reproducible. The
+repository is public, so installing it needs no token, no login and no npm account.
 
 `npm run design:check` runs in CI after `npm ci` and before `npm run verify`.
 
@@ -42,9 +48,10 @@ are reached only by served prose pages, through a plain `<link>` and `<script sr
 
 ## Releasing
 
-Tag, and let the workflow publish. Every release needs notes: Dependabot renders them into
-the pull request it opens in three repositories, and that pull request is the only thing
-telling someone there what changed.
+A release is a git tag and a GitHub Release, nothing more — there is no publish step. Every
+release still needs notes: Dependabot renders them into the pull request it opens in three
+repositories, and that pull request is the only thing telling someone there what changed.
 
 A change to any synced file is at least a **minor** — it makes every site's committed copy
-stale. A change needing a site edit beyond `npm run design` is a **major**.
+stale. A change needing a site edit beyond `npm run design` is a **major**. Dropping a file
+from a group is also a **major** — `applySync` never deletes an orphan a site already has.
