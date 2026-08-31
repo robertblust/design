@@ -1,7 +1,14 @@
-  /* ─── language · v1 · {{variant}} ─────────────────────────────────────────────
+  /* ─── language · v2 · {{variant}} ─────────────────────────────────────────────
      One language across three domains, and where it is remembered. Generated
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
+
+     This block has a contract with the page around it that `design:check` cannot see, because
+     the check only compares bytes between the markers. The page must declare a `lang` variable
+     in scope before this fence, and must call `langStored()` and `langRemember(v)` from
+     wherever it reads and writes the visitor's saved choice. Rename `lang` or drop those calls
+     and the fence still matches byte for byte — every check stays green — while a click throws
+     ReferenceError and the language silently stops crossing domains.
   */
   var LANG_KEY = "{{langKey}}";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }
