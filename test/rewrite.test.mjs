@@ -37,9 +37,26 @@ test("reads the version and the variant off the opening line", () => {
   assert.equal(f.variant, "page");
 });
 
-test("reports variant null when the opening line carries prose instead", () => {
-  const p = PAGE.replace("· page ───", "· keep in step across every repository ───");
-  assert.equal(findFence(p, "design tokens").variant, null);
+test("reports whatever word the opening line names, verbatim, not only page or deck", () => {
+  // Used to whitelist "page" and "deck" and quietly turn anything else into null — the exact
+  // defect that let a fence with different variant words (e.g. "credit"/"plain") report no
+  // variant at all, so lib/sync.mjs's guard saw `null` instead of the page's real, wrong word
+  // and said "declares no variant" about a line that plainly declared one. There is no
+  // whitelist now: this module reports the word verbatim, and validating it against what a
+  // fence actually declares is lib/sync.mjs's job, against the fence manifest this module does
+  // not have.
+  const p = PAGE.replace("· page ───", "· keep ───");
+  assert.equal(findFence(p, "design tokens").variant, "keep");
+});
+
+test("a marker with no variant slot at all is not recognized as this fence's opening line", () => {
+  // The opening pattern requires two "·" separators; a line missing the second one (no third
+  // segment to report) fails to match as an opening line at all, so the fence is reported
+  // absent rather than found with an empty variant — there is no path through this parser that
+  // returns a found fence with an undefined variant, which is what `m[2] ?? null` guards
+  // defensively rather than something a real marker can trigger today.
+  const p = PAGE.replace("· page ───", "───");
+  assert.equal(findFence(p, "design tokens"), null);
 });
 
 test("the body excludes neither marker — it is the whole block", () => {

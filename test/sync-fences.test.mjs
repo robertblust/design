@@ -114,6 +114,19 @@ test("an unterminated fence throws rather than being silently skipped", () => {
   assert.throws(() => planFences(root), e => e.name === "FenceError");
 });
 
+// The defect this catches: `findFence` used to whitelist "page" and "deck" and silently turn
+// any other word into `null` — so a fence declaring a real, wrong word (here "loyal" on a fence
+// that only knows "credit"/"plain") was reported to this function as no variant at all, and the
+// old message ("declares no variant") flatly contradicted the page's own opening line. This is
+// the assertion that would have caught it before it shipped; there was none.
+test("a fence's opening line naming a word outside its own variants is rejected, naming both", () => {
+  const root = site({
+    "index.html": wrap(blockFor("prose footer", "credit").replace("· credit ", "· loyal ")),
+  });
+  assert.throws(() => planFences(root), e =>
+    e.name === "FenceError" && /"loyal"/.test(e.message) && /credit, plain/.test(e.message));
+});
+
 // A deck seeded from a prose page keeps the prose page's self-closing content but is still a
 // deck: its own tokens and closing brace live after the end marker, outside the fence. Declaring
 // "page" on that fence writes the page's block, which closes :root a second time before the
