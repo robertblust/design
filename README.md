@@ -55,3 +55,11 @@ repositories, and that pull request is the only thing telling someone there what
 A change to any synced file is at least a **minor** — it makes every site's committed copy
 stale. A change needing a site edit beyond `npm run design` is a **major**. Dropping a file
 from a group is also a **major** — `applySync` never deletes an orphan a site already has.
+
+`assets/d3.v7.min.js` is one such synced file, but it is also pinned as a real npm
+dependency in companygraph.io, whose own suite (`verify/instance.test.mjs`) asserts its
+committed copy matches its `node_modules/d3`. The two only stay consistent if d3 moves here
+first, tagged, and companygraph.io then takes that design release together with its own d3
+Dependabot bump on one branch, running `npm run design` and re-vendoring by hand — a site
+edit beyond `npm run design` alone, which by the rule above makes a d3 bump a major here
+too, not a minor.
