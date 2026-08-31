@@ -52,9 +52,23 @@ test("each block carries its own opening and closing markers", () => {
   assert.deepEqual(visited, [...FENCE_NAMES], "the loop must reach every fence, not stop early");
 });
 
-test("the emitted version is the one versions.json declares, not whatever the file said", () => {
-  const t = blockFor("design tokens", "page");
-  assert.equal(findFence(t, "design tokens").version, versions.tokens);
+test("every fence emits the version versions.json declares, for every fence", () => {
+  // Was asserted for "design tokens" alone while three other fences went unchecked, and the
+  // file's own header claimed the version is "stamped from versions.json rather than typed".
+  // It is typed — into the first line of each block file — and nothing reconciled the two.
+  // Bumping versions.json without editing the block emits the old marker under the new
+  // number, which is precisely the "same version, different content" failure the two version
+  // numbers exist to prevent, inverted.
+  const visited = [];
+  for (const n of FENCE_NAMES) {
+    visited.push(n);
+    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null,
+                          paramsFor(FENCES[n]));
+    assert.equal(findFence(text, n).version, versions[FENCES[n].key],
+                 `${n}: block file says ${findFence(text, n).version}, ` +
+                 `versions.json says ${versions[FENCES[n].key]}`);
+  }
+  assert.deepEqual(visited, [...FENCE_NAMES], "the loop must reach every fence, not stop early");
 });
 
 test("the page variant closes the :root brace and the deck variant does not", () => {
