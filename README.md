@@ -40,6 +40,37 @@ repository is public, so installing it needs no token, no login and no npm accou
 
 `npm run design:check` runs in CI after `npm ci` and before `npm run verify`.
 
+## Fences
+
+Beside the whole files this package copies into a site, three of its blocks live *inside* a
+page: a fence is a pair of comment markers the page already carries — `design tokens`,
+`header contract`, `stage contract` — and the package owns everything between and including
+them, prose, version and CSS alike. That is the whole reason a fence is not just another
+synced file: a synced file is copied whole, but a fenced block sits in the middle of a page
+the tool never fully owns, so the markers are what tell it exactly where its part starts and
+stops.
+
+Editing a fenced block by hand does nothing that lasts. The next `npm run design` reads the
+markers, finds the package's own version underneath, and overwrites whatever is between them
+— the block is generated, not maintained in place. The block to change is the one in
+`blocks/` in this repository; a page only ever carries a copy of it.
+
+The `design tokens` fence is the one exception with a choice attached: its opening line
+carries a variant word, `page` or `deck`. A prose page closes its `:root` inside the fence,
+because nothing after it adds more tokens; a deck leaves the brace open, because the deck
+still has tokens of its own to declare once the shared ones end. That word is how the tool
+knows which shape to write back — it is read off the page, never guessed, so a page that
+forgets it or gets it wrong is an error, not a silent wrong render.
+
+A site opts a page into a fence by putting the markers in it, and opts it out again by
+putting them there in the first place — there is no list of pages this package tracks or
+needs told about. The absence of a fence is itself the only state that matters.
+
+Taking a block out of the package works the same way in reverse: delete its fence from the
+page, and from then on the page owns that CSS outright. That is a visible decision, made in
+the page's own diff, to diverge from the shared copy — not a way to make a red
+`design:check` go quiet without deciding anything.
+
 ## A warning about `stage.js`
 
 `stage.js` is the one shared file no deck loads — a deck draws static SVG and has to open
