@@ -45,6 +45,19 @@ test("supplying a parameter a block does not declare throws", () => {
     /design tokens|langKey/);
 });
 
+// A fence *with* declared params used to accept undeclared extras silently — only a fence with
+// no params at all rejected a stray key. Symmetric now: an extra key throws either way.
+test("a block that declares params still rejects one it did not declare", () => {
+  assert.throws(() => blockFor("language", "page", { langKey: "rb-lang", bogus: "X" }),
+    /bogus/);
+});
+
+// `!(p in params)` treated `{langKey: undefined}` as present, substituting the literal string
+// "undefined" into every page. A value test rejects it instead.
+test("a declared parameter whose value is undefined is rejected, not substituted as the literal string", () => {
+  assert.throws(() => blockFor("language", "page", { langKey: undefined }), /langKey/);
+});
+
 test("the emitted block is a findable fence with the right variant", () => {
   for (const variant of ["page", "deck"]) {
     const out = blockFor("language", variant, { langKey: "rb-lang" });
