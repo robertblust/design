@@ -63,8 +63,18 @@ if (check) {
   for (const e of staleFences) {
     const text = fs.readFileSync(path.join(siteRoot, e.page), "utf8");
     const found = findFence(text, e.fence);
-    console.log(
-      `  ✗ ${e.page}  ${e.fence} is ${found.version}, this release ships ${FENCES[e.fence].version}`);
+    if (found.version !== FENCES[e.fence].version) {
+      console.log(
+        `  ✗ ${e.page}  ${e.fence} is ${found.version}, this release ships ${FENCES[e.fence].version}`);
+    } else {
+      // Same version, different bytes: the version comparison above would print "is v4, this
+      // release ships v4", which reads as nonsense for a block someone edited by hand without
+      // touching the version marker. Name what actually happened instead.
+      console.log(
+        `  ✗ ${e.page}  ${e.fence} is ${found.version} but its content differs — this block is ` +
+        `generated: edit it in robertblust/design and publish, or take the block out of the ` +
+        `package if this site genuinely needs to differ.`);
+    }
   }
   console.log(
     `\n  ${stale.length} file(s) and ${staleFences.length} fence(s) are not what @robertblust/design ` +

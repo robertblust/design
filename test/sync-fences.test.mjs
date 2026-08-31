@@ -113,3 +113,25 @@ test("an unterminated fence throws rather than being silently skipped", () => {
   });
   assert.throws(() => planFences(root), e => e.name === "FenceError");
 });
+
+// A deck seeded from a prose page keeps the prose page's self-closing content but is still a
+// deck: its own tokens and closing brace live after the end marker, outside the fence. Declaring
+// "page" on that fence writes the page's block, which closes :root a second time before the
+// deck's own content — the exact silent failure Finding 1 reproduced.
+test("a deck's fence declaring page throws, because its block never closes :root", () => {
+  // The deck's own block (unclosed :root) with the opening line's variant word swapped to "page"
+  // — exactly what a deck seeded from a prose page produces.
+  const root = site({
+    "talks/t/index.html": wrap(blockFor("design tokens", "deck").replace(/· v(\d+) · deck/, "· v$1 · page")),
+  });
+  assert.throws(() => planFences(root), e =>
+    e.name === "FenceError" && /declares "page".*does not close/.test(e.message));
+});
+
+test("a prose page's fence declaring deck throws, because its block already closes :root", () => {
+  const root = site({
+    "index.html": wrap(blockFor("design tokens", "page").replace(/· v(\d+) · page/, "· v$1 · deck")),
+  });
+  assert.throws(() => planFences(root), e =>
+    e.name === "FenceError" && /declares "deck".*closes/.test(e.message));
+});
