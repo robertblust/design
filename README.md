@@ -62,9 +62,9 @@ still has tokens of its own to declare once the shared ones end. That word is ho
 knows which shape to write back — it is read off the page, never guessed, so a page that
 forgets it or gets it wrong is an error, not a silent wrong render.
 
-A site opts a page into a fence by putting the markers in it, and opts it out again by
-putting them there in the first place — there is no list of pages this package tracks or
-needs told about. The absence of a fence is itself the only state that matters.
+A site opts a page into a fence by putting the markers in it — there is no list of pages
+this package tracks or needs to know about. The absence of a fence is itself the only
+state that matters.
 
 Taking a block out of the package works the same way in reverse: delete its fence from the
 page, and from then on the page owns that CSS outright. That is a visible decision, made in
