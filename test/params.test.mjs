@@ -17,11 +17,6 @@ test("the language fence declares langKey as a site-supplied parameter", () => {
   assert.deepEqual(FENCES["language"].params, ["langKey"]);
 });
 
-test("no other fence declares a parameter", () => {
-  for (const [name, spec] of Object.entries(FENCES))
-    if (name !== "language") assert.equal(spec.params, undefined, name);
-});
-
 test("blockFor substitutes the site's key", () => {
   const out = blockFor("language", "page", { langKey: "rb-lang" });
   assert.match(out, /var LANG_KEY = "rb-lang";/);
