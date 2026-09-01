@@ -1,4 +1,4 @@
-  /* ─── deck transport · v1 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v2 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -10,16 +10,21 @@
      `deck lockup`. They were two components wearing one name, and only one of
      them legitimately differs between sites.
 
-     This block holds 53 rules, not the round number a first read of the region
+     This block holds 57 rules, not the round number a first read of the region
      might suggest. The marker never closed, so "which rules are inside it" was
      never a settled question; measured mechanically — everything from the
      `---------- transport ----------` comment through the transport's own three
-     mobile breakpoints, minus the lockup's own rules, minus the one rule that shows
-     the LCD while it carries a message (staying per-deck), minus the speaker-notes drawer and the
-     slide-layout rules that happen to share the same breakpoints — 53 is what's
-     left, and all 53 are byte-identical on every deck. Anyone re-deriving this
-     should get the same 53; if a cut to a smaller, rounder number seems
-     obviously right, it wasn't obvious here and is worth writing down why. */
+     mobile breakpoints, minus the lockup's own rules, minus the speaker-notes drawer
+     and the slide-layout rules that happen to share the same breakpoints — 57 is
+     what's left, and all 57 are byte-identical on every deck. That count includes
+     the rule that shows the LCD while it carries a message, `.lcd:has(.n.msg)`:
+     below 400px `.lcd{display:none}` hides the counter to make room, but
+     `lcdMessage()` puts transient text in that same element, so without this rule
+     two of the four decks — companygraph's and guestgraph's — could never show a
+     message at that width at all. It belongs to every deck, not just the two that
+     happened to carry it first. Anyone re-deriving this should get the same 57; if
+     a cut to a smaller, rounder number seems obviously right, it wasn't obvious
+     here and is worth writing down why. */
   .transport{
     grid-column:2; justify-self:center;
     display:flex; align-items:center; gap:.45rem;
@@ -53,6 +58,8 @@
   .tbtn svg{width:18px; height:18px; fill:currentColor; display:block}
   .tbtn svg.stroked{fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
   .tbtn:hover{color:var(--ink); background:#20242e}
+  .tbtn:disabled{opacity:.35; cursor:default}
+  .tbtn:disabled:hover{color:inherit; background:none}
   .tbtn:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px; color:var(--ink)}
   .tbtn[aria-pressed="true"]{color:var(--c-mid); background:#1b2231}
 
@@ -111,6 +118,10 @@
   /* below this the seven controls need every pixel */
   @media (max-width: 400px){
     .lcd{display:none}
+    /* the counter is hidden to make room, but lcdMessage() adds .msg to #lcdn to show
+       transient text in that same element — a message with nowhere to appear is worse
+       than a hidden counter, so bring it back when it is carrying one. */
+    .lcd:has(.n.msg){display:flex}
     .transport{padding:.45rem .35rem}
     .tbtn{width:40px; height:40px}
     .tside{gap:.1rem}

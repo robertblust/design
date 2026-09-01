@@ -174,7 +174,6 @@ test("the deck transport block is one form — it never drifted", () => {
   const nameRules = withoutComments.match(/\.name\b[^{]*\{[^}]*\}/g) || [];
   assert.deepEqual(nameRules, [".name{display:none}"],
     "only the bar's own mobile-hide statement about the lockup belongs here");
-  assert.doesNotMatch(css, /\.lcd:has\(/, "the one genuinely drifted rule stays out of the fence");
 });
 
 test("the two-tier lockup carries a second tier's worth of rules the one-tier form has no use for", () => {
@@ -211,4 +210,21 @@ test("the deck fit block describes the canvas that exists, not the one that was 
   assert.match(js, /fixed-height/);
   assert.doesNotMatch(js, /1600×900|1600x900/,
     "a fixed 16:9 canvas was the bug — it letterboxed a 4:3 screen");
+});
+
+test("a disabled transport button does not light up under the pointer", () => {
+  // :hover sets colour and background, so opacity alone leaves a disabled button
+  // looking clickable. Both halves or neither.
+  const css = blockFor("deck transport", null);
+  assert.match(css, /\.tbtn:disabled\{[^}]*opacity/);
+  assert.match(css, /\.tbtn:disabled:hover\{/);
+});
+
+test("the narrow-screen transport can still show a message", () => {
+  // .lcd is hidden below 400px to make room; lcdMessage() puts transient text in the
+  // same element, so it has to come back when there is something to say.
+  const css = blockFor("deck transport", null);
+  const narrow = css.match(/@media \(max-width: ?400px\)\{[\s\S]*?\n  \}/)[0];
+  assert.match(narrow, /\.lcd\{display:none\}/);
+  assert.match(narrow, /\.lcd:has\(\.n\.msg\)\{display:flex\}/);
 });
