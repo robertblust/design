@@ -300,8 +300,9 @@ export function pageChecks({ SITE, BASE }) {
       const probe = await ctx.browser().newPage();
       try {
         await probe.addInitScript((k) => { try { localStorage.setItem(k, "light"); } catch (e) {} }, spec.noFlash);
-        // Freeze before any body script can run, then read what the first paint would use.
-        await probe.route("**/*", (r) => r.continue());
+        // "commit" is what freezes the read to before any body script runs — the earliest
+        // point Playwright reports a navigation, well before "load" lets a deferred or
+        // module script correct the attribute first.
         await probe.goto(spec.absolute, { waitUntil: "commit" });
         const early = await probe.evaluate(() => document.documentElement.getAttribute("data-theme"));
         if (early !== "light") return `at first paint data-theme was ${JSON.stringify(early)}, not "light"`;

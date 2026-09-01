@@ -189,40 +189,121 @@ test("both theme fences declare themeKey and no variants", () => {
   }
 });
 
-test("storageKeys exercises the theme control, not only the language one", () => {
-  // The theme key is written by every visitor who switches. If the check never clicks the
-  // control, the key is never observed and /privacy/ can omit it with every suite green.
-  const src = pageChecks({ SITE: "https://x.test", BASE: "http://x.local" }).storageKeys.toString();
-  assert.match(src, /#thLight/);
-  assert.match(src, /#thDark/);
-  // The two ids alone would also match a stray comment naming them. Requiring the actual
-  // click calls is what a comment could not satisfy.
-  assert.match(src, /page\.click\("#thLight"\)/);
-  assert.match(src, /page\.click\("#thDark"\)/);
+// Fix round 1: every test below used to assert over `.toString()` of a check body — matching
+// source text rather than running it. A reviewer defeated all three by writing check bodies
+// that contained the matched tokens (in code or in a comment) while doing nothing: a
+// comment-only body plus `return null`, a token loop narrowed to a single passing token, and
+// a click guarded by `&& false`. `Function.prototype.toString()` includes comments that sit
+// *inside* the body, so a broken implementation can spell out the exact regex a test greps
+// for. The fix below runs each check against a fake `page` — the same object these checks
+// already receive and the only thing that makes them testable without Playwright — and
+// asserts on what the check actually does, the way `httpStatus`'s `bodyUsed` test and
+// `opensFromFile`'s spawned-process test already do in this package.
+const THEME_OPTS = { SITE: "https://x.test", BASE: "http://x.local" };
+
+test("storageKeys actually clicks the theme control, not merely names it behind a dead guard", async () => {
+  // A guard written as `if (await page.$("#thLight") && false)` still contains the string
+  // "#thLight" and the literal click call in source, so a `.toString()` test cannot tell it
+  // from working code. Recording what `page.click` is actually called with can.
+  const clicks = [];
+  const fakePage = {
+    addInitScript: async () => {},
+    goto: async () => {},
+    $: async () => true,               // every control is "present"
+    click: async (sel) => { clicks.push(sel); },
+    focus: async () => {},
+    keyboard: { press: async () => {} },
+    evaluate: async () => [],
+  };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ text: async () => "" });
+  try {
+    await pageChecks(THEME_OPTS).storageKeys(fakePage, { absolute: "https://x.test/" });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.ok(clicks.includes("#thLight"), `#thLight was never clicked; clicks were ${JSON.stringify(clicks)}`);
+  assert.ok(clicks.includes("#thDark"), `#thDark was never clicked; clicks were ${JSON.stringify(clicks)}`);
 });
 
-test("contrast reads the live page and checks both themes", () => {
-  const src = pageChecks({ SITE: "https://x.test", BASE: "http://x.local" }).contrast.toString();
-  assert.match(src, /getComputedStyle/);
-  assert.match(src, /\["dark", "light"\]/);
-  // The two assertions above are satisfied by a body that names both themes and calls
-  // getComputedStyle without ever comparing anything — which would always return null and
-  // never fail on a real regression. These two close that gap: the check must actually flip
-  // data-theme between iterations and compare a real ratio against the 4.5 floor.
-  assert.match(src, /setAttribute\("data-theme", "light"\)/);
-  assert.match(src, /removeAttribute\("data-theme"\)/);
-  assert.match(src, /r < 4\.5/);
+// contrast's page.evaluate callback is self-contained — it reads document.documentElement,
+// getComputedStyle and the token values, and closes over nothing from pages.mjs's module
+// scope. That makes it possible to hand the real callback a stubbed document/getComputedStyle
+// and run it for real, rather than mocking the check itself.
+function makeContrastPage(palettes) {
+  return {
+    async evaluate(fn) {
+      let theme = null; // null: no data-theme attribute, i.e. dark
+      const documentElement = {
+        setAttribute(name, v) { if (name === "data-theme") theme = v; },
+        removeAttribute(name) { if (name === "data-theme") theme = null; },
+      };
+      const getComputedStyle = () => {
+        const vals = palettes[theme === "light" ? "light" : "dark"];
+        return { getPropertyValue: (name) => vals[name] ?? "" };
+      };
+      const hadDoc = "document" in globalThis, prevDoc = globalThis.document;
+      const hadGCS = "getComputedStyle" in globalThis, prevGCS = globalThis.getComputedStyle;
+      globalThis.document = { documentElement };
+      globalThis.getComputedStyle = getComputedStyle;
+      try { return fn(); }
+      finally {
+        if (hadDoc) globalThis.document = prevDoc; else delete globalThis.document;
+        if (hadGCS) globalThis.getComputedStyle = prevGCS; else delete globalThis.getComputedStyle;
+      }
+    },
+  };
+}
+
+test("contrast passes a fully AA palette and fails one where only --c-flag is under 4.5:1", async () => {
+  const PASS_DARK = { "--ground": "#000000", "--ink": "#ffffff", "--dim": "#ffffff",
+    "--c-mid": "#ffffff", "--c-firm": "#ffffff", "--c-flag": "#ffffff" };
+  const PASS_LIGHT = { "--ground": "#ffffff", "--ink": "#000000", "--dim": "#000000",
+    "--c-mid": "#000000", "--c-firm": "#000000", "--c-flag": "#000000" };
+
+  const ok = await pageChecks(THEME_OPTS).contrast(makeContrastPage({ dark: PASS_DARK, light: PASS_LIGHT }));
+  assert.equal(ok, null, `a fully passing palette should clear, got ${JSON.stringify(ok)}`);
+
+  // Only --c-flag fails, at ~1.66:1 against the same ground the other four tokens clear
+  // easily. A check whose token loop was narrowed to, say, just --ink would still see a
+  // passing palette here and return null — a test that only ever fails --ink could not tell
+  // the difference. Failing the token that everything else ignores is what tells them apart.
+  const failing = { ...PASS_DARK, "--c-flag": "#333333" };
+  const bad = await pageChecks(THEME_OPTS).contrast(makeContrastPage({ dark: failing, light: PASS_LIGHT }));
+  assert.ok(bad, "a --c-flag under 4.5:1 should have been reported, got null");
+  assert.match(bad, /--c-flag/);
 });
 
-test("noFlash reads the attribute before the body scripts run", () => {
-  // waitUntil "commit" is the point: "load" would let the body script set the attribute and
-  // the check would pass on a page that flashes.
-  const src = pageChecks({ SITE: "https://x.test", BASE: "http://x.local" }).noFlash.toString();
-  assert.match(src, /waitUntil: "commit"/);
-  assert.doesNotMatch(src, /waitUntil: "load"|networkidle/);
-  // The line above only proves the right wait mode is named somewhere in the body — a
-  // version that gotos with "commit" and then always returns null without reading anything
-  // would still pass it. This proves the check actually reads the attribute and can fail.
-  assert.match(src, /getAttribute\("data-theme"\)/);
-  assert.match(src, /!== "light"/);
+function makeNoFlashProbe({ early, calls }) {
+  return {
+    async addInitScript(fn, arg) { calls.addInit.push(arg); },
+    async goto(url, opts) { calls.goto.push({ url, opts }); },
+    async evaluate() { return early; },   // stands in for the real page reading data-theme
+    async close() { calls.closed = true; },
+  };
+}
+
+test("noFlash returns null only for a genuinely light first paint, and always waits on \"commit\"", async () => {
+  // A body that reads `waitUntil: "commit"` in its source and then always `return null` (a
+  // comment standing in for the actual read, or the `if` commented out) satisfied the old
+  // string-matching tests outright. Driving the real check with a fake probe that reports
+  // different first-paint states, and checking both the returned value and what goto was
+  // actually called with, does not have that hole.
+  const spec = { absolute: "https://x.test/", noFlash: "rb-theme" };
+  for (const [early, shouldPass] of [["light", true], ["dark", false], [null, false]]) {
+    const calls = { addInit: [], goto: [], closed: false };
+    const probe = makeNoFlashProbe({ early, calls });
+    const fakePage = { context: () => ({ browser: () => ({ newPage: async () => probe }) }) };
+    const result = await pageChecks(THEME_OPTS).noFlash(fakePage, spec);
+    if (shouldPass) {
+      assert.equal(result, null, `data-theme ${JSON.stringify(early)} at first paint should pass, got ${JSON.stringify(result)}`);
+    } else {
+      assert.equal(typeof result, "string",
+        `data-theme ${JSON.stringify(early)} at first paint should have failed with a message, got ${JSON.stringify(result)}`);
+    }
+    assert.equal(calls.goto.length, 1, "goto was not called exactly once");
+    assert.equal(calls.goto[0].opts && calls.goto[0].opts.waitUntil, "commit",
+      `goto must be called with waitUntil: "commit", got ${JSON.stringify(calls.goto[0].opts)}`);
+    assert.ok(calls.closed, "the probe page was never closed");
+  }
 });
