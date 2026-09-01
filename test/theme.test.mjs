@@ -533,3 +533,76 @@ test("noFlash asserts document order and script form, not timing", async () => {
     }
   }
 });
+
+const DECK_TOKENS = ["deck-accent", "deck-paper", "deck-mark", "deck-well", "deck-track",
+  "deck-hover", "deck-divider", "deck-edge", "deck-ring", "deck-quiet",
+  "deck-warm", "deck-lift", "deck-drop", "deck-inset", "deck-glow"];
+// --lcd, --lcd-ink, --lcd-faint and --lcd-flag are deliberately NOT here: they are invariant
+// and are asserted by the test below instead.
+
+// blockFor("design tokens", "deck") leaves the dark :root open on purpose — a real deck page
+// adds its own --warn and --slab after the fence and closes the rule itself (see the fence's
+// `closes: "page"` in lib/fences.mjs). `palette()` needs a closing "\n  }" to find the rule at
+// all, so every test below closes it with nothing but the brace before parsing; that changes
+// nothing about the tokens being asserted, only makes the already-emitted text parseable.
+function deckCss() { return blockFor("design tokens", "deck") + "\n  }"; }
+
+// palette() only captures hex-valued custom properties (`#[0-9a-fA-F]{3,8}`); four deck tokens
+// (--deck-lift, --deck-drop, --deck-inset, --deck-glow) are declared as rgba(...) for their
+// alpha channel and would never appear in its return value. This checks a name is declared at
+// all, independent of its value's syntax — needed only for the completeness test below; every
+// other assertion here reads token values via palette() and none of the rgba tokens appear there.
+function declares(css, selector, name) {
+  const m = css.match(new RegExp(selector + "\\{([\\s\\S]*?)\\n  \\}"));
+  assert.ok(m, `no ${selector} rule in the emitted block`);
+  return new RegExp(`--${name}\\s*:`).test(m[1]);
+}
+
+test("both themes define every deck token", () => {
+  // Seventeen names arriving in one half and not the other is the failure that shows up as a
+  // single wrong colour on one deck in one theme, which nobody looks at.
+  const css = deckCss();
+  for (const t of DECK_TOKENS) {
+    assert.ok(declares(css, ":root", t), `--${t} missing from the dark half`);
+    assert.ok(declares(css, ':root\\[data-theme="light"\\]', t), `--${t} missing from the light half`);
+  }
+});
+
+test("--lcd is declared in both halves with the same value", () => {
+  // Spec decision 3, asserted rather than described. A real machine with a pale body still has
+  // a dark readout. If someone "completes" the light palette by giving --lcd a light value,
+  // this is what says no.
+  const css = deckCss();
+  const dark = palette(css, ":root");
+  const light = palette(css, ':root\\[data-theme="light"\\]');
+  assert.ok(dark["lcd"], "--lcd missing from the dark half");
+  for (const t of ["lcd", "lcd-ink", "lcd-faint", "lcd-flag"])
+    assert.equal(light[t], dark[t],
+      `--${t} differs between themes; the readout and everything printed on it stay constant`);
+});
+
+test("the deck's readable tokens clear AA against the surface each is painted on", () => {
+  // The pairs the transport actually paints, taken from deck-transport.css rather than
+  // guessed: the accent and the faint separator sit on the LCD, the quiet and warm tones sit
+  // on the slab. Plan A shipped a token pair at 4.35:1 because only token-against-background
+  // was ever measured; this is that lesson applied to the deck.
+  const css = deckCss();
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    for (const [fg, bg] of [["lcd-ink", "lcd"], ["lcd-faint", "lcd"], ["lcd-flag", "lcd"],
+                            ["deck-quiet", "deck-well"], ["deck-warm", "deck-well"]]) {
+      const r = ratio(p[fg], p[bg]);
+      assert.ok(r >= 4.5, `${name}: --${fg} on --${bg} is ${r.toFixed(2)}:1, needs 4.5`);
+    }
+  }
+});
+
+test("the deck tokens do not leak a light value into --lcd's neighbours by accident", () => {
+  // --deck-paper and --deck-well swap roles between themes. If someone copies the dark block
+  // into the light one wholesale, this catches it: on light, the well must be lighter than the
+  // paper, and on dark the reverse.
+  const css = deckCss();
+  const d = palette(css, ":root"), l = palette(css, ':root\\[data-theme="light"\\]');
+  assert.ok(lum(d["deck-paper"]) > lum(d["deck-well"]), "dark: --deck-paper is not the lighter of the pair");
+  assert.ok(lum(l["deck-well"]) > lum(l["deck-paper"]), "light: --deck-well is not the lighter of the pair");
+});
