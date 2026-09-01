@@ -228,3 +228,51 @@ test("the narrow-screen transport can still show a message", () => {
   assert.match(narrow, /\.lcd\{display:none\}/);
   assert.match(narrow, /\.lcd:has\(\.n\.msg\)\{display:flex\}/);
 });
+
+test("the deck runtime reads its per-talk strings from TALK, not from literals", () => {
+  const js = blockFor("deck runtime", null);
+  assert.match(js, /title:TALK\.de\.title/);
+  assert.match(js, /desc:TALK\.en\.desc/);
+});
+
+// The `UI` object literal's own text, isolated from the surrounding comments and code.
+// Both tests below check something true of UI specifically, and a phrase that happens to
+// recur in an unrelated comment elsewhere in the block must not be able to satisfy either.
+function uiSource(js) {
+  const m = js.match(/var UI = \{[\s\S]*?\n  \};/);
+  assert.ok(m, "could not find the UI object literal in the deck runtime block");
+  return m[0];
+}
+
+test("the deck runtime hardcodes no talk's own title", () => {
+  // Not an enumeration of four remembered titles — that list named only English strings,
+  // so putting a German literal back in TALK.de.title's place still passed. The property
+  // that must hold is general: every `title:` and `desc:` inside UI is a `TALK.*`
+  // reference, never a literal, in either language, for any deck's words at all.
+  const ui = uiSource(blockFor("deck runtime", null));
+  assert.doesNotMatch(ui, /\b(?:title|desc):\s*['"]/,
+    "UI's title or desc is a literal string, not a TALK.* reference");
+  // Non-vacuous: the reference form is actually present in both languages, not merely
+  // absent of literals because the keys themselves are missing.
+  assert.match(ui, /title:TALK\.de\.title/);
+  assert.match(ui, /desc:TALK\.de\.desc/);
+  assert.match(ui, /title:TALK\.en\.title/);
+  assert.match(ui, /desc:TALK\.en\.desc/);
+});
+
+test("the deck runtime keeps the transport's own labels", () => {
+  // The 28 UI keys that are identical on all four decks describe the transport, not
+  // the talk, and stay in the block. Checked against UI's own text, not the whole file:
+  // "Back to the start" also appears, coincidentally, in an unrelated comment elsewhere
+  // in this block, which let a broken UI.en.first ("Return to start") pass this test's
+  // earlier, unscoped form.
+  const ui = uiSource(blockFor("deck runtime", null));
+  for (const s of ["Sprecher-Notiz", "Speaker note", "Back to the start", "No voice"])
+    assert.match(ui, new RegExp(s));
+});
+
+test("the deck runtime block declares no variants and no parameters", () => {
+  assert.equal(FENCES["deck runtime"].variants, null);
+  assert.equal(FENCES["deck runtime"].params, undefined);
+  assert.equal(FENCES["deck runtime"].closes, null);
+});
