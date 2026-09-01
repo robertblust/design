@@ -582,16 +582,24 @@ test("--lcd is declared in both halves with the same value", () => {
 });
 
 test("the deck's readable tokens clear AA against the surface each is painted on", () => {
-  // The pairs the transport actually paints, taken from deck-transport.css rather than
-  // guessed: the accent and the faint separator sit on the LCD, the quiet and warm tones sit
-  // on the slab. Plan A shipped a token pair at 4.35:1 because only token-against-background
-  // was ever measured; this is that lesson applied to the deck.
+  // Not every pair below has the same warrant, and that distinction matters more than the
+  // ratios do — a wrong provenance claim here was the exact failure this project spent a week
+  // chasing elsewhere.
   //
-  // Two more joined this list once Task 2 re-pointed deck-transport.css's literals at tokens:
-  // `.tbtn:hover` sets `color` and `background` on the same rule (--ink on --deck-hover), and
-  // `.tbtn.play.on` does the same (--ground on --c-mid, the filled play button's icon). Both
-  // are read straight off the rule, not guessed — the same standard --deck-quiet/--deck-warm
-  // above were held to.
+  // Pairs actually read off a rule in blocks/deck-transport.css: `.lcd .n`/`.sep`/`#tot`/
+  // `.msg` paint --lcd-ink/--lcd-faint/--lcd-flag on `.lcd`'s own --lcd background; Task 2's
+  // sweep added `.tbtn:hover` (--ink on --deck-hover, same rule) and `.tbtn.play.on`
+  // (--ground on --c-mid, same rule, the filled play button's icon).
+  //
+  // --deck-quiet and --deck-warm are different: as of this test, neither name appears in any
+  // block this package ships — not deck-transport.css, not deck-lockup.css. Pairing them
+  // against --deck-well is a palette-level assertion ("if something is ever painted this way,
+  // it will clear AA"), not a claim about a call site that exists. An earlier version of this
+  // comment said they "sit on the slab" and were "taken from deck-transport.css"; neither was
+  // true — --deck-well, not --slab, is what they're checked against here, and grep confirms
+  // deck-transport.css never mentions either name. Left in because the pairing itself may
+  // still be worth holding to a floor once a consumer exists, but it is a guess about future
+  // use, not a fact about current code.
   const css = deckCss();
   for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
     const p = palette(css, sel);

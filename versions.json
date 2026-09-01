@@ -6,7 +6,7 @@
   "lang": "v2",
   "footer": "v1",
   "transport": "v5",
-  "lockup": "v2",
+  "lockup": "v1",
   "fit": "v1",
   "runtime": "v4",
   "themeBoot": "v1",
