@@ -6,5 +6,6 @@
   "lang": "v2",
   "footer": "v1",
   "transport": "v1",
-  "lockup": "v1"
+  "lockup": "v1",
+  "fit": "v1"
 }

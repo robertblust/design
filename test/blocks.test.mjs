@@ -205,3 +205,10 @@ test("both new deck fences carry balanced braces", () => {
     assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, `${n} ${v}`);
   }
 });
+
+test("the deck fit block describes the canvas that exists, not the one that was removed", () => {
+  const js = blockFor("deck fit", null);
+  assert.match(js, /fixed-height/);
+  assert.doesNotMatch(js, /1600×900|1600x900/,
+    "a fixed 16:9 canvas was the bug — it letterboxed a 4:3 screen");
+});
