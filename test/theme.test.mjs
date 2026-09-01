@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { blockFor, FENCES } from "@robertblust/design/fences";
+import { FAMILY } from "@robertblust/design/family";
 
 // WCAG 2.1 relative luminance. Inlined rather than imported: the package has no dependencies,
 // and a contrast test that trusts a helper it also ships proves less than one that does not.
@@ -112,24 +113,60 @@ test("the boot block reads the URL as well as storage", () => {
   assert.match(js, /localStorage\.getItem/);
 });
 
+test("the boot block lets the URL win over storage, not the other way round", () => {
+  // A visitor with theme=dark stored on companygraph.io who arrives from blust.ch on a link
+  // carrying ?theme=light must paint light — the URL is the more recent, more specific choice.
+  // `stored || (m && m[1])` would let the older, unrelated-site value win instead; this pins
+  // the ternary so storage is only ever the fallback when the URL carries nothing.
+  const js = blockFor("theme boot", null, TP);
+  assert.match(js, /var t = m \? m\[1\] : localStorage\.getItem\(/,
+    "the URL match must be read before storage, as the ternary's condition, not merely present");
+});
+
 test("the boot block never reads prefers-color-scheme", () => {
   // Spec decision 4: dark is the default and the OS is not consulted. This is the assertion
   // that stops a later "helpful" change from quietly making light the default for most
   // visitors — which would also stop the share cards matching the pages.
+  //
+  // Stripped of its block comments first, the same way `carriesLang` is checked in
+  // test/verify-pages.test.mjs (there with `.replace(/\/\/.*$/gm, "")` for // comments) — an
+  // assertion over raw text otherwise conflates code and prose. The block's own doc comment is
+  // allowed, and needs, to name `prefers-color-scheme`: saying what the code deliberately does
+  // not do is the whole value of that sentence. Only the code is forbidden from reading it.
   const js = blockFor("theme boot", null, TP);
-  assert.doesNotMatch(js, /prefers-color-scheme|matchMedia/);
+  const code = js.replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.doesNotMatch(code, /prefers-color-scheme|matchMedia/);
 });
 
 test("the boot block is guarded, because file:// throws", () => {
   // localStorage on an opaque origin throws rather than returning null. A deck must still open.
+  // Asserting only that a `try { ... } catch` exists somewhere is satisfied by a stray, unrelated
+  // guard — `localStorage.getItem` moved outside any try and a decoy `try{void 0}catch(e){}` left
+  // behind passes that check while throwing synchronously in the only <head> script on the page.
+  // So the read itself has to be found inside the try it is claimed to be guarded by.
   const js = blockFor("theme boot", null, TP);
-  assert.match(js, /try\s*\{[\s\S]*catch/);
+  const m = /try\s*\{([\s\S]*?)\}\s*catch/.exec(js);
+  assert.ok(m, "no try/catch found");
+  assert.match(m[1], /localStorage\.getItem/,
+    "the localStorage read is not inside the try block that is supposed to guard it");
 });
 
 test("theme carries the param to family domains only", () => {
   const js = blockFor("theme", null, TP);
   assert.match(js, /THEME_FAMILY\s*=\s*\/\^\(www\\\.\)\?\(blust\\\.ch\|companygraph\\\.io\|guestgraph\\\.io\)\$\//);
   assert.match(js, /u\.origin === location\.origin \|\| !THEME_FAMILY\.test\(u\.hostname\)/);
+});
+
+test("the theme block carries FAMILY's source text, so page and check agree", () => {
+  // lib/family.mjs exists because this pattern was hardcoded in twenty-three places, and a
+  // fourth domain added there once left one of the copies behind with nothing to notice. The
+  // language block is pinned to it by test/params.test.mjs's identically named test; THEME_FAMILY
+  // in blocks/theme.js is a second literal copy, and this is what pins that one the same way —
+  // add a domain to lib/family.mjs and this test is what fails instead of theme.js silently
+  // going on carrying the theme to only three of the four.
+  const js = blockFor("theme", null, TP);
+  assert.ok(js.includes(FAMILY.source),
+    "theme.js's inline THEME_FAMILY regex has drifted from lib/family.mjs");
 });
 
 test("theme decorates on mousedown as well as click", () => {

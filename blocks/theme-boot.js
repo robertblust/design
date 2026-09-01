@@ -11,9 +11,9 @@
      deliberate — nothing is in scope up here, and the block must stand alone. Both blocks are
      generated from the same package, so the duplicate cannot drift.
 
-     Dark is the default and the operating system's own colour preference is never consulted:
-     dark is the design, and light is something a visitor asks for. A visitor whose system is
-     set to light still arrives on dark until they say otherwise.
+     Dark is the default and `prefers-color-scheme` is never read: dark is the design, and
+     light is something a visitor asks for. A visitor whose system is set to light still
+     arrives on dark until they say otherwise.
   */
   (function(){
     try {
