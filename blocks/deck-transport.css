@@ -39,15 +39,15 @@
   .lcd{
     display:flex; flex-direction:column; align-items:center; gap:5px;
     background:var(--lcd); border-radius:8px; padding:.44rem .62rem .38rem;
-    box-shadow:inset 0 1px 3px var(--deck-inset), inset 0 0 0 1px var(--deck-glow);
+    box-shadow:inset 0 1px 3px var(--lcd-inset), inset 0 0 0 1px var(--lcd-glow);
     font-family:"Plex Mono", ui-monospace, monospace; line-height:1;
     margin-right:.2rem;
   }
   .lcd .n{font-size:.76rem; font-weight:600; letter-spacing:.09em; color:var(--lcd-ink); white-space:nowrap}
   .lcd .n .sep, .lcd .n #tot{color:var(--lcd-faint)}
   .lcd .n.msg{color:var(--lcd-flag); font-size:.62rem; letter-spacing:.14em}
-  .lcd .clip{width:100%; height:2px; background:var(--deck-track); border-radius:2px; overflow:hidden}
-  .lcd .clip i{display:block; height:100%; width:0; background:var(--c-mid); transition:width .25s linear}
+  .lcd .clip{width:100%; height:2px; background:var(--lcd-track); border-radius:2px; overflow:hidden}
+  .lcd .clip i{display:block; height:100%; width:0; background:var(--lcd-ink); transition:width .25s linear}
 
   .tmain, .tside{display:flex; align-items:center; gap:.45rem}
 

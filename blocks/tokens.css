@@ -1,4 +1,4 @@
-  /* ─── design tokens · v7 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v8 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -60,6 +60,7 @@
     --deck-lift:rgba(0,0,0,.04); --deck-drop:rgba(0,0,0,.10);
     --deck-inset:rgba(0,0,0,.18); --deck-glow:rgba(58,109,166,.10);
     --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
+    --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
   }
   :root{
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;
@@ -82,4 +83,5 @@
     --deck-lift:rgba(255,255,255,.055); --deck-drop:rgba(0,0,0,.5);
     --deck-inset:rgba(0,0,0,.85); --deck-glow:rgba(122,160,255,.1);
     --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
+    --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
   /* ─── end design tokens ─────────────────────────────────────────────── */
