@@ -4,12 +4,12 @@ import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The nineteen this module is responsible for. A body that quietly stops being exported takes
-// its coverage from three suites at once, and every one of them still reports "all checks
-// pass" — nothing else in the system would notice.
-const EXPECTED = ["carriesLang", "card", "contains", "footer", "headerBaseline", "internalLinks",
-  "landing", "lang", "links", "mobileNav", "navOrder", "noNewTab", "sameOrigin", "sameTab",
-  "seo", "sourceLang", "storageKeys", "title", "wayOut"];
+// The twenty-one this module is responsible for. A body that quietly stops being exported
+// takes its coverage from three suites at once, and every one of them still reports "all
+// checks pass" — nothing else in the system would notice.
+const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
+  "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
+  "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);

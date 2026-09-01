@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { blockFor, FENCES } from "@robertblust/design/fences";
 import { FAMILY } from "@robertblust/design/family";
+import { pageChecks } from "@robertblust/design/verify/pages";
 
 // WCAG 2.1 relative luminance. Inlined rather than imported: the package has no dependencies,
 // and a contrast test that trusts a helper it also ships proves less than one that does not.
@@ -186,4 +187,42 @@ test("both theme fences declare themeKey and no variants", () => {
     assert.deepEqual(FENCES[f].params, ["themeKey"]);
     assert.equal(FENCES[f].variants, null);
   }
+});
+
+test("storageKeys exercises the theme control, not only the language one", () => {
+  // The theme key is written by every visitor who switches. If the check never clicks the
+  // control, the key is never observed and /privacy/ can omit it with every suite green.
+  const src = pageChecks({ SITE: "https://x.test", BASE: "http://x.local" }).storageKeys.toString();
+  assert.match(src, /#thLight/);
+  assert.match(src, /#thDark/);
+  // The two ids alone would also match a stray comment naming them. Requiring the actual
+  // click calls is what a comment could not satisfy.
+  assert.match(src, /page\.click\("#thLight"\)/);
+  assert.match(src, /page\.click\("#thDark"\)/);
+});
+
+test("contrast reads the live page and checks both themes", () => {
+  const src = pageChecks({ SITE: "https://x.test", BASE: "http://x.local" }).contrast.toString();
+  assert.match(src, /getComputedStyle/);
+  assert.match(src, /\["dark", "light"\]/);
+  // The two assertions above are satisfied by a body that names both themes and calls
+  // getComputedStyle without ever comparing anything — which would always return null and
+  // never fail on a real regression. These two close that gap: the check must actually flip
+  // data-theme between iterations and compare a real ratio against the 4.5 floor.
+  assert.match(src, /setAttribute\("data-theme", "light"\)/);
+  assert.match(src, /removeAttribute\("data-theme"\)/);
+  assert.match(src, /r < 4\.5/);
+});
+
+test("noFlash reads the attribute before the body scripts run", () => {
+  // waitUntil "commit" is the point: "load" would let the body script set the attribute and
+  // the check would pass on a page that flashes.
+  const src = pageChecks({ SITE: "https://x.test", BASE: "http://x.local" }).noFlash.toString();
+  assert.match(src, /waitUntil: "commit"/);
+  assert.doesNotMatch(src, /waitUntil: "load"|networkidle/);
+  // The line above only proves the right wait mode is named somewhere in the body — a
+  // version that gotos with "commit" and then always returns null without reading anything
+  // would still pass it. This proves the check actually reads the attribute and can fail.
+  assert.match(src, /getAttribute\("data-theme"\)/);
+  assert.match(src, /!== "light"/);
 });

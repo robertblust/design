@@ -1,4 +1,4 @@
-  /* ─── header contract · v3 · shared ──────────────────────────────────
+  /* ─── header contract · v4 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -68,8 +68,14 @@
               border:0; cursor:pointer; padding:.26rem .5rem; color:var(--dim);
               transition:color .15s ease, background-color .15s ease}
   .seg button:hover{color:var(--ink)}
-  .seg button[aria-pressed="true"]{color:var(--c-mid); background:#1b2231; font-weight:600}
+  .seg button[aria-pressed="true"]{color:var(--c-mid); background:var(--press); font-weight:600}
   .seg button:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
+  /* The theme control is a .seg like the language one, so it inherits the border, the radius
+     and the pressed treatment. Only the icons differ: 14px square, drawn with currentColor so
+     the pressed state colours them without a second rule. */
+  .seg.theme button{display:grid; place-items:center; padding:.26rem .48rem}
+  .seg.theme svg{width:14px; height:14px; display:block; fill:none; stroke:currentColor;
+                 stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
   /* The row narrows before it collapses. */
   @media (max-width:900px){
     nav{gap:1.4rem}
