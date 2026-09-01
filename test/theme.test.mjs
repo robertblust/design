@@ -226,6 +226,50 @@ test("storageKeys actually clicks the theme control, not merely names it behind 
   assert.ok(clicks.includes("#thDark"), `#thDark was never clicked; clicks were ${JSON.stringify(clicks)}`);
 });
 
+test("storageKeys reports an undeclared key, and passes when every written key is named", async () => {
+  // Fix round 2: the fake above always returns [] from evaluate, so `written` is empty
+  // inside the real check no matter what was clicked — the undeclared-key branch, which is
+  // the entire point of this check (the check exists to catch /privacy/ omitting a key a
+  // real visitor's browser writes), was never exercised. A reviewer replaced the check's
+  // whole tail with an unconditional `return null;` and the click test above stayed green,
+  // because it never looks at the return value. This fake instead returns a realistic
+  // written-key list from `evaluate`, and `fetch` is stubbed to return a `/privacy/` document
+  // that names some keys and not others, so both directions of the real comparison run.
+  //
+  // `storageKeys` calls `page.evaluate` twice — once to read the written keys, once to clear
+  // storage afterward — so the fake has to answer the first call with the key list and the
+  // second with something the check does not inspect.
+  async function run(writtenKeys, declaredText) {
+    let evalCalls = 0;
+    const fakePage = {
+      addInitScript: async () => {},
+      goto: async () => {},
+      $: async () => true,
+      click: async () => {},
+      focus: async () => {},
+      keyboard: { press: async () => {} },
+      async evaluate() {
+        evalCalls += 1;
+        return evalCalls === 1 ? writtenKeys : undefined;
+      },
+    };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({ text: async () => declaredText });
+    try {
+      return await pageChecks(THEME_OPTS).storageKeys(fakePage, { absolute: "https://x.test/" });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  }
+
+  const clean = await run(["rb-lang", "rb-theme"], "<p>This site stores rb-lang and rb-theme.</p>");
+  assert.equal(clean, null, `every written key is declared; expected null, got ${JSON.stringify(clean)}`);
+
+  const dirty = await run(["rb-lang", "rb-theme", "rb-secret"], "<p>This site stores rb-lang and rb-theme.</p>");
+  assert.ok(dirty, "an undeclared key should have been reported, got null");
+  assert.match(dirty, /rb-secret/);
+});
+
 // contrast's page.evaluate callback is self-contained — it reads document.documentElement,
 // getComputedStyle and the token values, and closes over nothing from pages.mjs's module
 // scope. That makes it possible to hand the real callback a stubbed document/getComputedStyle
@@ -274,36 +318,58 @@ test("contrast passes a fully AA palette and fails one where only --c-flag is un
   assert.match(bad, /--c-flag/);
 });
 
-function makeNoFlashProbe({ early, calls }) {
+function makeNoFlashProbe({ calls, siteAppliesTheme = true }) {
+  // Fix round 2: the previous fake returned a fixed `early` value no matter what order
+  // `addInitScript` and `goto` were called in, so a reviewer swapping those two calls in the
+  // real check still passed — Playwright's actual contract is that `addInitScript` only
+  // seeds the *next* navigation, so seeding after `goto` has already fired seeds nothing the
+  // page just committed can see. This fake models that: `evaluate` reports the stored theme
+  // only if the seed ran before the navigation. `siteAppliesTheme` is a second, independent
+  // axis — even with a correctly ordered seed, whether the site's own boot script actually
+  // reads it and paints "light" is the site's problem, not Playwright's, and the check has to
+  // catch that too.
+  let seeded = false;
+  let navigated = false;
   return {
-    async addInitScript(fn, arg) { calls.addInit.push(arg); },
-    async goto(url, opts) { calls.goto.push({ url, opts }); },
-    async evaluate() { return early; },   // stands in for the real page reading data-theme
+    async addInitScript(fn, arg) {
+      calls.addInit.push(arg);
+      if (!navigated) seeded = true;
+    },
+    async goto(url, opts) {
+      calls.goto.push({ url, opts });
+      navigated = true;
+    },
+    async evaluate() {
+      if (!seeded) return null;               // seed missed this navigation entirely
+      return siteAppliesTheme ? "light" : "dark";  // seed landed; the site did or didn't use it
+    },
     async close() { calls.closed = true; },
   };
 }
 
-test("noFlash returns null only for a genuinely light first paint, and always waits on \"commit\"", async () => {
-  // A body that reads `waitUntil: "commit"` in its source and then always `return null` (a
-  // comment standing in for the actual read, or the `if` commented out) satisfied the old
-  // string-matching tests outright. Driving the real check with a fake probe that reports
-  // different first-paint states, and checking both the returned value and what goto was
-  // actually called with, does not have that hole.
+test("noFlash fails when the seed runs after navigation, and when the site ignores it once seeded", async () => {
   const spec = { absolute: "https://x.test/", noFlash: "rb-theme" };
-  for (const [early, shouldPass] of [["light", true], ["dark", false], [null, false]]) {
+  // Both scenarios here seed correctly (addInitScript before goto, which is what the real
+  // check does) — the "seeded after navigation" case is proven separately below, by mutating
+  // the real check to swap the two calls and showing this exact test then fails.
+  const scenarios = [
+    { label: "seeded before navigating, site paints light", siteAppliesTheme: true, shouldPass: true },
+    { label: "seeded before navigating, site stays dark anyway", siteAppliesTheme: false, shouldPass: false },
+  ];
+  for (const { label, siteAppliesTheme, shouldPass } of scenarios) {
     const calls = { addInit: [], goto: [], closed: false };
-    const probe = makeNoFlashProbe({ early, calls });
+    const probe = makeNoFlashProbe({ calls, siteAppliesTheme });
     const fakePage = { context: () => ({ browser: () => ({ newPage: async () => probe }) }) };
     const result = await pageChecks(THEME_OPTS).noFlash(fakePage, spec);
     if (shouldPass) {
-      assert.equal(result, null, `data-theme ${JSON.stringify(early)} at first paint should pass, got ${JSON.stringify(result)}`);
+      assert.equal(result, null, `${label}: expected a pass, got ${JSON.stringify(result)}`);
     } else {
-      assert.equal(typeof result, "string",
-        `data-theme ${JSON.stringify(early)} at first paint should have failed with a message, got ${JSON.stringify(result)}`);
+      assert.equal(typeof result, "string", `${label}: expected a failure message, got ${JSON.stringify(result)}`);
     }
-    assert.equal(calls.goto.length, 1, "goto was not called exactly once");
+    assert.equal(calls.addInit.length, 1, `${label}: addInitScript was not called exactly once`);
+    assert.equal(calls.goto.length, 1, `${label}: goto was not called exactly once`);
     assert.equal(calls.goto[0].opts && calls.goto[0].opts.waitUntil, "commit",
-      `goto must be called with waitUntil: "commit", got ${JSON.stringify(calls.goto[0].opts)}`);
-    assert.ok(calls.closed, "the probe page was never closed");
+      `${label}: goto must be called with waitUntil: "commit", got ${JSON.stringify(calls.goto[0].opts)}`);
+    assert.ok(calls.closed, `${label}: the probe page was never closed`);
   }
 });
