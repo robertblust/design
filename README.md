@@ -130,3 +130,26 @@ first, tagged, and companygraph.io then takes that design release together with 
 Dependabot bump on one branch, running `npm run design` and re-vendoring by hand — a site
 edit beyond `npm run design` alone, which by the rule above makes a d3 bump a major here
 too, not a minor.
+
+## `main` is protected
+
+Three published sites pin this repository's tags, so a bad `main` is a bad release and a
+release is what the sites take. The `protect-main` ruleset requires a pull request and one
+green status check before anything lands, and it forbids deleting or force-pushing the
+branch.
+
+**The required context is `test`, not `CI`.** A ruleset names the *job id*. This repository's
+workflow is called `CI` and its single job is `test` — the reverse of the three sites, whose
+job is `verify`. Rename that job and the branch still looks protected while nothing ever
+reports again, which blocks every merge and hides the missing gate behind it. If the job is
+ever renamed, update the ruleset in the same change.
+
+Nobody bypasses it, including the owner — a repository-admin bypass would have made the rule
+advisory for the only person who commits here, which is the whole population it needs to
+constrain. Emergencies are handled by editing the ruleset, not by pushing around it, and that
+edit leaves a record where a silent bypass would not.
+
+Merges are merge commits: `allowed_merge_methods` is `["merge"]` alone. GitHub re-authors a
+squash to the account that pressed the button, which quietly launders the commit author. The
+`includeIf` blocks in `~/.gitconfig` set the right author locally; this keeps the forge from
+overwriting it.
