@@ -1,4 +1,4 @@
-  /* ─── theme boot · v1 · shared ───────────────────────────────────────
+  /* ─── theme boot · v2 · {{variant}} ────────────────────────────────────
      Set the theme before anything paints. Generated from @robertblust/design —
      editing it here does nothing, because the next `npm run design` overwrites it.
 

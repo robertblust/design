@@ -1,14 +1,14 @@
 {
-  "tokens": "v6",
+  "tokens": "v8",
   "header": "v4",
   "stage": "v2",
   "reset": "v1",
   "lang": "v2",
   "footer": "v1",
-  "transport": "v4",
+  "transport": "v6",
   "lockup": "v1",
   "fit": "v1",
   "runtime": "v4",
-  "themeBoot": "v1",
-  "theme": "v2"
+  "themeBoot": "v2",
+  "theme": "v3"
 }

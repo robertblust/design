@@ -115,7 +115,7 @@ test("neither theme block hardcodes a site's storage key", () => {
   // the sync tool corrected the visible bytes forever while the block re-emitted the frozen
   // value. The parameter is what makes both passes agree.
   for (const f of ["theme boot", "theme"]) {
-    const js = blockFor(f, null, TP);
+    const js = blockFor(f, "page", TP);
     assert.match(js, /x-theme/, `${f} did not substitute themeKey`);
     assert.doesNotMatch(js, /rb-theme|cg-theme|gg-theme/, `${f} carries a real site's key`);
   }
@@ -124,7 +124,7 @@ test("neither theme block hardcodes a site's storage key", () => {
 test("the boot block reads the URL as well as storage", () => {
   // A visitor arriving from a sibling domain with ?theme=light must paint light on the first
   // frame. Reading only localStorage would give them one frame of dark on every crossing.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   assert.match(js, /location\.search/);
   assert.match(js, /localStorage\.getItem/);
 });
@@ -134,7 +134,7 @@ test("the boot block lets the URL win over storage, not the other way round", ()
   // carrying ?theme=light must paint light — the URL is the more recent, more specific choice.
   // `stored || (m && m[1])` would let the older, unrelated-site value win instead; this pins
   // the ternary so storage is only ever the fallback when the URL carries nothing.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   assert.match(js, /var t = m \? m\[1\] : localStorage\.getItem\(/,
     "the URL match must be read before storage, as the ternary's condition, not merely present");
 });
@@ -149,7 +149,7 @@ test("the boot block never reads prefers-color-scheme", () => {
   // assertion over raw text otherwise conflates code and prose. The block's own doc comment is
   // allowed, and needs, to name `prefers-color-scheme`: saying what the code deliberately does
   // not do is the whole value of that sentence. Only the code is forbidden from reading it.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   const code = js.replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(code, /prefers-color-scheme|matchMedia/);
 });
@@ -160,7 +160,7 @@ test("the boot block is guarded, because file:// throws", () => {
   // guard — `localStorage.getItem` moved outside any try and a decoy `try{void 0}catch(e){}` left
   // behind passes that check while throwing synchronously in the only <head> script on the page.
   // So the read itself has to be found inside the try it is claimed to be guarded by.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   const m = /try\s*\{([\s\S]*?)\}\s*catch/.exec(js);
   assert.ok(m, "no try/catch found");
   assert.match(m[1], /localStorage\.getItem/,
@@ -168,7 +168,7 @@ test("the boot block is guarded, because file:// throws", () => {
 });
 
 test("theme carries the param to family domains only", () => {
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.match(js, /THEME_FAMILY\s*=\s*\/\^\(www\\\.\)\?\(blust\\\.ch\|companygraph\\\.io\|guestgraph\\\.io\)\$\//);
   assert.match(js, /u\.origin === location\.origin \|\| !THEME_FAMILY\.test\(u\.hostname\)/);
 });
@@ -180,14 +180,14 @@ test("the theme block carries FAMILY's source text, so page and check agree", ()
   // in blocks/theme.js is a second literal copy, and this is what pins that one the same way —
   // add a domain to lib/family.mjs and this test is what fails instead of theme.js silently
   // going on carrying the theme to only three of the four.
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.ok(js.includes(FAMILY.source),
     "theme.js's inline THEME_FAMILY regex has drifted from lib/family.mjs");
 });
 
 test("theme decorates on mousedown as well as click", () => {
   // A middle-click or cmd-click opens a new tab without ever firing click.
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.match(js, /addEventListener\("mousedown", carryTheme, true\)/);
   assert.match(js, /addEventListener\("click", carryTheme, true\)/);
 });
@@ -199,7 +199,7 @@ test("theme decorates on mousedown as well as click", () => {
 // normally injected into — the same reasoning `test/verify-pages.test.mjs`'s fix-round-1 suite
 // gives for running check bodies against a fake `page` rather than grepping them.
 function runThemeBlock() {
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   const store = {};
   const localStorage = {
     getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
@@ -238,14 +238,16 @@ test("carryTheme decorates a family link only when a theme is actually stored", 
 });
 
 test("theme cleans the address bar after adopting a param", () => {
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.match(js, /history\.replaceState/);
 });
 
-test("both theme fences declare themeKey and no variants", () => {
+test("both theme fences declare themeKey", () => {
+  // Used to also assert `variants` was null. The deck variant added below is what made that
+  // false; this test now only owns the one claim still true, and the variants claim has its
+  // own test.
   for (const f of ["theme boot", "theme"]) {
     assert.deepEqual(FENCES[f].params, ["themeKey"]);
-    assert.equal(FENCES[f].variants, null);
   }
 });
 
@@ -532,4 +534,384 @@ test("noFlash asserts document order and script form, not timing", async () => {
       assert.match(result, match, `${label}: got ${JSON.stringify(result)}`);
     }
   }
+});
+
+const DECK_TOKENS = ["deck-accent", "deck-paper", "deck-mark", "deck-well", "deck-track",
+  "deck-hover", "deck-divider", "deck-edge", "deck-ring", "deck-quiet",
+  "deck-warm", "deck-lift", "deck-drop", "deck-inset", "deck-glow"];
+// --lcd, --lcd-ink, --lcd-faint and --lcd-flag are deliberately NOT here: they are invariant
+// and are asserted by the test below instead.
+
+// blockFor("design tokens", "deck") leaves the dark :root open on purpose — a real deck page
+// adds its own --warn and --slab after the fence and closes the rule itself (see the fence's
+// `closes: "page"` in lib/fences.mjs). `palette()` needs a closing "\n  }" to find the rule at
+// all, so every test below closes it with nothing but the brace before parsing; that changes
+// nothing about the tokens being asserted, only makes the already-emitted text parseable.
+function deckCss() { return blockFor("design tokens", "deck") + "\n  }"; }
+
+// palette() only captures hex-valued custom properties (`#[0-9a-fA-F]{3,8}`); four deck tokens
+// (--deck-lift, --deck-drop, --deck-inset, --deck-glow) are declared as rgba(...) for their
+// alpha channel and would never appear in its return value. This checks a name is declared at
+// all, independent of its value's syntax — needed only for the completeness test below; every
+// other assertion here reads token values via palette() and none of the rgba tokens appear there.
+function declares(css, selector, name) {
+  const m = css.match(new RegExp(selector + "\\{([\\s\\S]*?)\\n  \\}"));
+  assert.ok(m, `no ${selector} rule in the emitted block`);
+  return new RegExp(`--${name}\\s*:`).test(m[1]);
+}
+
+// palette()'s regex is hex-only, which is right for contrast math (rgba has no single
+// luminance) but wrong for "are these two themes' values equal" — the question the
+// invariant-token test below needs answered for --lcd-inset and --lcd-glow, both rgba.
+// This reads every custom property's raw value text, hex or rgba alike, for string equality
+// only; it is never used for a ratio.
+function rawPalette(css, selector) {
+  const m = css.match(new RegExp(selector + "\\{([\\s\\S]*?)\\n  \\}"));
+  assert.ok(m, `no ${selector} rule in the emitted block`);
+  return Object.fromEntries(
+    [...m[1].matchAll(/--([a-z-]+)\s*:\s*([^;]+)/g)].map((x) => [x[1], x[2].trim()]));
+}
+
+// A hand-written, brace-aware CSS reader for the .lcd-invariance check below — not a general
+// parser, just enough structure to answer "which var(--x) references appear inside .lcd-
+// targeting rules" without a dependency (this package ships zero, in devDependencies too).
+// Four rounds of patching one regex produced four more ways around it: a var() with a plain
+// fallback, a decoy fallback naming an invariant token while the real one still flips, a
+// pseudo-class/compound-class/ancestor-prefixed selector, a nested @media, and a value
+// wrapped onto a second line. Each is a different way a flat pattern cannot see structure
+// that is actually there, so this walks the structure instead of matching around it.
+
+// Splits `css` (comments already stripped by the caller) into every {selector, body} leaf
+// block, at any nesting depth, via a single brace-depth walk. An at-rule's own prelude
+// (`@media (...)`) is emitted exactly like a real selector's — it is never special-cased —
+// but it can never match `targetsLcd` below, so it is simply inert rather than filtered out
+// structurally. This is what lets a rule nested inside `@media` reach the same scan as a
+// top-level one, with no separate handling.
+function leafBlocks(css) {
+  const blocks = [];
+  const stack = [];
+  let buf = "";
+  for (const ch of css) {
+    if (ch === "{") { stack.push(buf); buf = ""; }
+    else if (ch === "}") {
+      const selector = stack.pop();
+      if (selector !== undefined && selector.trim()) blocks.push({ selector: selector.trim(), body: buf });
+      buf = "";
+    } else buf += ch;
+  }
+  return blocks;
+}
+
+// A selector "targets" .lcd when the literal class `lcd` appears in any of its comma-
+// separated clauses — `.lcd`, `.lcd:hover`, `.lcd.open`, `.transport .lcd` and `.lcd .clip`
+// all qualify. Only dot-led class tokens are read, which excludes pseudo-classes and pseudo-
+// elements (`:hover`, `::before`) automatically — they are never dot-prefixed — and a
+// lookalike like `.lcdx` correctly does not qualify, since its one class is "lcdx", not "lcd".
+function targetsLcd(selector) {
+  return selector.split(",").some((clause) =>
+    [...clause.matchAll(/\.([a-zA-Z_-][\w-]*)/g)].some((m) => m[1] === "lcd"));
+}
+
+// Declarations, split on `;` at paren depth zero, so a value's own `;` inside a function call
+// can't be mistaken for the end of the declaration (none appear in this file today, but the
+// depth tracking costs nothing and removes the question). Newlines are joined to spaces
+// first: a value that wraps onto a second line with no `;` before the break is one
+// declaration, not one silently dropped by a regex that only looked at a single line.
+function declarations(body) {
+  const joined = body.replace(/\n/g, " ");
+  const out = [];
+  let depth = 0, cur = "";
+  for (const ch of joined) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === ";" && depth === 0) { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+// Every `--token` named inside `value`'s var() calls, walked with real paren balancing (so a
+// fallback that is itself a var() doesn't truncate the outer call at the wrong `)`) and
+// recursively, so a fallback naming another var() also gets read — `var(--a, var(--b))`
+// yields both `a` and `b`. The fallback is collected on the same standard as the primary, but
+// never as a substitute for it: a fallback only applies when the custom property is
+// genuinely undefined, which none of these ever are, so a decoy fallback naming an invariant
+// token must never be allowed to stand in for a flipping primary.
+function varTokens(value) {
+  const tokens = [];
+  let i = 0;
+  while (true) {
+    const start = value.indexOf("var(", i);
+    if (start === -1) break;
+    let depth = 1, j = start + 4;
+    while (j < value.length && depth > 0) {
+      if (value[j] === "(") depth++;
+      else if (value[j] === ")") depth--;
+      j++;
+    }
+    const inner = value.slice(start + 4, j - 1);
+    const m = inner.match(/^\s*--([a-zA-Z0-9-]+)\s*(?:,([\s\S]*))?$/);
+    if (m) {
+      tokens.push(m[1]);
+      if (m[2] !== undefined) tokens.push(...varTokens(m[2]));
+    }
+    i = j;
+  }
+  return tokens;
+}
+
+// Every {selector, prop, token} triple any .lcd-targeting rule in `css` references, built
+// from the four functions above rather than one regex trying to do all their jobs at once.
+function lcdVarReferences(css) {
+  const referenced = [];
+  for (const { selector, body } of leafBlocks(css)) {
+    if (!targetsLcd(selector)) continue;
+    for (const decl of declarations(body)) {
+      const idx = decl.indexOf(":");
+      if (idx === -1) continue;
+      const prop = decl.slice(0, idx).trim();
+      const value = decl.slice(idx + 1).trim();
+      if (!prop) continue;
+      for (const token of varTokens(value))
+        referenced.push({ selector: selector.replace(/\s+/g, " "), prop, token });
+    }
+  }
+  return referenced;
+}
+
+test("both themes define every deck token", () => {
+  // Seventeen names arriving in one half and not the other is the failure that shows up as a
+  // single wrong colour on one deck in one theme, which nobody looks at.
+  const css = deckCss();
+  for (const t of DECK_TOKENS) {
+    assert.ok(declares(css, ":root", t), `--${t} missing from the dark half`);
+    assert.ok(declares(css, ':root\\[data-theme="light"\\]', t), `--${t} missing from the light half`);
+  }
+});
+
+test("--lcd is declared in both halves with the same value", () => {
+  // Spec decision 3, asserted rather than described. A real machine with a pale body still has
+  // a dark readout. If someone "completes" the light palette by giving --lcd a light value,
+  // this is what says no.
+  //
+  // The token list is derived from the block, not typed out: four names here became seven once
+  // --lcd-track/--lcd-inset/--lcd-glow joined --lcd/--lcd-ink/--lcd-faint/--lcd-flag, and a
+  // hardcoded list would have protected only the four this test happened to be written against
+  // — a --lcd-* token declared but not yet wired into any rule would be caught by neither this
+  // test nor "nothing that flips...", which only sees tokens a rule actually references.
+  // rawPalette(), not palette(): --lcd-inset/--lcd-glow are rgba, invisible to palette()'s
+  // hex-only regex, and palette() here would silently derive a four-name list all over again.
+  const css = deckCss();
+  const dark = rawPalette(css, ":root");
+  const light = rawPalette(css, ':root\\[data-theme="light"\\]');
+  const lcdTokens = Object.keys(dark).filter((t) => t === "lcd" || t.startsWith("lcd-"));
+  assert.ok(lcdTokens.includes("lcd"), "--lcd missing from the dark half");
+  assert.ok(lcdTokens.length >= 4, `only found ${lcdTokens.join(", ") || "none"} — the derivation itself may be broken`);
+  for (const t of lcdTokens)
+    assert.equal(light[t], dark[t],
+      `--${t} differs between themes; the readout and everything printed on it stay constant`);
+});
+
+test("the deck's readable tokens clear AA against the surface each is painted on", () => {
+  // Not every pair below has the same warrant, and that distinction matters more than the
+  // ratios do — a wrong provenance claim here was the exact failure this project spent a week
+  // chasing elsewhere.
+  //
+  // Pairs actually read off a rule in blocks/deck-transport.css: `.lcd .n`/`.sep`/`#tot`/
+  // `.msg` paint --lcd-ink/--lcd-faint/--lcd-flag on `.lcd`'s own --lcd background; Task 2's
+  // sweep added `.tbtn:hover` (--ink on --deck-hover, same rule) and `.tbtn.play.on`
+  // (--ground on --c-mid, same rule, the filled play button's icon).
+  //
+  // --deck-quiet and --deck-warm are different: as of this test, neither name appears in any
+  // block this package ships — not deck-transport.css, not deck-lockup.css. Pairing them
+  // against --deck-well is a palette-level assertion ("if something is ever painted this way,
+  // it will clear AA"), not a claim about a call site that exists. An earlier version of this
+  // comment said they "sit on the slab" and were "taken from deck-transport.css"; neither was
+  // true — --deck-well, not --slab, is what they're checked against here, and grep confirms
+  // deck-transport.css never mentions either name. Left in because the pairing itself may
+  // still be worth holding to a floor once a consumer exists, but it is a guess about future
+  // use, not a fact about current code.
+  const css = deckCss();
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    for (const [fg, bg] of [["lcd-ink", "lcd"], ["lcd-faint", "lcd"], ["lcd-flag", "lcd"],
+                            ["deck-quiet", "deck-well"], ["deck-warm", "deck-well"],
+                            ["ink", "deck-hover"], ["ground", "c-mid"]]) {
+      const r = ratio(p[fg], p[bg]);
+      assert.ok(r >= 4.5, `${name}: --${fg} on --${bg} is ${r.toFixed(2)}:1, needs 4.5`);
+    }
+  }
+});
+
+test("the deck's progress fill clears the 3:1 UI-component threshold against its own track", () => {
+  // `.lcd .clip{background:var(--lcd-track)}` and `.lcd .clip i{background:var(--lcd-ink)}` —
+  // the elapsed-time fill painted over the empty track, both set in deck-transport.css. This
+  // is a graphical UI component conveying state (how much of the slide is left), not text, so
+  // it is held to WCAG's 3:1 non-text threshold rather than the 4.5:1 text floor used above.
+  //
+  // Originally written against --c-mid on --deck-track, both of which flip with the theme —
+  // correct at the time, since that was genuinely what the rule painted, but a stale
+  // provenance claim as soon as a later fix re-pointed the rule at --lcd-ink/--lcd-track
+  // instead (see "nothing that flips with the theme is painted inside .lcd" below). --lcd-ink
+  // and --lcd-track are both invariant, so this ratio is one number, not two; the dark/light
+  // loop stays only so a future change that makes either one theme-dependent again still gets
+  // measured on both halves.
+  const css = deckCss();
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    const r = ratio(p["lcd-ink"], p["lcd-track"]);
+    assert.ok(r >= 3, `${name}: --lcd-ink on --lcd-track is ${r.toFixed(2)}:1, needs 3`);
+  }
+});
+
+test("nothing that flips with the theme is painted inside .lcd", () => {
+  // Round two scoped this to the `color` property; round three widened it to eight named
+  // colour-bearing properties. Both were an enumeration, and a reviewer went through each:
+  // `border:1px solid var(--deck-ring)` used a property neither list named. Enumerating
+  // colour-bearing properties is the wrong axis — CSS keeps adding them — so this checks
+  // every property a rule declares, via `lcdVarReferences()` above, and holds every `var()`
+  // token it finds to the same standard regardless of which property carries it.
+  //
+  // That rewrite replaced a single regex that had, by then, five reproducible bypasses: a
+  // var() with a plain fallback (`var(--deck-ring, #fff)`, which the old capture group
+  // required to end at `)` right after the name); a decoy fallback (`var(--deck-ring,
+  // var(--lcd-ink))`, which real CSS always resolves to --deck-ring, but the old regex
+  // matched the *inner* var() and never saw the outer one — a decoy naming an invariant token
+  // laundered a flipping one straight through); a pseudo-class, compound class or ancestor
+  // prefix on the selector (`.lcd:hover`, `.lcd.open`, `.transport .lcd`), which the old
+  // literal string-equality selector check didn't recognise as targeting `.lcd` at all; a
+  // rule nested inside `@media`, which the old flat regex read as belonging to the `@media`
+  // prelude and never reached (this file's own `.lcd{display:none}` and `.lcd{padding:...}`
+  // media rules were, as a result, never scanned by any earlier round of this test); and a
+  // declaration whose value wrapped onto a second line, silently dropped by a regex with no
+  // `s` flag. Four rounds of patching that one regex produced four more ways around it, which
+  // is what a class of bug looks like rather than a series of them — so this is a from-
+  // scratch, brace-aware reader (`leafBlocks`/`targetsLcd`/`declarations`/`varTokens` above),
+  // not a bigger pattern. No dependency: this package ships zero, including devDependencies,
+  // and that is a hard constraint the standard fix here (a CSS parser) would violate.
+  //
+  // "Which tokens flip" is derived from tokens.css itself, not a hardcoded list: a token whose
+  // light and dark values are equal is invariant, by construction. rawPalette(), not
+  // palette(): --lcd-inset/--lcd-glow are rgba and invisible to palette()'s hex-only regex,
+  // which would silently drop them from the invariant set and fail this test on tokens that
+  // are, in fact, unchanged.
+  const tokenCss = deckCss();
+  const dark = rawPalette(tokenCss, ":root");
+  const light = rawPalette(tokenCss, ':root\\[data-theme="light"\\]');
+  const invariant = new Set(Object.keys(dark).filter((t) => dark[t] === light[t]));
+
+  // Tokens permitted to flip inside .lcd because they carry no colour — a radius, a duration,
+  // a font stack. Empty today, and left here explicitly rather than omitted: an empty
+  // allow-list that says so tells the next reader this was checked and found empty, not
+  // forgotten. A reviewer built the case this exists for — a real --deck-radius token, 8px
+  // light / 10px dark, referenced from `.lcd{border-radius:...}` — and confirmed it fails
+  // without the name here and passes with it (see the fix report for this round).
+  const NON_COLOUR_EXCEPTIONS = new Set([]);
+
+  const css = blockFor("deck transport", null).replace(/\/\*[\s\S]*?\*\//g, "");
+  const referenced = lcdVarReferences(css);
+
+  for (const { selector, prop, token } of referenced)
+    assert.ok(invariant.has(token) || NON_COLOUR_EXCEPTIONS.has(token),
+      `${selector}'s ${prop} references --${token}, which differs between themes; only an ` +
+      `invariant or explicitly-allowed non-colour token may appear inside .lcd`);
+
+  // The positive half: a rule that loses its declaration entirely passes the loop above
+  // vacuously (nothing left to check), so the known rules and their expected tokens are
+  // asserted directly too.
+  const expected = [
+    [".lcd", "background", "lcd"],
+    [".lcd", "box-shadow", "lcd-inset"],
+    [".lcd", "box-shadow", "lcd-glow"],
+    [".lcd .n", "color", "lcd-ink"],
+    [".lcd .n .sep, .lcd .n #tot", "color", "lcd-faint"],
+    [".lcd .n.msg", "color", "lcd-flag"],
+    [".lcd .clip", "background", "lcd-track"],
+    [".lcd .clip i", "background", "lcd-ink"],
+  ];
+  for (const [selector, prop, token] of expected)
+    assert.ok(referenced.some((p) => p.selector === selector && p.prop === prop && p.token === token),
+      `expected ${selector}'s ${prop} to reference --${token}`);
+});
+
+test("the deck tokens do not leak a light value into --lcd's neighbours by accident", () => {
+  // --deck-paper and --deck-well swap roles between themes. If someone copies the dark block
+  // into the light one wholesale, this catches it: on light, the well must be lighter than the
+  // paper, and on dark the reverse.
+  const css = deckCss();
+  const d = palette(css, ":root"), l = palette(css, ':root\\[data-theme="light"\\]');
+  assert.ok(lum(d["deck-paper"]) > lum(d["deck-well"]), "dark: --deck-paper is not the lighter of the pair");
+  assert.ok(lum(l["deck-well"]) > lum(l["deck-paper"]), "light: --deck-well is not the lighter of the pair");
+});
+
+// Task 3: the decks carry the theme machinery too, so both theme fences need a "deck" variant
+// beside the prose "page" one, the same shape "language" already has.
+
+test("both theme fences offer a deck variant", () => {
+  for (const f of ["theme boot", "theme"]) {
+    assert.deepEqual(FENCES[f].variants, ["page", "deck"]);
+    assert.doesNotThrow(() => blockFor(f, "deck", { themeKey: "x-theme" }));
+  }
+});
+
+test("each theme fence's marker actually records which variant it is", () => {
+  // The substitution this depends on: the marker's third segment used to be the literal word
+  // "shared", typed directly into blocks/theme-boot.js and blocks/theme.js rather than the
+  // {{variant}} slot every other variant-bearing fence uses. Declaring `variants` on a fence
+  // whose source never substitutes the slot would keep emitting "shared" for both "page" and
+  // "deck" — a marker that no longer records which surface the block is on, and a word that
+  // `lib/sync.mjs`'s planFences would then reject on read-back, since "shared" is not one of
+  // the fence's own declared variants. Asserting the literal word on the opening line is what
+  // proves the slot is actually there, not merely that blockFor ran without throwing.
+  for (const f of ["theme boot", "theme"]) {
+    for (const v of ["page", "deck"]) {
+      const first = blockFor(f, v, { themeKey: "x-theme" }).split("\n")[0];
+      assert.match(first, new RegExp(`· ${v} `), `${f}'s "${v}" marker does not say "${v}"`);
+    }
+  }
+});
+
+test("the theme fences' two variants differ only in the marker word, like language's do", () => {
+  // Neither theme-boot.js nor theme.js has any content besides the marker line that could
+  // depend on which surface the block sits on — no `closes`, no `parts` — so the honest
+  // outcome, and the one that matches how "language" actually behaves, is that "page" and
+  // "deck" differ by exactly one line: the marker itself. Manufacturing a second difference
+  // here (e.g. indentation) would not reflect anything true about these two files.
+  for (const f of ["theme boot", "theme"]) {
+    const page = blockFor(f, "page", { themeKey: "x-theme" }).split("\n");
+    const deck = blockFor(f, "deck", { themeKey: "x-theme" }).split("\n");
+    assert.equal(page.length, deck.length, `${f}: variants must be the same length`);
+    let diffs = 0;
+    for (let i = 0; i < page.length; i++) if (page[i] !== deck[i]) diffs++;
+    assert.equal(diffs, 1, `${f}: expected exactly one differing line (the marker), got ${diffs}`);
+    assert.notEqual(page[0], deck[0], `${f}: the differing line must be the marker line`);
+  }
+});
+
+test("the deck's theme control is styled where it lives", () => {
+  // In the transport, not a header — the deck has no header. If these rules ever move to the
+  // header block the control loses its sizing on every deck at once.
+  const css = blockFor("deck transport", null);
+  assert.match(css, /\.seg\.theme button\{/);
+  assert.match(css, /\.seg\.theme svg\{/);
+});
+
+test("the theme control's rules sit outside .lcd, not inside it", () => {
+  // deck-transport v5 made every colour inside .lcd invariant across themes, because the
+  // readout stays dark in both. `.seg.theme` is the slab-side control, not the readout, and
+  // must not become a second way to smuggle a themed rule under `.lcd` — see the "nothing
+  // that flips with the theme is painted inside .lcd" test above for the mechanism that
+  // actually catches a themed var() leaking into an .lcd-targeting rule; this test instead
+  // pins the structural fact that the new selectors are never descendants of `.lcd` at all
+  // (`.lcd .seg.theme button` rather than the top-level `.seg.theme button` the brief calls
+  // for). It reuses the same brace-aware leafBlocks()/targetsLcd() the check above is built
+  // from, rather than a bespoke regex over a single hand-picked rule, so it keeps working
+  // regardless of where in the file the two rules end up.
+  const css = blockFor("deck transport", null).replace(/\/\*[\s\S]*?\*\//g, "");
+  const segThemeBlocks = leafBlocks(css).filter((b) => b.selector.includes(".seg.theme"));
+  assert.ok(segThemeBlocks.length >= 2,
+    `expected to find the .seg.theme rules, found ${segThemeBlocks.length}`);
+  for (const b of segThemeBlocks)
+    assert.ok(!targetsLcd(b.selector), `"${b.selector}" must not target .lcd`);
 });

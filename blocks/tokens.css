@@ -1,4 +1,4 @@
-  /* ─── design tokens · v6 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v8 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -45,6 +45,22 @@
     --ink:#16181D;    --dim:#5F6058;
     --c-weak:#8FA6C2; --c-mid:#3A6DA6; --c-firm:#1C3E68; --c-flag:#8A5A12;
     --c-path:#1C3E68; --press:#E7ECF4;
+
+    /* The deck's own chrome. A transport is a physical object in this design — the source
+       calls --slab "the slab it is milled from" and --lcd "the recessed window the track
+       number sits in" — so the light theme makes the slab pale milled metal and leaves the
+       readout dark. A real machine with an aluminium body still has a dark display, and that
+       is the whole reason --lcd appears in both halves with the same value: it is a decision,
+       not an omission, and the next person to "complete" this palette should read this line
+       before adding a light one. */
+    --deck-accent:#2F5F96; --deck-paper:#1A1C21; --deck-mark:#3A6DA6;
+    --deck-well:#EDEAE2;   --deck-track:#D8D4CA; --deck-hover:#E4E0D6;
+    --deck-divider:#D2CEC3; --deck-edge:#DFDCD3; --deck-ring:#B9C4D6;
+    --deck-quiet:#5F6058;  --deck-warm:#6B6455;
+    --deck-lift:rgba(0,0,0,.04); --deck-drop:rgba(0,0,0,.10);
+    --deck-inset:rgba(0,0,0,.18); --deck-glow:rgba(58,109,166,.10);
+    --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
+    --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
   }
   :root{
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;
@@ -52,4 +68,20 @@
     --ink:#EFEDE8;    --dim:#8A8B86;
     --c-weak:#3E5878; --c-mid:#7FA3D8; --c-firm:#B8D0FF; --c-flag:#D9A44F;
     --c-path:#B8D0FF; --press:#1b2231;
+
+    /* The deck's own chrome. A transport is a physical object in this design — the source
+       calls --slab "the slab it is milled from" and --lcd "the recessed window the track
+       number sits in" — so the light theme makes the slab pale milled metal and leaves the
+       readout dark. A real machine with an aluminium body still has a dark display, and that
+       is the whole reason --lcd appears in both halves with the same value: it is a decision,
+       not an omission, and the next person to "complete" this palette should read this line
+       before adding a light one. */
+    --deck-accent:#9db0ff; --deck-paper:#f1ede4; --deck-mark:#7aa0ff;
+    --deck-well:#17181c;   --deck-track:#1e2029; --deck-hover:#20242e;
+    --deck-divider:#333743; --deck-edge:#33353d; --deck-ring:#39435c;
+    --deck-quiet:#9a9dab;  --deck-warm:#b7b0a2;
+    --deck-lift:rgba(255,255,255,.055); --deck-drop:rgba(0,0,0,.5);
+    --deck-inset:rgba(0,0,0,.85); --deck-glow:rgba(122,160,255,.1);
+    --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
+    --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
   /* ─── end design tokens ─────────────────────────────────────────────── */
