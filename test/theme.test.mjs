@@ -570,6 +570,114 @@ function rawPalette(css, selector) {
     [...m[1].matchAll(/--([a-z-]+)\s*:\s*([^;]+)/g)].map((x) => [x[1], x[2].trim()]));
 }
 
+// A hand-written, brace-aware CSS reader for the .lcd-invariance check below — not a general
+// parser, just enough structure to answer "which var(--x) references appear inside .lcd-
+// targeting rules" without a dependency (this package ships zero, in devDependencies too).
+// Four rounds of patching one regex produced four more ways around it: a var() with a plain
+// fallback, a decoy fallback naming an invariant token while the real one still flips, a
+// pseudo-class/compound-class/ancestor-prefixed selector, a nested @media, and a value
+// wrapped onto a second line. Each is a different way a flat pattern cannot see structure
+// that is actually there, so this walks the structure instead of matching around it.
+
+// Splits `css` (comments already stripped by the caller) into every {selector, body} leaf
+// block, at any nesting depth, via a single brace-depth walk. An at-rule's own prelude
+// (`@media (...)`) is emitted exactly like a real selector's — it is never special-cased —
+// but it can never match `targetsLcd` below, so it is simply inert rather than filtered out
+// structurally. This is what lets a rule nested inside `@media` reach the same scan as a
+// top-level one, with no separate handling.
+function leafBlocks(css) {
+  const blocks = [];
+  const stack = [];
+  let buf = "";
+  for (const ch of css) {
+    if (ch === "{") { stack.push(buf); buf = ""; }
+    else if (ch === "}") {
+      const selector = stack.pop();
+      if (selector !== undefined && selector.trim()) blocks.push({ selector: selector.trim(), body: buf });
+      buf = "";
+    } else buf += ch;
+  }
+  return blocks;
+}
+
+// A selector "targets" .lcd when the literal class `lcd` appears in any of its comma-
+// separated clauses — `.lcd`, `.lcd:hover`, `.lcd.open`, `.transport .lcd` and `.lcd .clip`
+// all qualify. Only dot-led class tokens are read, which excludes pseudo-classes and pseudo-
+// elements (`:hover`, `::before`) automatically — they are never dot-prefixed — and a
+// lookalike like `.lcdx` correctly does not qualify, since its one class is "lcdx", not "lcd".
+function targetsLcd(selector) {
+  return selector.split(",").some((clause) =>
+    [...clause.matchAll(/\.([a-zA-Z_-][\w-]*)/g)].some((m) => m[1] === "lcd"));
+}
+
+// Declarations, split on `;` at paren depth zero, so a value's own `;` inside a function call
+// can't be mistaken for the end of the declaration (none appear in this file today, but the
+// depth tracking costs nothing and removes the question). Newlines are joined to spaces
+// first: a value that wraps onto a second line with no `;` before the break is one
+// declaration, not one silently dropped by a regex that only looked at a single line.
+function declarations(body) {
+  const joined = body.replace(/\n/g, " ");
+  const out = [];
+  let depth = 0, cur = "";
+  for (const ch of joined) {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    if (ch === ";" && depth === 0) { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+// Every `--token` named inside `value`'s var() calls, walked with real paren balancing (so a
+// fallback that is itself a var() doesn't truncate the outer call at the wrong `)`) and
+// recursively, so a fallback naming another var() also gets read — `var(--a, var(--b))`
+// yields both `a` and `b`. The fallback is collected on the same standard as the primary, but
+// never as a substitute for it: a fallback only applies when the custom property is
+// genuinely undefined, which none of these ever are, so a decoy fallback naming an invariant
+// token must never be allowed to stand in for a flipping primary.
+function varTokens(value) {
+  const tokens = [];
+  let i = 0;
+  while (true) {
+    const start = value.indexOf("var(", i);
+    if (start === -1) break;
+    let depth = 1, j = start + 4;
+    while (j < value.length && depth > 0) {
+      if (value[j] === "(") depth++;
+      else if (value[j] === ")") depth--;
+      j++;
+    }
+    const inner = value.slice(start + 4, j - 1);
+    const m = inner.match(/^\s*--([a-zA-Z0-9-]+)\s*(?:,([\s\S]*))?$/);
+    if (m) {
+      tokens.push(m[1]);
+      if (m[2] !== undefined) tokens.push(...varTokens(m[2]));
+    }
+    i = j;
+  }
+  return tokens;
+}
+
+// Every {selector, prop, token} triple any .lcd-targeting rule in `css` references, built
+// from the four functions above rather than one regex trying to do all their jobs at once.
+function lcdVarReferences(css) {
+  const referenced = [];
+  for (const { selector, body } of leafBlocks(css)) {
+    if (!targetsLcd(selector)) continue;
+    for (const decl of declarations(body)) {
+      const idx = decl.indexOf(":");
+      if (idx === -1) continue;
+      const prop = decl.slice(0, idx).trim();
+      const value = decl.slice(idx + 1).trim();
+      if (!prop) continue;
+      for (const token of varTokens(value))
+        referenced.push({ selector: selector.replace(/\s+/g, " "), prop, token });
+    }
+  }
+  return referenced;
+}
+
 test("both themes define every deck token", () => {
   // Seventeen names arriving in one half and not the other is the failure that shows up as a
   // single wrong colour on one deck in one theme, which nobody looks at.
@@ -656,19 +764,30 @@ test("the deck's progress fill clears the 3:1 UI-component threshold against its
 });
 
 test("nothing that flips with the theme is painted inside .lcd", () => {
-  // Round two of this test enumerated colour-bearing properties (`color`, `background`,
-  // `box-shadow`, ...) and checked only those. A reviewer added `border:1px solid
-  // var(--deck-ring)` to `.lcd` — a token that flips, on a property the list didn't name —
-  // and the suite stayed green. Enumerating properties is the wrong axis: CSS keeps adding
-  // colour-bearing properties (`accent-color`, `text-decoration-color`, `caret-color`, ...)
-  // and a list of them is a list of gaps waiting to be found one at a time.
+  // Round two scoped this to the `color` property; round three widened it to eight named
+  // colour-bearing properties. Both were an enumeration, and a reviewer went through each:
+  // `border:1px solid var(--deck-ring)` used a property neither list named. Enumerating
+  // colour-bearing properties is the wrong axis — CSS keeps adding them — so this checks
+  // every property a rule declares, via `lcdVarReferences()` above, and holds every `var()`
+  // token it finds to the same standard regardless of which property carries it.
   //
-  // The rule that actually holds: inside `.lcd`, no `var(--X)` may reference a token that
-  // differs between the two theme halves — on ANY property, not a chosen set of them. What's
-  // closed isn't the set of colour properties; it's the set of tokens with no colour in them
-  // at all, and inside `.lcd` today that set is empty — no radius, duration or font stack is
-  // ever reached through a token there. If one ever is, it belongs on the named allow-list
-  // below, not exempted by guessing at its property.
+  // That rewrite replaced a single regex that had, by then, five reproducible bypasses: a
+  // var() with a plain fallback (`var(--deck-ring, #fff)`, which the old capture group
+  // required to end at `)` right after the name); a decoy fallback (`var(--deck-ring,
+  // var(--lcd-ink))`, which real CSS always resolves to --deck-ring, but the old regex
+  // matched the *inner* var() and never saw the outer one — a decoy naming an invariant token
+  // laundered a flipping one straight through); a pseudo-class, compound class or ancestor
+  // prefix on the selector (`.lcd:hover`, `.lcd.open`, `.transport .lcd`), which the old
+  // literal string-equality selector check didn't recognise as targeting `.lcd` at all; a
+  // rule nested inside `@media`, which the old flat regex read as belonging to the `@media`
+  // prelude and never reached (this file's own `.lcd{display:none}` and `.lcd{padding:...}`
+  // media rules were, as a result, never scanned by any earlier round of this test); and a
+  // declaration whose value wrapped onto a second line, silently dropped by a regex with no
+  // `s` flag. Four rounds of patching that one regex produced four more ways around it, which
+  // is what a class of bug looks like rather than a series of them — so this is a from-
+  // scratch, brace-aware reader (`leafBlocks`/`targetsLcd`/`declarations`/`varTokens` above),
+  // not a bigger pattern. No dependency: this package ships zero, including devDependencies,
+  // and that is a hard constraint the standard fix here (a CSS parser) would violate.
   //
   // "Which tokens flip" is derived from tokens.css itself, not a hardcoded list: a token whose
   // light and dark values are equal is invariant, by construction. rawPalette(), not
@@ -683,26 +802,13 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
   // Tokens permitted to flip inside .lcd because they carry no colour — a radius, a duration,
   // a font stack. Empty today, and left here explicitly rather than omitted: an empty
   // allow-list that says so tells the next reader this was checked and found empty, not
-  // forgotten.
+  // forgotten. A reviewer built the case this exists for — a real --deck-radius token, 8px
+  // light / 10px dark, referenced from `.lcd{border-radius:...}` — and confirmed it fails
+  // without the name here and passes with it (see the fix report for this round).
   const NON_COLOUR_EXCEPTIONS = new Set([]);
 
   const css = blockFor("deck transport", null).replace(/\/\*[\s\S]*?\*\//g, "");
-  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)];
-  const referenced = [];
-  for (const [, selector, body] of rules) {
-    const clauses = selector.split(",").map((s) => s.trim());
-    if (!clauses.some((c) => c === ".lcd" || c.startsWith(".lcd "))) continue;
-    for (const decl of body.split(";")) {
-      const m = decl.trim().match(/^([a-z-]+)\s*:\s*(.+)$/);
-      if (!m) continue;
-      const [, prop, value] = m;
-      // Every var() in the value, on every property — no allowlist of which properties to
-      // look at. box-shadow's two layers in one declaration is why this loops rather than
-      // taking only the first match.
-      for (const vm of value.matchAll(/var\(--([a-z-]+)\)/g))
-        referenced.push({ selector: selector.trim().replace(/\s+/g, " "), prop, token: vm[1] });
-    }
-  }
+  const referenced = lcdVarReferences(css);
 
   for (const { selector, prop, token } of referenced)
     assert.ok(invariant.has(token) || NON_COLOUR_EXCEPTIONS.has(token),
