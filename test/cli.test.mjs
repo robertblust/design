@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 
 import { GROUPS } from "../lib/groups.mjs";
+import { blockFor } from "../lib/fences.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const CLI = path.join(PKG, "bin", "design.mjs");
@@ -132,4 +133,61 @@ test("--site targets another directory", () => {
   const r = run(["sync", "--site", root], elsewhere);
   assert.equal(r.code, 0, r.out);
   assert.ok(fs.existsSync(path.join(root, GROUPS.fonts[0][1])));
+});
+
+// The regression this proves against: v1 of blocks/deck-runtime.js baked blust.ch's own
+// storage key into the nested `language` fence's LANG_KEY line. Syncing the "deck runtime"
+// fence wrote that wrong key; the nested "language" fence's own, independent pass then
+// corrected the visible bytes to the site's real key; and the outer fence's own emitted
+// bytes never agreed with that correction, because they still named blust.ch's key — a
+// permanent `design:check` failure that no further sync could ever clear. A single passing
+// sync was not the property that failed. This is a two-sync, two-check round trip, because
+// that is the shape of the failure: it takes a second pass to see an oscillation at all.
+const wrap = (block) => [
+  "<script>",
+  "  var TALK = { de:{ title:'T', desc:'D' }, en:{ title:'T', desc:'D' } };",
+  block,
+  "</script>",
+].join("\n");
+
+test("deck runtime and its nested language fence reach a fixed point together", () => {
+  const langKey = "cg-lang";
+  // A page adopting this block with the wrong key already baked in — the exact shape of the
+  // reported defect — and a stale version marker on top of it, so the first sync has
+  // something to do to both signals at once.
+  const stale = blockFor("deck runtime", null, { langKey: "rb-lang" })
+    .replace(/· v\d+ ·/, "· v1 ·");
+  const root = site({ "talks/t/index.html": wrap(stale) }, { groups: ["fonts"], langKey });
+
+  const checkBefore = run(["sync", "--check"], root);
+  assert.equal(checkBefore.code, 1, checkBefore.out);
+
+  const firstSync = run(["sync"], root);
+  assert.equal(firstSync.code, 0, firstSync.out);
+
+  const afterFirst = fs.readFileSync(path.join(root, "talks/t/index.html"), "utf8");
+  // Checked against the actual `LANG_KEY` assignment specifically, not a whole-page
+  // substring search: the block's own header comment legitimately narrates its extraction
+  // history in prose, and a search for "rb-lang" anywhere in the page would be fooled by
+  // that text the same way the old, broken block fooled a human reviewer eyeballing a diff.
+  const keyLines = [...afterFirst.matchAll(/var LANG_KEY = "[^"]*";/g)];
+  assert.equal(keyLines.length, 1, `expected exactly one LANG_KEY assignment, found ${keyLines.length}`);
+  assert.equal(keyLines[0][0], `var LANG_KEY = "${langKey}";`, "the wrong site's key survived the sync");
+
+  // The step the coordinator's own verification skipped the first time: design:check ON
+  // THE RESULT of a sync, not just the sync's own reported success.
+  const checkAfterFirst = run(["sync", "--check"], root);
+  assert.equal(checkAfterFirst.code, 0, checkAfterFirst.out);
+
+  // The property that actually failed in production: a second sync must find nothing left
+  // to do, and a second check must stay green. Before the fix this pair diverges forever —
+  // there is no number of additional syncs that reaches agreement.
+  const secondSync = run(["sync"], root);
+  assert.equal(secondSync.code, 0, secondSync.out);
+  assert.match(secondSync.out, /already in step/);
+  const afterSecond = fs.readFileSync(path.join(root, "talks/t/index.html"), "utf8");
+  assert.equal(afterSecond, afterFirst, "a second sync rewrote a page that was already correct");
+
+  const checkAfterSecond = run(["sync", "--check"], root);
+  assert.equal(checkAfterSecond.code, 0, checkAfterSecond.out);
 });

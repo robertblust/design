@@ -8,5 +8,5 @@
   "transport": "v2",
   "lockup": "v1",
   "fit": "v1",
-  "runtime": "v1"
+  "runtime": "v2"
 }

@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v1 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v2 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -20,9 +20,18 @@
      class of unstated seam had to be corrected once already, in blocks/lang.js.
 
      A `language` fence lives inside this one, parameterised exactly as it is anywhere
-     else it appears. The sync tool finds and replaces it independently of this outer
-     fence, so its own markers and its own `{{langKey}}` substitution are untouched by
-     anything here.
+     else it appears — its own `LANG_KEY` line reads `{{langKey}}`, a template, not a
+     value. This block declares the same `langKey` parameter for the same reason: the
+     sync tool's pass over this outer fence fills in the site's key here, its separate
+     pass over the nested fence fills in the identical value there, and the two agree.
+     v1 shipped the nested line already substituted with a real value — whichever site
+     this block was extracted from — frozen at the moment of extraction. That value was
+     correct for the origin site and wrong for every other one, and it could never
+     converge: the nested fence's own pass would correct the visible text to each
+     site's real key, while this outer fence kept re-emitting the frozen one forever
+     after — a permanent `design:check` failure with no fixed point. Declaring
+     `langKey` here, matching the nested fence's own declaration, is what makes both
+     passes agree instead.
   */
   var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
   // slide numbering is zero-based everywhere the viewer can see it: the kicker on each
@@ -44,7 +53,7 @@
      and the fence still matches byte for byte — every check stays green — while a click throws
      ReferenceError and the language silently stops crossing domains.
   */
-  var LANG_KEY = "rb-lang";
+  var LANG_KEY = "{{langKey}}";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }
   function langRemember(v){ try { localStorage.setItem(LANG_KEY, v); } catch (e) {} }
 

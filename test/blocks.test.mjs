@@ -229,8 +229,14 @@ test("the narrow-screen transport can still show a message", () => {
   assert.match(narrow, /\.lcd:has\(\.n\.msg\)\{display:flex\}/);
 });
 
+// The block's only declared parameter, needed because the nested `language` fence's own
+// `{{langKey}}` slot lives inside this block's source and this fence must fill it the same
+// way "language" does. Its value here is a placeholder, not a real site's key — these tests
+// check the block's shape, not any one site's configuration.
+const RUNTIME_PARAMS = { langKey: "x-lang" };
+
 test("the deck runtime reads its per-talk strings from TALK, not from literals", () => {
-  const js = blockFor("deck runtime", null);
+  const js = blockFor("deck runtime", null, RUNTIME_PARAMS);
   assert.match(js, /title:TALK\.de\.title/);
   assert.match(js, /desc:TALK\.en\.desc/);
 });
@@ -249,7 +255,7 @@ test("the deck runtime hardcodes no talk's own title", () => {
   // so putting a German literal back in TALK.de.title's place still passed. The property
   // that must hold is general: every `title:` and `desc:` inside UI is a `TALK.*`
   // reference, never a literal, in either language, for any deck's words at all.
-  const ui = uiSource(blockFor("deck runtime", null));
+  const ui = uiSource(blockFor("deck runtime", null, RUNTIME_PARAMS));
   assert.doesNotMatch(ui, /\b(?:title|desc):\s*['"]/,
     "UI's title or desc is a literal string, not a TALK.* reference");
   // Non-vacuous: the reference form is actually present in both languages, not merely
@@ -266,13 +272,29 @@ test("the deck runtime keeps the transport's own labels", () => {
   // "Back to the start" also appears, coincidentally, in an unrelated comment elsewhere
   // in this block, which let a broken UI.en.first ("Return to start") pass this test's
   // earlier, unscoped form.
-  const ui = uiSource(blockFor("deck runtime", null));
+  const ui = uiSource(blockFor("deck runtime", null, RUNTIME_PARAMS));
   for (const s of ["Sprecher-Notiz", "Speaker note", "Back to the start", "No voice"])
     assert.match(ui, new RegExp(s));
 });
 
-test("the deck runtime block declares no variants and no parameters", () => {
+test("the deck runtime block declares no variants, closes nothing, and takes langKey", () => {
+  // Rewritten from "no variants and no parameters": that stopped being true the moment this
+  // fence started declaring `langKey`, for the nested `language` fence's own sake (see
+  // lib/fences.mjs's comment on this entry, and the fixed-point tests in test/cli.test.mjs).
   assert.equal(FENCES["deck runtime"].variants, null);
-  assert.equal(FENCES["deck runtime"].params, undefined);
+  assert.deepEqual(FENCES["deck runtime"].params, ["langKey"]);
   assert.equal(FENCES["deck runtime"].closes, null);
+});
+
+test("the deck runtime block hardcodes no site's storage key", () => {
+  // The actual defect: v1's stored source had `var LANG_KEY = "rb-lang";` — blust.ch's own
+  // key, substituted and frozen at extraction time — rather than the `{{langKey}}` template
+  // every other site's sync depends on. Read from the raw file, not blockFor's output: after
+  // substitution the emitted text is SUPPOSED to carry a real site's key, so the property
+  // that must hold belongs to the unsubstituted source. A general form, not a list of the
+  // three keys that happen to exist today (`rb-lang`, `cg-lang`, `gg-lang`) — any literal
+  // in that position is the same bug, including one no site has chosen yet.
+  const raw = fs.readFileSync(path.join(PKG, FENCES["deck runtime"].source), "utf8");
+  assert.doesNotMatch(raw, /LANG_KEY = "(?!\{\{)/,
+    "the block's own LANG_KEY line names a literal key instead of the {{langKey}} template");
 });
