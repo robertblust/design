@@ -12,6 +12,10 @@ import { httpStatus } from "./http.mjs";
 // keeps the same source of truth rather than inventing a sixth name to thread through the
 // factory for a value that never varies per site.
 import { FAMILY } from "../lib/family.mjs";
+// Reused rather than reinvented: this is the exact fence-open/close grammar the package's
+// own sync tool locates every block by, so a JSON-LD description that merely mentions "theme
+// boot" in prose cannot be mistaken for the genuine, package-owned comment. See noFlash.
+import { findFence } from "../lib/rewrite.mjs";
 
 export function pageChecks({ SITE, BASE }) {
   if (!SITE) throw new Error("pageChecks needs SITE, the site's canonical origin");
@@ -291,23 +295,88 @@ export function pageChecks({ SITE, BASE }) {
       });
       return bad.length ? bad.join("; ") : null;
     },
-    // With light stored, the page must already be light at first paint. The boot script runs in
-    // <head> above the stylesheet; if it is ever moved below it, or deferred, or turned into a
-    // module, this is what fails. A visual check would not: by the time a screenshot is taken
-    // the body script has corrected it.
+    // Structural, not temporal. An earlier version of this check drove a browser: seed
+    // localStorage with a theme, navigate, and read data-theme at Playwright's "commit" —
+    // the earliest event Playwright reports, picked so it would land after <head> but before
+    // a deferred or module script had a chance to correct the attribute first. That reasoning
+    // assumes the document is still being parsed when "commit" fires. On a loopback static
+    // server it is not: `python3 -m http.server` (and Playwright's own webServer) hand back
+    // the entire response in one write, so by the time Playwright reports the earliest
+    // navigation event, every synchronous script on the page — <head>, mid-body, end-of-body
+    // — has already run. A reviewer moved the real boot script below the page's <style>
+    // block, ran the real suite the way CI runs it, and every check including this one came
+    // back green: the temporal check was racing a clock that had already finished, so it
+    // always observed the state *after* the mistake, never the mistake itself.
+    //
+    // The guarantee this check exists to prove was never about timing. A browser applies CSS
+    // as it parses, in document order, so "the boot script runs before the stylesheet" is a
+    // fact about byte position in the served HTML — provable by reading the bytes, not by
+    // racing an event loop. Assert that directly and machine speed cannot fake it. Someone
+    // will be tempted to "improve" this back into a browser-driven timing check; that is the
+    // exact shape that shipped green while the page was genuinely broken. Don't.
     async noFlash(page, spec) {
-      const ctx = page.context();
-      const probe = await ctx.browser().newPage();
-      try {
-        await probe.addInitScript((k) => { try { localStorage.setItem(k, "light"); } catch (e) {} }, spec.noFlash);
-        // "commit" is what freezes the read to before any body script runs — the earliest
-        // point Playwright reports a navigation, well before "load" lets a deferred or
-        // module script correct the attribute first.
-        await probe.goto(spec.absolute, { waitUntil: "commit" });
-        const early = await probe.evaluate(() => document.documentElement.getAttribute("data-theme"));
-        if (early !== "light") return `at first paint data-theme was ${JSON.stringify(early)}, not "light"`;
-        return null;
-      } finally { await probe.close(); }
+      const html = await (await fetch(spec.absolute)).text();
+      // Located the same way the package's own sync tool locates every fence — a
+      // line-anchored comment matching the fence's exact "name · vN · variant" syntax —
+      // rather than a bare substring search. Fix round 2: `html.indexOf("─── theme boot")`
+      // returns the *first* raw-byte occurrence in the document, and a page's own prose (a
+      // JSON-LD description, a <meta> tag) can mention the mechanism this literally — these
+      // repositories now carry a growing body of text that does. A decoy occurrence earlier
+      // in <head> made the old check walk backward to whatever <script> happened to precede
+      // it (on every one of these pages, that is the JSON-LD block near the top) and judge
+      // *that* element's position and form while the real, broken boot script sat further
+      // down and unexamined. findFence's per-line pattern requires the exact three-part
+      // comment — a JSON-LD string or a <meta> attribute cannot satisfy it by accident — so
+      // it finds the one place in the document that is actually the fence, however much
+      // prose about the mechanism surrounds it.
+      let fence;
+      try { fence = findFence(html, "theme boot"); }
+      catch (e) { return `theme-boot fence: ${e.message}`; }
+      if (!fence) return "no theme-boot fence found in the served HTML";
+
+      // The character offset of the fence's own opening line — needed to find both what
+      // precedes it (for position) and what encloses it (for form). Recomputed from the same
+      // line split findFence uses internally, since findFence reports line indices, not byte
+      // offsets, and reading its match position back out is simpler than exporting more of
+      // its internals for a single caller.
+      const eol = html.includes("\r\n") ? "\r\n" : "\n";
+      const lines = html.split(eol);
+      let at = 0;
+      for (let i = 0; i < fence.start; i++) at += lines[i].length + eol.length;
+
+      // Position: nothing that applies CSS may sit earlier in the document.
+      const styleAt = html.indexOf("<style");
+      const link = /<link\b[^>]*\brel\s*=\s*["']?stylesheet["']?[^>]*>/i.exec(html);
+      const sheetAt = Math.min(styleAt === -1 ? Infinity : styleAt, link ? link.index : Infinity);
+      if (sheetAt !== Infinity && at > sheetAt)
+        return "the theme-boot block appears after a stylesheet — a browser applies CSS as " +
+          "it parses, so the theme must be set before the first <style> or stylesheet <link>";
+
+      // Form: position alone proves nothing if the script carrying the block does not run
+      // synchronously during parsing. A module, a deferred or async script, or one loaded
+      // from src all execute after parsing — the same failure by a different door. The
+      // enclosing <script> is found by walking back from the fence's own confirmed position,
+      // not from a bare substring match, so this can only land on the element that actually
+      // carries the boot code.
+      const openTag = html.lastIndexOf("<script", at);
+      if (openTag === -1) return "the theme-boot block is not inside a <script> element";
+      const tag = html.slice(openTag, html.indexOf(">", openTag) + 1);
+      const bad = [];
+      if (/type\s*=\s*["']?\s*module/i.test(tag)) bad.push('type="module"');
+      if (/\bdefer\b/i.test(tag)) bad.push("defer");
+      if (/\basync\b/i.test(tag)) bad.push("async");
+      if (/\bsrc\s*=/i.test(tag)) bad.push("src");
+      if (bad.length)
+        return `the theme-boot <script> carries ${bad.join(", ")} — that defers it past ` +
+          "parsing, the same failure as running late";
+
+      // The block should be wired to this site's own storage key, not merely present. Read
+      // from the fence's own body, which findFence already scoped to exactly the confirmed
+      // fence — not from the enclosing script, which could carry other content around it.
+      if (spec.noFlash && !fence.body.includes(spec.noFlash))
+        return `the theme-boot block does not reference ${JSON.stringify(spec.noFlash)}`;
+
+      return null;
     },
     async navOrder(page) {
       const ORDER = ["Ideas", "Principles", "Model", "Example", "Talks", "Billing", "Privacy"];
