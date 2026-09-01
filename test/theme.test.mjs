@@ -584,11 +584,21 @@ test("--lcd is declared in both halves with the same value", () => {
   // Spec decision 3, asserted rather than described. A real machine with a pale body still has
   // a dark readout. If someone "completes" the light palette by giving --lcd a light value,
   // this is what says no.
+  //
+  // The token list is derived from the block, not typed out: four names here became seven once
+  // --lcd-track/--lcd-inset/--lcd-glow joined --lcd/--lcd-ink/--lcd-faint/--lcd-flag, and a
+  // hardcoded list would have protected only the four this test happened to be written against
+  // — a --lcd-* token declared but not yet wired into any rule would be caught by neither this
+  // test nor "nothing that flips...", which only sees tokens a rule actually references.
+  // rawPalette(), not palette(): --lcd-inset/--lcd-glow are rgba, invisible to palette()'s
+  // hex-only regex, and palette() here would silently derive a four-name list all over again.
   const css = deckCss();
-  const dark = palette(css, ":root");
-  const light = palette(css, ':root\\[data-theme="light"\\]');
-  assert.ok(dark["lcd"], "--lcd missing from the dark half");
-  for (const t of ["lcd", "lcd-ink", "lcd-faint", "lcd-flag"])
+  const dark = rawPalette(css, ":root");
+  const light = rawPalette(css, ':root\\[data-theme="light"\\]');
+  const lcdTokens = Object.keys(dark).filter((t) => t === "lcd" || t.startsWith("lcd-"));
+  assert.ok(lcdTokens.includes("lcd"), "--lcd missing from the dark half");
+  assert.ok(lcdTokens.length >= 4, `only found ${lcdTokens.join(", ") || "none"} — the derivation itself may be broken`);
+  for (const t of lcdTokens)
     assert.equal(light[t], dark[t],
       `--${t} differs between themes; the readout and everything printed on it stay constant`);
 });
@@ -646,65 +656,58 @@ test("the deck's progress fill clears the 3:1 UI-component threshold against its
 });
 
 test("nothing that flips with the theme is painted inside .lcd", () => {
-  // The general form of the four rules Context item 1 named. First written scoped to the
-  // `color` property alone, on the reading that "painted" meant text specifically (the plan's
-  // own words: "the digits inside it are painted with var(--c-mid)"). That reading was too
-  // narrow: a review measured what a light theme actually did to `.lcd .clip` (a pale
-  // #D8D4CA track inside the near-black readout) and to `.lcd`'s own box-shadow (the inset
-  // that seats the window in the slab flattening from rgba(0,0,0,.85) to rgba(0,0,0,.18)) —
-  // exactly the failure this whole block exists to prevent, just reached through a property
-  // this test didn't look at. The readout is a self-contained instrument: its digits, its
-  // separator, its track, the fill that moves across it, and the shadow that seats it are one
-  // object, and none of them may follow the theme. So every colour-bearing property is
-  // checked, not just `color`.
+  // Round two of this test enumerated colour-bearing properties (`color`, `background`,
+  // `box-shadow`, ...) and checked only those. A reviewer added `border:1px solid
+  // var(--deck-ring)` to `.lcd` — a token that flips, on a property the list didn't name —
+  // and the suite stayed green. Enumerating properties is the wrong axis: CSS keeps adding
+  // colour-bearing properties (`accent-color`, `text-decoration-color`, `caret-color`, ...)
+  // and a list of them is a list of gaps waiting to be found one at a time.
+  //
+  // The rule that actually holds: inside `.lcd`, no `var(--X)` may reference a token that
+  // differs between the two theme halves — on ANY property, not a chosen set of them. What's
+  // closed isn't the set of colour properties; it's the set of tokens with no colour in them
+  // at all, and inside `.lcd` today that set is empty — no radius, duration or font stack is
+  // ever reached through a token there. If one ever is, it belongs on the named allow-list
+  // below, not exempted by guessing at its property.
   //
   // "Which tokens flip" is derived from tokens.css itself, not a hardcoded list: a token whose
-  // light and dark values are equal is invariant, by construction. If a future palette change
-  // makes --lcd-ink theme-dependent, this starts failing on that alone — the same mistake
-  // wearing a new name, caught without editing this test.
+  // light and dark values are equal is invariant, by construction. rawPalette(), not
+  // palette(): --lcd-inset/--lcd-glow are rgba and invisible to palette()'s hex-only regex,
+  // which would silently drop them from the invariant set and fail this test on tokens that
+  // are, in fact, unchanged.
   const tokenCss = deckCss();
   const dark = rawPalette(tokenCss, ":root");
   const light = rawPalette(tokenCss, ':root\\[data-theme="light"\\]');
   const invariant = new Set(Object.keys(dark).filter((t) => dark[t] === light[t]));
 
-  // Every property CSS uses to paint a colour onto something, not a guess at which ones
-  // `.lcd`'s rules happen to use today — `border-color` and `stroke` currently see no use
-  // under `.lcd`, but a future rule that adds one is held to the same standard without
-  // needing this list extended first.
-  const COLOR_PROPS = new Set([
-    "color", "background", "background-color", "border-color",
-    "box-shadow", "outline", "fill", "stroke",
-  ]);
-  // Non-colour tokens that may legitimately appear in one of the properties above (there are
-  // none today — `.lcd`'s rules never reach for a radius or a font stack through `var()` — but
-  // an allowance belongs here, named explicitly, rather than the check being loosened by
-  // pattern).
+  // Tokens permitted to flip inside .lcd because they carry no colour — a radius, a duration,
+  // a font stack. Empty today, and left here explicitly rather than omitted: an empty
+  // allow-list that says so tells the next reader this was checked and found empty, not
+  // forgotten.
   const NON_COLOUR_EXCEPTIONS = new Set([]);
 
   const css = blockFor("deck transport", null).replace(/\/\*[\s\S]*?\*\//g, "");
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)];
-  const painted = [];
+  const referenced = [];
   for (const [, selector, body] of rules) {
     const clauses = selector.split(",").map((s) => s.trim());
     if (!clauses.some((c) => c === ".lcd" || c.startsWith(".lcd "))) continue;
     for (const decl of body.split(";")) {
       const m = decl.trim().match(/^([a-z-]+)\s*:\s*(.+)$/);
-      if (!m || !COLOR_PROPS.has(m[1])) continue;
-      // box-shadow can carry more than one var() (`.lcd` sets two layers in one
-      // declaration) — every reference in the value is checked, not just the first.
-      for (const vm of m[2].matchAll(/var\(--([a-z-]+)\)/g))
-        painted.push({
-          selector: selector.trim().replace(/\s+/g, " "),
-          prop: m[1],
-          token: vm[1],
-        });
+      if (!m) continue;
+      const [, prop, value] = m;
+      // Every var() in the value, on every property — no allowlist of which properties to
+      // look at. box-shadow's two layers in one declaration is why this loops rather than
+      // taking only the first match.
+      for (const vm of value.matchAll(/var\(--([a-z-]+)\)/g))
+        referenced.push({ selector: selector.trim().replace(/\s+/g, " "), prop, token: vm[1] });
     }
   }
 
-  for (const { selector, prop, token } of painted)
+  for (const { selector, prop, token } of referenced)
     assert.ok(invariant.has(token) || NON_COLOUR_EXCEPTIONS.has(token),
-      `${selector}'s ${prop} paints --${token}, which differs between themes; only an ` +
-      `invariant token may colour the readout`);
+      `${selector}'s ${prop} references --${token}, which differs between themes; only an ` +
+      `invariant or explicitly-allowed non-colour token may appear inside .lcd`);
 
   // The positive half: a rule that loses its declaration entirely passes the loop above
   // vacuously (nothing left to check), so the known rules and their expected tokens are
@@ -720,8 +723,8 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
     [".lcd .clip i", "background", "lcd-ink"],
   ];
   for (const [selector, prop, token] of expected)
-    assert.ok(painted.some((p) => p.selector === selector && p.prop === prop && p.token === token),
-      `expected ${selector}'s ${prop} to paint --${token}`);
+    assert.ok(referenced.some((p) => p.selector === selector && p.prop === prop && p.token === token),
+      `expected ${selector}'s ${prop} to reference --${token}`);
 });
 
 test("the deck tokens do not leak a light value into --lcd's neighbours by accident", () => {
