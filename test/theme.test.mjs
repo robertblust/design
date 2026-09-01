@@ -63,6 +63,21 @@ test("--sky is derived, so it follows the theme without being restated", () => {
   assert.doesNotMatch(light, /--sky:/, "the light half restates --sky instead of deriving it");
 });
 
+test("--c-weak stays below the 3:1 UI threshold against --ground, in both themes", () => {
+  // Every other assertion here is a floor. This one is a ceiling, because --c-weak's job is
+  // the opposite of the other stops': "a candidate, considered but not accepted" only reads as
+  // tentative while it stays under the threshold that would make it usable as a UI colour in
+  // its own right. Raising it — even to keep the ramp monotonic, even while every other test
+  // stays green — reverses that decision silently. A comment saying so does not enforce it;
+  // this does.
+  const css = blockFor("design tokens", "page");
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    const r = ratio(p["c-weak"], p.ground);
+    assert.ok(r < 3, `${name}: --c-weak is ${r.toFixed(2)}:1 on --ground, must stay below 3`);
+  }
+});
+
 test("--press exists in both themes and is not --raise", () => {
   // #1b2231 and #1b2333 were one colour typed twice; --press is the single name. It is blue-
   // tinted where --raise is neutral, and folding them together would change three pages'

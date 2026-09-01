@@ -24,7 +24,7 @@
   /* The same eleven names, re-picked. The ramp's axis flips: on dark, brightness is
      confidence; on light, depth is — the candidate pales, the resolved thing deepens.
      Reusing the dark stops here was measured and refused: --c-mid paints every link and
-     falls to 2.47:1 on this ground, --c-firm to 1.49:1. These clear AA on every text stop
+     falls to 2.45:1 on this ground, --c-firm to 1.49:1. These clear AA on every text stop
      (ink 16.86, dim 6.04, mid 5.09, firm 10.28, flag 5.61).
 
      --c-weak is 2.37:1 and that is deliberate, exactly as its 2.64:1 on dark is: its job is
