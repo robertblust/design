@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { blockFor } from "@robertblust/design/fences";
+import { blockFor, FENCES } from "@robertblust/design/fences";
 
 // WCAG 2.1 relative luminance. Inlined rather than imported: the package has no dependencies,
 // and a contrast test that trusts a helper it also ships proves less than one that does not.
@@ -87,5 +87,66 @@ test("--press exists in both themes and is not --raise", () => {
     const p = palette(css, sel);
     assert.ok(p.press, `no --press in ${sel}`);
     assert.notEqual(p.press, p.raise, `--press equals --raise in ${sel}`);
+  }
+});
+
+const TP = { themeKey: "x-theme" };
+
+test("neither theme block hardcodes a site's storage key", () => {
+  // The defect this exact shape caused once before, in `language` v1: a real key was baked in
+  // at extraction, correct for one site and wrong for the other two, with no fixed point —
+  // the sync tool corrected the visible bytes forever while the block re-emitted the frozen
+  // value. The parameter is what makes both passes agree.
+  for (const f of ["theme boot", "theme"]) {
+    const js = blockFor(f, null, TP);
+    assert.match(js, /x-theme/, `${f} did not substitute themeKey`);
+    assert.doesNotMatch(js, /rb-theme|cg-theme|gg-theme/, `${f} carries a real site's key`);
+  }
+});
+
+test("the boot block reads the URL as well as storage", () => {
+  // A visitor arriving from a sibling domain with ?theme=light must paint light on the first
+  // frame. Reading only localStorage would give them one frame of dark on every crossing.
+  const js = blockFor("theme boot", null, TP);
+  assert.match(js, /location\.search/);
+  assert.match(js, /localStorage\.getItem/);
+});
+
+test("the boot block never reads prefers-color-scheme", () => {
+  // Spec decision 4: dark is the default and the OS is not consulted. This is the assertion
+  // that stops a later "helpful" change from quietly making light the default for most
+  // visitors — which would also stop the share cards matching the pages.
+  const js = blockFor("theme boot", null, TP);
+  assert.doesNotMatch(js, /prefers-color-scheme|matchMedia/);
+});
+
+test("the boot block is guarded, because file:// throws", () => {
+  // localStorage on an opaque origin throws rather than returning null. A deck must still open.
+  const js = blockFor("theme boot", null, TP);
+  assert.match(js, /try\s*\{[\s\S]*catch/);
+});
+
+test("theme carries the param to family domains only", () => {
+  const js = blockFor("theme", null, TP);
+  assert.match(js, /THEME_FAMILY\s*=\s*\/\^\(www\\\.\)\?\(blust\\\.ch\|companygraph\\\.io\|guestgraph\\\.io\)\$\//);
+  assert.match(js, /u\.origin === location\.origin \|\| !THEME_FAMILY\.test\(u\.hostname\)/);
+});
+
+test("theme decorates on mousedown as well as click", () => {
+  // A middle-click or cmd-click opens a new tab without ever firing click.
+  const js = blockFor("theme", null, TP);
+  assert.match(js, /addEventListener\("mousedown", carryTheme, true\)/);
+  assert.match(js, /addEventListener\("click", carryTheme, true\)/);
+});
+
+test("theme cleans the address bar after adopting a param", () => {
+  const js = blockFor("theme", null, TP);
+  assert.match(js, /history\.replaceState/);
+});
+
+test("both theme fences declare themeKey and no variants", () => {
+  for (const f of ["theme boot", "theme"]) {
+    assert.deepEqual(FENCES[f].params, ["themeKey"]);
+    assert.equal(FENCES[f].variants, null);
   }
 });
