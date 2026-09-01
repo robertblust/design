@@ -25,13 +25,20 @@ test("the factory refuses to build without the two values its bodies close over"
 
 test("title holds the reconciled 65-character limit", () => {
   // Ruling 1. The number is the decision; if someone relaxes it back to 70 this says so.
-  assert.match(pageChecks(OPTS).title.toString(), /length > 65/);
+  //
+  // Comments stripped before matching, as in the card test below: a comment mentioning
+  // "length > 65" in prose would satisfy this even if the code said 70.
+  const src = pageChecks(OPTS).title.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /length > 65/);
 });
 
 test("internalLinks inspects [src] and CSS url(), not only a[href]", () => {
   // The drift named at the top of the spec: the weaker version let a root-absolute [src]
   // through, which breaks under file://.
-  const src = pageChecks(OPTS).internalLinks.toString();
+  //
+  // Comments stripped before matching, as in the card test below: prose mentioning these
+  // same tokens would otherwise satisfy the assertion even if the code did not.
+  const src = pageChecks(OPTS).internalLinks.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /\[href\], \[src\]/);
   assert.match(src, /styleSheets/);
   assert.match(src, /url\\\(/);

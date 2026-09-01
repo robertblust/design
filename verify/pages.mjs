@@ -426,8 +426,8 @@ export function pageChecks({ SITE, BASE }) {
     //
     // The canonical is compared against the page's own URL, not merely against og:url. Agreeing
     // with og:url proves only that two tags say the same thing; both can say the same wrong
-    // thing — a canonical pointing at another page removes this one from the index and hands its
-    // signals over — quietly, and worse than anything above.
+    // thing, and a canonical pointing at another page removes this one from the index and hands
+    // its signals over — quietly, and worse than anything above.
     async seo(page, spec) {
       const problems = [];
       const want = SITE + spec.path;
