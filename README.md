@@ -144,12 +144,16 @@ job is `verify`. Rename that job and the branch still looks protected while noth
 reports again, which blocks every merge and hides the missing gate behind it. If the job is
 ever renamed, update the ruleset in the same change.
 
-Nobody bypasses it, including the owner — a repository-admin bypass would have made the rule
-advisory for the only person who commits here, which is the whole population it needs to
-constrain. Emergencies are handled by editing the ruleset, not by pushing around it, and that
-edit leaves a record where a silent bypass would not.
+Everything else about the ruleset is byte-identical to the three sites' own `protect-main`,
+deliberately: one shape to know, and a difference between them means one of them drifted
+rather than one of them is special. The context is the only field that legitimately differs,
+for the reason above. Repository admins can bypass, and all three merge methods are allowed,
+because that is what the sites do — so the ruleset stops an accident, not a decision.
 
-Merges are merge commits: `allowed_merge_methods` is `["merge"]` alone. GitHub re-authors a
-squash to the account that pressed the button, which quietly launders the commit author. The
-`includeIf` blocks in `~/.gitconfig` set the right author locally; this keeps the forge from
-overwriting it.
+Two conventions it therefore does not enforce, which hold anyway:
+
+- **Merge with a merge commit, never a squash.** GitHub re-authors a squash to whoever
+  pressed the button, which quietly launders the commit author that the `includeIf` blocks in
+  `~/.gitconfig` exist to get right. `allowed_merge_methods` permits all three; use `merge`.
+- **Do not push straight to `main`.** The admin bypass makes that possible for the one person
+  who commits here. Open the pull request anyway — the status check is the point.
