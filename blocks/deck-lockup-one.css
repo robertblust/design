@@ -1,0 +1,7 @@
+  .name{grid-column:1; justify-self:start;
+        font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif; font-size:.72rem;
+        display:flex; align-items:center; gap:.5em}
+  .name .lockup{display:flex; align-items:center; gap:.6em}
+  .name .namemark{display:flex}
+  .name .namemark svg{width:16px; height:16px; display:block}
+  .name .lockup:hover b em, .name .lockup:focus-visible b em{color:var(--ink)}

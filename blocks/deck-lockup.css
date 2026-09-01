@@ -11,29 +11,31 @@
      blust.ch they are the same name, and a second tier would read "Robert Blust
      · ROBERT BLUST".
 
+     Only eight rules are byte-identical on all four decks and live here
+     unconditionally. Everything else — the corner's own position, the lockup's
+     own mark and its sizing, and the hover rule that names it — differs in real,
+     measured bytes between the two families (not just a size: blust.ch's own mark
+     carries no `color`, the product sites' does, because their mark's SVG paints
+     with `currentColor` and blust.ch's paints through classed elements instead).
+     Reconciling those into one shared number was tried once and rejected: it wrote
+     blust.ch's values over both other sites' marks. So each family's own rules live
+     in their own file — `deck-lockup-one.css`, `deck-lockup-two.css` — verified
+     byte-for-byte against what each pair of decks carries today, in the report for
+     this fence.
+
      The mark is favicon.svg inlined rather than linked: a linked asset is a
      broken box under file://, which is the one thing a deck has to survive. It
      draws its colours from the tokens so a palette change moves it; the favicon
      keeps its own hexes because it has to stand alone. The face is "Plex Mono" —
      the name every deck in the family actually @font-faces. */
-  .name{grid-column:1; justify-self:start;
-        font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif; font-size:.72rem;
-        display:flex; align-items:center; gap:.5em}
-  .name .lockup{display:flex; align-items:center; gap:.6em}
-  .name .namemark{display:flex}
-  .name .namemark svg{width:16px; height:16px; display:block}
-{{second}}  .name .plate{fill:var(--raise); stroke:var(--rule); stroke-width:1.5}
+{{one}}{{two}}  .name .plate{fill:var(--raise); stroke:var(--rule); stroke-width:1.5}
   .name .rb{fill:var(--c-mid)}
   .name b{color:var(--ink); font-weight:600; letter-spacing:.01em; text-transform:none}
   .name b em{font-style:normal; color:var(--c-mid)}
-  /* the separator (one on blust.ch, two on the product sites) is the only bare <span>
-     the corner has, so it is reached structurally rather than by a name that only the
-     two-tier form's markup would share. "Talks" is a nav item and stays dim like it. */
-  .name > span{color:var(--dim)}
+  /* "Talks" is a nav item, so it takes the nav treatment the pages use — dim until
+     pointed at. The separators are not links and must not read as one. */
+  .name .nsep{color:var(--dim)}
   .name .nlink{color:var(--dim)}
   .name a{text-decoration:none; color:inherit; pointer-events:auto}
   .name a:hover, .name a:focus-visible{color:var(--ink)}
-  /* the wordmarks set their own colours, so the rule above cannot show a hover;
-     the accent brightening to full ink is what replaces it. */
-  .name a:hover b em, .name a:focus-visible b em{color:var(--ink)}
   /* ─── end deck lockup ───────────────────────────────────────────────────*/

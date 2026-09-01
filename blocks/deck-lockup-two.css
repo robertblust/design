@@ -1,3 +1,9 @@
-  .name .nperson{display:flex; align-items:center; gap:.6em}
+  .name{display:flex; align-items:center; gap:.5em}
+  .name{grid-column:1; justify-self:start;
+        font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif; font-size:.72rem}
+  .name .lockup, .name .nperson{display:flex; align-items:center; gap:.6em}
   .name .rbmark{display:flex}
-  .name .rbmark svg{width:16px; height:16px; display:block}
+  .name .rbmark svg{width:15px; height:15px; display:block}
+  .name .namemark{color:var(--c-mid); display:flex}
+  .name .namemark svg{width:15px; height:15px; display:block}
+  .name a:hover b em, .name a:focus-visible b em{color:var(--ink)}

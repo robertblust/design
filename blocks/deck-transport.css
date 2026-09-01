@@ -8,7 +8,18 @@
 
      The lockup that used to share this marker is its own fence now — see
      `deck lockup`. They were two components wearing one name, and only one of
-     them legitimately differs between sites. */
+     them legitimately differs between sites.
+
+     This block holds 53 rules, not the round number a first read of the region
+     might suggest. The marker never closed, so "which rules are inside it" was
+     never a settled question; measured mechanically — everything from the
+     `---------- transport ----------` comment through the transport's own three
+     mobile breakpoints, minus the lockup's own rules, minus the one rule that shows
+     the LCD while it carries a message (staying per-deck), minus the speaker-notes drawer and the
+     slide-layout rules that happen to share the same breakpoints — 53 is what's
+     left, and all 53 are byte-identical on every deck. Anyone re-deriving this
+     should get the same 53; if a cut to a smaller, rounder number seems
+     obviously right, it wasn't obvious here and is worth writing down why. */
   .transport{
     grid-column:2; justify-self:center;
     display:flex; align-items:center; gap:.45rem;

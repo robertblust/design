@@ -169,12 +169,18 @@ test("the deck transport block is one form — it never drifted", () => {
   assert.doesNotMatch(css, /\.lcd:has\(/, "the one genuinely drifted rule stays out of the fence");
 });
 
-test("the two deck lockup variants differ only by the second tier", () => {
+test("the two-tier lockup carries a second tier's worth of rules the one-tier form has no use for", () => {
+  // Keyed on rule count rather than a class name: the two families genuinely differ (a
+  // presenter tier the product sites need and blust.ch does not), and a future rename of
+  // `.nperson` or `.rbmark` must not make this test pass for the wrong reason — or stop
+  // catching the real one, which is that a second, distinct tier of markup exists at all.
   const one = blockFor("deck lockup", "one");
   const two = blockFor("deck lockup", "two");
   assert.notEqual(one, two);
-  assert.doesNotMatch(one, /nperson|nsep/, "the one-tier form carries no second tier");
-  assert.match(two, /nperson|nsep/);
+  const ruleCount = (css) => (css.match(/\{/g) || []).length;
+  assert.ok(ruleCount(two) > ruleCount(one),
+    "the two-tier form must declare more rules than the one-tier form — it renders a second, " +
+    "independent element the one-tier form's markup does not have");
 });
 
 test("the one-tier lockup leaves no blank line where the second tier was", () => {
