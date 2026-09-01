@@ -33,6 +33,7 @@
     "./verify/stage": "./verify/stage.mjs",
     "./verify/design": "./verify/design.mjs",
     "./verify/http": "./verify/http.mjs",
+    "./verify/pages": "./verify/pages.mjs",
     "./fences": "./lib/fences.mjs",
     "./family": "./lib/family.mjs"
   },
