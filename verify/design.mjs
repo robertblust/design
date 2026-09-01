@@ -45,10 +45,17 @@ import { FENCES } from "../lib/fences.mjs";
 export const TOKEN_VERSION = FENCES["design tokens"].version;
 
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-// design.mjs lives in <site>/verify/, so the site root is one level up. Derived rather than
-// configured: a hardcoded path would differ per repository in a file that must not.
-const SITE_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+// Not derived from this module's own location. This file is consumed from
+// <site>/node_modules/@robertblust/design/verify/design.mjs — two `dirname`s up from there is
+// the package directory, not the site, so `fileURLToPath(import.meta.url)` silently pointed
+// opensFromFile's file:// probe inside node_modules once the package moved, and every deck
+// failed the check on all three sites without the site itself ever changing. `process.cwd()`
+// is correct instead because every site runs this suite through an npm script (`npm run
+// verify` -> `node verify/check.mjs`), and npm sets the working directory to the site's own
+// package root — the same root its static server serves from — regardless of where inside
+// node_modules this file happens to live. Resist "fixing" this back to import.meta.url: that
+// is what silently broke it the first time.
+const SITE_ROOT = process.cwd();
 
 export const TOKENS = {
   "--ground": "#0C0E13", "--raise": "#171A21", "--rule": "#232833",
