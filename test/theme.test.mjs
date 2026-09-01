@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
 import { blockFor, FENCES } from "@robertblust/design/fences";
 import { FAMILY } from "@robertblust/design/family";
 import { pageChecks } from "@robertblust/design/verify/pages";
@@ -77,6 +78,20 @@ test("--c-weak stays below the 3:1 UI threshold against --ground, in both themes
     const p = palette(css, sel);
     const r = ratio(p["c-weak"], p.ground);
     assert.ok(r < 3, `${name}: --c-weak is ${r.toFixed(2)}:1 on --ground, must stay below 3`);
+  }
+});
+
+test("--press clears AA against --c-mid, the text token it actually carries, in both themes", () => {
+  // `.seg button[aria-pressed="true"]` paints --c-mid on --press — the pressed EN and the
+  // pressed sun/moon, the only things telling a reader which language and which theme is
+  // active. Light's pair was #3A6DA6 on #E2E8F2, 4.35:1, under the 4.5 floor this test pins.
+  // Run this against that value and it fails; it must stay failing if --press is ever moved
+  // back there.
+  const css = blockFor("design tokens", "page");
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    const r = ratio(p["c-mid"], p.press);
+    assert.ok(r >= 4.5, `${name}: --c-mid on --press is ${r.toFixed(2)}:1, needs 4.5`);
   }
 });
 
@@ -175,6 +190,51 @@ test("theme decorates on mousedown as well as click", () => {
   const js = blockFor("theme", null, TP);
   assert.match(js, /addEventListener\("mousedown", carryTheme, true\)/);
   assert.match(js, /addEventListener\("click", carryTheme, true\)/);
+});
+
+// carryTheme's own defect could not be caught by a `.toString()` match: the broken code and
+// the fixed code both mention `theme`, `searchParams.set` and `THEME_FAMILY` in source, so a
+// regex over the text cannot tell "always carries" from "carries only when chosen" apart. The
+// block is executed for real instead, in a small vm sandbox standing in for the page it is
+// normally injected into — the same reasoning `test/verify-pages.test.mjs`'s fix-round-1 suite
+// gives for running check bodies against a fake `page` rather than grepping them.
+function runThemeBlock() {
+  const js = blockFor("theme", null, TP);
+  const store = {};
+  const localStorage = {
+    getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+    setItem: (k, v) => { store[k] = v; },
+  };
+  const sandbox = {
+    console, URL,
+    localStorage,
+    location: { href: "https://blust.ch/", origin: "https://blust.ch", search: "", pathname: "/", hash: "" },
+    history: { replaceState() {} },
+    document: { addEventListener() {} },
+    theme: "dark",
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(js, sandbox);
+  return sandbox;
+}
+
+test("carryTheme decorates a family link only when a theme is actually stored", () => {
+  // The failure this closes: Alice sets light on companygraph.io, later opens blust.ch fresh
+  // (dark, correct, untouched), then clicks the CompanyGraph link. Carrying `theme` from the
+  // in-memory default — indistinguishable from an actual choice — would overwrite her real,
+  // stored preference with a value she never chose. `themeStored()` returning null must
+  // therefore leave every link alone.
+  const sandbox = runThemeBlock();
+  const untouched = { href: "https://companygraph.io/" };
+  sandbox.carryTheme({ target: { closest: () => untouched } });
+  assert.equal(untouched.href, "https://companygraph.io/",
+    "a visitor with nothing stored must have no link decorated — a default is not a choice");
+
+  sandbox.localStorage.setItem("x-theme", "light");
+  const decorated = { href: "https://companygraph.io/" };
+  sandbox.carryTheme({ target: { closest: () => decorated } });
+  assert.match(decorated.href, /[?&]theme=light(&|$)/,
+    "a visitor who stored a theme must have it carried onto a family link");
 });
 
 test("theme cleans the address bar after adopting a param", () => {

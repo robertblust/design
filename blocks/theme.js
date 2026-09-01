@@ -1,4 +1,4 @@
-  /* ─── theme · v1 · shared ────────────────────────────────────────────
+  /* ─── theme · v2 · shared ────────────────────────────────────────────
      One theme across three domains, and where it is remembered. Generated from
      @robertblust/design — editing it here does nothing.
 
@@ -6,7 +6,9 @@
      only compares bytes between the markers. The page must declare a `theme` variable in scope
      before this fence, and must carry two controls, `#thLight` and `#thDark`. Rename either and
      the fence still matches byte for byte — every check stays green — while the control stops
-     working. `storageKeys` is what actually holds this contract: it clicks both.
+     working. `mobileNav`'s presence assertion is what actually holds this contract, gated on
+     the page's own `noFlash` flag: a page that declares it and is missing either control fails
+     there.
   */
   var THEME_KEY = "{{themeKey}}";
   function themeStored(){ try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; } }
@@ -27,12 +29,23 @@
     } catch (e) {}
     return m[1];
   }
+  // Language gets away with always decorating a link because a visitor's language is always an
+  // explicit two-way choice. Theme is not: it has a default (dark), and a page that carries only
+  // the default is indistinguishable from a page whose visitor chose it. Carrying `theme` on
+  // every link exported that default as though it were a choice — a visitor who set light on one
+  // site and later opened a sibling fresh (dark, correct, untouched) would have that default
+  // carried back onto a link to the first site and silently overwrite their real, stored
+  // preference. Reading `themeStored()` rather than the in-memory `theme` variable is what keeps
+  // this to "only when the visitor actually chose": nothing stored means nothing carried, and no
+  // link is decorated.
   function carryTheme(e){
+    var stored = themeStored();
+    if (!stored) return;
     var a = e.target && e.target.closest && e.target.closest("a[href]");
     if (!a) return;
     var u; try { u = new URL(a.href, location.href); } catch (err) { return; }
     if (u.origin === location.origin || !THEME_FAMILY.test(u.hostname)) return;
-    u.searchParams.set("theme", theme);
+    u.searchParams.set("theme", stored);
     a.href = u.toString();
   }
   // mousedown as well as click, so a middle-click or cmd-click into a new tab carries it too.

@@ -1,4 +1,4 @@
-  /* ─── design tokens · v5 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v6 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -30,12 +30,21 @@
      --c-weak is 2.37:1 and that is deliberate, exactly as its 2.64:1 on dark is: its job is
      "a candidate, considered but not accepted", and darkening it until it clears the 3:1 UI
      threshold stops it reading as tentative. It must never carry text, a border or an
-     outline on its own, in either theme. */
+     outline on its own, in either theme.
+
+     --press carries text now, not just a hover wash: `.seg button[aria-pressed="true"]`
+     paints --c-mid on it, and the pressed segment is how a visitor tells which language and
+     which theme is active. The palette had only ever been checked token-against-page-
+     background; nothing measured a text-bearing surface against the surface it actually
+     sits on. #E2E8F2 measured 4.35:1 against --c-mid here — under the 4.5 AA floor for the
+     12.16px/600 label — so it moves to #E7ECF4, which clears at 4.52:1. Counter-intuitively
+     lighter, not darker: darkening it moves it closer to --c-mid and away from AA, since
+     --c-mid is the darker of the two. Dark's pair is already 6.16:1 and is untouched. */
   :root[data-theme="light"]{
     --ground:#FAF9F5; --raise:#F2F0EA; --rule:#DFDCD3;
     --ink:#16181D;    --dim:#5F6058;
     --c-weak:#8FA6C2; --c-mid:#3A6DA6; --c-firm:#1C3E68; --c-flag:#8A5A12;
-    --c-path:#1C3E68; --press:#E2E8F2;
+    --c-path:#1C3E68; --press:#E7ECF4;
   }
   :root{
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;

@@ -1,5 +1,5 @@
 {
-  "tokens": "v5",
+  "tokens": "v6",
   "header": "v4",
   "stage": "v2",
   "reset": "v1",
@@ -10,5 +10,5 @@
   "fit": "v1",
   "runtime": "v4",
   "themeBoot": "v1",
-  "theme": "v1"
+  "theme": "v2"
 }
