@@ -180,6 +180,15 @@ export function pageChecks({ SITE, BASE }) {
     // The switcher is asserted visible on purpose. It would be easy to sweep it into the menu
     // with everything else, and for a bilingual audience that is the wrong trade — a language
     // control someone cannot find costs more than the tap it saves.
+    //
+    // The theme control is asserted the same way, guarded by `spec.noFlash`: that flag is the
+    // page's own declaration that it carries a theme-boot fence and therefore the two controls
+    // `#thLight`/`#thDark` a real visitor needs to work it, and only prose pages set it. Before
+    // this, a page that lost `.seg.theme` — the whole control, not just one button — passed
+    // every check: `storageKeys` clicked it present-or-skip, `navOrder` only cares that
+    // `#langind` is last, and `design:check` cannot see site-owned markup at all. A page
+    // silently missing the control it claims to have must fail somewhere, and this is that
+    // somewhere.
     async mobileNav(page, spec) {
       const problems = [];
       await page.setViewportSize({ width: 360, height: 640 });
@@ -194,6 +203,7 @@ export function pageChecks({ SITE, BASE }) {
             brand: Math.round(brand), mark: Math.round(mark),
             wide: document.documentElement.scrollWidth > window.innerWidth,
             links: seen(q("#navlinks")), burger: seen(q("#burger")), seg: seen(q("#langind")),
+            theme: seen(q("#thLight")) && seen(q("#thDark")),
           };
         });
         if (shut.brand > shut.mark)
@@ -202,6 +212,7 @@ export function pageChecks({ SITE, BASE }) {
         if (shut.links) problems.push("the links are still in the row at 360px");
         if (!shut.burger) problems.push("there is no menu button");
         if (!shut.seg) problems.push("the language control is not on the bar");
+        if (spec.noFlash && !shut.theme) problems.push("the theme control is not on the bar");
 
         // Only drive the button if it is there to be driven: clicking a hidden one waits the
         // full timeout and reports that instead of the thing actually wrong.
@@ -274,6 +285,13 @@ export function pageChecks({ SITE, BASE }) {
     // Every text token has to clear AA against the ground of the theme it belongs to. Read from
     // the live page rather than the package source, because what ships is what the page carries:
     // a stale generated copy is exactly the case worth catching.
+    //
+    // --ground is not the only surface text sits on. `.seg button[aria-pressed="true"]` paints
+    // --c-mid on --press — the pressed EN and the pressed sun/moon, the only things telling a
+    // reader which language and which theme is active — and that pair went unmeasured for a
+    // whole release: the palette was validated token-against-page-background and never
+    // token-against-token. --press is asserted here too, in both themes, because it is a pair
+    // the pages actually paint.
     async contrast(page) {
       const bad = await page.evaluate(() => {
         const hex = (h) => { h = h.trim().replace("#", ""); if (h.length === 3) h = [...h].map((c) => c + c).join(""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
@@ -289,6 +307,8 @@ export function pageChecks({ SITE, BASE }) {
             const r = ratio(cs.getPropertyValue(t), g);
             if (r < 4.5) out.push(`${theme}: ${t} is ${r.toFixed(2)}:1 on --ground`);
           }
+          const press = ratio(cs.getPropertyValue("--c-mid"), cs.getPropertyValue("--press"));
+          if (press < 4.5) out.push(`${theme}: --c-mid is ${press.toFixed(2)}:1 on --press`);
         }
         document.documentElement.removeAttribute("data-theme");
         return out;

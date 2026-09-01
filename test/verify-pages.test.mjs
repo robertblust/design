@@ -117,6 +117,55 @@ test("mobileNav is measured at the 360px breakpoint", () => {
   assert.match(src, /width: 360/);
 });
 
+// mobileNav's own evaluate callbacks are self-contained closures over document/getComputedStyle,
+// so — as with contrast's fake page above — a fake page can hand back canned shut/open/closed
+// states per call rather than mocking the check itself. Three evaluate calls happen when
+// `shut.burger` is true: the 360px shut state, the opened state after clicking #burger, and the
+// closed state after Escape.
+function makeMobileNavPage(shutOverrides = {}) {
+  let evalCalls = 0;
+  return {
+    async setViewportSize() {},
+    async goto() {},
+    async evaluate() {
+      evalCalls += 1;
+      if (evalCalls === 1)
+        return {
+          brand: 40, mark: 40, wide: false, links: false, burger: true, seg: true,
+          theme: false,
+          ...shutOverrides,
+        };
+      if (evalCalls === 2) return { links: true, flag: "true" };
+      return true;
+    },
+    async click() {},
+    keyboard: { press: async () => {} },
+  };
+}
+
+test("mobileNav fails when a page declaring noFlash has lost its theme control", async () => {
+  // The defect this closes: `.seg.theme` deleted from a prose page used to pass every check,
+  // because storageKeys clicked it present-or-skip, navOrder only cares that #langind is last,
+  // and design:check cannot see site-owned markup. `noFlash` is the page's own declaration
+  // that it carries the fence and therefore the two controls; a page that set it but lost
+  // #thLight/#thDark must fail here.
+  const page = makeMobileNavPage({ theme: false });
+  const result = await pageChecks(OPTS).mobileNav(page, { absolute: "https://example.test/", noFlash: "rb-theme" });
+  assert.match(result, /the theme control is not on the bar/);
+});
+
+test("mobileNav passes with the theme control present, and invents no requirement for a page with no noFlash flag", async () => {
+  const withTheme = await pageChecks(OPTS).mobileNav(
+    makeMobileNavPage({ theme: true }), { absolute: "https://example.test/", noFlash: "rb-theme" });
+  assert.equal(withTheme, null, `expected a pass, got ${JSON.stringify(withTheme)}`);
+
+  // A deck carries neither the noFlash flag nor the theme control — the check must not
+  // demand a control the page never claimed to have.
+  const noFlag = await pageChecks(OPTS).mobileNav(
+    makeMobileNavPage({ theme: false }), { absolute: "https://example.test/" });
+  assert.equal(noFlag, null, `expected a pass, got ${JSON.stringify(noFlag)}`);
+});
+
 test("storageKeys fails on zero writes, not only on an undeclared key", () => {
   // The half of the check that used to be unreachable from outside: a trigger the check failed
   // to find and a page that truly writes nothing looked identical without this branch.
