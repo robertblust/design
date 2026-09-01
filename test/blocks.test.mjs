@@ -165,7 +165,15 @@ test("a duplicated part slot is refused rather than shipping the part twice", ()
 test("the deck transport block is one form — it never drifted", () => {
   const css = blockFor("deck transport", null);
   assert.match(css, /\.transport\{/);
-  assert.doesNotMatch(css, /\.name\b/, "the lockup belongs to its own fence");
+  // `.name{display:none}` is the one `.name` rule that belongs here rather than in `deck
+  // lockup`: it is the bar's own statement that the lockup drops out of a collapsed,
+  // single-column bar, not the lockup's identity, and it is byte-identical on all four
+  // decks like the rest of this block. Everything else naming `.name` belongs to the
+  // lockup's own fence, so it is the only `.name` rule this block may carry.
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const nameRules = withoutComments.match(/\.name\b[^{]*\{[^}]*\}/g) || [];
+  assert.deepEqual(nameRules, [".name{display:none}"],
+    "only the bar's own mobile-hide statement about the lockup belongs here");
   assert.doesNotMatch(css, /\.lcd:has\(/, "the one genuinely drifted rule stays out of the fence");
 });
 

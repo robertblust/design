@@ -88,8 +88,12 @@
   }
 
   /* the transport becomes the bottom edge itself: full width, flush, clear of the
-     home indicator. */
+     home indicator. The lockup does not fit a collapsed single-column bar, so this is
+     the one `.name` rule that lives here rather than in `deck lockup` — it is not the
+     lockup's identity, it is the bar's own statement that the lockup drops out at this
+     width, and it is byte-identical on all four decks like the rest of this block. */
   @media (max-width: 860px), (max-aspect-ratio: 4/5){
+    .name{display:none}
     .transport{
       grid-column:1; justify-self:stretch; width:100%;
       background:none; border:0; border-radius:0; box-shadow:none;
