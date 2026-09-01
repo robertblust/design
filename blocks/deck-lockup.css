@@ -1,0 +1,39 @@
+  /* ─── deck lockup · v1 · {{variant}} ─────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The lockup that used to share the `deck footer` marker with the transport bar —
+     see `deck transport` for the rest of that story. This is the part that
+     legitimately differs: blust.ch is a one-tier lockup, mark plus **Robert Blust**
+     and nothing after it; companygraph.io and guestgraph.io are two tiers, the
+     product lockup then `· ROBERT BLUST`. The reason is a fact about the two
+     families, not a preference — on the product sites the product and the
+     presenter are different names, so the second tier introduces one; on
+     blust.ch they are the same name, and a second tier would read "Robert Blust
+     · ROBERT BLUST".
+
+     The mark is favicon.svg inlined rather than linked: a linked asset is a
+     broken box under file://, which is the one thing a deck has to survive. It
+     draws its colours from the tokens so a palette change moves it; the favicon
+     keeps its own hexes because it has to stand alone. The face is "Plex Mono" —
+     the name every deck in the family actually @font-faces. */
+  .name{grid-column:1; justify-self:start;
+        font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif; font-size:.72rem;
+        display:flex; align-items:center; gap:.5em}
+  .name .lockup{display:flex; align-items:center; gap:.6em}
+  .name .namemark{display:flex}
+  .name .namemark svg{width:16px; height:16px; display:block}
+{{second}}  .name .plate{fill:var(--raise); stroke:var(--rule); stroke-width:1.5}
+  .name .rb{fill:var(--c-mid)}
+  .name b{color:var(--ink); font-weight:600; letter-spacing:.01em; text-transform:none}
+  .name b em{font-style:normal; color:var(--c-mid)}
+  /* the separator (one on blust.ch, two on the product sites) is the only bare <span>
+     the corner has, so it is reached structurally rather than by a name that only the
+     two-tier form's markup would share. "Talks" is a nav item and stays dim like it. */
+  .name > span{color:var(--dim)}
+  .name .nlink{color:var(--dim)}
+  .name a{text-decoration:none; color:inherit; pointer-events:auto}
+  .name a:hover, .name a:focus-visible{color:var(--ink)}
+  /* the wordmarks set their own colours, so the rule above cannot show a hover;
+     the accent brightening to full ink is what replaces it. */
+  .name a:hover b em, .name a:focus-visible b em{color:var(--ink)}
+  /* ─── end deck lockup ───────────────────────────────────────────────────*/

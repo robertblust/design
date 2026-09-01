@@ -4,5 +4,7 @@
   "stage": "v2",
   "reset": "v1",
   "lang": "v2",
-  "footer": "v1"
+  "footer": "v1",
+  "transport": "v1",
+  "lockup": "v1"
 }

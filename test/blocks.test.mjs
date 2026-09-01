@@ -161,3 +161,33 @@ test("a duplicated part slot is refused rather than shipping the part twice", ()
     assert.throws(() => blockFor("duplicate slot fixture", "on"), /appears 2 times/);
   });
 });
+
+test("the deck transport block is one form — it never drifted", () => {
+  const css = blockFor("deck transport", null);
+  assert.match(css, /\.transport\{/);
+  assert.doesNotMatch(css, /\.name\b/, "the lockup belongs to its own fence");
+  assert.doesNotMatch(css, /\.lcd:has\(/, "the one genuinely drifted rule stays out of the fence");
+});
+
+test("the two deck lockup variants differ only by the second tier", () => {
+  const one = blockFor("deck lockup", "one");
+  const two = blockFor("deck lockup", "two");
+  assert.notEqual(one, two);
+  assert.doesNotMatch(one, /nperson|nsep/, "the one-tier form carries no second tier");
+  assert.match(two, /nperson|nsep/);
+});
+
+test("the one-tier lockup leaves no blank line where the second tier was", () => {
+  assert.doesNotMatch(blockFor("deck lockup", "one").split("*/")[1] ?? "", /\n\s*\n/);
+});
+
+test("a deck lockup variant that does not exist is refused", () => {
+  assert.throws(() => blockFor("deck lockup", "credit"), /only knows|needs a variant/);
+});
+
+test("both new deck fences carry balanced braces", () => {
+  for (const [n, v] of [["deck transport", null], ["deck lockup", "one"], ["deck lockup", "two"]]) {
+    const css = blockFor(n, v);
+    assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, `${n} ${v}`);
+  }
+});
