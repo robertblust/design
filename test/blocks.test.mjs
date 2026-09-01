@@ -317,3 +317,15 @@ test("the deck runtime block hardcodes no site's storage key", () => {
   assert.doesNotMatch(raw, /LANG_KEY = "(?!\{\{)/,
     "the block's own LANG_KEY line names a literal key instead of the {{langKey}} template");
 });
+
+test("the deck's chrome blocks paint no literal colours", () => {
+  // The whole point of the deck tokens: a block that still names a colour cannot follow the
+  // theme, and it will be a single wrong element on a light deck that nobody notices because
+  // everything around it is right.
+  for (const [name, variant] of [["deck transport", null], ["deck lockup", "one"], ["deck lockup", "two"]]) {
+    const css = blockFor(name, variant).replace(/\/\*[\s\S]*?\*\//g, "");
+    const literals = css.match(/(?<!&)#[0-9a-fA-F]{3,8}\b|\brgba?\([^)]*\)/g) ?? [];
+    assert.deepEqual(literals, [],
+      `${name}${variant ? " · " + variant : ""} still paints ${literals.join(", ")}`);
+  }
+});

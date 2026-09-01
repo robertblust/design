@@ -1,4 +1,4 @@
-  /* ─── deck transport · v4 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v5 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -31,7 +31,7 @@
     display:flex; align-items:center; gap:.45rem;
     background:var(--slab); border:1px solid var(--rule); border-radius:14px;
     padding:.45rem .55rem;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.055), 0 12px 34px rgba(0,0,0,.5);
+    box-shadow:inset 0 1px 0 var(--deck-lift), 0 12px 34px var(--deck-drop);
   }
 
   /* the display window. The hairline under the number is the position of the clip that
@@ -39,14 +39,14 @@
   .lcd{
     display:flex; flex-direction:column; align-items:center; gap:5px;
     background:var(--lcd); border-radius:8px; padding:.44rem .62rem .38rem;
-    box-shadow:inset 0 1px 3px rgba(0,0,0,.85), inset 0 0 0 1px rgba(122,160,255,.1);
+    box-shadow:inset 0 1px 3px var(--deck-inset), inset 0 0 0 1px var(--deck-glow);
     font-family:"Plex Mono", ui-monospace, monospace; line-height:1;
     margin-right:.2rem;
   }
-  .lcd .n{font-size:.76rem; font-weight:600; letter-spacing:.09em; color:var(--c-mid); white-space:nowrap}
-  .lcd .n .sep, .lcd .n #tot{color:#4c566e}
-  .lcd .n.msg{color:var(--c-flag); font-size:.62rem; letter-spacing:.14em}
-  .lcd .clip{width:100%; height:2px; background:#1e2029; border-radius:2px; overflow:hidden}
+  .lcd .n{font-size:.76rem; font-weight:600; letter-spacing:.09em; color:var(--lcd-ink); white-space:nowrap}
+  .lcd .n .sep, .lcd .n #tot{color:var(--lcd-faint)}
+  .lcd .n.msg{color:var(--lcd-flag); font-size:.62rem; letter-spacing:.14em}
+  .lcd .clip{width:100%; height:2px; background:var(--deck-track); border-radius:2px; overflow:hidden}
   .lcd .clip i{display:block; height:100%; width:0; background:var(--c-mid); transition:width .25s linear}
 
   .tmain, .tside{display:flex; align-items:center; gap:.45rem}
@@ -58,18 +58,18 @@
   }
   .tbtn svg{width:18px; height:18px; fill:currentColor; display:block}
   .tbtn svg.stroked{fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
-  .tbtn:hover{color:var(--ink); background:#20242e}
+  .tbtn:hover{color:var(--ink); background:var(--deck-hover)}
   /* aria-disabled, not :disabled — the runtime keeps the control focusable and returns
      early from its own handler instead of removing it from the tab order; see
      `deck runtime`'s render() for why a real `disabled` moves focus under the user. */
   .tbtn[aria-disabled="true"]{opacity:.35; cursor:default}
   .tbtn[aria-disabled="true"]:hover{color:inherit; background:none}
   .tbtn:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px; color:var(--ink)}
-  .tbtn[aria-pressed="true"]{color:var(--c-mid); background:#1b2231}
+  .tbtn[aria-pressed="true"]{color:var(--c-mid); background:var(--press)}
 
-  .tbtn.play{width:44px; height:44px; border-radius:50%; border:1.5px solid #39435c; color:var(--c-mid)}
+  .tbtn.play{width:44px; height:44px; border-radius:50%; border:1.5px solid var(--deck-ring); color:var(--c-mid)}
   .tbtn.play svg{width:17px; height:17px}
-  .tbtn.play:hover{background:#1b2231; border-color:var(--c-mid); color:var(--c-mid)}
+  .tbtn.play:hover{background:var(--press); border-color:var(--c-mid); color:var(--c-mid)}
   .tbtn .icontract{display:none}
   .tbtn[aria-pressed="true"] .icontract{display:block}
   .tbtn[aria-pressed="true"] .iexpand{display:none}
@@ -82,7 +82,7 @@
      navigation — history, middle-click and "open in new tab" all behave. */
   a.tbtn{text-decoration:none}
 
-  .tdiv{width:1px; align-self:stretch; margin:.3rem .25rem; background:#333743; flex:0 0 auto}
+  .tdiv{width:1px; align-self:stretch; margin:.3rem .25rem; background:var(--deck-divider); flex:0 0 auto}
 
   .seg{display:flex; border:1px solid var(--rule); border-radius:8px; overflow:hidden; flex:0 0 auto}
   .seg button{
@@ -91,7 +91,7 @@
     color:var(--dim); transition:color .15s ease, background-color .15s ease;
   }
   .seg button:hover{color:var(--ink)}
-  .seg button[aria-pressed="true"]{color:var(--c-mid); background:#1b2231; font-weight:600}
+  .seg button[aria-pressed="true"]{color:var(--c-mid); background:var(--press); font-weight:600}
   .seg button:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
 
   @media (prefers-reduced-motion: reduce){

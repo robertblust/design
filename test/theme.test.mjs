@@ -586,14 +586,34 @@ test("the deck's readable tokens clear AA against the surface each is painted on
   // guessed: the accent and the faint separator sit on the LCD, the quiet and warm tones sit
   // on the slab. Plan A shipped a token pair at 4.35:1 because only token-against-background
   // was ever measured; this is that lesson applied to the deck.
+  //
+  // Two more joined this list once Task 2 re-pointed deck-transport.css's literals at tokens:
+  // `.tbtn:hover` sets `color` and `background` on the same rule (--ink on --deck-hover), and
+  // `.tbtn.play.on` does the same (--ground on --c-mid, the filled play button's icon). Both
+  // are read straight off the rule, not guessed — the same standard --deck-quiet/--deck-warm
+  // above were held to.
   const css = deckCss();
   for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
     const p = palette(css, sel);
     for (const [fg, bg] of [["lcd-ink", "lcd"], ["lcd-faint", "lcd"], ["lcd-flag", "lcd"],
-                            ["deck-quiet", "deck-well"], ["deck-warm", "deck-well"]]) {
+                            ["deck-quiet", "deck-well"], ["deck-warm", "deck-well"],
+                            ["ink", "deck-hover"], ["ground", "c-mid"]]) {
       const r = ratio(p[fg], p[bg]);
       assert.ok(r >= 4.5, `${name}: --${fg} on --${bg} is ${r.toFixed(2)}:1, needs 4.5`);
     }
+  }
+});
+
+test("the deck's progress fill clears the 3:1 UI-component threshold against its own track", () => {
+  // `.lcd .clip{background:var(--deck-track)}` and `.lcd .clip i{background:var(--c-mid)}` —
+  // the elapsed-time fill painted over the empty track, both set in deck-transport.css. This
+  // is a graphical UI component conveying state (how much of the slide is left), not text, so
+  // it is held to WCAG's 3:1 non-text threshold rather than the 4.5:1 text floor used above.
+  const css = deckCss();
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    const r = ratio(p["c-mid"], p["deck-track"]);
+    assert.ok(r >= 3, `${name}: --c-mid on --deck-track is ${r.toFixed(2)}:1, needs 3`);
   }
 });
 
