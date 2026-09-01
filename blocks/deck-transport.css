@@ -1,4 +1,4 @@
-  /* ─── deck transport · v3 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v4 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -10,24 +10,20 @@
      `deck lockup`. They were two components wearing one name, and only one of
      them legitimately differs between sites.
 
-     This block holds 57 rules, not the round number a first read of the region
+     This block holds 56 rules, not the round number a first read of the region
      might suggest. The marker never closed, so "which rules are inside it" was
      never a settled question; measured mechanically — everything from the
      `---------- transport ----------` comment through the transport's own three
      mobile breakpoints, minus the lockup's own rules, minus the speaker-notes drawer
-     and the slide-layout rules that happen to share the same breakpoints — 57 is
-     what's left, and all 57 are byte-identical on every deck. That count includes
-     the rule that shows the LCD while it carries a message, `.lcd:has(.n.msg)`:
-     below 400px `.lcd{display:none}` hides the counter to make room, and
-     `lcdMessage()` puts transient text in that same element — but `lcdMessage()`
-     has exactly one call site, gated on `!pickVoice() && !hasClips()`, and
-     `hasClips()` returns `clipsSeen`, a constant `true` on every deck today. So the
-     rule is currently unreachable: no deck ever adds `.msg` to `#lcdn`, at any
-     width. It stays because it costs nothing and becomes live the moment
-     `hasClips()` ever probes instead of assuming, so the narrow-screen case is
-     already handled rather than rediscovered later. `lcdMessage`, `msgTimer` and
-     both `novoice` strings are dead code for the same reason, on every deck, today.
-     Anyone re-deriving this should get the same 57; if a cut to a smaller, rounder
+     and the slide-layout rules that happen to share the same breakpoints — 56 is
+     what's left, and all 56 are byte-identical on every deck. v3 carried a 57th,
+     `.lcd:has(.n.msg)`, which brought the LCD back below 400px while it held a
+     message from `lcdMessage()`. That rule was unreachable: `lcdMessage()` had one
+     call site, gated on `!pickVoice() && !hasClips()`, and `hasClips()` was
+     synchronous while every way to detect a clip is asynchronous — so it could only
+     ever return a constant `true`, and no deck added `.msg` to `#lcdn` at any width.
+     v4 of `deck runtime` deletes that whole fallback path; the rule went with it.
+     Anyone re-deriving this should get the same 56; if a cut to a smaller, rounder
      number seems obviously right, it wasn't obvious here and is worth writing down
      why. */
   .transport{
@@ -126,10 +122,6 @@
   /* below this the seven controls need every pixel */
   @media (max-width: 400px){
     .lcd{display:none}
-    /* the counter is hidden to make room, but lcdMessage() adds .msg to #lcdn to show
-       transient text in that same element — a message with nowhere to appear is worse
-       than a hidden counter, so bring it back when it is carrying one. */
-    .lcd:has(.n.msg){display:flex}
     .transport{padding:.45rem .35rem}
     .tbtn{width:40px; height:40px}
     .tside{gap:.1rem}

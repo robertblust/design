@@ -221,13 +221,29 @@ test("an inert transport button does not light up under the pointer", () => {
   assert.match(css, /\.tbtn\[aria-disabled="true"\]:hover\{/);
 });
 
-test("the narrow-screen transport can still show a message", () => {
-  // .lcd is hidden below 400px to make room; lcdMessage() puts transient text in the
-  // same element, so it has to come back when there is something to say.
+test("neither block carries the narration fallback the runtime cannot reach", () => {
+  // v3 had a gate — `!pickVoice() && !hasClips()` — that put a message in the LCD, plus a
+  // `.lcd:has(.n.msg)` rule to reveal that LCD below 400px where the counter is hidden. The
+  // gate was synchronous and every way to detect a clip is asynchronous, so `hasClips()`
+  // could only ever return a constant `true` and the branch never ran. v4 removes the path
+  // from both blocks together; the reactive `clip.onerror` fallback is what actually works.
   const css = blockFor("deck transport", null);
+  const js = blockFor("deck runtime", null, { langKey: "x-lang" });
   const narrow = css.match(/@media \(max-width: ?400px\)\{[\s\S]*?\n  \}/)[0];
   assert.match(narrow, /\.lcd\{display:none\}/);
-  assert.match(narrow, /\.lcd:has\(\.n\.msg\)\{display:flex\}/);
+  // Against the rules only: the header comment still names the removed rule, on purpose.
+  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /\.lcd:has\(/);
+  // Code only, in both blocks: each block's header comment names what was removed and
+  // why, and that prose must not be able to fail this test — nor to satisfy it.
+  const code = js.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  for (const dead of ["hasClips", "clipsSeen", "lcdMessage", "msgTimer", "novoice", "lcdn"]) {
+    assert.doesNotMatch(code, new RegExp(dead), `deck runtime still runs ${dead}`);
+  }
+  // Non-vacuous: stripping comments left the runtime's actual code behind.
+  assert.match(code, /function startNarration\(\)/);
+  // The fallback that stays, and does the job the removed gate could not: a clip that
+  // fails to load hands the line back to the speech synthesiser, per slide, reactively.
+  assert.match(js, /clip\.onerror = function\(\)\{\s*\/\/[^\n]*\n\s*if \(playing\) say\(text, advanceOrStop\);\s*\};/);
 });
 
 // The block's only declared parameter, needed because the nested `language` fence's own
@@ -268,13 +284,15 @@ test("the deck runtime hardcodes no talk's own title", () => {
 });
 
 test("the deck runtime keeps the transport's own labels", () => {
-  // The 28 UI keys that are identical on all four decks describe the transport, not
-  // the talk, and stay in the block. Checked against UI's own text, not the whole file:
+  // The 26 UI keys that are identical on all four decks describe the transport, not
+  // the talk, and stay in the block. (28 before v4, which dropped both `novoice` strings
+  // with the rest of the unreachable narration path.) Checked against UI's own text, not
+  // the whole file:
   // "Back to the start" also appears, coincidentally, in an unrelated comment elsewhere
   // in this block, which let a broken UI.en.first ("Return to start") pass this test's
   // earlier, unscoped form.
   const ui = uiSource(blockFor("deck runtime", null, RUNTIME_PARAMS));
-  for (const s of ["Sprecher-Notiz", "Speaker note", "Back to the start", "No voice"])
+  for (const s of ["Sprecher-Notiz", "Speaker note", "Back to the start", "Auf Englisch"])
     assert.match(ui, new RegExp(s));
 });
 

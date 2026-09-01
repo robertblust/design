@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v3 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v4 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -8,6 +8,19 @@
      differs is four strings: each talk's own title and description, in German and
      English. Everything else about the deck's chrome — every other UI string, every
      control — belongs to this block and is not the page's to change.
+
+     v4 removed a narration fallback that could not run. `startNarration()` opened on
+     `if (!pickVoice() && !hasClips())`, which put "No voice" in the transport's display
+     window and refused to start. That gate is synchronous and every way to learn whether
+     a slide has a recording is asynchronous — a HEAD request, a `loadedmetadata` event,
+     a decode — and under `file://` a request is not available at all. So `hasClips()`
+     had nowhere to get an answer, and two independent versions of this runtime both
+     settled on `return true`: the gate could only ever decide one way, and the branch
+     behind it never ran on any deck. Gone with it: `lcdMessage`, `msgTimer`, `lcdn`,
+     both `novoice` strings, and `deck transport`'s `.lcd:has(.n.msg)` rule, which existed
+     only to reveal that message below 400px. What actually handles a missing recording is
+     `clip.onerror` in `narrateCurrent()` — reactive, per slide, and correct under
+     `file://` too, because it waits for the failure instead of predicting it.
 
      This block has a contract with the page around it that `design:check` cannot see,
      because the check only compares bytes between the markers. The page must declare,
@@ -109,7 +122,7 @@
   var bar = document.getElementById('bar'), cur = document.getElementById('cur');
   var notes = document.getElementById('notes'), ntext = document.getElementById('ntext'), ntime = document.getElementById('ntime');
   var chrome = document.getElementById('chrome');
-  var lcdn = document.getElementById('lcdn'), cliplen = document.getElementById('cliplen');
+  var cliplen = document.getElementById('cliplen');
   var btn = { first:document.getElementById('tFirst'), prev:document.getElementById('tPrev'),
               play:document.getElementById('tPlay'),  next:document.getElementById('tNext'),
               full:document.getElementById('tFull'),  notes:document.getElementById('tNotes') };
@@ -124,12 +137,12 @@
          title:TALK.de.title, desc:TALK.de.desc,
          play:'Vortrag abspielen', pause:'Vortrag pausieren', first:'Zurück zum Anfang',
          prev:'Vorherige Folie', next:'Nächste Folie', full:'Vollbild', unfull:'Vollbild verlassen',
-         notes:'Sprecher-Notizen', de:'Auf Deutsch', en:'Auf Englisch', novoice:'Keine Stimme', up:'Zurück zu allen Vorträgen' },
+         notes:'Sprecher-Notizen', de:'Auf Deutsch', en:'Auf Englisch', up:'Zurück zu allen Vorträgen' },
     en:{ label:'Speaker note', close:'Close notes',
          title:TALK.en.title, desc:TALK.en.desc,
          play:'Play the talk', pause:'Pause the talk', first:'Back to the start',
          prev:'Previous slide', next:'Next slide', full:'Fullscreen', unfull:'Leave fullscreen',
-         notes:'Speaker notes', de:'In German', en:'In English', novoice:'No voice', up:'Back to all talks' }
+         notes:'Speaker notes', de:'In German', en:'In English', up:'Back to all talks' }
   };
 
   function applyLang(){
@@ -307,7 +320,7 @@
   var synth = window.speechSynthesis;
   var clip = new Audio();
   clip.preload = 'auto';
-  var playing = false, utter = null, gapTimer = null, msgTimer = null;
+  var playing = false, utter = null, gapTimer = null;
 
   // audio needs no speech synthesis, so the control stays even where synthesis is missing
 
@@ -316,22 +329,6 @@
     btn.play.setAttribute('aria-label', l);
     btn.play.setAttribute('aria-pressed', playing ? 'true' : 'false');
     btn.play.classList.toggle('on', !!playing);
-  }
-
-  /* The display window is where a player says NO DISC. A refusal that shows up there reads
-     as the machine answering, and needs no second label on the button. */
-  function lcdMessage(text){
-    clearTimeout(msgTimer);
-    lcdn.dataset.keep = lcdn.dataset.keep || lcdn.innerHTML;
-    lcdn.textContent = text;
-    lcdn.classList.add('msg');
-    msgTimer = setTimeout(function(){
-      lcdn.innerHTML = lcdn.dataset.keep;
-      lcdn.classList.remove('msg');
-      delete lcdn.dataset.keep;
-      cur = document.getElementById('cur');
-      render();
-    }, 2600);
   }
 
   // the hairline under the track number: how far into this slide's clip the voice is
@@ -439,10 +436,6 @@
   function startNarration(){
     // synthesis is only the fallback now, so its absence is not a reason to refuse
     if (!synth) { playing = true; labelPlay(); narrateCurrent(); return; }
-    if (!pickVoice() && !hasClips()) {
-      lcdMessage(UI[lang].novoice);
-      return;
-    }
     playing = true;
     labelPlay();
     narrateCurrent();
@@ -462,13 +455,6 @@
     stopVoice();
     labelPlay();
   }
-
-  /* Optimistic, and correct now that this deck has recorded clips: if a clip exists we
-     never need a voice installed, and clip.onerror handles the case where one is missing
-     by falling back to the browser voice. Reporting false here would refuse to play for
-     a viewer with no installed voice even though the recordings would play fine. */
-  var clipsSeen = true;
-  function hasClips(){ return clipsSeen; }
 
   function toggleNarration(){ playing ? stopNarration() : startNarration(); }
 
