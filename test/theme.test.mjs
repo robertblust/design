@@ -318,58 +318,103 @@ test("contrast passes a fully AA palette and fails one where only --c-flag is un
   assert.match(bad, /--c-flag/);
 });
 
-function makeNoFlashProbe({ calls, siteAppliesTheme = true }) {
-  // Fix round 2: the previous fake returned a fixed `early` value no matter what order
-  // `addInitScript` and `goto` were called in, so a reviewer swapping those two calls in the
-  // real check still passed — Playwright's actual contract is that `addInitScript` only
-  // seeds the *next* navigation, so seeding after `goto` has already fired seeds nothing the
-  // page just committed can see. This fake models that: `evaluate` reports the stored theme
-  // only if the seed ran before the navigation. `siteAppliesTheme` is a second, independent
-  // axis — even with a correctly ordered seed, whether the site's own boot script actually
-  // reads it and paints "light" is the site's problem, not Playwright's, and the check has to
-  // catch that too.
-  let seeded = false;
-  let navigated = false;
-  return {
-    async addInitScript(fn, arg) {
-      calls.addInit.push(arg);
-      if (!navigated) seeded = true;
-    },
-    async goto(url, opts) {
-      calls.goto.push({ url, opts });
-      navigated = true;
-    },
-    async evaluate() {
-      if (!seeded) return null;               // seed missed this navigation entirely
-      return siteAppliesTheme ? "light" : "dark";  // seed landed; the site did or didn't use it
-    },
-    async close() { calls.closed = true; },
-  };
+// noFlash no longer drives a browser at all — its whole input is the page's served HTML, so
+// these fakes are documents, not a Playwright page. `wrap` builds one the way a real page
+// carries the fence: a <script> holding the theme-boot marker (with the site's storage key
+// baked in, the way blockFor substitutes {{themeKey}}), positioned and tagged however each
+// case needs, followed by a stylesheet.
+function wrap({ scriptTag = "<script>", beforeStyle = true, includeKey = true } = {}) {
+  const key = includeKey ? "rb-theme" : "rb-something-else";
+  const boot = `${scriptTag}
+    /* ─── theme boot · v1 · shared ───
+       Set the theme before anything paints.
+    */
+    (function(){
+      try {
+        var t = localStorage.getItem("${key}");
+        if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+      } catch (e) {}
+    })();
+    /* ─── end theme boot ─── */
+  </script>`;
+  const style = `<style>body{color:red}</style>`;
+  return `<!doctype html><html><head><title>x</title>${beforeStyle ? boot + style : style + boot}</head><body></body></html>`;
 }
 
-test("noFlash fails when the seed runs after navigation, and when the site ignores it once seeded", async () => {
-  const spec = { absolute: "https://x.test/", noFlash: "rb-theme" };
-  // Both scenarios here seed correctly (addInitScript before goto, which is what the real
-  // check does) — the "seeded after navigation" case is proven separately below, by mutating
-  // the real check to swap the two calls and showing this exact test then fails.
-  const scenarios = [
-    { label: "seeded before navigating, site paints light", siteAppliesTheme: true, shouldPass: true },
-    { label: "seeded before navigating, site stays dark anyway", siteAppliesTheme: false, shouldPass: false },
+async function runNoFlash(html, spec = { absolute: "https://x.test/", noFlash: "rb-theme" }) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ text: async () => html });
+  try {
+    return await pageChecks(THEME_OPTS).noFlash({}, spec);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+test("noFlash asserts document order and script form, not timing", async () => {
+  // Fix round 1 replaced a check that drove a browser and raced Playwright's "commit" event
+  // against the page's own scripts. On a loopback static server the whole document — every
+  // synchronous script included — has already run by the time "commit" fires, so that
+  // version always observed the corrected state, wherever the boot script actually sat: it
+  // passed a page a reviewer had broken by moving the real boot script below <style>. These
+  // cases drive the replacement with fake HTML documents instead — its entire input now —
+  // and each failing one is asserted to return a string, not merely a non-null value, so a
+  // check narrowed to `return "broken"` unconditionally could not hide behind a loose
+  // assertion the way the old, browser-driven version hid behind a race it always won.
+  const cases = [
+    {
+      label: "boot block before <style>, inline script",
+      html: wrap({ beforeStyle: true }),
+      pass: true,
+    },
+    {
+      label: "boot block after <style>",
+      html: wrap({ beforeStyle: false }),
+      pass: false,
+      match: /appears after a stylesheet/,
+    },
+    {
+      label: "boot block before <style> but on a module script",
+      html: wrap({ beforeStyle: true, scriptTag: '<script type="module">' }),
+      pass: false,
+      match: /type="module"/,
+    },
+    {
+      label: "boot block before <style> but on a deferred script",
+      html: wrap({ beforeStyle: true, scriptTag: "<script defer>" }),
+      pass: false,
+      match: /\bdefer\b/,
+    },
+    {
+      label: "boot block before <style> but on an async script",
+      html: wrap({ beforeStyle: true, scriptTag: "<script async>" }),
+      pass: false,
+      match: /\basync\b/,
+    },
+    {
+      label: "no theme-boot fence at all",
+      html: `<!doctype html><html><head><title>x</title><style>body{}</style></head><body></body></html>`,
+      pass: false,
+      match: /no theme-boot fence/,
+    },
+    {
+      label: "boot block present and well formed, but references the wrong key",
+      html: wrap({ beforeStyle: true, includeKey: false }),
+      pass: false,
+      match: /does not reference/,
+    },
   ];
-  for (const { label, siteAppliesTheme, shouldPass } of scenarios) {
-    const calls = { addInit: [], goto: [], closed: false };
-    const probe = makeNoFlashProbe({ calls, siteAppliesTheme });
-    const fakePage = { context: () => ({ browser: () => ({ newPage: async () => probe }) }) };
-    const result = await pageChecks(THEME_OPTS).noFlash(fakePage, spec);
-    if (shouldPass) {
+
+  for (const { label, html, pass, match } of cases) {
+    const result = await runNoFlash(html);
+    if (pass) {
       assert.equal(result, null, `${label}: expected a pass, got ${JSON.stringify(result)}`);
     } else {
+      // The vacuous-suite failure mode this replaces: a test that only checked
+      // `result !== null` would pass for an unconditional `return "broken"`. Requiring a
+      // string, and requiring it name the specific problem, closes both doors at once.
       assert.equal(typeof result, "string", `${label}: expected a failure message, got ${JSON.stringify(result)}`);
+      assert.match(result, match, `${label}: got ${JSON.stringify(result)}`);
     }
-    assert.equal(calls.addInit.length, 1, `${label}: addInitScript was not called exactly once`);
-    assert.equal(calls.goto.length, 1, `${label}: goto was not called exactly once`);
-    assert.equal(calls.goto[0].opts && calls.goto[0].opts.waitUntil, "commit",
-      `${label}: goto must be called with waitUntil: "commit", got ${JSON.stringify(calls.goto[0].opts)}`);
-    assert.ok(calls.closed, `${label}: the probe page was never closed`);
   }
 });

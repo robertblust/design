@@ -291,23 +291,64 @@ export function pageChecks({ SITE, BASE }) {
       });
       return bad.length ? bad.join("; ") : null;
     },
-    // With light stored, the page must already be light at first paint. The boot script runs in
-    // <head> above the stylesheet; if it is ever moved below it, or deferred, or turned into a
-    // module, this is what fails. A visual check would not: by the time a screenshot is taken
-    // the body script has corrected it.
+    // Structural, not temporal. An earlier version of this check drove a browser: seed
+    // localStorage with a theme, navigate, and read data-theme at Playwright's "commit" —
+    // the earliest event Playwright reports, picked so it would land after <head> but before
+    // a deferred or module script had a chance to correct the attribute first. That reasoning
+    // assumes the document is still being parsed when "commit" fires. On a loopback static
+    // server it is not: `python3 -m http.server` (and Playwright's own webServer) hand back
+    // the entire response in one write, so by the time Playwright reports the earliest
+    // navigation event, every synchronous script on the page — <head>, mid-body, end-of-body
+    // — has already run. A reviewer moved the real boot script below the page's <style>
+    // block, ran the real suite the way CI runs it, and every check including this one came
+    // back green: the temporal check was racing a clock that had already finished, so it
+    // always observed the state *after* the mistake, never the mistake itself.
+    //
+    // The guarantee this check exists to prove was never about timing. A browser applies CSS
+    // as it parses, in document order, so "the boot script runs before the stylesheet" is a
+    // fact about byte position in the served HTML — provable by reading the bytes, not by
+    // racing an event loop. Assert that directly and machine speed cannot fake it. Someone
+    // will be tempted to "improve" this back into a browser-driven timing check; that is the
+    // exact shape that shipped green while the page was genuinely broken. Don't.
     async noFlash(page, spec) {
-      const ctx = page.context();
-      const probe = await ctx.browser().newPage();
-      try {
-        await probe.addInitScript((k) => { try { localStorage.setItem(k, "light"); } catch (e) {} }, spec.noFlash);
-        // "commit" is what freezes the read to before any body script runs — the earliest
-        // point Playwright reports a navigation, well before "load" lets a deferred or
-        // module script correct the attribute first.
-        await probe.goto(spec.absolute, { waitUntil: "commit" });
-        const early = await probe.evaluate(() => document.documentElement.getAttribute("data-theme"));
-        if (early !== "light") return `at first paint data-theme was ${JSON.stringify(early)}, not "light"`;
-        return null;
-      } finally { await probe.close(); }
+      const html = await (await fetch(spec.absolute)).text();
+      // The block's own fence marker, package-owned and unable to drift — see
+      // blocks/theme-boot.js and lib/fences.mjs. Anchoring on it rather than on the code
+      // inside means a rewrite of the guard clause cannot dodge this check by rewording.
+      const MARKER = "─── theme boot";
+      const at = html.indexOf(MARKER);
+      if (at === -1) return "no theme-boot fence found in the served HTML";
+
+      // Position: nothing that applies CSS may sit earlier in the document.
+      const styleAt = html.indexOf("<style");
+      const link = /<link\b[^>]*\brel\s*=\s*["']?stylesheet["']?[^>]*>/i.exec(html);
+      const sheetAt = Math.min(styleAt === -1 ? Infinity : styleAt, link ? link.index : Infinity);
+      if (sheetAt !== Infinity && at > sheetAt)
+        return "the theme-boot block appears after a stylesheet — a browser applies CSS as " +
+          "it parses, so the theme must be set before the first <style> or stylesheet <link>";
+
+      // Form: position alone proves nothing if the script carrying the block does not run
+      // synchronously during parsing. A module, a deferred or async script, or one loaded
+      // from src all execute after parsing — the same failure by a different door.
+      const openTag = html.lastIndexOf("<script", at);
+      if (openTag === -1) return "the theme-boot block is not inside a <script> element";
+      const tag = html.slice(openTag, html.indexOf(">", openTag) + 1);
+      const bad = [];
+      if (/type\s*=\s*["']?\s*module/i.test(tag)) bad.push('type="module"');
+      if (/\bdefer\b/i.test(tag)) bad.push("defer");
+      if (/\basync\b/i.test(tag)) bad.push("async");
+      if (/\bsrc\s*=/i.test(tag)) bad.push("src");
+      if (bad.length)
+        return `the theme-boot <script> carries ${bad.join(", ")} — that defers it past ` +
+          "parsing, the same failure as running late";
+
+      // The block should be wired to this site's own storage key, not merely present.
+      const closeTag = html.indexOf("</script>", at);
+      const body = html.slice(openTag, closeTag === -1 ? html.length : closeTag);
+      if (spec.noFlash && !body.includes(spec.noFlash))
+        return `the theme-boot block does not reference ${JSON.stringify(spec.noFlash)}`;
+
+      return null;
     },
     async navOrder(page) {
       const ORDER = ["Ideas", "Principles", "Model", "Example", "Talks", "Billing", "Privacy"];
