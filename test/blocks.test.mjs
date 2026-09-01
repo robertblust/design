@@ -212,12 +212,13 @@ test("the deck fit block describes the canvas that exists, not the one that was 
     "a fixed 16:9 canvas was the bug — it letterboxed a 4:3 screen");
 });
 
-test("a disabled transport button does not light up under the pointer", () => {
-  // :hover sets colour and background, so opacity alone leaves a disabled button
-  // looking clickable. Both halves or neither.
+test("an inert transport button does not light up under the pointer", () => {
+  // :hover sets colour and background, so opacity alone leaves an inert button looking
+  // clickable. Both halves or neither. aria-disabled, not :disabled — the runtime keeps
+  // the control focusable and its own handler returns early instead.
   const css = blockFor("deck transport", null);
-  assert.match(css, /\.tbtn:disabled\{[^}]*opacity/);
-  assert.match(css, /\.tbtn:disabled:hover\{/);
+  assert.match(css, /\.tbtn\[aria-disabled="true"\]\{[^}]*opacity/);
+  assert.match(css, /\.tbtn\[aria-disabled="true"\]:hover\{/);
 });
 
 test("the narrow-screen transport can still show a message", () => {

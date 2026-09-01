@@ -42,13 +42,14 @@ repository is public, so installing it needs no token, no login and no npm accou
 
 ## Fences
 
-Beside the whole files this package copies into a site, three of its blocks live *inside* a
+Beside the whole files this package copies into a site, ten of its blocks live *inside* a
 page: a fence is a pair of comment markers the page already carries — `design tokens`,
-`header contract`, `stage contract` — and the package owns everything between and including
-them, prose, version and CSS alike. That is the whole reason a fence is not just another
-synced file: a synced file is copied whole, but a fenced block sits in the middle of a page
-the tool never fully owns, so the markers are what tell it exactly where its part starts and
-stops.
+`header contract`, `stage contract`, `prose reset`, `language`, `prose footer`, `deck
+transport`, `deck lockup`, `deck fit` and `deck runtime` — and the package owns everything
+between and including them, prose, version and CSS alike. That is the whole reason a fence
+is not just another synced file: a synced file is copied whole, but a fenced block sits in
+the middle of a page the tool never fully owns, so the markers are what tell it exactly
+where its part starts and stops.
 
 Editing a fenced block by hand does nothing that lasts. The next `npm run design` reads the
 markers, finds the package's own version underneath, and overwrites whatever is between them

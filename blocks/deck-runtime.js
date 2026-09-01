@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v2 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v3 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -15,15 +15,23 @@
 
        var TALK = { de:{ title:'…', desc:'…' }, en:{ title:'…', desc:'…' } };
 
-     Rename `TALK` or drop that declaration and the fence still matches byte for byte —
-     every check stays green — while the page throws a ReferenceError on load. The same
-     class of unstated seam had to be corrected once already, in blocks/lang.js.
+     Rename `TALK` or drop that declaration and the fence still matches byte for byte,
+     but the page throws a `ReferenceError` at load — caught by `opensFromFile`, armed on
+     all four decks, which fails on the page's own `pageerror`. The identical sentence in
+     `blocks/lang.js` describes a genuinely silent failure there — a click-time throw on a
+     prose page nothing watches — but a deck is not a prose page, and this is not silent.
+
+     `TALK` is not the whole of this block's contract, only the part a missing declaration
+     makes loud. The block also depends on roughly twenty DOM ids and several data
+     attributes existing on the page around it; `transport` and `opensFromFile` are what
+     actually hold that larger contract, between them, not this comment.
 
      A `language` fence lives inside this one, parameterised exactly as it is anywhere
-     else it appears — its own `LANG_KEY` line reads `{{langKey}}`, a template, not a
-     value. This block declares the same `langKey` parameter for the same reason: the
-     sync tool's pass over this outer fence fills in the site's key here, its separate
-     pass over the nested fence fills in the identical value there, and the two agree.
+     else it appears — its own `LANG_KEY` line is filled from the site's configured key
+     rather than frozen at extraction. This block declares the same `langKey` parameter
+     for the same reason: the sync tool's pass over this outer fence fills in the
+     site's key here, its separate pass over the nested fence fills in the identical
+     value there, and the two agree.
      v1 shipped the nested line already substituted with a real value — whichever site
      this block was extracted from — frozen at the moment of extraction. That value was
      correct for the origin site and wrong for every other one, and it could never
@@ -153,6 +161,11 @@
     render();
   }
 
+  // aria-disabled, read by both render() and the handlers below — see the comment in
+  // render() for why this is not the `disabled` property.
+  function setInert(el, on){ el.setAttribute('aria-disabled', on ? 'true' : 'false'); }
+  function isInert(el){ return el.getAttribute('aria-disabled') === 'true'; }
+
   /* The transport is a real element with a measured height, and two other things have to
      land exactly on top of it: the notes sheet, and the progress bar on mobile. */
   function measureChrome(){
@@ -180,9 +193,18 @@
     /* The ends of the deck, made visible. go() has always clamped, so these controls
        were already no-ops here — this is the state saying so rather than a click that
        does nothing. `first` goes with `prev`: at slide zero it is equally inert, and
-       dimming one while the other stays lit next to it reads as a bug. */
-    btn.prev.disabled = btn.first.disabled = (i === 0);
-    btn.next.disabled = (i === slides.length - 1);
+       dimming one while the other stays lit next to it reads as a bug.
+
+       `aria-disabled`, not `disabled`: a real `disabled` removes the control from the
+       tab order the instant it takes effect, and it can take effect while the control
+       holds focus — the user's own Enter, at slide zero, disables `tPrev` under itself
+       and the browser drops focus to <body>. `aria-disabled` keeps the same look (see
+       `deck transport`'s `.tbtn[aria-disabled="true"]`) and the same announced state
+       without moving focus anywhere; the click and keydown handlers below check it and
+       return early, so the control still does nothing while it is inert. */
+    setInert(btn.prev, i === 0);
+    setInert(btn.first, i === 0);
+    setInert(btn.next, i === slides.length - 1);
     fitNotes();
   }
   window.addEventListener('resize', function(){ measureChrome(); fitNotes(); });
@@ -229,9 +251,12 @@
 
   function setLang(next){ if (next === lang) return; lang = next; langRemember(next); applyLang(); }
 
-  btn.first.addEventListener('click', restart);
-  btn.prev .addEventListener('click', function(){ manual(i-1); });
-  btn.next .addEventListener('click', function(){ manual(i+1); });
+  // Each guard reads the control's own aria-disabled rather than the i===0 / last-slide
+  // condition directly: the control's state, set once in render(), is the single source
+  // both the click and the paint read, rather than two places computing the same thing.
+  btn.first.addEventListener('click', function(){ if (isInert(btn.first)) return; restart(); });
+  btn.prev .addEventListener('click', function(){ if (isInert(btn.prev))  return; manual(i-1); });
+  btn.next .addEventListener('click', function(){ if (isInert(btn.next))  return; manual(i+1); });
   btn.play .addEventListener('click', function(){ toggleNarration(); });
   btn.full .addEventListener('click', toggleFull);
   btn.notes.addEventListener('click', function(){ setNotes(!notesOpen); });
