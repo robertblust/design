@@ -12,6 +12,10 @@ import { httpStatus } from "./http.mjs";
 // keeps the same source of truth rather than inventing a sixth name to thread through the
 // factory for a value that never varies per site.
 import { FAMILY } from "../lib/family.mjs";
+// Reused rather than reinvented: this is the exact fence-open/close grammar the package's
+// own sync tool locates every block by, so a JSON-LD description that merely mentions "theme
+// boot" in prose cannot be mistaken for the genuine, package-owned comment. See noFlash.
+import { findFence } from "../lib/rewrite.mjs";
 
 export function pageChecks({ SITE, BASE }) {
   if (!SITE) throw new Error("pageChecks needs SITE, the site's canonical origin");
@@ -312,12 +316,33 @@ export function pageChecks({ SITE, BASE }) {
     // exact shape that shipped green while the page was genuinely broken. Don't.
     async noFlash(page, spec) {
       const html = await (await fetch(spec.absolute)).text();
-      // The block's own fence marker, package-owned and unable to drift — see
-      // blocks/theme-boot.js and lib/fences.mjs. Anchoring on it rather than on the code
-      // inside means a rewrite of the guard clause cannot dodge this check by rewording.
-      const MARKER = "─── theme boot";
-      const at = html.indexOf(MARKER);
-      if (at === -1) return "no theme-boot fence found in the served HTML";
+      // Located the same way the package's own sync tool locates every fence — a
+      // line-anchored comment matching the fence's exact "name · vN · variant" syntax —
+      // rather than a bare substring search. Fix round 2: `html.indexOf("─── theme boot")`
+      // returns the *first* raw-byte occurrence in the document, and a page's own prose (a
+      // JSON-LD description, a <meta> tag) can mention the mechanism this literally — these
+      // repositories now carry a growing body of text that does. A decoy occurrence earlier
+      // in <head> made the old check walk backward to whatever <script> happened to precede
+      // it (on every one of these pages, that is the JSON-LD block near the top) and judge
+      // *that* element's position and form while the real, broken boot script sat further
+      // down and unexamined. findFence's per-line pattern requires the exact three-part
+      // comment — a JSON-LD string or a <meta> attribute cannot satisfy it by accident — so
+      // it finds the one place in the document that is actually the fence, however much
+      // prose about the mechanism surrounds it.
+      let fence;
+      try { fence = findFence(html, "theme boot"); }
+      catch (e) { return `theme-boot fence: ${e.message}`; }
+      if (!fence) return "no theme-boot fence found in the served HTML";
+
+      // The character offset of the fence's own opening line — needed to find both what
+      // precedes it (for position) and what encloses it (for form). Recomputed from the same
+      // line split findFence uses internally, since findFence reports line indices, not byte
+      // offsets, and reading its match position back out is simpler than exporting more of
+      // its internals for a single caller.
+      const eol = html.includes("\r\n") ? "\r\n" : "\n";
+      const lines = html.split(eol);
+      let at = 0;
+      for (let i = 0; i < fence.start; i++) at += lines[i].length + eol.length;
 
       // Position: nothing that applies CSS may sit earlier in the document.
       const styleAt = html.indexOf("<style");
@@ -329,7 +354,10 @@ export function pageChecks({ SITE, BASE }) {
 
       // Form: position alone proves nothing if the script carrying the block does not run
       // synchronously during parsing. A module, a deferred or async script, or one loaded
-      // from src all execute after parsing — the same failure by a different door.
+      // from src all execute after parsing — the same failure by a different door. The
+      // enclosing <script> is found by walking back from the fence's own confirmed position,
+      // not from a bare substring match, so this can only land on the element that actually
+      // carries the boot code.
       const openTag = html.lastIndexOf("<script", at);
       if (openTag === -1) return "the theme-boot block is not inside a <script> element";
       const tag = html.slice(openTag, html.indexOf(">", openTag) + 1);
@@ -342,10 +370,10 @@ export function pageChecks({ SITE, BASE }) {
         return `the theme-boot <script> carries ${bad.join(", ")} — that defers it past ` +
           "parsing, the same failure as running late";
 
-      // The block should be wired to this site's own storage key, not merely present.
-      const closeTag = html.indexOf("</script>", at);
-      const body = html.slice(openTag, closeTag === -1 ? html.length : closeTag);
-      if (spec.noFlash && !body.includes(spec.noFlash))
+      // The block should be wired to this site's own storage key, not merely present. Read
+      // from the fence's own body, which findFence already scoped to exactly the confirmed
+      // fence — not from the enclosing script, which could carry other content around it.
+      if (spec.noFlash && !fence.body.includes(spec.noFlash))
         return `the theme-boot block does not reference ${JSON.stringify(spec.noFlash)}`;
 
       return null;

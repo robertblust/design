@@ -351,6 +351,61 @@ async function runNoFlash(html, spec = { absolute: "https://x.test/", noFlash: "
   }
 }
 
+// Fix round 2: a decoy occurrence of the marker text earlier in <head> — the kind of thing a
+// JSON-LD description or a <meta> tag could carry once these repositories started describing
+// the mechanism in prose — used to make the old substring search (`html.indexOf(MARKER)`)
+// find that decoy first and walk backward to the <script> carrying *it*, not the real boot
+// script. `realAfterStyle`/`realDefer` break the genuine fence exactly the way fix round 1's
+// suite already proves the check must catch; the decoy is what round 1 could not see coming.
+function decoyThenReal({ realAfterStyle = false, realDefer = false } = {}) {
+  const decoy = '<script type="application/ld+json">{"@type":"WebPage","description":' +
+    '"See the ─── theme boot fence and the rb-theme storage key for how this ' +
+    'page avoids a flash of the wrong theme."}</script>';
+  const real = `<script${realDefer ? " defer" : ""}>
+    /* ─── theme boot · v1 · shared ───
+       Set the theme before anything paints.
+    */
+    (function(){
+      try {
+        var t = localStorage.getItem("rb-theme");
+        if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+      } catch (e) {}
+    })();
+    /* ─── end theme boot ─── */
+  </script>`;
+  const style = `<style>body{color:red}</style>`;
+  const body = realAfterStyle ? decoy + style + real : decoy + real + style;
+  return `<!doctype html><html><head><title>x</title>${body}</head><body></body></html>`;
+}
+
+test("noFlash is not fooled by a decoy marker occurrence earlier in <head>", async () => {
+  // Both scenarios here would return `null` — a false pass — against the substring-search
+  // implementation fix round 1 shipped: the decoy sits inside a <script type="application/
+  // ld+json"> with none of the disqualifying attributes, positioned before <style>, and its
+  // own text happens to include the storage key too (exactly what a page's own prose might
+  // do once it starts describing this mechanism by name). The genuine fence's real defect —
+  // misplaced or deferred — sat unexamined behind it. findFence's line-anchored grammar
+  // cannot be satisfied by a JSON string on one line, so it must still find and judge the
+  // one true fence, wherever the decoy sits.
+  const cases = [
+    {
+      label: "decoy before a genuinely misplaced boot script (after <style>)",
+      html: decoyThenReal({ realAfterStyle: true }),
+      match: /appears after a stylesheet/,
+    },
+    {
+      label: "decoy before a genuinely deferred boot script",
+      html: decoyThenReal({ realDefer: true }),
+      match: /\bdefer\b/,
+    },
+  ];
+  for (const { label, html, match } of cases) {
+    const result = await runNoFlash(html);
+    assert.equal(typeof result, "string", `${label}: expected a failure message, got ${JSON.stringify(result)}`);
+    assert.match(result, match, `${label}: got ${JSON.stringify(result)}`);
+  }
+});
+
 test("noFlash asserts document order and script form, not timing", async () => {
   // Fix round 1 replaced a check that drove a browser and raced Playwright's "commit" event
   // against the page's own scripts. On a loopback static server the whole document — every
