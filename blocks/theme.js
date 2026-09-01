@@ -1,4 +1,4 @@
-  /* ─── theme · v2 · shared ────────────────────────────────────────────
+  /* ─── theme · v3 · {{variant}} ───────────────────────────────────────
      One theme across three domains, and where it is remembered. Generated from
      @robertblust/design — editing it here does nothing.
 

@@ -1,4 +1,4 @@
-  /* ─── deck transport · v5 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v6 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -93,6 +93,13 @@
   .seg button:hover{color:var(--ink)}
   .seg button[aria-pressed="true"]{color:var(--c-mid); background:var(--press); font-weight:600}
   .seg button:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
+
+  /* The theme control rides in the transport beside the language one, so it takes the
+     transport's touch sizing rather than the header's — the same 44px minimum the seg buttons
+     already meet at the mobile breakpoints. */
+  .seg.theme button{display:grid; place-items:center; padding:.26rem .42rem}
+  .seg.theme svg{width:13px; height:13px; display:block; fill:none; stroke:currentColor;
+                 stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
 
   @media (prefers-reduced-motion: reduce){
     .tbtn, .seg button, .lcd .clip i{transition:none}

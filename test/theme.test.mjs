@@ -115,7 +115,7 @@ test("neither theme block hardcodes a site's storage key", () => {
   // the sync tool corrected the visible bytes forever while the block re-emitted the frozen
   // value. The parameter is what makes both passes agree.
   for (const f of ["theme boot", "theme"]) {
-    const js = blockFor(f, null, TP);
+    const js = blockFor(f, "page", TP);
     assert.match(js, /x-theme/, `${f} did not substitute themeKey`);
     assert.doesNotMatch(js, /rb-theme|cg-theme|gg-theme/, `${f} carries a real site's key`);
   }
@@ -124,7 +124,7 @@ test("neither theme block hardcodes a site's storage key", () => {
 test("the boot block reads the URL as well as storage", () => {
   // A visitor arriving from a sibling domain with ?theme=light must paint light on the first
   // frame. Reading only localStorage would give them one frame of dark on every crossing.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   assert.match(js, /location\.search/);
   assert.match(js, /localStorage\.getItem/);
 });
@@ -134,7 +134,7 @@ test("the boot block lets the URL win over storage, not the other way round", ()
   // carrying ?theme=light must paint light — the URL is the more recent, more specific choice.
   // `stored || (m && m[1])` would let the older, unrelated-site value win instead; this pins
   // the ternary so storage is only ever the fallback when the URL carries nothing.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   assert.match(js, /var t = m \? m\[1\] : localStorage\.getItem\(/,
     "the URL match must be read before storage, as the ternary's condition, not merely present");
 });
@@ -149,7 +149,7 @@ test("the boot block never reads prefers-color-scheme", () => {
   // assertion over raw text otherwise conflates code and prose. The block's own doc comment is
   // allowed, and needs, to name `prefers-color-scheme`: saying what the code deliberately does
   // not do is the whole value of that sentence. Only the code is forbidden from reading it.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   const code = js.replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(code, /prefers-color-scheme|matchMedia/);
 });
@@ -160,7 +160,7 @@ test("the boot block is guarded, because file:// throws", () => {
   // guard — `localStorage.getItem` moved outside any try and a decoy `try{void 0}catch(e){}` left
   // behind passes that check while throwing synchronously in the only <head> script on the page.
   // So the read itself has to be found inside the try it is claimed to be guarded by.
-  const js = blockFor("theme boot", null, TP);
+  const js = blockFor("theme boot", "page", TP);
   const m = /try\s*\{([\s\S]*?)\}\s*catch/.exec(js);
   assert.ok(m, "no try/catch found");
   assert.match(m[1], /localStorage\.getItem/,
@@ -168,7 +168,7 @@ test("the boot block is guarded, because file:// throws", () => {
 });
 
 test("theme carries the param to family domains only", () => {
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.match(js, /THEME_FAMILY\s*=\s*\/\^\(www\\\.\)\?\(blust\\\.ch\|companygraph\\\.io\|guestgraph\\\.io\)\$\//);
   assert.match(js, /u\.origin === location\.origin \|\| !THEME_FAMILY\.test\(u\.hostname\)/);
 });
@@ -180,14 +180,14 @@ test("the theme block carries FAMILY's source text, so page and check agree", ()
   // in blocks/theme.js is a second literal copy, and this is what pins that one the same way —
   // add a domain to lib/family.mjs and this test is what fails instead of theme.js silently
   // going on carrying the theme to only three of the four.
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.ok(js.includes(FAMILY.source),
     "theme.js's inline THEME_FAMILY regex has drifted from lib/family.mjs");
 });
 
 test("theme decorates on mousedown as well as click", () => {
   // A middle-click or cmd-click opens a new tab without ever firing click.
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.match(js, /addEventListener\("mousedown", carryTheme, true\)/);
   assert.match(js, /addEventListener\("click", carryTheme, true\)/);
 });
@@ -199,7 +199,7 @@ test("theme decorates on mousedown as well as click", () => {
 // normally injected into — the same reasoning `test/verify-pages.test.mjs`'s fix-round-1 suite
 // gives for running check bodies against a fake `page` rather than grepping them.
 function runThemeBlock() {
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   const store = {};
   const localStorage = {
     getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
@@ -238,14 +238,16 @@ test("carryTheme decorates a family link only when a theme is actually stored", 
 });
 
 test("theme cleans the address bar after adopting a param", () => {
-  const js = blockFor("theme", null, TP);
+  const js = blockFor("theme", "page", TP);
   assert.match(js, /history\.replaceState/);
 });
 
-test("both theme fences declare themeKey and no variants", () => {
+test("both theme fences declare themeKey", () => {
+  // Used to also assert `variants` was null. The deck variant added below is what made that
+  // false; this test now only owns the one claim still true, and the variants claim has its
+  // own test.
   for (const f of ["theme boot", "theme"]) {
     assert.deepEqual(FENCES[f].params, ["themeKey"]);
-    assert.equal(FENCES[f].variants, null);
   }
 });
 
@@ -841,4 +843,75 @@ test("the deck tokens do not leak a light value into --lcd's neighbours by accid
   const d = palette(css, ":root"), l = palette(css, ':root\\[data-theme="light"\\]');
   assert.ok(lum(d["deck-paper"]) > lum(d["deck-well"]), "dark: --deck-paper is not the lighter of the pair");
   assert.ok(lum(l["deck-well"]) > lum(l["deck-paper"]), "light: --deck-well is not the lighter of the pair");
+});
+
+// Task 3: the decks carry the theme machinery too, so both theme fences need a "deck" variant
+// beside the prose "page" one, the same shape "language" already has.
+
+test("both theme fences offer a deck variant", () => {
+  for (const f of ["theme boot", "theme"]) {
+    assert.deepEqual(FENCES[f].variants, ["page", "deck"]);
+    assert.doesNotThrow(() => blockFor(f, "deck", { themeKey: "x-theme" }));
+  }
+});
+
+test("each theme fence's marker actually records which variant it is", () => {
+  // The substitution this depends on: the marker's third segment used to be the literal word
+  // "shared", typed directly into blocks/theme-boot.js and blocks/theme.js rather than the
+  // {{variant}} slot every other variant-bearing fence uses. Declaring `variants` on a fence
+  // whose source never substitutes the slot would keep emitting "shared" for both "page" and
+  // "deck" — a marker that no longer records which surface the block is on, and a word that
+  // `lib/sync.mjs`'s planFences would then reject on read-back, since "shared" is not one of
+  // the fence's own declared variants. Asserting the literal word on the opening line is what
+  // proves the slot is actually there, not merely that blockFor ran without throwing.
+  for (const f of ["theme boot", "theme"]) {
+    for (const v of ["page", "deck"]) {
+      const first = blockFor(f, v, { themeKey: "x-theme" }).split("\n")[0];
+      assert.match(first, new RegExp(`· ${v} `), `${f}'s "${v}" marker does not say "${v}"`);
+    }
+  }
+});
+
+test("the theme fences' two variants differ only in the marker word, like language's do", () => {
+  // Neither theme-boot.js nor theme.js has any content besides the marker line that could
+  // depend on which surface the block sits on — no `closes`, no `parts` — so the honest
+  // outcome, and the one that matches how "language" actually behaves, is that "page" and
+  // "deck" differ by exactly one line: the marker itself. Manufacturing a second difference
+  // here (e.g. indentation) would not reflect anything true about these two files.
+  for (const f of ["theme boot", "theme"]) {
+    const page = blockFor(f, "page", { themeKey: "x-theme" }).split("\n");
+    const deck = blockFor(f, "deck", { themeKey: "x-theme" }).split("\n");
+    assert.equal(page.length, deck.length, `${f}: variants must be the same length`);
+    let diffs = 0;
+    for (let i = 0; i < page.length; i++) if (page[i] !== deck[i]) diffs++;
+    assert.equal(diffs, 1, `${f}: expected exactly one differing line (the marker), got ${diffs}`);
+    assert.notEqual(page[0], deck[0], `${f}: the differing line must be the marker line`);
+  }
+});
+
+test("the deck's theme control is styled where it lives", () => {
+  // In the transport, not a header — the deck has no header. If these rules ever move to the
+  // header block the control loses its sizing on every deck at once.
+  const css = blockFor("deck transport", null);
+  assert.match(css, /\.seg\.theme button\{/);
+  assert.match(css, /\.seg\.theme svg\{/);
+});
+
+test("the theme control's rules sit outside .lcd, not inside it", () => {
+  // deck-transport v5 made every colour inside .lcd invariant across themes, because the
+  // readout stays dark in both. `.seg.theme` is the slab-side control, not the readout, and
+  // must not become a second way to smuggle a themed rule under `.lcd` — see the "nothing
+  // that flips with the theme is painted inside .lcd" test above for the mechanism that
+  // actually catches a themed var() leaking into an .lcd-targeting rule; this test instead
+  // pins the structural fact that the new selectors are never descendants of `.lcd` at all
+  // (`.lcd .seg.theme button` rather than the top-level `.seg.theme button` the brief calls
+  // for). It reuses the same brace-aware leafBlocks()/targetsLcd() the check above is built
+  // from, rather than a bespoke regex over a single hand-picked rule, so it keeps working
+  // regardless of where in the file the two rules end up.
+  const css = blockFor("deck transport", null).replace(/\/\*[\s\S]*?\*\//g, "");
+  const segThemeBlocks = leafBlocks(css).filter((b) => b.selector.includes(".seg.theme"));
+  assert.ok(segThemeBlocks.length >= 2,
+    `expected to find the .seg.theme rules, found ${segThemeBlocks.length}`);
+  for (const b of segThemeBlocks)
+    assert.ok(!targetsLcd(b.selector), `"${b.selector}" must not target .lcd`);
 });
