@@ -1,4 +1,4 @@
-  /* ─── design tokens · v4 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v5 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -21,10 +21,26 @@
      hue would have made colour mean two things at once. If it is ever wanted,
      this is the one line that changes.
   */
+  /* The same eleven names, re-picked. The ramp's axis flips: on dark, brightness is
+     confidence; on light, depth is — the candidate pales, the resolved thing deepens.
+     Reusing the dark stops here was measured and refused: --c-mid paints every link and
+     falls to 2.45:1 on this ground, --c-firm to 1.49:1. These clear AA on every text stop
+     (ink 16.86, dim 6.04, mid 5.09, firm 10.28, flag 5.61).
+
+     --c-weak is 2.37:1 and that is deliberate, exactly as its 2.64:1 on dark is: its job is
+     "a candidate, considered but not accepted", and darkening it until it clears the 3:1 UI
+     threshold stops it reading as tentative. It must never carry text, a border or an
+     outline on its own, in either theme. */
+  :root[data-theme="light"]{
+    --ground:#FAF9F5; --raise:#F2F0EA; --rule:#DFDCD3;
+    --ink:#16181D;    --dim:#5F6058;
+    --c-weak:#8FA6C2; --c-mid:#3A6DA6; --c-firm:#1C3E68; --c-flag:#8A5A12;
+    --c-path:#1C3E68; --press:#E2E8F2;
+  }
   :root{
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;
     --sky:radial-gradient(120% 60% at 50% -10%, var(--raise) 0%, var(--ground) 60%);
     --ink:#EFEDE8;    --dim:#8A8B86;
     --c-weak:#3E5878; --c-mid:#7FA3D8; --c-firm:#B8D0FF; --c-flag:#D9A44F;
-    --c-path:#B8D0FF;
+    --c-path:#B8D0FF; --press:#1b2231;
   /* ─── end design tokens ─────────────────────────────────────────────── */

@@ -240,12 +240,14 @@ export function pageChecks({ SITE, BASE }) {
       });
       await page.goto(spec.absolute, { waitUntil: "networkidle" });
       // The write paths this suite knows about, each present-or-skip: prose pages carry the
-      // language control as #lde/#len, a deck carries the same control as #langDe/#langEn, and
-      // the model page's divider is #gutter. A page matching none of these has nothing here to
-      // exercise its storage — the zero-writes check below is what actually catches that, so
-      // this list is free to be incomplete without the gap going silent again.
+      // language control as #lde/#len, a deck carries the same control as #langDe/#langEn, the
+      // theme control is #thLight/#thDark on either, and the model page's divider is #gutter.
+      // A page matching none of these has nothing here to exercise its storage — the
+      // zero-writes check below is what actually catches that, so this list is free to be
+      // incomplete without the gap going silent again.
       if (await page.$("#lde")) { await page.click("#lde"); await page.click("#len"); }
       if (await page.$("#langDe")) { await page.click("#langDe"); await page.click("#langEn"); }
+      if (await page.$("#thLight")) { await page.click("#thLight"); await page.click("#thDark"); }
       if (await page.$("#gutter")) { await page.focus("#gutter"); await page.keyboard.press("ArrowLeft"); }
       const written = await page.evaluate(() => [...new Set(window.__keys)]);
       // Leave the page as the rest of the suite expects it, storage included.
@@ -258,12 +260,54 @@ export function pageChecks({ SITE, BASE }) {
       // rb-lang/cg-lang/gg-lang on its language control, so zero observed writes means the
       // control above was not found or not exercised — not that the page has nothing to declare.
       if (!written.length)
-        return "no write path was exercised — none of #lde/#len, #langDe/#langEn or #gutter " +
-               "produced a write on this page; add its control to the list above";
+        return "no write path was exercised — none of #lde/#len, #langDe/#langEn, " +
+               "#thLight/#thDark or #gutter produced a write on this page; add its control to the list above";
       const undeclared = written.filter((k) => !declared.includes(k));
       return undeclared.length
         ? `writes ${undeclared.join(", ")}, which /privacy/ does not name`
         : null;
+    },
+    // Every text token has to clear AA against the ground of the theme it belongs to. Read from
+    // the live page rather than the package source, because what ships is what the page carries:
+    // a stale generated copy is exactly the case worth catching.
+    async contrast(page) {
+      const bad = await page.evaluate(() => {
+        const hex = (h) => { h = h.trim().replace("#", ""); if (h.length === 3) h = [...h].map((c) => c + c).join(""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255); };
+        const lum = (h) => { const [r, g, b] = hex(h).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+        const out = [];
+        for (const theme of ["dark", "light"]) {
+          if (theme === "light") document.documentElement.setAttribute("data-theme", "light");
+          else document.documentElement.removeAttribute("data-theme");
+          const cs = getComputedStyle(document.documentElement);
+          const g = cs.getPropertyValue("--ground");
+          for (const t of ["--ink", "--dim", "--c-mid", "--c-firm", "--c-flag"]) {
+            const r = ratio(cs.getPropertyValue(t), g);
+            if (r < 4.5) out.push(`${theme}: ${t} is ${r.toFixed(2)}:1 on --ground`);
+          }
+        }
+        document.documentElement.removeAttribute("data-theme");
+        return out;
+      });
+      return bad.length ? bad.join("; ") : null;
+    },
+    // With light stored, the page must already be light at first paint. The boot script runs in
+    // <head> above the stylesheet; if it is ever moved below it, or deferred, or turned into a
+    // module, this is what fails. A visual check would not: by the time a screenshot is taken
+    // the body script has corrected it.
+    async noFlash(page, spec) {
+      const ctx = page.context();
+      const probe = await ctx.browser().newPage();
+      try {
+        await probe.addInitScript((k) => { try { localStorage.setItem(k, "light"); } catch (e) {} }, spec.noFlash);
+        // "commit" is what freezes the read to before any body script runs — the earliest
+        // point Playwright reports a navigation, well before "load" lets a deferred or
+        // module script correct the attribute first.
+        await probe.goto(spec.absolute, { waitUntil: "commit" });
+        const early = await probe.evaluate(() => document.documentElement.getAttribute("data-theme"));
+        if (early !== "light") return `at first paint data-theme was ${JSON.stringify(early)}, not "light"`;
+        return null;
+      } finally { await probe.close(); }
     },
     async navOrder(page) {
       const ORDER = ["Ideas", "Principles", "Model", "Example", "Talks", "Billing", "Privacy"];
