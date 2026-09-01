@@ -625,6 +625,54 @@ test("the deck's progress fill clears the 3:1 UI-component threshold against its
   }
 });
 
+test("nothing that flips with the theme is painted inside .lcd", () => {
+  // The general form of the four rules Context item 1 named, so a future addition under .lcd
+  // is held to the same rule rather than needing its own memorised exception. "Painted" is
+  // this codebase's own word for the `color` property specifically — the plan's own text says
+  // "the digits inside it are painted with var(--c-mid)". .lcd's own box-shadow and the
+  // progress clip's `background` render the physical vessel and its indicator, not text
+  // printed on the display face, and are out of scope for this rule; the readout's own
+  // background is --lcd, already invariant, so excluding `background` here costs nothing.
+  //
+  // "Which tokens flip" is derived from tokens.css itself, not a hardcoded list: a token whose
+  // light and dark values are equal is invariant, by construction. If a future palette change
+  // makes --lcd-ink theme-dependent, this starts failing on that alone — the same mistake
+  // wearing a new name, caught without editing this test.
+  const tokenCss = deckCss();
+  const dark = palette(tokenCss, ":root");
+  const light = palette(tokenCss, ':root\\[data-theme="light"\\]');
+  const invariant = new Set(Object.keys(dark).filter((t) => dark[t] === light[t]));
+
+  const css = blockFor("deck transport", null).replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)];
+  const painted = [];
+  for (const [, selector, body] of rules) {
+    const clauses = selector.split(",").map((s) => s.trim());
+    if (!clauses.some((c) => c === ".lcd" || c.startsWith(".lcd "))) continue;
+    for (const decl of body.split(";")) {
+      const m = decl.trim().match(/^color:\s*var\(--([a-z-]+)\)/);
+      if (m) painted.push({ selector: selector.trim().replace(/\s+/g, " "), token: m[1] });
+    }
+  }
+
+  for (const { selector, token } of painted)
+    assert.ok(invariant.has(token),
+      `${selector} paints --${token}, which differs between themes; only an invariant ` +
+      `token may colour the readout`);
+
+  // The positive half: a rule that loses its `color:` declaration entirely passes the loop
+  // above vacuously (nothing left to check), so the three known rules and their expected
+  // tokens are asserted directly too.
+  const expected = [
+    [".lcd .n", "lcd-ink"],
+    [".lcd .n .sep, .lcd .n #tot", "lcd-faint"],
+    [".lcd .n.msg", "lcd-flag"],
+  ];
+  for (const [selector, token] of expected)
+    assert.ok(painted.some((p) => p.selector === selector && p.token === token),
+      `expected ${selector} to paint --${token}`);
+});
+
 test("the deck tokens do not leak a light value into --lcd's neighbours by accident", () => {
   // --deck-paper and --deck-well swap roles between themes. If someone copies the dark block
   // into the light one wholesale, this catches it: on light, the well must be lighter than the
