@@ -1,9 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { DESIGN_CHECKS, SYSTEM_FACES, TOKENS, TOKEN_VERSION } from "../verify/design.mjs";
-import { httpStatus } from "../verify/http.mjs";
+import { DESIGN_CHECKS, SYSTEM_FACES, TOKENS, TOKEN_VERSION } from "@robertblust/design/verify/design";
+import { httpStatus } from "@robertblust/design/verify/http";
 import { FENCES } from "../lib/fences.mjs";
+
+// design.mjs and http.mjs are imported here through the package's own `exports` map
+// (Node's self-reference resolution, since this package's own package.json declares
+// both entries) rather than by relative path. The deliverable of this file's suite is
+// that export map: a typo in it, or a dropped entry, must fail these tests exactly the
+// way it would fail a site that consumes the package. `../lib/fences.mjs` stays
+// relative — that boundary is genuinely internal to the package, never crossed by a site.
 
 test("the design checks arrive as callables, not as a shape that merely looks right", () => {
   // A `{}` default export would satisfy "is an object" and silently check nothing on every
@@ -32,11 +38,36 @@ test("SYSTEM_FACES is a Set, so `.has` means what the checks think it means", ()
   assert.ok(SYSTEM_FACES.size > 0);
 });
 
-test("httpStatus reads the body it does not want", () => {
-  // The whole point of the helper. If someone simplifies it back to returning r.status without
-  // consuming the body, Node 22 crashes intermittently in CI and this test is the warning.
-  const src = readFileSync(new URL("../verify/http.mjs", import.meta.url), "utf8");
-  assert.match(src, /arrayBuffer\(\)|\.text\(\)|\.body/,
-    "httpStatus does not consume the response body");
-  assert.equal(typeof httpStatus, "function");
+test("httpStatus drains the response body it does not want", async () => {
+  // A source-text match here would pass on `const b = res.body; return res.status;` — that
+  // gets the string ".body" into the file while never reading or cancelling the stream,
+  // which is exactly the shape that crashes Node 22's bundled undici about half the time in
+  // CI. Instrumenting the stream's own `pull`/`cancel` hooks turned out to be just as
+  // foolable: a `ReadableStream` calls `pull` to fill its queue the moment it is
+  // constructed, before anything ever reads from it, so that signal fires even when
+  // `httpStatus` touches nothing. What the Fetch spec actually tracks for "was this body
+  // read or cancelled" is `Response.prototype.bodyUsed` — false until a reader is acquired
+  // or `.cancel()` is called, true after `.text()`, `.arrayBuffer()` or `.body.cancel()`
+  // settle. That is the one signal here, checked on the exact Response instance `httpStatus`
+  // was handed.
+  const realFetch = globalThis.fetch;
+  let captured;
+  globalThis.fetch = async () => {
+    const body = new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+        controller.close();
+      },
+    });
+    captured = new Response(body, { status: 200 });
+    return captured;
+  };
+  try {
+    const status = await httpStatus("http://example.invalid/probe");
+    assert.equal(status, 200, "httpStatus did not return the response status");
+    assert.ok(captured.bodyUsed,
+      "httpStatus returned without the response body ever being read or cancelled (bodyUsed is false)");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
