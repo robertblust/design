@@ -21,17 +21,17 @@ test("every module under cards/ is published", () => {
 
 // Task 1 wires all four cards/* specifiers into `exports` at once (Step 5) — `exports` is an
 // allowlist, so a specifier missing from it is unreachable regardless of when its file lands, and
-// waiting to add each one per task would leave that hole open between tasks for no reason. Only
-// cards/recipe.mjs exists yet; the other three are entries pointing ahead at modules Tasks 2-4
-// create.
+// waiting to add each one per task would leave that hole open between tasks for no reason. Each
+// task then lands one of the four, so an entry points ahead at a module that does not exist yet
+// until its own task creates it.
 //
-// PENDING exists to let those three be exempt from "does the file exist" — never from "is the
+// PENDING exists to let such an entry be exempt from "does the file exist" — never from "is the
 // path spelled right". `"./cards/check": "./cards/chekc.mjs"` is a real typo a PENDING skip must
 // not hide just because its file doesn't exist yet: nothing would ever catch it, not even Task 4
 // landing, since a typo?'d target is never the file that task creates. The convention test below
 // closes that regardless of PENDING membership; the existence test stays PENDING-aware because a
 // forward-looking entry's file genuinely isn't there yet.
-const PENDING = new Set(["./cards/export", "./cards/recipe-tests"]);
+const PENDING = new Set(["./cards/recipe-tests"]);
 
 test("every cards/ exports entry is spelled ./cards/<name>.mjs, pending or not", () => {
   for (const [specifier, target] of Object.entries(pkg.exports)) {
