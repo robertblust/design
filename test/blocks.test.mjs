@@ -229,7 +229,7 @@ test("neither block carries the narration fallback the runtime cannot reach", ()
   // from both blocks together; the reactive `clip.onerror` fallback is what actually works.
   const css = blockFor("deck transport", null);
   const js = blockFor("deck runtime", null, { langKey: "x-lang" });
-  const narrow = css.match(/@media \(max-width: ?400px\)\{[\s\S]*?\n  \}/)[0];
+  const narrow = css.match(/@media \(max-width: ?430px\)\{[\s\S]*?\n  \}/)[0];
   assert.match(narrow, /\.lcd\{display:none\}/);
   // Against the rules only: the header comment still names the removed rule, on purpose.
   assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /\.lcd:has\(/);

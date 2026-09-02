@@ -1,4 +1,4 @@
-  /* ─── deck transport · v6 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v7 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -25,7 +25,23 @@
      v4 of `deck runtime` deletes that whole fallback path; the rule went with it.
      Anyone re-deriving this should get the same 56; if a cut to a smaller, rounder
      number seems obviously right, it wasn't obvious here and is worth writing down
-     why. */
+     why.
+
+     v7 re-tunes the three breakpoints below for the theme control's two extra
+     buttons. Nothing in that count changed since v6, but the pixel budget every
+     breakpoint was cut against did: `.seg.theme` (`#thLight`/`#thDark`) landed
+     beside the language `.seg` and nobody re-measured. Before v7 the bar's natural
+     width — the row's own size, with nothing wrapped or clipped — measured 581px
+     at 401–860px, 457.5px at 351–400px and 408.7px at 350px and below; every one
+     of those exceeds the viewport it was measured in. body{overflow:hidden} on
+     every deck means none of that overflow can be scrolled into view, so a
+     control past the edge is simply gone, not merely awkward to reach.
+     The 401–860px tier could not be tuned back to fit 414px and 430px: holding
+     every `.tbtn` at the 44px minimum this block itself sets, that tier's own
+     floor cannot be tuned below roughly 487px, even with every gap cut and both
+     dividers dropped (see the tier's own comment below). So the middle
+     breakpoint's threshold moves from 400px to 430px — 414 and 430 now render
+     under the 40px tier instead, which has the room the 44px one does not. */
   .transport{
     grid-column:2; justify-self:center;
     display:flex; align-items:center; gap:.45rem;
@@ -109,40 +125,62 @@
      home indicator. The lockup does not fit a collapsed single-column bar, so this is
      the one `.name` rule that lives here rather than in `deck lockup` — it is not the
      lockup's identity, it is the bar's own statement that the lockup drops out at this
-     width, and it is byte-identical on all four decks like the rest of this block. */
+     width, and it is byte-identical on all four decks like the rest of this block.
+
+     This tier stays at the 44px touch-target floor all the way to 860px. Even with
+     every gap cut and both dividers dropped it cannot be tuned below about 487px —
+     that is what a row of 44px controls plus the LCD costs — so nothing this block
+     is asked to fit (414px, 430px) is asked of this tier either: both land in the
+     430px tier below, which drops to 40px controls to make the room this one can't.
+     A width between 431px and 486px is not one of the widths this fix was measured
+     against, and this tier alone cannot promise it; it is narrower than every phone
+     in the required set and wider than the ones this fix was written for. */
   @media (max-width: 860px), (max-aspect-ratio: 4/5){
     .name{display:none}
     .transport{
       grid-column:1; justify-self:stretch; width:100%;
       background:none; border:0; border-radius:0; box-shadow:none;
-      padding:.45rem .5rem; gap:.2rem; justify-content:space-between;
+      padding:.3rem .25rem; gap:.1rem; justify-content:space-between;
     }
-    .tmain{gap:.1rem}
-    .tside{gap:.2rem}
+    .tmain{gap:.05rem}
+    .tside{gap:.05rem}
     .tbtn{width:44px; height:44px}
     .tbtn svg{width:20px; height:20px}
     .tbtn.play{width:46px; height:46px}
-    .tdiv{margin:.4rem .1rem}
-    .seg button{padding:0 .5rem; min-width:38px; min-height:44px}
-    .lcd{padding:.42rem .5rem .36rem; margin-right:0}
+    .tdiv{display:none}
+    .seg button{padding:0 .16rem; min-width:22px; min-height:44px}
+    .lcd{padding:.32rem .34rem .28rem; margin-right:0}
   }
-  /* below this the seven controls need every pixel */
-  @media (max-width: 400px){
+  /* the theme control's two buttons moved this threshold up from 400px: at 40px
+     buttons this tier's own floor is under 360px, so 390, 393, 414 and 430 all fit
+     it comfortably where they could not fit the 44px tier above. */
+  @media (max-width: 430px){
     .lcd{display:none}
-    .transport{padding:.45rem .35rem}
+    .transport{padding:.28rem .15rem; gap:.04rem}
     .tbtn{width:40px; height:40px}
-    .tside{gap:.1rem}
-    .tdiv{margin:.4rem .05rem}
-    .seg button{padding:0 .3rem; min-width:32px; min-height:40px; font-size:.6rem; letter-spacing:.08em}
+    .tbtn.play{width:42px; height:42px}
+    .tmain{gap:0}
+    .tside{gap:.02rem}
+    .tdiv{display:none}
+    .seg button{padding:0 .06rem; min-width:14px; min-height:40px; font-size:.53rem; letter-spacing:0}
+    .seg.theme button{padding:.13rem .14rem}
+    .seg.theme svg{width:10px; height:10px}
   }
   /* the smallest phones still in use. body{overflow:hidden} hides a transport that is
-     wider than the screen instead of scrolling it, so this has to be measured, not assumed */
+     wider than the screen instead of scrolling it, so this has to be measured, not assumed.
+     Every value here is smaller than the tier above's, not larger — the 430px tier's own
+     rules still apply underneath and the one written later in the file wins, so a value left
+     unset here would fall back to a size meant for a wider phone, not shrink further. */
   @media (max-width: 350px){
-    .transport{padding:.4rem .3rem}
+    .transport{padding:.22rem .1rem; gap:.02rem}
     .tbtn{width:36px; height:36px}
     .tbtn svg{width:18px; height:18px}
-    .tbtn.play{width:42px; height:42px}
-    .tside{gap:.05rem}
-    .seg button{min-width:28px; min-height:36px; padding:0 .22rem}
+    .tbtn.play{width:38px; height:38px}
+    .tmain{gap:0}
+    .tside{gap:0}
+    .tdiv{display:none}
+    .seg button{min-width:12px; min-height:36px; padding:0 .04rem; font-size:.5rem}
+    .seg.theme button{padding:.1rem .1rem}
+    .seg.theme svg{width:8px; height:8px}
   }
   /* ─── end deck transport ────────────────────────────────────────────────*/

@@ -4,12 +4,12 @@ import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The twenty-one this module is responsible for. A body that quietly stops being exported
+// The twenty-two this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
   "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
-  "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title", "wayOut"];
+  "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title", "transportFits", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);
@@ -201,6 +201,55 @@ test("wayOut requires the way back to live in the transport chrome", () => {
   // one in #chrome; inChrome is the distinction the check's own comment calls out.
   const src = pageChecks(OPTS).wayOut.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /inChrome/);
+});
+
+test("transportFits does not fall back to mobileNav's scrollWidth overflow test", () => {
+  // body{overflow:hidden} on every deck keeps scrollWidth pinned to innerWidth no matter how
+  // badly the transport overflows — that assertion is permanently false on a deck, which is
+  // exactly how the theme control's overflow went unseen. A rewrite that "simplified" this
+  // check back to the mobileNav shape would reintroduce the same blind spot silently.
+  const src = pageChecks(OPTS).transportFits.toString().replace(/\/\/.*$/gm, "");
+  assert.doesNotMatch(src, /scrollWidth/);
+  assert.match(src, /elementFromPoint/);
+});
+
+test("transportFits takes its widths from the page's own spec", () => {
+  // Mirrors wayOut and sameTab: the page names what it is asserting rather than this file
+  // guessing a width that happens to matter to one site and not another.
+  const src = pageChecks(OPTS).transportFits.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /spec\.transportFits/);
+});
+
+// The check's own evaluate callback is a self-contained closure over document/getComputedStyle
+// (as with mobileNav's), so a fake page can hand back a canned bad-control list per width
+// rather than mocking the check's control-walking logic itself.
+function makeTransportFitsPage(badByWidth) {
+  const seen = [];
+  return {
+    async setViewportSize({ width }) { seen.push(width); },
+    async goto() {},
+    async evaluate() {
+      const width = seen[seen.length - 1];
+      return (badByWidth[width] || []).slice();
+    },
+  };
+}
+
+test("transportFits checks every width in spec.transportFits, not only the first", async () => {
+  const page = makeTransportFitsPage({ 390: [], 414: ["thDark (off-screen)", "tUp (off-screen)"] });
+  const result = await pageChecks(OPTS).transportFits(page, {
+    absolute: "https://example.test/talks/x/", transportFits: [390, 414],
+  });
+  assert.match(result, /414px:.*thDark/);
+  assert.doesNotMatch(result, /390px/);
+});
+
+test("transportFits passes when every control is reachable at every width", async () => {
+  const page = makeTransportFitsPage({ 320: [], 390: [], 414: [] });
+  const result = await pageChecks(OPTS).transportFits(page, {
+    absolute: "https://example.test/talks/x/", transportFits: [320, 390, 414],
+  });
+  assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
 });
 
 test("landing requires the landing link to be the brand lockup", () => {

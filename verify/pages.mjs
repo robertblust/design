@@ -464,6 +464,65 @@ export function pageChecks({ SITE, BASE }) {
       const unnamed = found.filter(l => !l.named).length;
       return unnamed ? `${unnamed} way-back link(s) without an accessible name` : null;
     },
+    // A control that exists is not a control a visitor can reach. The theme control landed
+    // beside the language one in the transport and nobody re-measured the mobile breakpoints
+    // against the wider bar — at 414px `#thDark` and `#tUp` were entirely off-screen and at
+    // 390px `#tNotes` was off-screen too, and no check caught it, because every existing check
+    // asks whether a control exists in the markup, not whether it is on the screen.
+    //
+    // The obvious version of this check — mobileNav's own `scrollWidth > innerWidth` — does
+    // not work here and must not be copied in: every deck sets `body{overflow:hidden}`, so an
+    // overflowing transport never grows `scrollWidth` past `innerWidth` in the first place.
+    // That assertion is permanently false on a deck regardless of how badly the bar overflows,
+    // which is exactly how this went unseen. `elementFromPoint` does not have that blind spot:
+    // it asks what is actually paintable at a point, which a hidden overflow cannot fake.
+    //
+    // Two independent failures are checked because either alone is not enough: a control can
+    // sit fully inside the viewport's rectangle and still be unreachable if something else
+    // paints over its centre, and a control can be the true hit-target at its own centre while
+    // the rest of it is clipped past the edge — a corner a visitor's tap will miss more often
+    // than it lands. `spec.transportFits` is the page's own list of widths to check, mirroring
+    // how `spec.wayOut` and `spec.sameTab` let a page name what it is asserting rather than
+    // this file guessing a width that happens to matter to one site and not another.
+    async transportFits(page, spec) {
+      const problems = [];
+      const restore = page.viewportSize ? page.viewportSize() : null;
+      try {
+        for (const width of spec.transportFits) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.goto(spec.absolute, { waitUntil: "networkidle" });
+          const bad = await page.evaluate(() => {
+            const root = document.getElementById("transport");
+            if (!root) return ["#transport is not on the page"];
+            const controls = [...root.querySelectorAll("button, a")]
+              .filter(el => getComputedStyle(el).display !== "none");
+            const out = [];
+            for (const el of controls) {
+              const r = el.getBoundingClientRect();
+              const within = r.left >= 0 && r.top >= 0 &&
+                r.right <= window.innerWidth && r.bottom <= window.innerHeight;
+              const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+              const hit = document.elementFromPoint(cx, cy);
+              const reachable = !!hit && (hit === el || el.contains(hit));
+              if (!within || !reachable) {
+                const name = el.id || el.className || el.tagName.toLowerCase();
+                const why = [!within && "off-screen", !reachable && "not the hit target at its own centre"]
+                  .filter(Boolean).join(", ");
+                out.push(`${name} (${why})`);
+              }
+            }
+            return out;
+          });
+          if (bad.length) problems.push(`${width}px: ` + bad.join(", "));
+        }
+      } finally {
+        // Every other check runs at the desktop size; leave the page as they expect it.
+        if (restore) await page.setViewportSize(restore);
+        else await page.setViewportSize({ width: 1280, height: 720 });
+        await page.goto(spec.absolute, { waitUntil: "networkidle" });
+      }
+      return problems.length ? problems.join("; ") : null;
+    },
     // The footer carries two destinations now: the lockup to the site's landing page and
     // "Talks" to the index. wayOut covers only the second. Nothing else would notice the
     // brand pointing at a page that no longer exists — a relative href is invisible to the
