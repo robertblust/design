@@ -690,6 +690,62 @@ test("both themes define every deck token", () => {
   }
 });
 
+// --slab and --warn are neither in DECK_TOKENS (which asserts equality is not required) nor
+// invariant like --lcd: they are the two tokens a deck page used to declare on its own, one
+// value, no light variant apiece — exactly the shape of the bug this block now closes. --slab
+// moved in because the page's single value put a black bar on a pale page; --warn moved in for
+// the same reason, one release later, so a page is never again the only place either is set.
+test("both themes declare --slab and --warn", () => {
+  const css = deckCss();
+  for (const t of ["slab", "warn"]) {
+    assert.ok(declares(css, ":root", t), `--${t} missing from the dark half`);
+    assert.ok(declares(css, ':root\\[data-theme="light"\\]', t), `--${t} missing from the light half`);
+  }
+});
+
+test("--slab differs between themes — it is the deck surface that follows the theme", () => {
+  // --lcd, declared right next to it, is invariant on purpose: the readout stays dark in both
+  // themes because a real machine's display does. --slab is the opposite case — the slab it is
+  // milled from is what a pale-bodied machine actually changes — and a suite that only proves
+  // --lcd's invariance leaves the door open for someone to "complete the pattern" by making
+  // --slab invariant too, which is precisely how the black-bar-on-a-pale-page defect happened
+  // the first time. This is what stops that specific regression.
+  const css = deckCss();
+  const dark = palette(css, ":root");
+  const light = palette(css, ':root\\[data-theme="light"\\]');
+  assert.notEqual(light.slab, dark.slab,
+    "--slab is identical in both themes — the light slab must be its own pale value, not the dark one reused");
+});
+
+test("--warn clears AA against its own ground, in both themes", () => {
+  // A warning that cannot be read is not a warning. Dark's value is untouched (6.11:1 on
+  // dark --ground); light needed a value of its own, since the dark red at 1.1:1 or worse
+  // against a pale ground is illegible.
+  const css = deckCss();
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    const r = ratio(p.warn, p.ground);
+    assert.ok(r >= 4.5, `${name}: --warn is ${r.toFixed(2)}:1 on --ground, needs 4.5`);
+  }
+});
+
+test("--lcd reads as a recess, not a merge — darker than --slab by a stated margin, in both themes", () => {
+  // The transport's whole metaphor depends on the readout being unambiguously the darker of
+  // the two surfaces it's nested in. Dark's own pair is both near-black (~1.11:1) — the recess
+  // there is carried by --lcd-inset's box-shadow, not raw luminance contrast — so the margin
+  // this pins has to clear dark's real number without demanding light's much larger one: 1.05:1
+  // sits under dark's ~1.11:1 and nowhere near light's ~16.4:1, so a regression in either
+  // direction still fails here.
+  const css = deckCss();
+  const MARGIN = 1.05;
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    assert.ok(lum(p.lcd) < lum(p.slab), `${name}: --lcd is not darker than --slab at all`);
+    const r = ratio(p.lcd, p.slab);
+    assert.ok(r >= MARGIN, `${name}: --lcd is only ${r.toFixed(2)}:1 against --slab, needs >= ${MARGIN}`);
+  }
+});
+
 test("--lcd is declared in both halves with the same value", () => {
   // Spec decision 3, asserted rather than described. A real machine with a pale body still has
   // a dark readout. If someone "completes" the light palette by giving --lcd a light value,

@@ -1,4 +1,4 @@
-  /* ─── design tokens · v8 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v9 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -61,6 +61,12 @@
     --deck-inset:rgba(0,0,0,.18); --deck-glow:rgba(58,109,166,.10);
     --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
     --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
+    /* --slab was left behind when --lcd moved in: a deck page declared it on its own,
+       one value, no light variant, which put a dark bar back on a pale page. Pale milled
+       metal (1.14:1 against --ground, both a hair off white) with the LCD still a 16.37:1
+       recess inside it — the aluminium body, lit. --warn follows for the same reason: it
+       is deck-only chrome that must not be left for a page to restate. */
+    --slab:#EDEAE2; --warn:#BC3924;
   }
   :root{
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;
@@ -84,4 +90,8 @@
     --deck-inset:rgba(0,0,0,.85); --deck-glow:rgba(122,160,255,.1);
     --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
     --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
+    /* Unchanged from the value a deck page used to declare on its own: the readout stays
+       dark, and so does the slab it sits in. 1.11:1 against --lcd is not a mistake here —
+       both are near-black and the recess reads through the box-shadow, not raw contrast. */
+    --slab:#16181d; --warn:#e0705e;
   /* ─── end design tokens ─────────────────────────────────────────────── */
