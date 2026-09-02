@@ -31,7 +31,7 @@ test("every module under cards/ is published", () => {
 // landing, since a typo?'d target is never the file that task creates. The convention test below
 // closes that regardless of PENDING membership; the existence test stays PENDING-aware because a
 // forward-looking entry's file genuinely isn't there yet.
-const PENDING = new Set(["./cards/recipe-tests"]);
+const PENDING = new Set([]);
 
 test("every cards/ exports entry is spelled ./cards/<name>.mjs, pending or not", () => {
   for (const [specifier, target] of Object.entries(pkg.exports)) {
