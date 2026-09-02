@@ -59,59 +59,68 @@ export async function exportCards({ chromium, recipe, log = console.log }) {
   validate(cards);
 
   const browser = await chromium.launch();
-  for (const c of cards) {
-    const settle = c.settle ?? DEFAULT_SETTLE;
-    const page = await browser.newPage({
-      viewport: { width: c.width, height: c.renderHeight },
-      // A card without its own scale renders 1:1, so the file is exactly the size its
-      // `og:image:width` claims. Guestgraph is the only site that ever set this per card, and
-      // it read `c.deviceScaleFactor` with no default — correct there because every one of its
-      // cards names it, and `undefined` on a card that doesn't.
-      deviceScaleFactor: c.deviceScaleFactor ?? 1,
-      // The landing figures animate, and a render that merely waits "long enough" catches one
-      // mid-draw. Emulating reduced motion draws the settled state the page's own @media block
-      // defines, exactly, instead of racing a timer. Passed as a page option rather than through
-      // `emulateMedia` because that is the form companygraph's cards were rendered with.
-      ...(settle === "reduced-motion" ? { reducedMotion: "reduce" } : {}),
-    });
-    // Spec decision 5: cards are always dark, and pinned rather than inherited — a later change
-    // to the default must not silently restyle twenty committed PNGs. `removeItem` clears the
-    // key, which *inherits* whatever the boot script's default happens to be rather than pinning
-    // anything; it only ever looked pinned because the default was already dark. `setItem` is
-    // what actually pins it.
-    await page.addInitScript(() => { try { localStorage.setItem("rb-theme", "dark"); } catch (e) {} });
-    // file://, like the decks themselves: every page in the family references its assets
-    // relatively for exactly this reason, so no card needs a server and `npm run og` needs no
-    // second terminal. A card may name the state it wants as a hash — companygraph's model page
-    // reads one and focuses what it names, so the card renders that view rather than the page's
-    // opening one.
-    await page.goto(pathToFileURL(path.join(REPO_ROOT, c.dir, "index.html")).href + (c.hash || ""),
-      { waitUntil: "networkidle" });
-    // A card rendered in the fallback face is a silent failure: nothing errors, and the type is
-    // simply not the type the page declares. Awaited on every card, not only the ones that
-    // settle by emulation — companygraph awaited it in the reduced-motion branch only, so its
-    // wait:900 cards were racing font loading against a fixed timer.
-    await page.evaluate(() => document.fonts.ready);
-    // Playwright rejects an empty style tag outright, so a card with nothing to hide skips the
-    // call rather than pass content it refuses.
-    if (c.hide) await page.addStyleTag({ content: c.hide });
-    if (c.titleSlide) {
-      await page.evaluate(() => {
-        const s = Array.from(document.querySelectorAll(".slide"));
-        s.forEach((el, k) => el.classList.toggle("active", k === 0));
+  // A card that throws mid-render used to leave this browser open forever: nothing downstream
+  // of the throw ever reached browser.close(). The three sites all call this with no catch, so
+  // the rejection reaches the top level and node exits in ~2s regardless — but a caller that
+  // does catch (a future harness, a progress-reporting wrapper) was left with a live Chromium
+  // process no exit was ever going to reap. The close must not swallow the error: a run that
+  // failed still needs to say so.
+  try {
+    for (const c of cards) {
+      const settle = c.settle ?? DEFAULT_SETTLE;
+      const page = await browser.newPage({
+        viewport: { width: c.width, height: c.renderHeight },
+        // A card without its own scale renders 1:1, so the file is exactly the size its
+        // `og:image:width` claims. Guestgraph is the only site that ever set this per card, and
+        // it read `c.deviceScaleFactor` with no default — correct there because every one of its
+        // cards names it, and `undefined` on a card that doesn't.
+        deviceScaleFactor: c.deviceScaleFactor ?? 1,
+        // The landing figures animate, and a render that merely waits "long enough" catches one
+        // mid-draw. Emulating reduced motion draws the settled state the page's own @media block
+        // defines, exactly, instead of racing a timer. Passed as a page option rather than through
+        // `emulateMedia` because that is the form companygraph's cards were rendered with.
+        ...(settle === "reduced-motion" ? { reducedMotion: "reduce" } : {}),
       });
-    }
-    // The emulation above *is* the settle for a reduced-motion card: the page is already drawing
-    // its settled state, so there is nothing left to wait for.
-    if (settle !== "reduced-motion") await page.waitForTimeout(Number(settle.slice("wait:".length)));
+      // Spec decision 5: cards are always dark, and pinned rather than inherited — a later change
+      // to the default must not silently restyle twenty committed PNGs. `removeItem` clears the
+      // key, which *inherits* whatever the boot script's default happens to be rather than pinning
+      // anything; it only ever looked pinned because the default was already dark. `setItem` is
+      // what actually pins it.
+      await page.addInitScript(() => { try { localStorage.setItem("rb-theme", "dark"); } catch (e) {} });
+      // file://, like the decks themselves: every page in the family references its assets
+      // relatively for exactly this reason, so no card needs a server and `npm run og` needs no
+      // second terminal. A card may name the state it wants as a hash — companygraph's model page
+      // reads one and focuses what it names, so the card renders that view rather than the page's
+      // opening one.
+      await page.goto(pathToFileURL(path.join(REPO_ROOT, c.dir, "index.html")).href + (c.hash || ""),
+        { waitUntil: "networkidle" });
+      // A card rendered in the fallback face is a silent failure: nothing errors, and the type is
+      // simply not the type the page declares. Awaited on every card, not only the ones that
+      // settle by emulation — companygraph awaited it in the reduced-motion branch only, so its
+      // wait:900 cards were racing font loading against a fixed timer.
+      await page.evaluate(() => document.fonts.ready);
+      // Playwright rejects an empty style tag outright, so a card with nothing to hide skips the
+      // call rather than pass content it refuses.
+      if (c.hide) await page.addStyleTag({ content: c.hide });
+      if (c.titleSlide) {
+        await page.evaluate(() => {
+          const s = Array.from(document.querySelectorAll(".slide"));
+          s.forEach((el, k) => el.classList.toggle("active", k === 0));
+        });
+      }
+      // The emulation above *is* the settle for a reduced-motion card: the page is already drawing
+      // its settled state, so there is nothing left to wait for.
+      if (settle !== "reduced-motion") await page.waitForTimeout(Number(settle.slice("wait:".length)));
 
-    const out = path.join(REPO_ROOT, c.dir, "og.png");
-    await page.screenshot({ path: out, clip: { x: 0, y: c.clipY, width: c.width, height: c.height } });
-    // Stamped after the screenshot, so a run that dies half way leaves the card reported stale
-    // rather than reported current on a file it never wrote.
-    stamp(c);
-    log("  ✓ " + path.relative(REPO_ROOT, out) + ` ${c.width}×${c.height}`);
-    await page.close();
+      const out = path.join(REPO_ROOT, c.dir, "og.png");
+      await page.screenshot({ path: out, clip: { x: 0, y: c.clipY, width: c.width, height: c.height } });
+      // Stamped after the screenshot, so a run that dies half way leaves the card reported stale
+      // rather than reported current on a file it never wrote.
+      stamp(c);
+      log("  ✓ " + path.relative(REPO_ROOT, out) + ` ${c.width}×${c.height}`);
+      await page.close();
+    }
+  } finally {
+    await browser.close();
   }
-  await browser.close();
 }

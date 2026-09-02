@@ -80,6 +80,7 @@ function harness() {
   return {
     calls,
     logs,
+    page,
     async run(cards) {
       await exportCards({
         chromium,
@@ -235,6 +236,20 @@ test("a titleSlide card activates slide 0 and a card without one does not", asyn
   const slide = only(calls, "eval").filter(([, src]) => src.includes(".slide"));
   assert.equal(slide.length, 1);
   assert.match(slide[0][1], /toggle\("active", k === 0\)/);
+});
+
+test("browser.close() runs even when a card throws mid-render, and the error still propagates", async () => {
+  // Finding 5: exportCards has no try/finally around browser.close(). The sites all exit on the
+  // rejection with no catch, so this never bit them — but any caller that does catch (a future
+  // harness, a progress-reporting wrapper) leaks the Chromium process forever, because nothing
+  // downstream of the throw ever runs browser.close(). Here `page.screenshot` fails mid-run; the
+  // rejection must still reach the caller (not be swallowed) and browser-close must still land.
+  const h = harness();
+  const boom = new Error("card exploded mid-render");
+  h.page.screenshot = () => Promise.reject(boom);
+  await assert.rejects(h.run([{ dir: ".", ...FRAME }]), (err) => err === boom);
+  assert.equal(only(h.calls, "browser-close").length, 1,
+    "browser.close() must still run after a card throws mid-render");
 });
 
 test("validate rejects an unknown key", () => {
