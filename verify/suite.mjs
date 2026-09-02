@@ -63,11 +63,18 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     const page = await browser.newPage();
     const jsErrors = [];
     page.on("pageerror", e => jsErrors.push(String(e)));
+    // A request that fails leaves no trace in the DOM, so no per-page check can see it —
+    // a missing font or image would otherwise pass every check the suite has. The listener
+    // has to be attached before goto() below, or it misses every request the navigation
+    // itself makes.
+    const missing = [];
+    page.on("requestfailed", r => missing.push(r.url().split("/").pop()));
     const problems = [];
     spec.absolute = BASE + spec.path;
     try {
       const res = await page.goto(BASE + spec.path, { waitUntil: "networkidle" });
       if (!res || !res.ok()) problems.push(`HTTP ${res ? res.status() : "no response"}`);
+      await page.evaluate(() => document.fonts && document.fonts.ready);
       for (const [name, fn] of Object.entries(CHECKS)) {
         if (spec[name] === undefined) continue;
         const problem = await fn(page, spec);
@@ -77,6 +84,7 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
       problems.push(String(e));
     }
     if (jsErrors.length) problems.push("JS errors: " + jsErrors.join(" | "));
+    if (missing.length) problems.push("failed requests: " + missing.join(", "));
     console.log((problems.length ? "✗" : "✓") + " " + spec.path +
       (problems.length ? "\n    " + problems.join("\n    ") : ""));
     failures += problems.length ? 1 : 0;
