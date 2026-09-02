@@ -17,27 +17,65 @@ const ROOT = "/tmp/a-site-that-is-never-read";
 
 const FRAME = { width: 1200, height: 630, renderHeight: 675, clipY: 22 };
 
-// One recorder for the page, the browser and `stamp` alike, because the ordering assertion needs
+// Every Playwright call resolves on a later tick, and the entry is recorded when it *resolves*
+// rather than when it is called. A fake whose methods return undefined records in source order
+// whether or not the production code awaits them, which makes a dropped `await` invisible —
+// including on `page.screenshot`, where it is the exact defect the stamp-after-screenshot rule
+// exists to prevent: `stamp` writes og.sha while the PNG is still being written, so a run that
+// dies leaves the card reported *current on a file it never wrote*. Recording on resolution is
+// what turns the ordering assertion below from a claim about call order into one about
+// completion order.
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+// One recorder for the browser, the page and `stamp` alike, because the ordering assertion needs
 // the screenshot and the stamp on one timeline. A separate spy per collaborator can prove both
 // were called and can never prove which came first.
 function harness() {
   const calls = [];
   const logs = [];
-  const page = {
-    addInitScript: (f) => calls.push(["init", String(f)]),
-    emulateMedia: (o) => calls.push(["media", o]),
-    goto: (u, o) => calls.push(["goto", u, o]),
-    evaluate: (f) => calls.push(["eval", String(f)]),
-    addStyleTag: (o) => calls.push(["style", o.content]),
-    waitForTimeout: (ms) => calls.push(["wait", ms]),
-    screenshot: (o) => calls.push(["shot", o]),
-    close: () => calls.push(["page-close"]),
+  // The fake also *rejects* rather than only recording. Recording on resolution catches a
+  // dropped `await` only where something synchronous runs in the gap — it caught the one on
+  // page.screenshot, because `stamp` is sync, and caught nothing on page.goto, because the next
+  // call schedules its own tick behind the abandoned one and the record comes out in source
+  // order anyway. The exporter is strictly sequential by construction, so a second page call
+  // beginning while the first is still in flight can only mean a missing `await`; that is a
+  // thing the fake can refuse outright, and refusing covers every await in the loop rather than
+  // the one that happens to sit beside synchronous work.
+  let inFlight = null;
+  const record = async (...entry) => {
+    if (inFlight) {
+      throw new Error(`${entry[0]} began while ${inFlight} was still in flight — a missing await`);
+    }
+    inFlight = entry[0];
+    await tick();
+    inFlight = null;
+    calls.push(entry);
   };
+  const page = {
+    addInitScript: (f) => record("init", String(f)),
+    emulateMedia: (o) => record("media", o),
+    goto: (u, o) => record("goto", u, o),
+    evaluate: (f) => record("eval", String(f)),
+    addStyleTag: (o) => record("style", o.content),
+    waitForTimeout: (ms) => record("wait", ms),
+    screenshot: (o) => record("shot", o),
+    close: () => record("page-close"),
+  };
+  // `stamp` is deliberately the one synchronous collaborator: the real one is
+  // fs.writeFileSync in cards/recipe.mjs. Faking it as async would hide the very asymmetry
+  // that makes a missing `await` on the screenshot dangerous.
   const chromium = {
-    launch: async () => ({
-      newPage: async (o) => (calls.push(["page", o]), page),
-      close: async () => calls.push(["browser-close"]),
-    }),
+    // Launching a browser is the most observable thing this function does, and the most
+    // expensive to do by accident: a throw after it, with no browser.close() on the way out,
+    // leaks a Chromium process on every invalid recipe. Recorded so "before the browser is
+    // launched" is a statement the test can actually check.
+    launch: async () => {
+      await record("launch");
+      return {
+        newPage: async (o) => { await record("page", o); return page; },
+        close: () => record("browser-close"),
+      };
+    },
   };
   return {
     calls,
@@ -213,6 +251,16 @@ test("validate rejects a settle that is neither wait:<ms> nor reduced-motion", (
     /settle "wait" is neither/);
 });
 
+test("validate rejects wait: with no number, and a fractional one", () => {
+  // `"wait:"` is the malformed form that fails quietly rather than loudly: it is not rejected
+  // by a `\d*` quantifier, `Number("")` is 0, and the card then renders with no settle at all
+  // while og:check reports it current — a recipe describing a render the exporter does not
+  // perform, which is the whole reason validate exists. `"wait"` alone cannot pin this: it is
+  // rejected by `\d+` and `\d*` alike.
+  assert.throws(() => validate([{ dir: ".", ...FRAME, settle: "wait:" }]), /settle "wait:" is neither/);
+  assert.throws(() => validate([{ dir: ".", ...FRAME, settle: "wait:1.5" }]), /settle "wait:1\.5" is neither/);
+});
+
 test("validate rejects from: \"file\", so guestgraph cannot keep a key nothing reads", () => {
   // Guestgraph's exporter threw unless every card said `from: "file"`. Nothing in this renderer
   // reads that key — every page in the family renders from file:// — so a card carrying it
@@ -221,8 +269,11 @@ test("validate rejects from: \"file\", so guestgraph cannot keep a key nothing r
 });
 
 test("validation happens before the browser is launched", async () => {
-  // A run that validated per card would render half the site and then throw, leaving a tree of
-  // stamped cards beside unstamped ones and no obvious mark of where it stopped.
+  // Two failures at once. A run that validated per card would render half the site and then
+  // throw, leaving stamped cards beside unstamped ones and no mark of where it stopped. A run
+  // that validated one line *after* chromium.launch() would look identical from the outside and
+  // leak a Chromium process on every invalid recipe, because the throw propagates straight past
+  // browser.close(). The fake records the launch itself, so an empty call list rules out both.
   const h = harness();
   await assert.rejects(h.run([{ dir: ".", ...FRAME }, { dir: "bad", ...FRAME, nope: 1 }]),
     /unknown key "nope"/);
