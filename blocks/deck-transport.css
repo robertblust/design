@@ -1,4 +1,4 @@
-  /* ─── deck transport · v7 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v8 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -10,22 +10,27 @@
      `deck lockup`. They were two components wearing one name, and only one of
      them legitimately differs between sites.
 
-     This block holds 56 rules, not the round number a first read of the region
+     This block holds 55 rules, not the round number a first read of the region
      might suggest. The marker never closed, so "which rules are inside it" was
      never a settled question; measured mechanically — everything from the
      `---------- transport ----------` comment through the transport's own three
      mobile breakpoints, minus the lockup's own rules, minus the speaker-notes drawer
-     and the slide-layout rules that happen to share the same breakpoints — 56 is
-     what's left, and all 56 are byte-identical on every deck. v3 carried a 57th,
+     and the slide-layout rules that happen to share the same breakpoints — 55 is
+     what's left, and all 55 are byte-identical on every deck. v3 carried two more:
      `.lcd:has(.n.msg)`, which brought the LCD back below 400px while it held a
-     message from `lcdMessage()`. That rule was unreachable: `lcdMessage()` had one
-     call site, gated on `!pickVoice() && !hasClips()`, and `hasClips()` was
-     synchronous while every way to detect a clip is asynchronous — so it could only
-     ever return a constant `true`, and no deck added `.msg` to `#lcdn` at any width.
-     v4 of `deck runtime` deletes that whole fallback path; the rule went with it.
-     Anyone re-deriving this should get the same 56; if a cut to a smaller, rounder
-     number seems obviously right, it wasn't obvious here and is worth writing down
-     why.
+     message from `lcdMessage()`, and `.lcd .n.msg{color:var(--lcd-flag); ...}`,
+     which painted that message once it was there. Both were unreachable the same
+     way: `lcdMessage()` had one call site, gated on `!pickVoice() && !hasClips()`,
+     and `hasClips()` was synchronous while every way to detect a clip is
+     asynchronous — so it could only ever return a constant `true`, and no deck ever
+     added `.msg` to `#lcdn` at any width. v4 of `deck runtime` deleted `lcdMessage()`
+     and, with it, `.lcd:has(.n.msg)` — but `.lcd .n.msg{...}` was left behind,
+     unreachable the same way and for the same reason, because nothing that removal
+     touched still referenced it. v8 removes that survivor too, along with
+     `--lcd-flag`, the token only it ever painted: the whole message path this block
+     once carried is gone now, not merely most of it. Anyone re-deriving this should
+     get the same 55; if a cut to a smaller, rounder number seems obviously right, it
+     wasn't obvious here and is worth writing down why.
 
      v7 re-tunes the three breakpoints below for the theme control's two extra
      buttons. Nothing in that count changed since v6, but the pixel budget every
@@ -61,7 +66,6 @@
   }
   .lcd .n{font-size:.76rem; font-weight:600; letter-spacing:.09em; color:var(--lcd-ink); white-space:nowrap}
   .lcd .n .sep, .lcd .n #tot{color:var(--lcd-faint)}
-  .lcd .n.msg{color:var(--lcd-flag); font-size:.62rem; letter-spacing:.14em}
   .lcd .clip{width:100%; height:2px; background:var(--lcd-track); border-radius:2px; overflow:hidden}
   .lcd .clip i{display:block; height:100%; width:0; background:var(--lcd-ink); transition:width .25s linear}
 

@@ -16,6 +16,11 @@ import { FAMILY } from "../lib/family.mjs";
 // own sync tool locates every block by, so a JSON-LD description that merely mentions "theme
 // boot" in prose cannot be mistaken for the genuine, package-owned comment. See noFlash.
 import { findFence } from "../lib/rewrite.mjs";
+// readoutInvariant's scanner. See lcd-scan.mjs's own header for why this is imported rather
+// than reimplemented: it is the exact brace-aware reader theme.test.mjs's ".lcd invariance"
+// test in @robertblust/design is built from, moved so a site's served HTML can be scanned
+// with it too, not just the package's own blocks/deck-transport.css.
+import { lcdVarReferences } from "./lcd-scan.mjs";
 
 export function pageChecks({ SITE, BASE }) {
   if (!SITE) throw new Error("pageChecks needs SITE, the site's canonical origin");
@@ -314,6 +319,51 @@ export function pageChecks({ SITE, BASE }) {
         return out;
       });
       return bad.length ? bad.join("; ") : null;
+    },
+    // theme.test.mjs's "nothing that flips with the theme is painted inside .lcd" only ever
+    // scans this package's own blocks/deck-transport.css. A `.lcd`-targeting rule a deck page
+    // adds to its own CSS, outside the fence, is invisible to it — and invisible to
+    // `design:check` too, which only compares bytes between the fence markers. So the readout
+    // could be re-themed by a rule living entirely outside anything this package can see, and
+    // nothing would fail. This check closes that gap by scanning the page's actual served
+    // bytes rather than the package's source.
+    //
+    // It reuses the exact scanner that test is built from (lcdVarReferences, from
+    // lcd-scan.mjs) rather than a second, weaker implementation — that reader survived five
+    // rounds of a regex being defeated and is not something to reinvent per call site.
+    //
+    // "Which tokens flip" cannot be read from blocks/tokens.css at run time on a site — this
+    // package has no filesystem access to a site's checkout, and a site's own copy of the
+    // block could in principle drift from what it is pinned to anyway. So it is derived from
+    // the served page itself: every prose and deck page carries both `:root` and
+    // `:root[data-theme="light"]` inline, from the design-tokens fence, and a token whose
+    // value differs between the two is exactly the set that must never appear inside `.lcd`.
+    async readoutInvariant(page, spec) {
+      const html = await (await fetch(spec.absolute)).text();
+      const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)]
+        .map((m) => m[1]).join("\n")
+        .replace(/\/\*[\s\S]*?\*\//g, "");
+
+      // `:root\s*\{` only ever matches the bare rule: `:root[data-theme="light"]{` has a `[`
+      // immediately after `:root`, which `\s*` (whitespace only) cannot cross into a `{`, so
+      // the two selectors can never be confused for one another regardless of which one the
+      // served document happens to write first.
+      const rootBody = (re) => { const m = css.match(re); return m ? m[1] : null; };
+      const dark = rootBody(/:root\s*\{([\s\S]*?)\}/);
+      const light = rootBody(/:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+      if (!dark || !light)
+        return 'no :root / :root[data-theme="light"] pair found in the page\'s own <style>';
+
+      const tokenMap = (body) => Object.fromEntries(
+        [...body.matchAll(/--([a-zA-Z0-9-]+)\s*:\s*([^;]+)/g)].map((m) => [m[1], m[2].trim()]));
+      const darkTokens = tokenMap(dark), lightTokens = tokenMap(light);
+      const flipping = new Set(Object.keys(darkTokens)
+        .filter((t) => t in lightTokens && lightTokens[t] !== darkTokens[t]));
+
+      const bad = lcdVarReferences(css).filter((r) => flipping.has(r.token));
+      return bad.length
+        ? bad.map((r) => `${r.selector}'s ${r.prop} references --${r.token}, which differs between the two themes`).join("; ")
+        : null;
     },
     // Structural, not temporal. An earlier version of this check drove a browser: seed
     // localStorage with a theme, navigate, and read data-theme at Playwright's "commit" —

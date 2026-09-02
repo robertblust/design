@@ -4,12 +4,13 @@ import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The twenty-two this module is responsible for. A body that quietly stops being exported
+// The twenty-three this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
   "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
-  "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title", "transportFits", "wayOut"];
+  "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
+  "transportFits", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);
@@ -273,6 +274,75 @@ test("seo's canonical must equal the page's own URL, not merely echo og:url", ()
   // at another page and quietly ceding this one's signals to it.
   const src = pageChecks(OPTS).seo.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /canonical !== want/);
+});
+
+// readoutInvariant's whole input is the page's served HTML — like noFlash and sourceLang, no
+// Playwright page is needed, so these fakes stub fetch rather than mocking a page.
+async function runReadoutInvariant(html, spec = { absolute: "https://example.test/talks/x/" }) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ text: async () => html });
+  try {
+    return await pageChecks(OPTS).readoutInvariant({}, spec);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+// A minimal design-tokens fence, inline in a <style> the way a real page carries it: both
+// halves declare --c-mid (a token that genuinely differs between themes in the real package)
+// and the --lcd family (invariant), so a test can drop an .lcd rule in after it and know
+// exactly which of the two a reference to it should trip.
+const TOKENS_HTML = (lcdCss) => `<!doctype html><html><head><style>
+  :root[data-theme="light"]{
+    --ground:#FAF9F5; --c-mid:#3A6DA6; --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;
+  }
+  :root{
+    --ground:#0C0E13; --c-mid:#7FA3D8; --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;
+  }
+  ${lcdCss}
+</style></head><body></body></html>`;
+
+test("readoutInvariant passes a .lcd rule that paints only invariant tokens", async () => {
+  const html = TOKENS_HTML(".lcd{background:var(--lcd)} .lcd .n{color:var(--lcd-ink)}");
+  const result = await runReadoutInvariant(html);
+  assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+});
+
+test("readoutInvariant fails a page-level .lcd rule the package's own scan cannot see", async () => {
+  // The vector this check exists for: a rule added to a deck page's own CSS, outside any
+  // fence this package generates. It is invisible to design:check, which only compares bytes
+  // between markers, and to theme.test.mjs's own scan, which only reads
+  // blocks/deck-transport.css — this check has to catch it from the served page instead.
+  const html = TOKENS_HTML(".lcd{color:var(--c-mid)}");
+  const result = await runReadoutInvariant(html);
+  assert.match(result, /--c-mid/);
+  assert.match(result, /\.lcd/);
+});
+
+test("readoutInvariant derives which tokens flip from the page itself, not a hardcoded list", () => {
+  // It cannot read blocks/tokens.css at run time on a site, so it has to work out "which
+  // tokens flip" from the served :root / :root[data-theme="light"] pair alone. Proven here
+  // with --lcd-ink deliberately given different values in the two halves — something the real
+  // package tokens never do — so a pass would mean the derivation is reading a hardcoded
+  // package-side list instead of the page in front of it.
+  return runReadoutInvariant(`<!doctype html><html><head><style>
+    :root[data-theme="light"]{ --lcd:#0a0b0e; --lcd-ink:#111111; }
+    :root{ --lcd:#0a0b0e; --lcd-ink:#7FA3D8; }
+    .lcd .n{color:var(--lcd-ink)}
+  </style></head><body></body></html>`).then((result) => {
+    assert.match(result, /--lcd-ink/);
+  });
+});
+
+test("readoutInvariant catches a .lcd rule nested inside @media, not only a top-level one", async () => {
+  const html = TOKENS_HTML("@media (max-width:400px){ .lcd{border-color:var(--c-mid)} }");
+  const result = await runReadoutInvariant(html);
+  assert.match(result, /--c-mid/);
+});
+
+test("readoutInvariant is fetched cold, like noFlash and sourceLang, not through page.evaluate", () => {
+  const src = pageChecks(OPTS).readoutInvariant.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /fetch\(spec\.absolute\)/);
 });
 
 test("two independently built check sets do not share mutable state", () => {
