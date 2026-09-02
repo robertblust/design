@@ -63,6 +63,26 @@ test("a page that has not opted into seo is a failure", async (t) => {
   assert.ok(await runSuite(o) > 0, "a page without seo passed");
 });
 
+test("a page that has not opted into tokenVersion is a failure", async (t) => {
+  // Same contract as seo, same reason: the runner skips any check whose key is undefined, so
+  // removing this one line from a page's spec turns the guard off and changes no output.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, fences: [] }];
+  assert.ok(await runSuite(o) > 0, "a page without tokenVersion passed");
+});
+
+test("a page that has not opted into fences is a failure", async (t) => {
+  // Same contract again: fences alone is presence-only, so a page that never declares the
+  // key is invisible to this guard exactly as it is to design:check's own discovery.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, tokenVersion: true }];
+  assert.ok(await runSuite(o) > 0, "a page without fences passed");
+});
+
 test("a sitemap that does not name this site is a failure", async (t) => {
   // The site-identity guard. One static server on port 8000 can serve the wrong repository,
   // and a run once reported six failures belonging to a site nobody was testing.
@@ -82,6 +102,24 @@ test("a sitemap that does not name this site is a failure", async (t) => {
   const o = OPTS();
   o.PAGES = [{ path: "/about/", seo: true, tokenVersion: true, fences: ["design tokens"] }];
   assert.ok(await runSuite(o) > 0, "a sitemap naming another site passed");
+});
+
+test("a sitemap listing a URL that is not in PAGES is a failure", async (t) => {
+  // The crawl map's own contract, distinct from the site-identity guard above: every URL the
+  // sitemap advertises must be one PAGES actually declares, or the sitemap is a list of
+  // promises the site does not keep. The homepage <loc> stays present here so the identity
+  // guard passes, and the extra URL is itself reachable (200) so the reachability loop a few
+  // lines down has no 404 to catch either — only the crawl map's missing/unexpected
+  // comparison can be responsible for this failure. Leaving the extra URL unreachable would
+  // have made this test pass for the wrong reason: the same overlap that made the original
+  // site-identity test unable to isolate its own guard (see the comment there).
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch({
+    "/sitemap.xml": `<urlset><loc>https://x.test/</loc><loc>https://x.test/extra/</loc></urlset>`,
+    "/extra/": "<html></html>",
+  });
+  t.after(() => { globalThis.fetch = real; });
+  assert.ok(await runSuite(OPTS()) > 0, "a sitemap listing an unexpected URL passed");
 });
 
 test("robots.txt naming no sitemap is a failure", async (t) => {
@@ -112,7 +150,27 @@ test("a failing check counts, and a passing one does not", async (t) => {
   assert.equal(await runSuite(good), 0, "a check returning null counted");
 });
 
-test("runSuite returns rather than exiting", () => {
-  // process.exit in a library makes it untestable and takes the decision away from the caller.
-  assert.doesNotMatch(runSuite.toString(), /process\.exit/);
+test("runSuite returns rather than exiting", async (t) => {
+  // process.exit in a library makes it untestable and takes the decision away from the
+  // caller. A match against runSuite.toString() for the literal text "process.exit" would
+  // still pass if that call were dead, unreachable code that behaviour never touches —
+  // source text present, behaviour unaffected. Stubbing process.exit and asserting it is
+  // never invoked, on both a clean run and a failing one, tests what runSuite actually does.
+  const realExit = process.exit;
+  let calls = 0;
+  process.exit = () => { calls++; };
+  t.after(() => { process.exit = realExit; });
+
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+
+  await runSuite(OPTS());
+  assert.equal(calls, 0, "process.exit was called on a clean run");
+
+  const bad = OPTS();
+  bad.CHECKS = { boom: async () => "it broke" };
+  bad.PAGES[0].boom = true;
+  await runSuite(bad);
+  assert.equal(calls, 0, "process.exit was called on a failing run");
 });
