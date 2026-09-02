@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { runSuite } from "@robertblust/design/verify/suite";
 
@@ -43,6 +43,23 @@ const OPTS = () => ({
   browser: fakeBrowser(), SITE: "https://x.test", BASE: "https://x.test",
   PAGES: [{ path: "/", seo: true, tokenVersion: true, fences: ["design tokens"] }],
   CHECKS: {}, systemFaces: new Set(["plex mono", "monospace"]),
+});
+
+// process.exit is stubbed once for the whole file, installed before any test runs and
+// restored only after every test has finished — not inside one test's own body. By the time
+// the dedicated "does not exit" test below would run, six earlier tests have already called
+// runSuite with whatever process.exit currently is; a stub scoped to just that one test's
+// body would never see a real process.exit fire, because a real one would have terminated
+// the process during an earlier test, long before this test's body ever installed anything.
+// Recording every call here, for the whole file, means a regression is caught by whichever
+// test happens to run first against it, not only by the one test that thinks to check.
+const realExit = process.exit;
+const exitCalls = [];
+before(() => {
+  process.exit = (code) => { exitCalls.push(code); };
+});
+after(() => {
+  process.exit = realExit;
 });
 
 test("a clean site reports no failures", async (t) => {
@@ -154,23 +171,20 @@ test("runSuite returns rather than exiting", async (t) => {
   // process.exit in a library makes it untestable and takes the decision away from the
   // caller. A match against runSuite.toString() for the literal text "process.exit" would
   // still pass if that call were dead, unreachable code that behaviour never touches —
-  // source text present, behaviour unaffected. Stubbing process.exit and asserting it is
-  // never invoked, on both a clean run and a failing one, tests what runSuite actually does.
-  const realExit = process.exit;
-  let calls = 0;
-  process.exit = () => { calls++; };
-  t.after(() => { process.exit = realExit; });
-
+  // source text present, behaviour unaffected. The module-scope recorder installed above
+  // covers every runSuite call this file makes, including this test's own two; asserting it
+  // is still empty here tests what actually happened across the whole file, not just what
+  // this test's own body did.
   const real = globalThis.fetch;
   globalThis.fetch = fakeFetch();
   t.after(() => { globalThis.fetch = real; });
 
   await runSuite(OPTS());
-  assert.equal(calls, 0, "process.exit was called on a clean run");
 
   const bad = OPTS();
   bad.CHECKS = { boom: async () => "it broke" };
   bad.PAGES[0].boom = true;
   await runSuite(bad);
-  assert.equal(calls, 0, "process.exit was called on a failing run");
+
+  assert.deepEqual(exitCalls, [], "process.exit was called during this file's runSuite calls");
 });
