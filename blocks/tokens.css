@@ -1,4 +1,4 @@
-  /* ─── design tokens · v9 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v10 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -59,7 +59,7 @@
     --deck-quiet:#5F6058;  --deck-warm:#6B6455;
     --deck-lift:rgba(0,0,0,.04); --deck-drop:rgba(0,0,0,.10);
     --deck-inset:rgba(0,0,0,.18); --deck-glow:rgba(58,109,166,.10);
-    --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
+    --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;
     --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
     /* --slab was left behind when --lcd moved in: a deck page declared it on its own,
        one value, no light variant, which put a dark bar back on a pale page. Pale milled
@@ -88,7 +88,7 @@
     --deck-quiet:#9a9dab;  --deck-warm:#b7b0a2;
     --deck-lift:rgba(255,255,255,.055); --deck-drop:rgba(0,0,0,.5);
     --deck-inset:rgba(0,0,0,.85); --deck-glow:rgba(122,160,255,.1);
-    --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496; --lcd-flag:#D9A44F;
+    --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;
     --lcd-track:#1e2029; --lcd-inset:rgba(0,0,0,.85); --lcd-glow:rgba(122,160,255,.1);
     /* Unchanged from the value a deck page used to declare on its own: the readout stays
        dark, and so does the slab it sits in. 1.11:1 against --lcd is not a mistake here —

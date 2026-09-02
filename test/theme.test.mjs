@@ -4,6 +4,8 @@ import vm from "node:vm";
 import { blockFor, FENCES } from "@robertblust/design/fences";
 import { FAMILY } from "@robertblust/design/family";
 import { pageChecks } from "@robertblust/design/verify/pages";
+import { leafBlocks, targetsLcd, declarations, varTokens, lcdVarReferences }
+  from "@robertblust/design/verify/lcd-scan";
 
 // WCAG 2.1 relative luminance. Inlined rather than imported: the package has no dependencies,
 // and a contrast test that trusts a helper it also ships proves less than one that does not.
@@ -539,8 +541,8 @@ test("noFlash asserts document order and script form, not timing", async () => {
 const DECK_TOKENS = ["deck-accent", "deck-paper", "deck-mark", "deck-well", "deck-track",
   "deck-hover", "deck-divider", "deck-edge", "deck-ring", "deck-quiet",
   "deck-warm", "deck-lift", "deck-drop", "deck-inset", "deck-glow"];
-// --lcd, --lcd-ink, --lcd-faint and --lcd-flag are deliberately NOT here: they are invariant
-// and are asserted by the test below instead.
+// --lcd, --lcd-ink and --lcd-faint are deliberately NOT here: they are invariant and are
+// asserted by the test below instead.
 
 // blockFor("design tokens", "deck") leaves the dark :root open on purpose — a real deck page
 // adds its own --warn and --slab after the fence and closes the rule itself (see the fence's
@@ -572,113 +574,11 @@ function rawPalette(css, selector) {
     [...m[1].matchAll(/--([a-z-]+)\s*:\s*([^;]+)/g)].map((x) => [x[1], x[2].trim()]));
 }
 
-// A hand-written, brace-aware CSS reader for the .lcd-invariance check below — not a general
-// parser, just enough structure to answer "which var(--x) references appear inside .lcd-
-// targeting rules" without a dependency (this package ships zero, in devDependencies too).
-// Four rounds of patching one regex produced four more ways around it: a var() with a plain
-// fallback, a decoy fallback naming an invariant token while the real one still flips, a
-// pseudo-class/compound-class/ancestor-prefixed selector, a nested @media, and a value
-// wrapped onto a second line. Each is a different way a flat pattern cannot see structure
-// that is actually there, so this walks the structure instead of matching around it.
-
-// Splits `css` (comments already stripped by the caller) into every {selector, body} leaf
-// block, at any nesting depth, via a single brace-depth walk. An at-rule's own prelude
-// (`@media (...)`) is emitted exactly like a real selector's — it is never special-cased —
-// but it can never match `targetsLcd` below, so it is simply inert rather than filtered out
-// structurally. This is what lets a rule nested inside `@media` reach the same scan as a
-// top-level one, with no separate handling.
-function leafBlocks(css) {
-  const blocks = [];
-  const stack = [];
-  let buf = "";
-  for (const ch of css) {
-    if (ch === "{") { stack.push(buf); buf = ""; }
-    else if (ch === "}") {
-      const selector = stack.pop();
-      if (selector !== undefined && selector.trim()) blocks.push({ selector: selector.trim(), body: buf });
-      buf = "";
-    } else buf += ch;
-  }
-  return blocks;
-}
-
-// A selector "targets" .lcd when the literal class `lcd` appears in any of its comma-
-// separated clauses — `.lcd`, `.lcd:hover`, `.lcd.open`, `.transport .lcd` and `.lcd .clip`
-// all qualify. Only dot-led class tokens are read, which excludes pseudo-classes and pseudo-
-// elements (`:hover`, `::before`) automatically — they are never dot-prefixed — and a
-// lookalike like `.lcdx` correctly does not qualify, since its one class is "lcdx", not "lcd".
-function targetsLcd(selector) {
-  return selector.split(",").some((clause) =>
-    [...clause.matchAll(/\.([a-zA-Z_-][\w-]*)/g)].some((m) => m[1] === "lcd"));
-}
-
-// Declarations, split on `;` at paren depth zero, so a value's own `;` inside a function call
-// can't be mistaken for the end of the declaration (none appear in this file today, but the
-// depth tracking costs nothing and removes the question). Newlines are joined to spaces
-// first: a value that wraps onto a second line with no `;` before the break is one
-// declaration, not one silently dropped by a regex that only looked at a single line.
-function declarations(body) {
-  const joined = body.replace(/\n/g, " ");
-  const out = [];
-  let depth = 0, cur = "";
-  for (const ch of joined) {
-    if (ch === "(") depth++;
-    else if (ch === ")") depth--;
-    if (ch === ";" && depth === 0) { out.push(cur); cur = ""; }
-    else cur += ch;
-  }
-  if (cur.trim()) out.push(cur);
-  return out;
-}
-
-// Every `--token` named inside `value`'s var() calls, walked with real paren balancing (so a
-// fallback that is itself a var() doesn't truncate the outer call at the wrong `)`) and
-// recursively, so a fallback naming another var() also gets read — `var(--a, var(--b))`
-// yields both `a` and `b`. The fallback is collected on the same standard as the primary, but
-// never as a substitute for it: a fallback only applies when the custom property is
-// genuinely undefined, which none of these ever are, so a decoy fallback naming an invariant
-// token must never be allowed to stand in for a flipping primary.
-function varTokens(value) {
-  const tokens = [];
-  let i = 0;
-  while (true) {
-    const start = value.indexOf("var(", i);
-    if (start === -1) break;
-    let depth = 1, j = start + 4;
-    while (j < value.length && depth > 0) {
-      if (value[j] === "(") depth++;
-      else if (value[j] === ")") depth--;
-      j++;
-    }
-    const inner = value.slice(start + 4, j - 1);
-    const m = inner.match(/^\s*--([a-zA-Z0-9-]+)\s*(?:,([\s\S]*))?$/);
-    if (m) {
-      tokens.push(m[1]);
-      if (m[2] !== undefined) tokens.push(...varTokens(m[2]));
-    }
-    i = j;
-  }
-  return tokens;
-}
-
-// Every {selector, prop, token} triple any .lcd-targeting rule in `css` references, built
-// from the four functions above rather than one regex trying to do all their jobs at once.
-function lcdVarReferences(css) {
-  const referenced = [];
-  for (const { selector, body } of leafBlocks(css)) {
-    if (!targetsLcd(selector)) continue;
-    for (const decl of declarations(body)) {
-      const idx = decl.indexOf(":");
-      if (idx === -1) continue;
-      const prop = decl.slice(0, idx).trim();
-      const value = decl.slice(idx + 1).trim();
-      if (!prop) continue;
-      for (const token of varTokens(value))
-        referenced.push({ selector: selector.replace(/\s+/g, " "), prop, token });
-    }
-  }
-  return referenced;
-}
+// leafBlocks/targetsLcd/declarations/varTokens/lcdVarReferences — the brace-aware CSS reader
+// the .lcd-invariance check below is built from — now live in verify/lcd-scan.mjs, imported
+// above. They moved there so readoutInvariant (verify/pages.mjs) can scan a site's own served
+// HTML with the exact same reader this test scans the package's block with, rather than
+// carrying a second, weaker implementation of "does this touch .lcd".
 
 test("both themes define every deck token", () => {
   // Seventeen names arriving in one half and not the other is the failure that shows up as a
@@ -774,10 +674,12 @@ test("the deck's readable tokens clear AA against the surface each is painted on
   // ratios do — a wrong provenance claim here was the exact failure this project spent a week
   // chasing elsewhere.
   //
-  // Pairs actually read off a rule in blocks/deck-transport.css: `.lcd .n`/`.sep`/`#tot`/
-  // `.msg` paint --lcd-ink/--lcd-faint/--lcd-flag on `.lcd`'s own --lcd background; Task 2's
-  // sweep added `.tbtn:hover` (--ink on --deck-hover, same rule) and `.tbtn.play.on`
-  // (--ground on --c-mid, same rule, the filled play button's icon).
+  // Pairs actually read off a rule in blocks/deck-transport.css: `.lcd .n`/`.sep`/`#tot`
+  // paint --lcd-ink/--lcd-faint on `.lcd`'s own --lcd background; Task 2's sweep added
+  // `.tbtn:hover` (--ink on --deck-hover, same rule) and `.tbtn.play.on` (--ground on
+  // --c-mid, same rule, the filled play button's icon). `.lcd .n.msg`, which painted
+  // --lcd-flag, was removed as structurally dead — see deck-transport.css's own header
+  // comment — and --lcd-flag went with it; there is no pair to assert here any more.
   //
   // --deck-quiet and --deck-warm are different: as of this test, neither name appears in any
   // block this package ships — not deck-transport.css, not deck-lockup.css. Pairing them
@@ -791,7 +693,7 @@ test("the deck's readable tokens clear AA against the surface each is painted on
   const css = deckCss();
   for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
     const p = palette(css, sel);
-    for (const [fg, bg] of [["lcd-ink", "lcd"], ["lcd-faint", "lcd"], ["lcd-flag", "lcd"],
+    for (const [fg, bg] of [["lcd-ink", "lcd"], ["lcd-faint", "lcd"],
                             ["deck-quiet", "deck-well"], ["deck-warm", "deck-well"],
                             ["ink", "deck-hover"], ["ground", "c-mid"]]) {
       const r = ratio(p[fg], p[bg]);
@@ -882,7 +784,6 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
     [".lcd", "box-shadow", "lcd-glow"],
     [".lcd .n", "color", "lcd-ink"],
     [".lcd .n .sep, .lcd .n #tot", "color", "lcd-faint"],
-    [".lcd .n.msg", "color", "lcd-flag"],
     [".lcd .clip", "background", "lcd-track"],
     [".lcd .clip i", "background", "lcd-ink"],
   ];
