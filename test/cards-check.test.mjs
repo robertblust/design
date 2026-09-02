@@ -264,6 +264,29 @@ function encodeFilteredRGBA(width, height, cornerAt, corners, filler) {
   ]);
 }
 
+test("an undecodable og.png is attributed to its own card, counted, and does not stop the run", () => {
+  // Finding 3: decodePNG throws a bare message with no path, and the loop it ran in was
+  // unguarded — one card with a PNG chromium never writes (16-bit, interlaced, hand-corrupted)
+  // killed checkCards before it reached any card after it. Two cards here: the first undecodable,
+  // the second a normal current+dark card, so the crash-and-abandon failure mode would report
+  // only one problem (or throw) instead of two, and would never log the second card at all.
+  const root = tree({ "index.html": "<html>v1</html>", "b/index.html": "<html>v1</html>" });
+  const { state, stamp } = recipeFor(root);
+  const bad = { dir: "." };
+  const good = { dir: "b" };
+  stamp(bad);
+  stamp(good);
+  fs.writeFileSync(path.join(root, "og.png"), Buffer.from("not a png at all"));
+  fs.writeFileSync(path.join(root, "b", "og.png"), makePNG(12, 12, DARK));
+  const logs = [];
+  const problems = checkCards({ cards: [bad, good], state, REPO_ROOT: root }, (m) => logs.push(m));
+  assert.equal(problems, 1, "the undecodable card must still count as a problem, not a warning");
+  assert.ok(logs.some((l) => l.includes(".") && l.includes("og.png")),
+    `expected a log line naming the offending card's og.png; got: ${logs.join(" | ")}`);
+  assert.ok(logs.some((l) => l.includes(path.join("b", "og.png")) && l.includes("luminance")),
+    "the second, valid card must still be checked and logged");
+});
+
 test("decodePNG's real shape — RGBA, mixed filters, four distinct corners — is checked exactly", () => {
   const INSET = 4; // must match cards/check.mjs's own INSET; there is no export to read it from
   const width = 12, height = 12;

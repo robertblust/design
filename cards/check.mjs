@@ -121,19 +121,34 @@ export function checkCards({ cards, state, REPO_ROOT }, log = console.log) {
   // directly, the same way verify/pages.mjs's `card` check reads a PNG's IHDR directly, so it
   // stays dependency-free.
   const lightCards = [];
+  const unreadable = [];
   for (const c of cards) {
+    const rel = path.join(c.dir, "og.png");
     const file = path.join(REPO_ROOT, c.dir, "og.png");
     if (!fs.existsSync(file)) continue; // already reported unstamped/stale above
-    const png = decodePNG(fs.readFileSync(file));
+
+    // decodePNG throws a bare message with no path (bit depth, filter type, "not a PNG") — one
+    // card Chromium never wrote in a shape this decoder reads used to take the whole run down
+    // with it, so a site with 8 good cards and 1 bad one learned about none of them. A card we
+    // cannot read is still a card we cannot vouch for, so it counts as a problem rather than
+    // being skipped, but it must name itself and let the loop reach the cards after it.
+    let png;
+    try {
+      png = decodePNG(fs.readFileSync(file));
+    } catch (e) {
+      log(`  ✗ ${rel}  could not be read: ${e.message}`);
+      unreadable.push(rel);
+      continue;
+    }
+
     const corners = [
       [INSET, INSET], [png.width - 1 - INSET, INSET],
       [INSET, png.height - 1 - INSET], [png.width - 1 - INSET, png.height - 1 - INSET],
     ];
     const avg = corners.reduce((sum, [x, y]) => sum + luminance(png.at(x, y)), 0) / corners.length;
     const light = avg > LIGHT_THRESHOLD;
-    log((light ? "  ✗ " : "  ✓ ") + path.join(c.dir, "og.png") +
-      `  background luminance ${avg.toFixed(2)}`);
-    if (light) lightCards.push(path.join(c.dir, "og.png"));
+    log((light ? "  ✗ " : "  ✓ ") + rel + `  background luminance ${avg.toFixed(2)}`);
+    if (light) lightCards.push(rel);
   }
 
   if (lightCards.length) {
@@ -142,6 +157,11 @@ export function checkCards({ cards, state, REPO_ROOT }, log = console.log) {
       "pinned dark theme: " + lightCards.join(", "));
   } else {
     log("\n  every card renders dark");
+  }
+
+  if (unreadable.length) {
+    problems += unreadable.length;
+    log(`\n  ${unreadable.length} card(s) could not be read as PNG: ` + unreadable.join(", "));
   }
 
   return problems;
