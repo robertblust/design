@@ -22,15 +22,18 @@ test("every module under cards/ is published", () => {
 // Task 1 wires all four cards/* specifiers into `exports` at once (Step 5) — `exports` is an
 // allowlist, so a specifier missing from it is unreachable regardless of when its file lands, and
 // waiting to add each one per task would leave that hole open between tasks for no reason. Only
-// cards/recipe.mjs exists yet; cards/check.mjs, cards/export.mjs and cards/recipe-tests.mjs are
-// entries pointing ahead at modules Tasks 2-4 create. So a target that does not exist yet is this
-// ordering working as intended, not a broken package — skip it here. This loop becomes a hard
-// assertion for every cards/ entry, with nothing left to skip, once Task 4 lands the last file.
+// cards/recipe.mjs exists yet; the other three are entries pointing ahead at modules Tasks 2-4
+// create. Naming them here, rather than skipping whatever the filesystem doesn't have, keeps this
+// a real assertion for every entry that is NOT supposed to be forward-looking: an `existsSync`
+// skip is the negation of the assertion it guards and can never fail, for a typo or for anything
+// else. Delete a name from this set when its task lands; the loop then holds it to the same
+// standard as recipe.mjs. Empty set = every cards/ entry is checked, unconditionally.
+const PENDING = new Set(["./cards/check", "./cards/export", "./cards/recipe-tests"]);
+
 test("every cards/ exports entry names a file that exists", () => {
   for (const [specifier, target] of Object.entries(pkg.exports)) {
-    if (!specifier.startsWith("./cards/")) continue;
-    const file = new URL("../" + target, import.meta.url);
-    if (!fs.existsSync(file)) continue;
-    assert.ok(fs.statSync(file).isFile(), `${specifier} points at ${target}, which is not a file`);
+    if (!specifier.startsWith("./cards/") || PENDING.has(specifier)) continue;
+    assert.ok(fs.existsSync(new URL("../" + target, import.meta.url)),
+      `${specifier} points at ${target}, which does not exist`);
   }
 });
