@@ -11,7 +11,7 @@
 // real files in a throwaway tree passed as an explicit `root`, rather than against the site's own
 // pages, so they still mean something after the site's pages change. The last two are the
 // exception: they are about this repository, and read it through `cards` and `REPO_ROOT`.
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -24,8 +24,17 @@ export const SHARED_TEST_COUNT = 32;
 
 // A throwaway repository root. `nest` puts it one level down so a test can also place a file
 // *outside* it and prove the escape guard is what excludes it, rather than its absence.
+// Roughly thirty trees per site suite, and the package's own harness runs the suite eight times
+// over in child processes. Left behind, they pile up under os.tmpdir() on every developer machine
+// and every CI run, so the file that made them removes them once the last test has read them.
+const made = [];
+after(() => {
+  for (const base of made) fs.rmSync(base, { recursive: true, force: true });
+});
+
 function tree(files, { nest = false } = {}) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "og-recipe-"));
+  made.push(base);
   const root = nest ? path.join(base, "site") : base;
   for (const [rel, body] of Object.entries(files)) {
     const abs = path.join(root, rel);
@@ -67,8 +76,12 @@ export function checkRecipe({ cards, sources, recipe, state, stampOf, REPO_ROOT 
     assert.deepEqual(sources(".", root), ["index.html"]);
   });
 
+  // Drawn, not linked: all three sites wrote this fixture as `<a href="billing/">`, where the
+  // `<a>` skip discards the reference before it ever reaches the is-it-a-file guard — so the test
+  // passed with that guard deleted, and a deleted guard means `recipe()` reads a directory and
+  // dies of EISDIR instead of reporting.
   test("a directory the page links to is not a source", () => {
-    const { root } = tree({ "index.html": '<a href="billing/"></a>', "billing/index.html": "b" });
+    const { root } = tree({ "index.html": '<img src="billing/">', "billing/index.html": "b" });
     assert.deepEqual(sources(".", root), ["index.html"]);
   });
 

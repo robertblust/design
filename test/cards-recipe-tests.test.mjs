@@ -6,18 +6,20 @@
 // copy of `cards/recipe.mjs`, the shared suite is run against it in a child process, and each
 // mutation below deletes one line of that copy and names the shared tests that must fail. A
 // mutation that leaves the suite green means the shared suite is not gating that line.
-import test from "node:test";
+import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
 
 import { SHARED_TEST_COUNT } from "../cards/recipe-tests.mjs";
 
 const RECIPE = new URL("../cards/recipe.mjs", import.meta.url);
-const SHARED = pathToFileURL(new URL("../cards/recipe-tests.mjs", import.meta.url).pathname).href;
+// `.href` and not `pathToFileURL(...pathname)`: a URL's pathname is already percent-encoded, so
+// the round trip encodes it twice and the child cannot resolve the module from a repository
+// checked out under a path containing a space.
+const SHARED = new URL("../cards/recipe-tests.mjs", import.meta.url).href;
 
 // A site, as small as one can be and still have the two "this repository" tests mean something:
 // one page, one card, one og.png beside it. `import.meta.dirname` stands in for the site's
@@ -33,8 +35,14 @@ checkRecipe({ cards, REPO_ROOT, ...recipeFor(REPO_ROOT) });
 `;
 
 // Runs the shared suite against a staged site whose recipe.mjs has been through `mutate`.
+const staged = [];
+after(() => {
+  for (const root of staged) fs.rmSync(root, { recursive: true, force: true });
+});
+
 function runShared(mutate = (src) => src) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "shared-recipe-"));
+  staged.push(root);
   const mutated = mutate(fs.readFileSync(RECIPE, "utf8"));
 
   fs.writeFileSync(path.join(root, "index.html"), "<p>the page</p>");
@@ -95,6 +103,11 @@ const MUTATIONS = [
     ],
   },
   {
+    what: "the is-it-a-file guard is deleted, so a directory reference becomes a source",
+    mutate: cut(` && fs.statSync(abs).isFile()`),
+    red: ["a directory the page links to is not a source"],
+  },
+  {
     what: "the escape guard is deleted, so a reference climbing above the root is hashed",
     mutate: cut(`if (rel.startsWith("..")) continue;`),
     red: ["a reference climbing above the repository root is not a source"],
@@ -112,7 +125,10 @@ test("checkRecipe registers exactly SHARED_TEST_COUNT tests", () => {
 test("no two of the shared tests share a name", () => {
   const { results } = runShared();
   const names = results.map((r) => r.name);
-  assert.deepEqual(names.length, new Set(names).size, "two shared tests answer to the same name");
+  // The floor matters: at zero registrations both sides are 0 and this passes vacuously, which is
+  // exactly what it did while a broken module specifier had the child running nothing at all.
+  assert.equal(names.length, SHARED_TEST_COUNT);
+  assert.equal(names.length, new Set(names).size, "two shared tests answer to the same name");
 });
 
 test("the shared suite passes against an intact site", () => {
