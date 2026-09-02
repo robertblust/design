@@ -40,10 +40,50 @@
     out:   { en:"refers to",   de:"Verweist auf" },
     "in":  { en:"referred by", de:"Verwiesen von" },
     pages: { en:"pages",       de:"Seiten" },
-    view:  { en:"View this file on GitHub", de:"Diese Datei auf GitHub ansehen" }
+    view:  { en:"View this file on GitHub", de:"Diese Datei auf GitHub ansehen" },
+    now:   { en:"present",     de:"heute" }
+  };
+  // A date is drawn as prose, not as the ISO the model stores, so the months travel with the
+  // script the way every other word here does. The three lengths are core's three precisions:
+  // a year, a month, a day — written at the precision the model holds and never padded up.
+  var MONTHS = {
+    en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+    de: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"]
   };
   function lang(){ return document.documentElement.lang === "de" ? "de" : "en"; }
   function t(k){ return STR[k][lang()]; }
+
+  // The parser hands every entity that has one a `stamp` — its kind and its period, raw. It
+  // does that so nothing here has to know that core calls those fields kind, start and end;
+  // this file knows no core vocabulary and `rootId` is resolved upstream for the same reason.
+  // What is left here is the part that is a drawing's business: how a date reads, and in
+  // which language.
+  function fmtDate(v){
+    var m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(v || "");
+    if (!m) return v || "";
+    if (!m[2]) return m[1];
+    var mon = MONTHS[lang()][+m[2] - 1];
+    if (!m[3]) return mon + " " + m[1];
+    // "4 May 2012" and "4. Mai 2012": German ordinals carry the point, English does not.
+    return (+m[3]) + (lang() === "de" ? "." : "") + " " + mon + " " + m[1];
+  }
+  // Three shapes, and the model says which by what it holds. No end means still running. An
+  // end equal to its start is a one-off — a talk, a certification — and printing it twice
+  // would say a day lasted from itself to itself.
+  function fmtPeriod(st){
+    if (!st || !st.start) return "";
+    if (!st.end) return fmtDate(st.start) + " – " + t("now");
+    if (st.end === st.start) return fmtDate(st.start);
+    return fmtDate(st.start) + " – " + fmtDate(st.end);
+  }
+  function stampOf(p){ return (p.node && p.node.entity && p.node.entity.stamp) || null; }
+  // Kind first, then when: the category is the shorter and the more scannable of the two, so
+  // a column of these reads down its left edge.
+  function stampText(p){
+    var st = stampOf(p); if (!st) return "";
+    var when = fmtPeriod(st);
+    return st.kind && when ? st.kind + " · " + when : (st.kind || when);
+  }
 
   // ── model ─────────────────────────────────────────────────────────────────────────────
   // Node ids are paths, because that is what they are on disk: "<folder>" is a folder,
@@ -183,7 +223,7 @@
   //   the path on disk climbs as a ladder on the left, the way a file tree is drawn;
   //   what the focus owns hangs as a column on the right;
   //   what refers, and what is referred to, sit in two dashed bands outside both.
-  var STEP = 54, ROW = 54, BAND = 96, EYE = 28;
+  var STEP = 54, ROW = 54, ROW_STAMP = 66, BAND = 96, EYE = 28;
   var R_FOCUS = 16, R_NODE = 12;                    // half-widths of the marks
   var GAP = 12;                                     // mark to its label
   var CH_MONO = 6.9, CH_TEXT = 6.9, CH_ROOT = 8.6;  // width per character, for the fit only
@@ -235,12 +275,21 @@
     anc.forEach(function(p){ p.x = -LEFT; p.y = -(n - p.i) * STEP; });
     neigh.nodes.filter(function(p){ return p.role === "focus"; }).forEach(function(p){ p.x = 0; p.y = 0; });
     var top = n ? -n * STEP : 0;
-    kids.forEach(function(p){ p.x = RIGHT; p.y = (p.i - (kids.length - 1) / 2) * ROW; });
+    // A stamped node carries a second line under its name, so its row has to open to hold it
+    // — but only that group's. Fifty-eight skills carry no stamp and stay at the tight row
+    // they have always had; opening every row for a folder that never draws one would make
+    // the commonest view taller to serve the rarest.
+    function rowOf(list){
+      for (var i = 0; i < list.length; i++) if (stampOf(list[i])) return ROW_STAMP;
+      return ROW;
+    }
+    var kidRow = rowOf(kids), outRow = rowOf(out), inRow = rowOf(inn);
+    kids.forEach(function(p){ p.x = RIGHT; p.y = (p.i - (kids.length - 1) / 2) * kidRow; });
     var below = kids.length ? kids[kids.length - 1].y : 0;
     var outTop = below + BAND;
-    out.forEach(function(p){ p.x = RIGHT; p.y = outTop + p.i * ROW; });
-    var inTop = top - BAND - (inn.length - 1) * ROW;
-    inn.forEach(function(p){ p.x = -LEFT; p.y = inTop + p.i * ROW; });
+    out.forEach(function(p){ p.x = RIGHT; p.y = outTop + p.i * outRow; });
+    var inTop = top - BAND - (inn.length - 1) * inRow;
+    inn.forEach(function(p){ p.x = -LEFT; p.y = inTop + p.i * inRow; });
     var bands = [];
     // The eyebrow carries the count and, when it can, the word for what is being pointed at:
     // "refers to · 59 skills". A band can be taller than the canvas — a profile claiming 59
@@ -431,6 +480,7 @@
     halo(enter.append("text")).attr("class", "label");
     halo(enter.append("text")).attr("class", "typelab");
     halo(enter.append("text")).attr("class", "attr");
+    halo(enter.append("text")).attr("class", "stamp");
     enter.transition().duration(D).style("opacity", 1);
 
     var all = enter.merge(nsel);
@@ -463,6 +513,14 @@
        .attr("text-anchor", function(d){ return d.role === "in" ? "end" : null; })
        .attr("y", 0)
        .text(attrOf);
+    // Under the name, at the name's own x and anchor, so the two read as one block. It costs
+    // no width — which is what a canvas has least of — and the row it needs was opened for it
+    // in layout(), for its group alone.
+    all.select("text.stamp")
+       .attr("x", function(d){ return d.role === "focus" ? -markW(d) : d.role === "in" ? -markW(d) - GAP : markW(d) + GAP; })
+       .attr("y", function(d){ return (d.role === "focus" ? -markW(d) - 16 : 0) + 15; })
+       .attr("text-anchor", function(d){ return d.role === "in" ? "end" : null; })
+       .text(stampText);
     nsel.transition().duration(D).style("opacity", 1)
         .attr("transform", function(d){ return "translate(" + d.x + " " + d.y + ")"; });
 
