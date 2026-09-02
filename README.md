@@ -59,6 +59,7 @@ decides that: a visitor never downloads any of them, only CI and a developer run
 | `cards/check` | `checkCards(recipeModule)` — staleness and the dark-background check; returns a count |
 | `cards/export` | `exportCards({ chromium, recipe })` — the renderer; takes a `chromium`, never imports one |
 | `cards/recipe-tests` | `checkRecipe(recipeModule)` — 32 shared assertions about a site's recipe |
+| `decks/export` | `exportDecks({ chromium, PDFDocument, root, decks })` — renders each deck to a 16:9 PDF fallback; takes a `chromium` and a `PDFDocument`, never imports either |
 
 A site keeps one file with real content — `og-recipe.mjs`, holding its `REPO_ROOT`, its frame,
 its hide rules and its card list — and three thin callers:
