@@ -1,2 +1,5 @@
 node_modules/
 *.tgz
+
+# SDD scratch: ledgers, briefs and review packages for in-flight plans
+.superpowers/

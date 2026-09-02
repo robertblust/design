@@ -40,6 +40,54 @@ repository is public, so installing it needs no token, no login and no npm accou
 
 `npm run design:check` runs in CI after `npm ci` and before `npm run verify`.
 
+## The card harness
+
+Four modules under `cards/`, imported rather than generated. The rule at the top of this file
+decides that: a visitor never downloads any of them, only CI and a developer run them.
+
+```jsonc
+"scripts": {
+  "og":       "node export-og.mjs",
+  "og:check": "node og-check.mjs",
+  "test:og":  "node --test verify/og-recipe.test.mjs"
+}
+```
+
+| module | what it is |
+|---|---|
+| `cards/recipe` | `sources`, `recipe`, `stampOf`, `state`, `stamp`, and `recipeFor(root)` which binds them |
+| `cards/check` | `checkCards(recipeModule)` — staleness and the dark-background check; returns a count |
+| `cards/export` | `exportCards({ chromium, recipe })` — the renderer; takes a `chromium`, never imports one |
+| `cards/recipe-tests` | `checkRecipe(recipeModule)` — 32 shared assertions about a site's recipe |
+
+A site keeps one file with real content — `og-recipe.mjs`, holding its `REPO_ROOT`, its frame,
+its hide rules and its card list — and three thin callers:
+
+```js
+// og-recipe.mjs — the data stays here, and so does REPO_ROOT
+export const REPO_ROOT = path.dirname(fileURLToPath(import.meta.url));
+export const cards = [ /* this site's cards */ ];
+export const { sources, recipe, stampOf, state, stamp } = recipeFor(REPO_ROOT);
+```
+
+**`REPO_ROOT` belongs to the site, and `root` is always a parameter here.** A package module
+that works out where it is resolves inside `node_modules`; that shipped once already, as
+`SITE_ROOT` in `verify/design.mjs`, and cost a release to undo.
+
+**Bind through `recipeFor`, not `export * from`.** Re-exporting the raw functions leaves `root`
+unbound and `state()` throws for the site's own callers. And the specifier carries no `.mjs`:
+the `exports` map has no suffixed entry, so `…/cards/recipe.mjs` raises
+`ERR_PACKAGE_PATH_NOT_EXPORTED`.
+
+**Copy each site's `FRAME` verbatim.** The recipe hashes every key of a card, so one added key
+moves every `og.sha` in that repository. No two sites' frames are interchangeable: blust.ch and
+companygraph.io carry `clipY` and no `deviceScaleFactor`, guestgraph.io the reverse.
+
+**`og:check` and `test:og` run after `npm ci`.** They import this package, which is not on disk
+before that. They still run before `npx playwright install`, because `cards/check.mjs` imports
+only `node:` builtins and needs no browser — a property asserted by importing it from a child
+process in a directory with no `node_modules` above it, rather than by grepping for imports.
+
 ## Fences
 
 Beside the whole files this package copies into a site, ten of its blocks live *inside* a
