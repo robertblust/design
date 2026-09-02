@@ -195,4 +195,8 @@
   #fig text.typelab{font-family:"Plex Mono",monospace; font-size:11.5px; fill:var(--dim);
                     letter-spacing:.08em}
   #fig text.attr{fill:var(--dim)}
+  /* The line under a name: an experience's kind and the period it ran. Mono because it is
+     record values — a date and a category read out of the model, not this page's prose — and
+     dim because the name is what the eye is looking for. */
+  #fig text.stamp{font-family:"Plex Mono",monospace; font-size:11.5px; fill:var(--dim)}
   #fig text.root{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:15px}
