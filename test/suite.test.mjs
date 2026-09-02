@@ -167,6 +167,74 @@ test("a failing check counts, and a passing one does not", async (t) => {
   assert.equal(await runSuite(good), 0, "a check returning null counted");
 });
 
+test("a page whose fake records a failed request produces a failure naming the file", async (t) => {
+  // The listener has to be attached before goto() resolves, or it misses the failure — so
+  // the fake fires it from inside its own goto(), the same order a real failed request
+  // would arrive in: after page.on("requestfailed", ...) has already run.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+  const realLog = console.log;
+  const lines = [];
+  console.log = (s) => lines.push(s);
+  t.after(() => { console.log = realLog; });
+
+  const page = {
+    async goto() {
+      page._onRequestFailed?.({ url: () => "https://x.test/broken.png" });
+      return { ok: () => true, status: () => 200 };
+    },
+    async close() {}, async evaluate() { return null; }, async $() { return null; },
+    on(event, cb) { if (event === "requestfailed") page._onRequestFailed = cb; },
+    context: () => ({ browser: () => browser }),
+  };
+  const browser = { async newPage() { return page; }, async close() {} };
+  const o = OPTS(); o.browser = browser;
+
+  assert.ok(await runSuite(o) > 0, "a failed request did not count as a failure");
+  assert.ok(lines.some(l => l.includes("failed requests: broken.png")),
+    "the failure did not name the file that failed");
+});
+
+test("a page with no failed requests is not marked as one", async (t) => {
+  // The counter-example to the test above: the default fake page's on() is a no-op, so the
+  // requestfailed listener is registered but never invoked, and `missing` stays empty.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+  assert.equal(await runSuite(OPTS()), 0, "a page with no failed requests still failed");
+});
+
+test("the fonts wait happens after the page loads and before checks run", async (t) => {
+  // This is the one that matters most: a check that measures text is measuring an unstyled
+  // page unless the fonts wait runs between goto() and the CHECKS loop. Asserting on source
+  // text (e.g. that the words "fonts.ready" appear before the loop) would pass even if the
+  // call were dead code that never executed, or moved into a branch nothing here takes — so
+  // instead the fake records the order it is actually called in, and the assertion is on
+  // that recording, not on where a line sits in the file.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+
+  const order = [];
+  const page = {
+    async goto() { order.push("goto"); return { ok: () => true, status: () => 200 }; },
+    async close() {},
+    async evaluate() { order.push("fonts"); return null; },
+    async $() { return null; }, on() {}, context: () => ({ browser: () => browser }),
+  };
+  const browser = { async newPage() { return page; }, async close() {} };
+
+  const o = OPTS();
+  o.browser = browser;
+  o.CHECKS = { ordering: async () => { order.push("check"); return null; } };
+  o.PAGES[0].ordering = true;
+
+  await runSuite(o);
+  assert.deepEqual(order, ["goto", "fonts", "check"],
+    "the fonts wait did not run between the page loading and its checks");
+});
+
 test("runSuite returns rather than exiting", async (t) => {
   // process.exit in a library makes it untestable and takes the decision away from the
   // caller. A match against runSuite.toString() for the literal text "process.exit" would
