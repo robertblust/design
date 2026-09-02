@@ -63,10 +63,19 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     const page = await browser.newPage();
     const jsErrors = [];
     page.on("pageerror", e => jsErrors.push(String(e)));
-    // A request that fails leaves no trace in the DOM, so no per-page check can see it —
-    // a missing font or image would otherwise pass every check the suite has. The listener
-    // has to be attached before goto() below, or it misses every request the navigation
-    // itself makes.
+    // This fires for whatever the network stack or the resource's own loader aborts: DNS
+    // failure, a refused or blocked connection, and a 404 on a stylesheet, a script, or an
+    // @font-face font — each of those loaders treats a 404 as a load failure and aborts. It
+    // does NOT fire for a 404 on an <img>: that request completes as an ordinary response
+    // and only fails later, at decode. So the rule this listener implements is not "404 vs.
+    // network failure" — it is "does the thing consuming the resource abort the load". A
+    // request that fails this way leaves no trace in the DOM, so no per-page check can see
+    // it, and a missing self-hosted webfont is the one bug this family has actually shipped.
+    // Read narrower than that — e.g. "catches missing images" — and the gap looks like proof
+    // this is dead weight against a same-origin localhost server, safe to delete; it is not:
+    // deleting it on that reasoning would also delete the only thing that catches the
+    // webfont case. The listener has to be attached before goto() below, or it misses every
+    // request the navigation itself makes.
     const missing = [];
     page.on("requestfailed", r => missing.push(r.url().split("/").pop()));
     const problems = [];
@@ -131,7 +140,9 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
 
     // Presence of the string "sitemap.xml" was the whole of this check, which is a test that
     // the file mentions a sitemap rather than that it names one that exists. guestgraph.io
-    // named three and two were 404 in production — the same block is now in all three suites.
+    // named three and two were 404 in production — this block turned up duplicated,
+    // byte-for-byte, across all three suites, which is why it was moved into this shared
+    // file instead of staying in each one.
     const rb = await fetch(BASE + "/robots.txt");
     if (!rb.ok) { console.log(`✗ /robots.txt  HTTP ${rb.status}`); failures++; }
     else {
