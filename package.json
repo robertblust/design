@@ -1,6 +1,6 @@
 {
   "name": "@robertblust/design",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "description": "The design system shared by blust.ch, companygraph.io and guestgraph.io.",
   "license": "Apache-2.0",
   "type": "module",
@@ -35,6 +35,7 @@
     "./verify/http": "./verify/http.mjs",
     "./verify/pages": "./verify/pages.mjs",
     "./verify/lcd-scan": "./verify/lcd-scan.mjs",
+    "./verify/suite": "./verify/suite.mjs",
     "./fences": "./lib/fences.mjs",
     "./family": "./lib/family.mjs"
   },
