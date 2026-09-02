@@ -1,4 +1,4 @@
-  /* ─── header contract · v4 · shared ──────────────────────────────────
+  /* ─── header contract · v5 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -21,7 +21,10 @@
                     read as permanently hovered.
        · collapse   Under 640px the links go behind a button. The language control stays on
                     the bar — two characters, reached for constantly by a bilingual
-                    audience — and the button sits to its left, so the order still reads.
+                    audience — and the button takes the left-hand corner, where a thumb
+                    goes looking for it.
+       · height     The language control sets it. The theme control matches it rather than
+                    carrying a height of its own.
 
      `navOrder`, `headerBaseline` and `mobileNav` in this repo's verify suite assert all of
      it. They cannot see the other two repositories: that is what the version is for.
@@ -73,7 +76,15 @@
   /* The theme control is a .seg like the language one, so it inherits the border, the radius
      and the pressed treatment. Only the icons differ: 14px square, drawn with currentColor so
      the pressed state colours them without a second rule. */
-  .seg.theme button{display:grid; place-items:center; padding:.26rem .48rem}
+  /* The language control's buttons are as tall as the text line box inside them; these hold a
+     14px icon and came out 4px shorter, so the two controls sat at different heights in a row
+     whose whole point is one baseline. One line box is the floor here too, which keeps the
+     language control the base rather than copying a number off it: `em` first for anything
+     without `lh`, both resolving to the same 18.24px today. The padding is added back because
+     `box-sizing` is `border-box` here — a bare line box is smaller than the button already is
+     and would bind on nothing, which is exactly how the first attempt at this failed. */
+  .seg.theme button{display:grid; place-items:center; padding:.26rem .48rem;
+                    min-height:calc(1.5em + .52rem); min-height:calc(1lh + .52rem)}
   .seg.theme svg{width:14px; height:14px; display:block; fill:none; stroke:currentColor;
                  stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
   /* The row narrows before it collapses. */
@@ -87,12 +98,26 @@
 
      The language control stays on the bar. It is two characters, it is used constantly by a
      bilingual audience, and a language a visitor cannot find is worse than one menu tap
-     saved. The button sits to its left, which keeps the family's order: the switcher is
-     still the rightmost thing in the row, and the menu holds everything left of it. */
+     saved. It keeps the right-hand end of the row, with the theme control beside it; the menu
+     button holds the left-hand corner, which is where a thumb goes looking for it. */
   @media (max-width:640px){
-    nav{gap:.8rem}
-    .burger{display:inline-flex}
-    .navlinks{display:none; position:absolute; top:calc(100% + .85rem); right:0; z-index:30;
+    /* The menu button takes the left-hand corner. It cannot be moved in the DOM — the bar's
+       markup is written per page, sixteen of them across three repositories, while this fence
+       is CSS alone — so `nav` stops generating a box and its children become items of `.bar`
+       itself. The button then reaches the corner with `order`, in flow, aligned by the same
+       `align-items:center` as everything else in the row.
+
+       Absolute positioning was the first attempt and it fought the bar's own wrapping: `.bar`
+       has `flex-wrap` and already went to two rows at 360px before this button moved, so a
+       vertically centred button hung in the gap between them. Padding the wordmark clear of it
+       then inflated `.brand` enough that `mobileNav` reported a broken wordmark — correctly,
+       since that check reads the brand's height to find a wrapped one. `.bar` takes the
+       positioning `nav` gives up, so the panel still has something to hang from. */
+    .bar{position:relative}
+    nav{display:contents}
+    .burger{display:inline-flex; order:-1}
+    .brand{margin-right:auto}
+    .navlinks{display:none; position:absolute; top:calc(100% + .85rem); left:0; z-index:30;
               flex-direction:column; align-items:flex-start; gap:0;
               min-width:11rem; padding:.3rem 1.1rem;
               background:var(--raise); border:1px solid var(--rule); border-radius:10px}
