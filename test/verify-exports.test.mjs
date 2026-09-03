@@ -45,7 +45,7 @@ test("SYSTEM_FACES is a Set, so `.has` means what the checks think it means", ()
 
 test("httpStatus drains the response body it does not want", async () => {
   // A source-text match here would pass on `const b = res.body; return res.status;` — that
-  // gets the string ".body" into the file while never reading or cancelling the stream,
+  // gets the string ".body" into the file while never reading or canceling the stream,
   // which is exactly the shape that crashes Node 22's bundled undici about half the time in
   // CI. Instrumenting the stream's own `pull`/`cancel` hooks turned out to be just as
   // foolable: a `ReadableStream` calls `pull` to fill its queue the moment it is

@@ -371,17 +371,17 @@
       x1 = Math.max(x1, b.x + (b.anchor === "start" ? b.text.length * CH_MONO : 0));
     });
     var k = Math.max(K_MIN, Math.min(1, (w * 0.92) / (x1 - x0), (h * 0.9) / (y1 - y0)));
-    // Center what fits; anchor on the focus what does not. Centring the whole bounding box is
+    // Center what fits; anchor on the focus what does not. Centering the whole bounding box is
     // right until one band is taller than any frame — a profile claiming 59 skills has one —
     // and then the box's middle is somewhere inside that band and the focused node itself is
     // off the canvas. The reader is left looking at a list with nothing to say what it hangs
     // from. Per axis, because the overflow is usually vertical and the horizontal path still
-    // deserves centring. The layout puts the focus at (0,0), which is what makes this a
+    // deserves centering. The layout puts the focus at (0,0), which is what makes this a
     // translate to the middle of the frame and nothing more.
     var overflowX = k * (x1 - x0) > w, overflowY = k * (y1 - y0) > h;
     // Horizontally, hold the left edge: the path climbs in from the left and the focus sits
     // after it, so reading order is what should survive the clip, and the focus is never the
-    // thing that falls off. Centring instead pushed the right-hand eyebrow past the edge —
+    // thing that falls off. Centering instead pushed the right-hand eyebrow past the edge —
     // the canvas is only as wide as the card leaves it.
     // Vertically, hold the focus: a band overflows in both directions at once and there is no
     // edge worth preferring, only the node the band hangs from.

@@ -213,7 +213,7 @@
   /* The lines step back, and nothing else does. Two things were tried first and both cost
      more than they bought: dimming whole nodes put an attribute that is already --dim under
      the contrast floor this site holds itself to, and dimming the marks alone turned the
-     squares grey, which reads as a third kind of node rather than a quieter one. The
+     squares gray, which reads as a third kind of node rather than a quieter one. The
      dashes were the noise all along — fifty-eight of them against one path. */
   #fig .n:focus:not(:focus-visible){outline:none}
   #fig text{fill:var(--ink); font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif; font-size:13px; dominant-baseline:middle}

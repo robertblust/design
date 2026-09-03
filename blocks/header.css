@@ -15,7 +15,7 @@
                     left is more the site's own subject.
        · baseline   One line runs through the middle of every text in the row. The links
                     carry equal space above and below, because the hover underline hangs
-                    below and centring the boxes would otherwise ride the text high.
+                    below and centering the boxes would otherwise ride the text high.
        · states     Hover is an underline and nothing else. The current page is brighter
                     ink and carries no line. When both drew a line, the page you were on
                     read as permanently hovered.
@@ -31,7 +31,7 @@
   */
   /* `align-items:center`, not the default `stretch`: a stretched link is a box the height of
      the whole row with its text at the top, which put the words above the language control
-     beside them. Centred, each box is its own height and one line runs through every text. */
+     beside them. Centered, each box is its own height and one line runs through every text. */
   nav{display:flex; align-items:center; gap:1.9rem; font-size:.76rem; font-weight:500;
       letter-spacing:.14em; text-transform:uppercase; position:relative}
   .navlinks{display:flex; align-items:center; gap:1.9rem}
@@ -52,7 +52,7 @@
   nav a{color:var(--dim); text-decoration:none; padding:.2rem 0;
         border-top:1px solid transparent; border-bottom:1px solid transparent}
   /* Hover is an underline and nothing else: `border-bottom-color`, not `border-color`,
-     because the box now has a transparent border on both edges to keep its text centred,
+     because the box now has a transparent border on both edges to keep its text centered,
      and `border-color` painted a line above the word as well as under it.
      The current page is not underlined — it is brighter. A page marks where you are with
      a different weight of ink; the underline is what follows the pointer. When both used
@@ -109,7 +109,7 @@
 
        Absolute positioning was the first attempt and it fought the bar's own wrapping: `.bar`
        has `flex-wrap` and already went to two rows at 360px before this button moved, so a
-       vertically centred button hung in the gap between them. Padding the wordmark clear of it
+       vertically centered button hung in the gap between them. Padding the wordmark clear of it
        then inflated `.brand` enough that `mobileNav` reported a broken wordmark — correctly,
        since that check reads the brand's height to find a wrapped one. `.bar` takes the
        positioning `nav` gives up, so the panel still has something to hang from. */
@@ -127,7 +127,7 @@
             and the first link read as one row instead of two things that nearly line up.
             Measured, not derived — a link's height comes from its own padding and line box,
             which CSS cannot subtract here. Changing `.navlinks a`'s padding or the control's
-            height moves it; the centres are 117 and 118 as it stands. */
+            height moves it; the centers are 117 and 118 as it stands. */
          --drawer-first-row:.5rem}
     .navlinks{display:none; position:absolute; top:calc(100% + var(--drawer-gap));
               left:0; right:0; z-index:30;

@@ -282,7 +282,7 @@ export const DESIGN_CHECKS = {
   },
 
   // mono is the page's "this is data" signal. Spend it on nav, buttons and prose and it
-  // stops signalling anything — which is how it was being used before.
+  // stops signaling anything — which is how it was being used before.
   async monoScope(page) {
     const bad = await page.evaluate(() => {
       const sel = ["nav a", ".btn", "h1", "h2", ".lede", ".tagline", "p.byline"];

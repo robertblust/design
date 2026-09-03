@@ -97,7 +97,7 @@ test("links matches only true absolute http(s) hrefs", () => {
 });
 
 test("headerBaseline measures a text range, not an element box", () => {
-  // The header bug this replaced was exactly a box that centred while the text inside it did
+  // The header bug this replaced was exactly a box that centered while the text inside it did
   // not; measuring getBoundingClientRect() of the element instead of a Range over its text
   // node would silently bring that bug back.
   const src = pageChecks(OPTS).headerBaseline.toString().replace(/\/\/.*$/gm, "");

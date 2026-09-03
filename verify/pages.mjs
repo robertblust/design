@@ -83,7 +83,7 @@ export function pageChecks({ SITE, BASE }) {
     // stretched to the row's height with their text at the top, and the language control sat
     // 5px lower than the words beside it.
     //
-    // Measured on the text, not the boxes. A box can be centred while the text inside it is
+    // Measured on the text, not the boxes. A box can be centered while the text inside it is
     // not — that is exactly the bug this replaced, and a check comparing boxes would have
     // called it aligned.
     //
