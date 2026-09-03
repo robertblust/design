@@ -85,6 +85,13 @@
      anywhere break — back to that here. */
   .cbody p code{overflow-wrap:anywhere}
   .cbody a.go{color:var(--c-mid); text-decoration:none; border-bottom:1px solid var(--c-weak); cursor:pointer}
+  /* A link that leaves the model, in the same treatment as one that walks it — a reader should
+     not have to learn two link styles in one card. It breaks anywhere, because a URL is one
+     long unbreakable word and this column is narrow. */
+  .cbody a.ext{color:var(--c-mid); text-decoration:none; border-bottom:1px solid var(--c-weak);
+               overflow-wrap:anywhere}
+  .cbody a.go:hover, .cbody a.ext:hover,
+  .cbody a.go:focus-visible, .cbody a.ext:focus-visible{border-bottom-color:var(--c-mid)}
   .cbody .empty{color:var(--dim); line-height:1.5}
   @media (max-width: 860px){
     /* minmax(0,1fr), never a bare 1fr: a grid track sized `auto` at its floor takes the
