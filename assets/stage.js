@@ -538,6 +538,20 @@
     a.addEventListener("click", function(ev){ ev.preventDefault(); focus(nEntity(byId[id])); });
     return a;
   }
+  // A link out of the model. `url` on an entry and every URL in a References table point at
+  // the web rather than at another node, so they are not `goLink`s — that one focuses a node
+  // and never leaves the page. This one is an ordinary href, in the same tab as everything
+  // else here: nothing on this site opens a new one.
+  //
+  // The scheme is dropped from what is shown and kept in what is followed. A card column is
+  // narrow, `https://` is eight characters of no information, and the family already writes
+  // these as "wiki.eclipse.org/…" wherever it writes them in prose.
+  var URL_RE = /^https?:\/\/\S+$/;
+  function extLink(url){
+    var a = h("a", url.replace(/^https?:\/\//, "").replace(/\/$/, ""), "ext");
+    a.href = url;
+    return a;
+  }
   function resolve(text){ for (var i = 0; i < data.entities.length; i++) if (data.entities[i].name === text) return data.entities[i].id; return null; }
   // Markdown inline code — the one span-level mark the model's fixed shape uses. A field
   // name, a file path, a `ref → type`: every one of them a string quoted out of a file,
@@ -595,6 +609,7 @@
           var id = resolve(name);
           dd.appendChild(id ? goLink(id) : document.createTextNode(name));
         });
+        else if (URL_RE.test(v)) dd.appendChild(extLink(v));
         else dd.textContent = v;
         dl.appendChild(dd);
       });
@@ -617,7 +632,9 @@
           var tr = h("tr");
           row.forEach(function(cell){
             var td = h("td"), id = resolve(cell);
-            if (id) td.appendChild(goLink(id)); else inline(td, cell);
+            if (id) td.appendChild(goLink(id));
+            else if (URL_RE.test(cell)) td.appendChild(extLink(cell));
+            else inline(td, cell);
             tr.appendChild(td);
           });
           tb.appendChild(tr);
