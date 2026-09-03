@@ -73,9 +73,9 @@ const hex = v => v.trim().replace(/^#/, "").toUpperCase();
 // resolved. This is that resolved string — what the page must actually report.
 export const SKY = "radial-gradient(120% 60% at 50% -10%, #171A21 0%, #0C0E13 60%)";
 
-// Chromium is free to serialise a color inside a gradient either as the hex it was written
+// Chromium is free to serialize a color inside a gradient either as the hex it was written
 // as or as rgb(), and which one you get depends on where the value came from. Fold both to a
-// lower-case hex, and forgive the whitespace the serialiser may add or drop.
+// lower-case hex, and forgive the whitespace the serializer may add or drop.
 const rgbToHex = v => v.replace(
   /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/gi,
   (_, r, g, b) => "#" + [r, g, b].map(n => Number(n).toString(16).padStart(2, "0")).join(""));

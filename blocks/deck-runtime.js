@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v5 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v6 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -39,7 +39,7 @@
      attributes existing on the page around it; `transport` and `opensFromFile` are what
      actually hold that larger contract, between them, not this comment.
 
-     A `language` fence lives inside this one, parameterised exactly as it is anywhere
+     A `language` fence lives inside this one, parameterized exactly as it is anywhere
      else it appears — its own `LANG_KEY` line is filled from the site's configured key
      rather than frozen at extraction. This block declares the same `langKey` parameter
      for the same reason: the sync tool's pass over this outer fence fills in the

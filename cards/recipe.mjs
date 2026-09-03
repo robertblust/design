@@ -5,7 +5,7 @@
 // wrong — it advertises the site as it read some commits ago while every check passes. A site's
 // `og:check` and its exporter agree on what "current" means by both calling into this module.
 //
-// The comparison is the recipe, never the pixels. Two machines rasterise the same text
+// The comparison is the recipe, never the pixels. Two machines rasterize the same text
 // differently, so a card compared by its bytes reports which machine rendered it. Re-deriving a
 // hash of what went *into* the card needs no browser and no server, which is why the check can
 // run in CI before `npm ci`.

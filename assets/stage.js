@@ -64,8 +64,11 @@
     if (!m[2]) return m[1];
     var mon = MONTHS[lang()][+m[2] - 1];
     if (!m[3]) return mon + " " + m[1];
-    // "4 May 2012" and "4. Mai 2012": German ordinals carry the point, English does not.
-    return (+m[3]) + (lang() === "de" ? "." : "") + " " + mon + " " + m[1];
+    // "May 4, 2012" and "4. Mai 2012". The page is en-US, so the English day follows the
+    // month and a comma sets off the year; the German ordinal carries its point and comes
+    // first. Day-month-year is what this used to print in English, which is neither.
+    if (lang() === "de") return (+m[3]) + ". " + mon + " " + m[1];
+    return mon + " " + (+m[3]) + ", " + m[1];
   }
   // Three shapes, and the model says which by what it holds. No end means still running. An
   // end equal to its start is a one-off — a talk, a certification — and printing it twice
@@ -215,7 +218,7 @@
   // is why a count of one reads "1 source" and not "1 sources", and why these are the same
   // words the canvas prints on the folders themselves.
   //
-  // Broken down by type rather than totalled, because the honest answer usually is mixed: a
+  // Broken down by type rather than totaled, because the honest answer usually is mixed: a
   // profile refers to its skills and to the source that masters it, and "59" alone tells the
   // reader neither what is down there nor that the last one is a different kind of thing.
   // Past three types the breakdown is longer than the thing it labels, so it gives up and
@@ -887,7 +890,7 @@
     var id = decodeURIComponent(location.hash.slice(1));
     // An empty hash — Back past the last focus — means the root, not "do nothing", and so
     // does one naming nothing this page holds: focus() writes a hash for every node but the
-    // root, so a bare or unrecognised hash is exactly what the root looks like.
+    // root, so a bare or unrecognized hash is exactly what the root looks like.
     var n = nodeById(id);
     if (!n) { if (!focused || focused.kind !== "root") focus(nRoot()); return; }
     if (!focused || focused.id !== id) focus(n);

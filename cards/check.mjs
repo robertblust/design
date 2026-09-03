@@ -85,7 +85,7 @@ function decodePNG(buf) {
 
 // WCAG relative luminance, on 0–255 channels rather than the 0–1 ratio used elsewhere in this
 // family — the check only needs light-vs-dark, not an accurate contrast ratio, so the simpler
-// unnormalised form is enough.
+// unnormalized form is enough.
 const luminance = ([r, g, b]) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 // Dark ground (#0C0E13) is ~0.05; light ground (#FAF9F5) is ~0.98 — the midpoint is nowhere
 // near either, so a threshold here cannot mistake one for the other.

@@ -156,6 +156,21 @@ pick it would be picking wrong. `FAMILY` is the same three domains everywhere, o
 language to one of its siblings. A parameter is for what a site is entitled to choose, not
 for what merely happens, today, to be shared.
 
+## Spelling
+
+Everything here is American English — core's R14 applied to a package whose comments are
+copied into sixteen pages on three domains, where the sites' own rule is that every word of a
+page is en-US. `test/spelling.test.mjs` scans what ships (`blocks`, `lib`, `verify`, `cards`,
+`decks`, `bin`, `assets/stage.js`, this file) against a list of British forms and fails on the
+first hit. It is a list, not a dictionary: a false positive is a word to add to its allow list,
+never a reason to reword a sentence. German inside a block belongs to the block's `data-de` or
+`de:` branch and is not English at all; the scanner sees so little of it that no exception has
+been needed.
+
+The sites' `translates` check — the one shared check that presses DE and reads the German — is
+here in `verify/pages.mjs` beside the rest, so the German half of every page in the family is
+seen by the same code.
+
 ## A warning about `stage.js`
 
 `stage.js` is the one shared file no deck loads — a deck draws static SVG and has to open
