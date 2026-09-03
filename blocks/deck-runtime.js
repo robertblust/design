@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v4 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v5 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -200,7 +200,12 @@
     cur.textContent = pad(i);
     if(notesOpen){
       var d = slides[i].dataset;
-      ntext.innerHTML = (lang === 'en' && d.notesEn) ? d.notesEn : d.notes;
+      /* `data-notes` is English and `data-notes-de` the translation, which is `data-de`'s
+         pairing and the page's: the source markup is English and German is what an
+         attribute carries. It used to be the other way round for notes alone — the base
+         attribute held German while English was the suffixed one — so the base attribute
+         meant a different language depending on which of the two you were reading. */
+      ntext.innerHTML = (lang === 'de' && d.notesDe) ? d.notesDe : d.notes;
       ntime.textContent = d.time || '';
     }
     /* The ends of the deck, made visible. go() has always clamped, so these controls
@@ -349,7 +354,7 @@
   }
 
   function spokenText(slide){
-    var raw = (lang === 'en' && slide.dataset.notesEn) ? slide.dataset.notesEn : slide.dataset.notes;
+    var raw = (lang === 'de' && slide.dataset.notesDe) ? slide.dataset.notesDe : slide.dataset.notes;
     if (!raw) return '';
     var d = document.createElement('div');
     d.innerHTML = raw;
