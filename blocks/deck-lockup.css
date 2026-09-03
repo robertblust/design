@@ -25,7 +25,7 @@
 
      The mark is favicon.svg inlined rather than linked: a linked asset is a
      broken box under file://, which is the one thing a deck has to survive. It
-     draws its colours from the tokens so a palette change moves it; the favicon
+     draws its colors from the tokens so a palette change moves it; the favicon
      keeps its own hexes because it has to stand alone. The face is "Plex Mono" —
      the name every deck in the family actually @font-faces. */
 {{one}}{{two}}  .name .plate{fill:var(--raise); stroke:var(--rule); stroke-width:1.5}

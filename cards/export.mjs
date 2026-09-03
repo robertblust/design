@@ -12,7 +12,7 @@
 // `deviceScaleFactor` was only guestgraph's, reduced-motion settling and the URL `hash` were
 // only companygraph's, an unconditional `document.fonts.ready` was only blust.ch's and
 // guestgraph's, and the `if (c.hide)` guard was only companygraph's. Consolidating onto any one
-// copy, or onto what all three agreed on, would delete working behaviour from two sites and
+// copy, or onto what all three agreed on, would delete working behavior from two sites and
 // nothing would fail: every one of those losses renders a card that looks plausible. So every
 // capability present in any copy is present here.
 //
@@ -36,7 +36,7 @@ const REQUIRED = ["dir", "width", "height", "renderHeight", "clipY"];
 
 const SETTLE = /^wait:\d+$|^reduced-motion$/;
 
-// Absent `settle` means blust.ch's behaviour, which is what keeps its eight cards byte-identical
+// Absent `settle` means blust.ch's behavior, which is what keeps its eight cards byte-identical
 // across this move: none of them names a settle at all.
 const DEFAULT_SETTLE = "wait:900";
 

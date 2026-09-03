@@ -117,7 +117,7 @@ export function checkCards({ cards, state, REPO_ROOT }, log = console.log) {
   // nothing before this checked that the pin actually held: an exporter that once cleared its
   // theme attribute instead of setting it inherits whatever the boot script's default happens to
   // be rather than pinning anything, and every card still rendered dark only because the default
-  // was dark — the recipe hash has no way to see a colour. This reads the committed PNGs
+  // was dark — the recipe hash has no way to see a color. This reads the committed PNGs
   // directly, the same way verify/pages.mjs's `card` check reads a PNG's IHDR directly, so it
   // stays dependency-free.
   const lightCards = [];

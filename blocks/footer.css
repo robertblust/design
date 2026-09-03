@@ -7,7 +7,7 @@
      not, and a page declaring the wrong word is an error rather than a
      preference — which is what the variant guard in planFences asserts.
 
-     The row is mono because the row is data: a repository URL and a licence.
+     The row is mono because the row is data: a repository URL and a license.
      The credit leaves that mono deliberately, because a brand is not a record
      value. Both facts belong here rather than in sixteen page comments. */
   footer{padding:0 0 2rem; display:flex; flex-wrap:wrap; gap:.9rem 2.6rem; align-items:center;

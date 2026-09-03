@@ -5,7 +5,7 @@
 // Each test here names a capability that one of the three exporters this module replaces had and
 // the other two had lost. That is the whole point of the file: a renderer consolidated onto any
 // single copy still renders cards that look right, so nothing but an assertion per capability
-// says which behaviour went missing.
+// says which behavior went missing.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";

@@ -7,7 +7,7 @@
 // which real CSS always resolves to `--x`, but a flat regex matched the *inner* var() and
 // never saw the outer one); a pseudo-class, compound class or ancestor prefix on the selector
 // (`.lcd:hover`, `.lcd.open`, `.transport .lcd`), which literal string equality against `.lcd`
-// doesn't recognise as targeting `.lcd` at all; a rule nested inside `@media`, which a flat
+// doesn't recognize as targeting `.lcd` at all; a rule nested inside `@media`, which a flat
 // regex reads as belonging to the `@media` prelude and never reaches; and a declaration whose
 // value wraps onto a second line, silently dropped by a regex with no `s` flag. Four rounds of
 // patching one regex produced four more ways around it — a class of bug, not a series of

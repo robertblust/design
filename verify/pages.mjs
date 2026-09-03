@@ -562,7 +562,7 @@ export function pageChecks({ SITE, BASE }) {
     //
     // Two independent failures are checked because either alone is not enough: a control can
     // sit fully inside the viewport's rectangle and still be unreachable if something else
-    // paints over its centre, and a control can be the true hit-target at its own centre while
+    // paints over its center, and a control can be the true hit-target at its own center while
     // the rest of it is clipped past the edge — a corner a visitor's tap will miss more often
     // than it lands. `spec.transportFits` is the page's own list of widths to check, mirroring
     // how `spec.wayOut` and `spec.sameTab` let a page name what it is asserting rather than
@@ -589,7 +589,7 @@ export function pageChecks({ SITE, BASE }) {
               const reachable = !!hit && (hit === el || el.contains(hit));
               if (!within || !reachable) {
                 const name = el.id || el.className || el.tagName.toLowerCase();
-                const why = [!within && "off-screen", !reachable && "not the hit target at its own centre"]
+                const why = [!within && "off-screen", !reachable && "not the hit target at its own center"]
                   .filter(Boolean).join(", ");
                 out.push(`${name} (${why})`);
               }

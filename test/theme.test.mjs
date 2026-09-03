@@ -60,7 +60,7 @@ test("the confidence ramp is ordered in both themes, in opposite directions", ()
 });
 
 test("--sky is derived, so it follows the theme without being restated", () => {
-  // If someone ever writes literal colours into --sky, the light theme keeps the dark
+  // If someone ever writes literal colors into --sky, the light theme keeps the dark
   // gradient and nobody notices until they look at the top of a light page.
   const css = blockFor("design tokens", "page");
   assert.match(css, /--sky:radial-gradient\([^;]*var\(--raise\)[^;]*var\(--ground\)[^;]*\);/);
@@ -71,7 +71,7 @@ test("--sky is derived, so it follows the theme without being restated", () => {
 test("--c-weak stays below the 3:1 UI threshold against --ground, in both themes", () => {
   // Every other assertion here is a floor. This one is a ceiling, because --c-weak's job is
   // the opposite of the other stops': "a candidate, considered but not accepted" only reads as
-  // tentative while it stays under the threshold that would make it usable as a UI colour in
+  // tentative while it stays under the threshold that would make it usable as a UI color in
   // its own right. Raising it — even to keep the ramp monotonic, even while every other test
   // stays green — reverses that decision silently. A comment saying so does not enforce it;
   // this does.
@@ -98,7 +98,7 @@ test("--press clears AA against --c-mid, the text token it actually carries, in 
 });
 
 test("--press exists in both themes and is not --raise", () => {
-  // #1b2231 and #1b2333 were one colour typed twice; --press is the single name. It is blue-
+  // #1b2231 and #1b2333 were one color typed twice; --press is the single name. It is blue-
   // tinted where --raise is neutral, and folding them together would change three pages'
   // primary button.
   const css = blockFor("design tokens", "page");
@@ -582,7 +582,7 @@ function rawPalette(css, selector) {
 
 test("both themes define every deck token", () => {
   // Seventeen names arriving in one half and not the other is the failure that shows up as a
-  // single wrong colour on one deck in one theme, which nobody looks at.
+  // single wrong color on one deck in one theme, which nobody looks at.
   const css = deckCss();
   for (const t of DECK_TOKENS) {
     assert.ok(declares(css, ":root", t), `--${t} missing from the dark half`);
@@ -725,9 +725,9 @@ test("the deck's progress fill clears the 3:1 UI-component threshold against its
 
 test("nothing that flips with the theme is painted inside .lcd", () => {
   // Round two scoped this to the `color` property; round three widened it to eight named
-  // colour-bearing properties. Both were an enumeration, and a reviewer went through each:
+  // color-bearing properties. Both were an enumeration, and a reviewer went through each:
   // `border:1px solid var(--deck-ring)` used a property neither list named. Enumerating
-  // colour-bearing properties is the wrong axis — CSS keeps adding them — so this checks
+  // color-bearing properties is the wrong axis — CSS keeps adding them — so this checks
   // every property a rule declares, via `lcdVarReferences()` above, and holds every `var()`
   // token it finds to the same standard regardless of which property carries it.
   //
@@ -738,7 +738,7 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
   // matched the *inner* var() and never saw the outer one — a decoy naming an invariant token
   // laundered a flipping one straight through); a pseudo-class, compound class or ancestor
   // prefix on the selector (`.lcd:hover`, `.lcd.open`, `.transport .lcd`), which the old
-  // literal string-equality selector check didn't recognise as targeting `.lcd` at all; a
+  // literal string-equality selector check didn't recognize as targeting `.lcd` at all; a
   // rule nested inside `@media`, which the old flat regex read as belonging to the `@media`
   // prelude and never reached (this file's own `.lcd{display:none}` and `.lcd{padding:...}`
   // media rules were, as a result, never scanned by any earlier round of this test); and a
@@ -759,7 +759,7 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
   const light = rawPalette(tokenCss, ':root\\[data-theme="light"\\]');
   const invariant = new Set(Object.keys(dark).filter((t) => dark[t] === light[t]));
 
-  // Tokens permitted to flip inside .lcd because they carry no colour — a radius, a duration,
+  // Tokens permitted to flip inside .lcd because they carry no color — a radius, a duration,
   // a font stack. Empty today, and left here explicitly rather than omitted: an empty
   // allow-list that says so tells the next reader this was checked and found empty, not
   // forgotten. A reviewer built the case this exists for — a real --deck-radius token, 8px
@@ -773,7 +773,7 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
   for (const { selector, prop, token } of referenced)
     assert.ok(invariant.has(token) || NON_COLOUR_EXCEPTIONS.has(token),
       `${selector}'s ${prop} references --${token}, which differs between themes; only an ` +
-      `invariant or explicitly-allowed non-colour token may appear inside .lcd`);
+      `invariant or explicitly-allowed non-color token may appear inside .lcd`);
 
   // The positive half: a rule that loses its declaration entirely passes the loop above
   // vacuously (nothing left to check), so the known rules and their expected tokens are
@@ -855,7 +855,7 @@ test("the deck's theme control is styled where it lives", () => {
 });
 
 test("the theme control's rules sit outside .lcd, not inside it", () => {
-  // deck-transport v5 made every colour inside .lcd invariant across themes, because the
+  // deck-transport v5 made every color inside .lcd invariant across themes, because the
   // readout stays dark in both. `.seg.theme` is the slab-side control, not the readout, and
   // must not become a second way to smuggle a themed rule under `.lcd` — see the "nothing
   // that flips with the theme is painted inside .lcd" test above for the mechanism that

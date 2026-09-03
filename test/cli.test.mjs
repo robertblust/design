@@ -47,7 +47,7 @@ function walkTree(root) {
   return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 
-// execFileSync throws on a non-zero exit; normalise both outcomes into one shape.
+// execFileSync throws on a non-zero exit; normalize both outcomes into one shape.
 function run(args, cwd) {
   try {
     const stdout = execFileSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8" });

@@ -213,7 +213,7 @@ test("the deck fit block describes the canvas that exists, not the one that was 
 });
 
 test("an inert transport button does not light up under the pointer", () => {
-  // :hover sets colour and background, so opacity alone leaves an inert button looking
+  // :hover sets color and background, so opacity alone leaves an inert button looking
   // clickable. Both halves or neither. aria-disabled, not :disabled — the runtime keeps
   // the control focusable and its own handler returns early instead.
   const css = blockFor("deck transport", null);
@@ -318,8 +318,8 @@ test("the deck runtime block hardcodes no site's storage key", () => {
     "the block's own LANG_KEY line names a literal key instead of the {{langKey}} template");
 });
 
-test("the deck's chrome blocks paint no literal colours", () => {
-  // The whole point of the deck tokens: a block that still names a colour cannot follow the
+test("the deck's chrome blocks paint no literal colors", () => {
+  // The whole point of the deck tokens: a block that still names a color cannot follow the
   // theme, and it will be a single wrong element on a light deck that nobody notices because
   // everything around it is right.
   for (const [name, variant] of [["deck transport", null], ["deck lockup", "one"], ["deck lockup", "two"]]) {

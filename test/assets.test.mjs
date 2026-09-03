@@ -5,7 +5,7 @@
 // folder's box is drawn 4px taller than a page's square. Vendor the wrong copy and this
 // package would ship the bug to the repository that had already fixed it.
 //
-// So this is a guard, not a unit test: it asserts the identity of the bytes, not behaviour.
+// So this is a guard, not a unit test: it asserts the identity of the bytes, not behavior.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
