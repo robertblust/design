@@ -8,7 +8,7 @@
   "transport": "v8",
   "lockup": "v1",
   "fit": "v1",
-  "runtime": "v4",
+  "runtime": "v5",
   "themeBoot": "v2",
   "theme": "v3"
 }
