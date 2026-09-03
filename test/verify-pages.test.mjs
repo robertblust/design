@@ -4,13 +4,13 @@ import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The twenty-four this module is responsible for. A body that quietly stops being exported
+// The twenty-five this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
   "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
   "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
-  "translates", "transportFits", "wayOut"];
+  "translates", "transportBaseline", "transportFits", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);
@@ -299,6 +299,53 @@ test("transportFits passes when every control is reachable at every width", asyn
     absolute: "https://example.test/talks/x/", transportFits: [320, 390, 414],
   });
   assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+});
+
+// Same shape as makeTransportFitsPage: the check's evaluate callback closes over document,
+// so the fake hands back the canned verdict for whatever width was last set.
+function makeTransportBaselinePage(badByWidth) {
+  const seen = [];
+  return {
+    async setViewportSize({ width }) { seen.push(width); },
+    async goto() {},
+    async evaluate() { return badByWidth[seen[seen.length - 1]] ?? null; },
+  };
+}
+
+test("transportBaseline checks every width in spec.transportBaseline, not only the first", async () => {
+  // The bar has three mobile tiers and a desktop form, and only the desktop form was ever
+  // wrong. A check that stopped at the first width would have reported the fix and never
+  // looked at the tiers whose own min-height is what holds the two controls together there.
+  const page = makeTransportBaselinePage({
+    360: null, 500: null, 1200: "language 29.1px at 734.5, theme 23.3px at 737.4 (5.8px taller, 2.9px apart)",
+  });
+  const result = await pageChecks(OPTS).transportBaseline(page, {
+    absolute: "https://example.test/talks/x/", transportBaseline: [360, 500, 1200],
+  });
+  assert.match(result, /1200px:.*5\.8px taller/);
+  assert.doesNotMatch(result, /360px|500px/);
+});
+
+test("transportBaseline passes when the two controls agree at every width", async () => {
+  const page = makeTransportBaselinePage({ 320: null, 430: null, 900: null });
+  const result = await pageChecks(OPTS).transportBaseline(page, {
+    absolute: "https://example.test/talks/x/", transportBaseline: [320, 430, 900],
+  });
+  assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+});
+
+test("transportBaseline compares the controls structurally, not by id", () => {
+  // A deck's language control is #lang and a prose page's is #langind; the third site is free
+  // to name its own. Keying on an id would make this check pass by finding nothing.
+  const src = pageChecks(OPTS).transportBaseline.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /\.seg:not\(\.theme\)/);
+  assert.match(src, /\.seg\.theme/);
+  assert.doesNotMatch(src, /getElementById\("lang/);
+});
+
+test("transportBaseline takes its widths from the page's own spec", () => {
+  const src = pageChecks(OPTS).transportBaseline.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /spec\.transportBaseline/);
 });
 
 test("landing requires the landing link to be the brand lockup", () => {
