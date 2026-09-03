@@ -182,6 +182,18 @@
   }
   function refsOut(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.from === n.id; })
     .map(function(x){ return { node:nEntity(byId[x.to]), attrs:x.attrs, label:x.label, edge:x }; }); }
+  // A proficiency level has no "referred by" band and an experience kind does. That is the
+  // model, not a gap here, and it has been asked about: a kind is a field in an experience's
+  // frontmatter, so R4 makes a real edge experience → kind; a level is a cell in a row of the
+  // profile's Skills table, and R4 makes one edge per row from its FIRST resolving cell — the
+  // skill. The level is left in that edge's `attrs`, already resolved to an id, which is why
+  // `attrText` below can dereference it with `byId`.
+  //
+  // So a level qualifies a claim, where a kind is a property of a thing, and matching `attrs`
+  // here would not fix the asymmetry so much as hide it: every row that names a level comes
+  // from the one profile, so the band would read "referred by · 1 profile" on every level.
+  // What a reader actually wants — the skills claimed at that level — is the OTHER end of
+  // those rows, and no skill refers to a level. Left absent deliberately.
   function refsIn(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.to === n.id; })
     .map(function(x){ return { node:nEntity(byId[x.from]), attrs:x.attrs, label:x.label, edge:x }; }); }
 
