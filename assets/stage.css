@@ -65,6 +65,20 @@
   .cbody dt{font-family:"Plex Mono",monospace; font-size:.78rem; color:var(--dim); padding-top:.15rem}
   .cbody h4{margin-top:1.2rem; font-family:"Plex Mono",monospace; font-size:.72rem; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--dim)}
   .cbody p{margin-top:.4rem; font-size:.93rem; line-height:1.5}
+  /* A list the file wrote as a list. The marker is the quiet blue the canvas uses for a line
+     that is present but not the point, and the text hangs off it, so a wrapped item lines up
+     with the item above rather than with the marker. */
+  /* Every property here is declared, none left to the default: the pages that host the stage
+     have their own `.card ul` — a `list-style:none` grid — and a rule that named only margin
+     and padding inherited that, so the list drew no bullets and took the page's row gap. A
+     shared block cannot assume the page around it has no opinion about `ul`.
+     `display:block` and not a flex or grid column for the same reason the page's rule was a
+     problem: an element that is not laid out as a list item draws no marker. Rows are spaced
+     by a margin between items. */
+  .cbody ul.prose{display:block; list-style:disc; margin:.4rem 0 0; padding-left:1.05rem;
+                  font-size:.93rem; line-height:1.5}
+  .cbody ul.prose li + li{margin-top:.4rem}
+  .cbody ul.prose li::marker{color:var(--c-weak)}
   .cbody table{margin-top:.5rem; border-collapse:collapse; width:100%; font-size:.88rem}
   .cbody th{text-align:left; font-family:"Plex Mono",monospace; font-weight:600; font-size:.72rem; letter-spacing:.06em; color:var(--dim); padding:.3rem .6rem .3rem 0; border-bottom:1px solid var(--rule)}
   .cbody td{padding:.35rem .6rem .35rem 0; vertical-align:top; border-bottom:1px solid var(--rule)}

@@ -593,7 +593,15 @@
   function inline(el, text){
     String(text).split(/`([^`]+)`/).forEach(function(part, i){
       if (!part) return;
-      el.appendChild(i % 2 ? h("code", part, "mono") : document.createTextNode(part));
+      if (i % 2) { el.appendChild(h("code", part, "mono")); return; }
+      // A URL in a sentence is as followable as one in a field, and a card that linked the one
+      // and not the other was drawing the same fact two ways. Split on the URL rather than the
+      // whole part, so the prose either side of it stays prose. Backticks are handled above, so
+      // a URL written as code stays code.
+      part.split(/(https?:\/\/[^\s)\]]+)/).forEach(function(bit, j){
+        if (!bit) return;
+        el.appendChild(j % 2 ? extLink(bit.replace(/[.,;:]+$/, "")) : document.createTextNode(bit));
+      });
     });
     return el;
   }
@@ -679,11 +687,18 @@
         });
         tbl.appendChild(tb); bodyEl.appendChild(tbl);
       });
-      // A block whose lines each open with "- " is a list in the file, so it is a line each
-      // here too; anything else is a paragraph with its soft wraps closed up.
+      // A block whose lines each open with "- " is a list in the file, and is drawn as one. It
+      // used to be a paragraph per item with the "- " still in the text: the marker the file
+      // writes to mean "list" was being shown as if it were a word, and the items had no
+      // hanging indent, so a wrapped one ran back under its own dash.
       if (s.text) s.text.split(/\n\n+/).forEach(function(par){
-        if (/^-\s/.test(par)) par.split(/\n(?=-\s)/).forEach(function(item){ bodyEl.appendChild(para(item.replace(/\n\s*/g, " "))); });
-        else bodyEl.appendChild(para(par.replace(/\n/g, " ")));
+        if (/^-\s/.test(par)) {
+          var ul = h("ul", null, "prose");
+          par.split(/\n(?=-\s)/).forEach(function(item){
+            ul.appendChild(inline(h("li"), item.replace(/^-\s+/, "").replace(/\n\s*/g, " ")));
+          });
+          bodyEl.appendChild(ul);
+        } else bodyEl.appendChild(para(par.replace(/\n/g, " ")));
       });
     });
     // Mono, so it is data: the file and the commit it is pinned at, which is what the link
