@@ -1,6 +1,6 @@
 {
   "name": "@robertblust/design",
-  "version": "0.22.1",
+  "version": "0.23.0",
   "description": "The design system shared by blust.ch, companygraph.io and guestgraph.io.",
   "license": "Apache-2.0",
   "type": "module",

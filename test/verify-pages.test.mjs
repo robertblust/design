@@ -123,7 +123,7 @@ test("mobileNav is measured at the 360px breakpoint", () => {
 // states per call rather than mocking the check itself. Three evaluate calls happen when
 // `shut.burger` is true: the 360px shut state, the opened state after clicking #burger, and the
 // closed state after Escape.
-function makeMobileNavPage(shutOverrides = {}) {
+function makeMobileNavPage(shutOverrides = {}, openOverrides = {}) {
   let evalCalls = 0;
   return {
     async setViewportSize() {},
@@ -133,10 +133,12 @@ function makeMobileNavPage(shutOverrides = {}) {
       if (evalCalls === 1)
         return {
           brand: 40, mark: 40, wide: false, links: false, burger: true, seg: true,
-          theme: false,
+          // Header contract v6: off the bar with the menu shut, back when it opens, and the
+          // language control in the same place either way.
+          theme: false, langTop: 20,
           ...shutOverrides,
         };
-      if (evalCalls === 2) return { links: true, flag: "true" };
+      if (evalCalls === 2) return { links: true, flag: "true", theme: true, langTop: 20, ...openOverrides };
       return true;
     },
     async click() {},
@@ -144,26 +146,45 @@ function makeMobileNavPage(shutOverrides = {}) {
   };
 }
 
-test("mobileNav fails when a page declaring noFlash has lost its theme control", async () => {
+test("mobileNav fails when a page declaring noFlash never brings the theme control back", async () => {
   // The defect this closes: `.seg.theme` deleted from a prose page used to pass every check,
   // because storageKeys clicked it present-or-skip, navOrder only cares that #langind is last,
   // and design:check cannot see site-owned markup. `noFlash` is the page's own declaration
-  // that it carries the fence and therefore the two controls; a page that set it but lost
-  // #thLight/#thDark must fail here.
-  const page = makeMobileNavPage({ theme: false });
+  // that it carries the fence and therefore the two controls. Under v6 the control is off the
+  // bar, so "lost it" now means the menu does not bring it back — a page with no way at all to
+  // change appearance on a phone.
+  const page = makeMobileNavPage({ theme: false }, { theme: false });
   const result = await pageChecks(OPTS).mobileNav(page, { absolute: "https://example.test/", noFlash: "rb-theme" });
-  assert.match(result, /the theme control is not on the bar/);
+  assert.match(result, /did not bring the theme control back/);
 });
 
-test("mobileNav passes with the theme control present, and invents no requirement for a page with no noFlash flag", async () => {
-  const withTheme = await pageChecks(OPTS).mobileNav(
-    makeMobileNavPage({ theme: true }), { absolute: "https://example.test/", noFlash: "rb-theme" });
-  assert.equal(withTheme, null, `expected a pass, got ${JSON.stringify(withTheme)}`);
+test("mobileNav fails when the theme control is back on the bar", async () => {
+  // v5's shape, which v6 replaces. It has to fail rather than merely stop being required:
+  // three items and two gaps do not fit 360px, so a theme control on the bar is a header that
+  // wraps to two rows and costs 61px above the fold on every phone page.
+  const page = makeMobileNavPage({ theme: true });
+  const result = await pageChecks(OPTS).mobileNav(page, { absolute: "https://example.test/", noFlash: "rb-theme" });
+  assert.match(result, /still on the bar at 360px/);
+});
+
+test("mobileNav fails when opening the menu moves the language control", async () => {
+  // The first attempt at v6 put the theme control back in flow, which pushed the language
+  // control onto a second row the moment the menu opened. Nothing here would have caught it:
+  // the control was present, the menu opened, and every other assertion held.
+  const page = makeMobileNavPage({ langTop: 20 }, { langTop: 63 });
+  const result = await pageChecks(OPTS).mobileNav(page, { absolute: "https://example.test/", noFlash: "rb-theme" });
+  assert.match(result, /moved the language control 43px/);
+});
+
+test("mobileNav passes on the v6 shape, and invents no requirement for a page with no noFlash flag", async () => {
+  const v6 = await pageChecks(OPTS).mobileNav(
+    makeMobileNavPage(), { absolute: "https://example.test/", noFlash: "rb-theme" });
+  assert.equal(v6, null, `expected a pass, got ${JSON.stringify(v6)}`);
 
   // A deck carries neither the noFlash flag nor the theme control — the check must not
-  // demand a control the page never claimed to have.
+  // demand a control the page never claimed to have, in either state.
   const noFlag = await pageChecks(OPTS).mobileNav(
-    makeMobileNavPage({ theme: false }), { absolute: "https://example.test/" });
+    makeMobileNavPage({ theme: false }, { theme: false }), { absolute: "https://example.test/" });
   assert.equal(noFlag, null, `expected a pass, got ${JSON.stringify(noFlag)}`);
 });
 

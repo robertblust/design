@@ -1,4 +1,4 @@
-  /* ─── header contract · v5 · shared ──────────────────────────────────
+  /* ─── header contract · v6 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -113,7 +113,7 @@
        then inflated `.brand` enough that `mobileNav` reported a broken wordmark — correctly,
        since that check reads the brand's height to find a wrapped one. `.bar` takes the
        positioning `nav` gives up, so the panel still has something to hang from. */
-    .bar{position:relative}
+    .bar{position:relative; gap:12px}
     nav{display:contents}
     .burger{display:inline-flex; order:-1}
     .brand{margin-right:auto}
@@ -122,6 +122,25 @@
               min-width:11rem; padding:.3rem 1.1rem;
               background:var(--raise); border:1px solid var(--rule); border-radius:10px}
     .navlinks[data-open="true"]{display:flex}
+    /* The theme control leaves the bar. Measured at 393px: the bar has 338px to spend and the
+       brand's 136 plus the button's 40 plus the switchers' 147 need 347 even at a 12px gap, so
+       the row wrapped on every phone width tested — 320 through 412 — and the header stood
+       101px tall before a word of content. The wordmark is the other lever and the contract
+       closes it: it is nowrap by rule, and `mobileNav` reads its height to catch one that
+       broke. Dropping the theme control is what is left, and it buys one row of 40px
+       everywhere down to 320.
+
+       It is not lost. Opening the menu drops it below the language control it belongs with —
+       positioned, not in flow, so the bar stays 40px and nothing above it moves. In flow it
+       pushed the language control onto a second row as the menu opened, which is a control
+       jumping out from under a thumb that was reaching for it.
+
+       `.bar .theme` and not `.theme`: the control is a `.seg` too, and `.seg{display:inline-flex}`
+       is the same specificity and sits later in the cascade, so the bare class lost and the
+       control stayed on the bar with the file looking correct. */
+    .bar .theme{display:none}
+    .navlinks[data-open="true"] ~ .switchers .theme{
+      display:inline-flex; position:absolute; right:0; top:calc(100% + .85rem)}
     /* Tall enough to be a comfortable target; the underline still hugs the word, because
        each item is only as wide as its own text. */
     .navlinks a{padding:.8rem 0}

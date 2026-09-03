@@ -201,7 +201,11 @@ export function pageChecks({ SITE, BASE }) {
         await page.goto(spec.absolute, { waitUntil: "networkidle" });
         const shut = await page.evaluate(() => {
           const q = s => document.querySelector(s);
-          const seen = el => el && getComputedStyle(el).display !== "none";
+          // Boxes, not the display property: `display` does not inherit, so a button inside a
+          // `display:none` parent still computes its own `inline-flex` and read as visible.
+          // The theme control is hidden by its `.theme` wrapper as of contract v6, so the old
+          // read would have reported it on the bar forever.
+          const seen = el => el && el.getClientRects().length > 0;
           const brand = q(".brand").getBoundingClientRect().height;
           const mark = q(".brand svg").getBoundingClientRect().height;
           return {
@@ -209,6 +213,9 @@ export function pageChecks({ SITE, BASE }) {
             wide: document.documentElement.scrollWidth > window.innerWidth,
             links: seen(q("#navlinks")), burger: seen(q("#burger")), seg: seen(q("#langind")),
             theme: seen(q("#thLight")) && seen(q("#thDark")),
+            // Where the language control sits with the menu shut, to compare with where it
+            // sits once it is open. See below.
+            langTop: Math.round(q("#lde").getBoundingClientRect().top),
           };
         });
         if (shut.brand > shut.mark)
@@ -217,7 +224,11 @@ export function pageChecks({ SITE, BASE }) {
         if (shut.links) problems.push("the links are still in the row at 360px");
         if (!shut.burger) problems.push("there is no menu button");
         if (!shut.seg) problems.push("the language control is not on the bar");
-        if (spec.noFlash && !shut.theme) problems.push("the theme control is not on the bar");
+        // The theme control is off the bar at this width as of header contract v6, and this
+        // asserts the new shape rather than merely dropping the old assertion: three items and
+        // two gaps do not fit 360px, so a theme control back on the bar means the row wraps
+        // again and the header costs 61px above the fold on every phone page.
+        if (spec.noFlash && shut.theme) problems.push("the theme control is still on the bar at 360px");
 
         // Only drive the button if it is there to be driven: clicking a hidden one waits the
         // full timeout and reports that instead of the thing actually wrong.
@@ -226,9 +237,20 @@ export function pageChecks({ SITE, BASE }) {
         const open = await page.evaluate(() => ({
           links: getComputedStyle(document.getElementById("navlinks")).display !== "none",
           flag: document.getElementById("burger").getAttribute("aria-expanded"),
+          theme: document.getElementById("thLight").getClientRects().length > 0,
+          langTop: Math.round(document.getElementById("lde").getBoundingClientRect().top),
         }));
         if (!open.links) problems.push("pressing the button did not open the menu");
         if (open.flag !== "true") problems.push(`the button reports aria-expanded=${open.flag} while open`);
+        // Off the bar is not the same as gone: opening the menu has to bring it back, or the
+        // page has no way to change appearance on a phone at all.
+        if (spec.noFlash && !open.theme)
+          problems.push("opening the menu did not bring the theme control back");
+        // And the bar must not reflow while it does. The first version of this put the control
+        // back in flow, which pushed the language control onto a second row the moment the menu
+        // opened — a control moving out from under the thumb reaching for it.
+        if (open.langTop !== shut.langTop)
+          problems.push(`opening the menu moved the language control ${open.langTop - shut.langTop}px`);
 
         await page.keyboard.press("Escape");
         const closed = await page.evaluate(() =>
