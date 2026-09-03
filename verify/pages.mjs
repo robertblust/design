@@ -224,7 +224,7 @@ export function pageChecks({ SITE, BASE }) {
         if (shut.links) problems.push("the links are still in the row at 360px");
         if (!shut.burger) problems.push("there is no menu button");
         if (!shut.seg) problems.push("the language control is not on the bar");
-        // The theme control is off the bar at this width as of header contract v6, and this
+        // The theme control is off the bar at this width as of header contract v7, and this
         // asserts the new shape rather than merely dropping the old assertion: three items and
         // two gaps do not fit 360px, so a theme control back on the bar means the row wraps
         // again and the header costs 61px above the fold on every phone page.
@@ -238,6 +238,16 @@ export function pageChecks({ SITE, BASE }) {
           links: getComputedStyle(document.getElementById("navlinks")).display !== "none",
           flag: document.getElementById("burger").getAttribute("aria-expanded"),
           theme: document.getElementById("thLight").getClientRects().length > 0,
+          // The theme control is positioned into the panel's top-right corner and the first
+          // link sits at its top-left, so they share a row without either knowing about the
+          // other. Whether they touch depends on how long that page's first link is — which
+          // is site-owned markup this fence cannot see.
+          collides: (() => {
+            const t = document.getElementById("thmind")?.getBoundingClientRect();
+            const a = document.querySelector("#navlinks a")?.getBoundingClientRect();
+            if (!t || !a) return false;
+            return t.left < a.right && t.right > a.left && t.top < a.bottom && t.bottom > a.top;
+          })(),
           langTop: Math.round(document.getElementById("lde").getBoundingClientRect().top),
         }));
         if (!open.links) problems.push("pressing the button did not open the menu");
@@ -251,6 +261,7 @@ export function pageChecks({ SITE, BASE }) {
         // opened — a control moving out from under the thumb reaching for it.
         if (open.langTop !== shut.langTop)
           problems.push(`opening the menu moved the language control ${open.langTop - shut.langTop}px`);
+        if (open.collides) problems.push("the theme control overlaps the first menu link");
 
         await page.keyboard.press("Escape");
         const closed = await page.evaluate(() =>

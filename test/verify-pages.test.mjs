@@ -138,7 +138,8 @@ function makeMobileNavPage(shutOverrides = {}, openOverrides = {}) {
           theme: false, langTop: 20,
           ...shutOverrides,
         };
-      if (evalCalls === 2) return { links: true, flag: "true", theme: true, langTop: 20, ...openOverrides };
+      if (evalCalls === 2)
+        return { links: true, flag: "true", theme: true, langTop: 20, collides: false, ...openOverrides };
       return true;
     },
     async click() {},
@@ -176,7 +177,17 @@ test("mobileNav fails when opening the menu moves the language control", async (
   assert.match(result, /moved the language control 43px/);
 });
 
-test("mobileNav passes on the v6 shape, and invents no requirement for a page with no noFlash flag", async () => {
+test("mobileNav fails when the theme control overlaps the first menu link", async () => {
+  // Contract v7 positions the control into the panel's top-right corner while the first link
+  // sits at its top-left. Neither knows the other is there, and how close they come depends on
+  // how long that page's first link is — site-owned markup the fence cannot see. blust.ch's
+  // narrowest clearance is 134px at 320px wide; a site with a longer first word has less.
+  const page = makeMobileNavPage({}, { collides: true });
+  const result = await pageChecks(OPTS).mobileNav(page, { absolute: "https://example.test/", noFlash: "rb-theme" });
+  assert.match(result, /overlaps the first menu link/);
+});
+
+test("mobileNav passes on the v7 shape, and invents no requirement for a page with no noFlash flag", async () => {
   const v6 = await pageChecks(OPTS).mobileNav(
     makeMobileNavPage(), { absolute: "https://example.test/", noFlash: "rb-theme" });
   assert.equal(v6, null, `expected a pass, got ${JSON.stringify(v6)}`);
