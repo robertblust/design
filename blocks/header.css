@@ -1,4 +1,4 @@
-  /* ─── header contract · v6 · shared ──────────────────────────────────
+  /* ─── header contract · v7 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -117,9 +117,22 @@
     nav{display:contents}
     .burger{display:inline-flex; order:-1}
     .brand{margin-right:auto}
-    .navlinks{display:none; position:absolute; top:calc(100% + .85rem); left:0; z-index:30;
+    /* The panel spans the bar rather than hugging its longest word, so the row of controls
+       above it and the panel below share one pair of edges. Its geometry is three custom
+       properties because the theme control has to land in its top-right corner while living
+       outside it in the DOM — see below — and a corner described twice is a corner that
+       drifts the first time either number is touched. */
+    .bar{--drawer-gap:.85rem; --drawer-pad-y:.55rem; --drawer-pad-x:1.1rem;
+         /* Half the difference between a link's box and the theme control's, so the control
+            and the first link read as one row instead of two things that nearly line up.
+            Measured, not derived — a link's height comes from its own padding and line box,
+            which CSS cannot subtract here. Changing `.navlinks a`'s padding or the control's
+            height moves it; the centres are 117 and 118 as it stands. */
+         --drawer-first-row:.5rem}
+    .navlinks{display:none; position:absolute; top:calc(100% + var(--drawer-gap));
+              left:0; right:0; z-index:30;
               flex-direction:column; align-items:flex-start; gap:0;
-              min-width:11rem; padding:.3rem 1.1rem;
+              padding:var(--drawer-pad-y) var(--drawer-pad-x);
               background:var(--raise); border:1px solid var(--rule); border-radius:10px}
     .navlinks[data-open="true"]{display:flex}
     /* The theme control leaves the bar. Measured at 393px: the bar has 338px to spend and the
@@ -139,8 +152,17 @@
        is the same specificity and sits later in the cascade, so the bare class lost and the
        control stayed on the bar with the file looking correct. */
     .bar .theme{display:none}
+    /* Positioned into the panel's top-right corner, not placed in it: `.switchers` is a
+       sibling of `.navlinks`, and the bar's markup is written per page — sixteen of them
+       across three repositories — while this fence is CSS alone. Anchoring it to the same
+       three properties the panel uses is what makes the two agree.
+       Above the panel's own z-index, or the panel paints over it. A tap on it does not close
+       the menu: the page's handler closes on a click outside `nav`, and `.switchers` is
+       inside `nav`. */
     .navlinks[data-open="true"] ~ .switchers .theme{
-      display:inline-flex; position:absolute; right:0; top:calc(100% + .85rem)}
+      display:inline-flex; position:absolute; z-index:31;
+      top:calc(100% + var(--drawer-gap) + var(--drawer-pad-y) + var(--drawer-first-row));
+      right:var(--drawer-pad-x)}
     /* Tall enough to be a comfortable target; the underline still hugs the word, because
        each item is only as wide as its own text. */
     .navlinks a{padding:.8rem 0}
