@@ -92,6 +92,12 @@
                overflow-wrap:anywhere}
   .cbody a.go:hover, .cbody a.ext:hover,
   .cbody a.go:focus-visible, .cbody a.ext:focus-visible{border-bottom-color:var(--c-mid)}
+  /* A list field's entries, one per line. No marker: the `dt` beside them already says what
+     they are, and a bullet column would indent them out of line with every other value in the
+     grid. The rhythm is the row gap of the `dl` it sits in, so a list of one looks like the
+     scalar it sits beside. */
+  .cbody dd ul.items{list-style:none; margin:0; padding:0; display:flex;
+                     flex-direction:column; gap:.28rem}
   .cbody .empty{color:var(--dim); line-height:1.5}
   @media (max-width: 860px){
     /* minmax(0,1fr), never a bare 1fr: a grid track sized `auto` at its floor takes the
