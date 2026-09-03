@@ -77,6 +77,18 @@
     return fmtDate(st.start) + " – " + fmtDate(st.end);
   }
   function stampOf(p){ return (p.node && p.node.entity && p.node.entity.stamp) || null; }
+  // Everything secondary about a node goes on one line beneath its name: what an experience
+  // was and when, what level a skill is claimed at, which field an edge came from. They used to
+  // sit in two places — the period under the name, the level after it — which read as two
+  // different kinds of fact when they are the same kind: a detail about the node above.
+  //
+  // After the name was also the expensive place. The arm is sized by the longest name in the
+  // column plus whatever follows it, so a level pushed every node in the band further out; a
+  // line underneath costs no width at all.
+  function underText(p){
+    var parts = [stampText(p), attrOf(p)].filter(function(x){ return x; });
+    return parts.join(" · ");
+  }
   // Kind first, then when: the category is the shorter and the more scannable of the two, so
   // a column of these reads down its left edge.
   function stampText(p){
@@ -256,7 +268,8 @@
     if (typeof p.label === "string" && p.label) return p.label;
     return attrText(p.attrs);
   }
-  function labelW(p){ var a = attrOf(p); return nameW(p) + (a ? GAP + a.length * CH_MONO : 0); }
+  // The widest of the two lines, not their sum: they are stacked now, not side by side.
+  function labelW(p){ return Math.max(nameW(p), underText(p).length * CH_MONO); }
 
   function layout(neigh, w){
     // The two arms narrow with the canvas. A phone's canvas is a third of a desktop's, and
@@ -280,7 +293,7 @@
     // they have always had; opening every row for a folder that never draws one would make
     // the commonest view taller to serve the rarest.
     function rowOf(list){
-      for (var i = 0; i < list.length; i++) if (stampOf(list[i])) return ROW_STAMP;
+      for (var i = 0; i < list.length; i++) if (underText(list[i])) return ROW_STAMP;
       return ROW;
     }
     var kidRow = rowOf(kids), outRow = rowOf(out), inRow = rowOf(inn);
@@ -479,7 +492,6 @@
     enter.append("rect");
     halo(enter.append("text")).attr("class", "label");
     halo(enter.append("text")).attr("class", "typelab");
-    halo(enter.append("text")).attr("class", "attr");
     halo(enter.append("text")).attr("class", "stamp");
     enter.transition().duration(D).style("opacity", 1);
 
@@ -496,31 +508,31 @@
        .attr("rx", function(d){ return d.node.kind === "entity" ? 0 : 4; });
     // The focus is the one node whose name also fills the card, so it carries its label
     // above the mark: nothing then sits between it and the column it owns.
+    // Every run of text a node carries hangs off one baseline, so the block moves as a block.
+    //
+    // The focus writes its name *above* its mark rather than beside it, and a line beneath the
+    // name therefore lands on the mark — which is exactly what it did. The whole block lifts by
+    // a line's height when there is a line to make room for, and sits where it always sat when
+    // there is not.
+    function textX(d){ return d.role === "focus" ? -markW(d) : d.role === "in" ? -markW(d) - GAP : markW(d) + GAP; }
+    function anchorOf(d){ return d.role === "in" ? "end" : null; }
+    function baseY(d){
+      if (d.role !== "focus") return 0;
+      return -markW(d) - 16 - (underText(d) ? 15 : 0);
+    }
     all.select("text.label")
        .attr("class", function(d){ return "label " + (d.node.kind === "root" ? "root" : d.node.kind === "folder" ? "folder" : ""); })
-       .attr("x", function(d){ return d.role === "focus" ? -markW(d) : d.role === "in" ? -markW(d) - GAP : markW(d) + GAP; })
-       .attr("y", function(d){ return d.role === "focus" ? -markW(d) - 16 : 0; })
-       .attr("text-anchor", function(d){ return d.role === "in" ? "end" : null; })
+       .attr("x", textX).attr("y", baseY).attr("text-anchor", anchorOf)
        .text(function(d){ return d.node.label; });
     // Rides above the label, at the label's own x and anchor, so it reads as one block.
     all.select("text.typelab")
-       .attr("x", function(d){ return d.role === "focus" ? -markW(d) : d.role === "in" ? -markW(d) - GAP : markW(d) + GAP; })
-       .attr("y", function(d){ return (d.role === "focus" ? -markW(d) - 16 : 0) - 14; })
-       .attr("text-anchor", function(d){ return d.role === "in" ? "end" : null; })
+       .attr("x", textX).attr("y", function(d){ return baseY(d) - 14; }).attr("text-anchor", anchorOf)
        .text(typeOf);
-    all.select("text.attr")
-       .attr("x", function(d){ return d.role === "in" ? -markW(d) - GAP - nameW(d) - GAP : markW(d) + GAP + nameW(d) + GAP; })
-       .attr("text-anchor", function(d){ return d.role === "in" ? "end" : null; })
-       .attr("y", 0)
-       .text(attrOf);
-    // Under the name, at the name's own x and anchor, so the two read as one block. It costs
-    // no width — which is what a canvas has least of — and the row it needs was opened for it
-    // in layout(), for its group alone.
+    // And one line under the name for everything secondary — the period, the level, the field
+    // an edge came from. It costs no width, which is what a canvas has least of.
     all.select("text.stamp")
-       .attr("x", function(d){ return d.role === "focus" ? -markW(d) : d.role === "in" ? -markW(d) - GAP : markW(d) + GAP; })
-       .attr("y", function(d){ return (d.role === "focus" ? -markW(d) - 16 : 0) + 15; })
-       .attr("text-anchor", function(d){ return d.role === "in" ? "end" : null; })
-       .text(stampText);
+       .attr("x", textX).attr("y", function(d){ return baseY(d) + 15; }).attr("text-anchor", anchorOf)
+       .text(underText);
     nsel.transition().duration(D).style("opacity", 1)
         .attr("transform", function(d){ return "translate(" + d.x + " " + d.y + ")"; });
 
