@@ -1,4 +1,4 @@
-  /* ─── deck transport · v8 · {{variant}} ─────────────────────────────────
+  /* ─── deck transport · v9 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The transport bar and the chrome around it, byte-identical on all four decks
@@ -46,7 +46,18 @@
      floor cannot be tuned below roughly 487px, even with every gap cut and both
      dividers dropped (see the tier's own comment below). So the middle
      breakpoint's threshold moves from 400px to 430px — 414 and 430 now render
-     under the 40px tier instead, which has the room the 44px one does not. */
+     under the 40px tier instead, which has the room the 44px one does not.
+
+     v9 gives the language and theme controls one height above those breakpoints,
+     the fix `header contract` v5 already made in the row at the top of a prose
+     page. Below 860px the tiers' own `min-height` on `.seg button` had been
+     holding both controls to the same 44/40/36px all along, so this was only ever
+     wrong where nothing restated it: at 861px and up the language control measured
+     29.1px and the theme control 23.3px, their tops 2.9px apart. Neither rule
+     count nor any width changes — the floor added below is the height the language
+     buttons already had, and both controls keep their own horizontal padding,
+     because they hold different things and the bar's width budget is cut against
+     what they measure today. */
   .transport{
     grid-column:2; justify-self:center;
     display:flex; align-items:center; gap:.45rem;
@@ -109,6 +120,7 @@
     background:none; border:0; cursor:pointer; padding:.44rem .48rem;
     font-family:"Plex Mono", ui-monospace, monospace; font-size:.63rem; letter-spacing:.12em;
     color:var(--dim); transition:color .15s ease, background-color .15s ease;
+    min-height:calc(1lh + .88rem);
   }
   .seg button:hover{color:var(--ink)}
   .seg button[aria-pressed="true"]{color:var(--c-mid); background:var(--press); font-weight:600}
@@ -116,8 +128,25 @@
 
   /* The theme control rides in the transport beside the language one, so it takes the
      transport's touch sizing rather than the header's — the same 44px minimum the seg buttons
-     already meet at the mobile breakpoints. */
-  .seg.theme button{display:grid; place-items:center; padding:.26rem .42rem}
+     already meet at the mobile breakpoints. Above them it used to carry a height of its own:
+     23.3px against the language control's 29.1px, tops 2.9px apart, in a row whose whole point
+     is one line. The language control sets the height here, as it does in the header, and the
+     theme control matches it rather than being handed a number.
+
+     It matches two ways, because one of them has to hold in a browser with no `lh`. The
+     vertical padding is the language button's own .44rem, so an icon the size of a line box
+     lands on that height with no calc involved at all; and `.seg button` above carries one
+     line box plus that padding as a floor, so an icon *smaller* than a line box is lifted to
+     the height instead of shrinking the control. The header writes an `em` fallback beside its
+     `lh` and there is deliberately none here: these buttons inherit `line-height:normal`, and
+     no `em` value is honestly equal to a normal line box — a fallback guessed at one would be
+     this same misalignment again, in exactly the browsers it was added to serve.
+
+     The floor sits on `.seg button` and not on `.seg.theme button`, which is not a matter of
+     taste. The three mobile tiers below restate `min-height` on `.seg button`; a floor written
+     one class more specific would outrank all three and silently undo the 44/40/36px touch
+     sizing at every width this bar was tuned for. */
+  .seg.theme button{display:grid; place-items:center; padding:.44rem .42rem}
   .seg.theme svg{width:13px; height:13px; display:block; fill:none; stroke:currentColor;
                  stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
 

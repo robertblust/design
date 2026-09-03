@@ -606,6 +606,59 @@ export function pageChecks({ SITE, BASE }) {
       }
       return problems.length ? problems.join("; ") : null;
     },
+    // The two segmented controls in the transport are one row and must read as one. They did
+    // not: above the bar's mobile breakpoints the language control measured 29.1px and the
+    // theme control 23.3px, their tops 2.9px apart. Both are `.seg button`s with the same
+    // padding declared beside each other, so the difference is what they hold — a text line
+    // box against a bare 13px icon — which is precisely the fault `headerBaseline` was written
+    // for a prose page's own header, and the same fault `deck transport` v9 fixes here.
+    //
+    // Boxes, not text. headerBaseline measures the middle of a text run on purpose, because a
+    // centered box can hold uncentered text and that was the bug it replaced. Here there is no
+    // text to measure on one side of the comparison — the theme control holds two icons — so
+    // the boxes are the only thing both controls have, and a box that agrees is the whole
+    // claim: same height, same top.
+    //
+    // Widths come from the page's spec rather than from this file, for the reason
+    // `transportFits` gives: the bar has three mobile tiers and a desktop form, and which of
+    // them a site cares about is the site's to say. The tiers below 860px restate `min-height`
+    // on `.seg button` and hold both controls together for free — so a list that names only a
+    // desktop width would pass while never touching the tier a change to the theme control's
+    // padding could break. Name at least one width per tier.
+    async transportBaseline(page, spec) {
+      const problems = [];
+      const restore = page.viewportSize ? page.viewportSize() : null;
+      try {
+        for (const width of spec.transportBaseline) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.goto(spec.absolute, { waitUntil: "networkidle" });
+          const bad = await page.evaluate(() => {
+            const root = document.getElementById("transport");
+            if (!root) return "#transport is not on the page";
+            // Structural, not by id: a deck's language control is `#lang` and a prose page's
+            // is `#langind`, and the third site is free to name its own. What never varies is
+            // that one `.seg` in the bar carries the theme icons and the other does not.
+            const lang = root.querySelector(".seg:not(.theme)");
+            const theme = root.querySelector(".seg.theme");
+            if (!lang || !theme) return !lang ? "no language control in the bar" : "no theme control in the bar";
+            const a = lang.getBoundingClientRect(), b = theme.getBoundingClientRect();
+            const dh = Math.abs(a.height - b.height), dt = Math.abs(a.top - b.top);
+            if (dh > 0.5 || dt > 0.5)
+              return `language ${a.height.toFixed(1)}px at ${a.top.toFixed(1)}, ` +
+                `theme ${b.height.toFixed(1)}px at ${b.top.toFixed(1)} ` +
+                `(${dh.toFixed(1)}px taller, ${dt.toFixed(1)}px apart)`;
+            return null;
+          });
+          if (bad) problems.push(`${width}px: ${bad}`);
+        }
+      } finally {
+        // As transportFits does: every other check runs at the desktop size.
+        if (restore) await page.setViewportSize(restore);
+        else await page.setViewportSize({ width: 1280, height: 720 });
+        await page.goto(spec.absolute, { waitUntil: "networkidle" });
+      }
+      return problems.length ? problems.join("; ") : null;
+    },
     // The footer carries two destinations now: the lockup to the site's landing page and
     // "Talks" to the index. wayOut covers only the second. Nothing else would notice the
     // brand pointing at a page that no longer exists — a relative href is invisible to the
