@@ -116,7 +116,16 @@
   // one thing on the level nothing states — this puts it back.
   function typeOf(d){
     var e = d.node.entity;
-    return e && isSingular(e.type) ? e.type : "";
+    if (!e) return "";
+    // A node reached through its folder needs no label: it is standing under `skills` and is
+    // obviously a skill. A node in a band was not reached that way. "refers to · 1
+    // experience-kind · 11 skills · 1 source" counts the types and then draws thirteen names
+    // with nothing saying which is which, so the one node that is not a skill looks exactly
+    // like the eleven that are.
+    if (d.role === "out" || d.role === "in") return e.type;
+    // A singular type is named for itself and sits among folders, so its type is the one thing
+    // on that level nothing states.
+    return isSingular(e.type) ? e.type : "";
   }
   function ownedTypes(type){ return data.types.filter(function(t){ return t.owner === type; }); }
 
@@ -268,8 +277,12 @@
     if (typeof p.label === "string" && p.label) return p.label;
     return attrText(p.attrs);
   }
-  // The widest of the two lines, not their sum: they are stacked now, not side by side.
-  function labelW(p){ return Math.max(nameW(p), underText(p).length * CH_MONO); }
+  // The widest of the three stacked lines, not their sum. The type can be longer than the name
+  // it labels — `experience-kind` over `Role` — so leaving it out of the fit clipped the band
+  // it was meant to explain.
+  function labelW(p){
+    return Math.max(nameW(p), underText(p).length * CH_MONO, typeOf(p).length * CH_MONO);
+  }
 
   function layout(neigh, w){
     // The two arms narrow with the canvas. A phone's canvas is a third of a desktop's, and
@@ -313,8 +326,13 @@
     // word the canvas already prints on the folder itself. A band whose targets are of more
     // than one type gets the bare count: naming them all would be a list, and naming one
     // would be wrong.
-    if (out.length) bands.push({ key:"out", x:RIGHT - R_NODE, y:outTop - EYE, anchor:"start", text:t("out") + " · " + noun(out) });
-    if (inn.length) bands.push({ key:"in",  x:-LEFT - R_NODE - GAP, y:inTop - EYE, anchor:"end", text:t("in") + " · " + noun(inn) });
+    // The eyebrow clears the first node by EYE. A node in a band now names its type on a line
+    // above its own name, so that clearance has to grow by a line or the eyebrow sits on it —
+    // two mono lines fourteen pixels apart, which reads as one crowded block rather than a
+    // heading over a list.
+    function eyeOf(list){ return list.length && typeOf(list[0]) ? EYE + 14 : EYE; }
+    if (out.length) bands.push({ key:"out", x:RIGHT - R_NODE, y:outTop - eyeOf(out), anchor:"start", text:t("out") + " · " + noun(out) });
+    if (inn.length) bands.push({ key:"in",  x:-LEFT - R_NODE - GAP, y:inTop - eyeOf(inn), anchor:"end", text:t("in") + " · " + noun(inn) });
     neigh.bands = bands;
     return neigh;
   }
