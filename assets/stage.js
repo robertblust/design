@@ -634,11 +634,19 @@
       keys.forEach(function(k){
         dl.appendChild(h("dt", k));
         var dd = h("dd"), v = e.fields[k];
-        if (Array.isArray(v)) v.forEach(function(name, i){
-          if (i) dd.appendChild(document.createTextNode(", "));
-          var id = resolve(name);
-          dd.appendChild(id ? goLink(id) : document.createTextNode(name));
-        });
+        // A list is drawn as a list. Comma-joined, every entry was a link with a comma
+        // between two underlines, and three skills read as one run-on sentence rather than
+        // three things — the model wrote a list and the card turned it back into prose.
+        // One entry per line also gives each link an edge a pointer can find.
+        if (Array.isArray(v)) {
+          var ul = h("ul", null, "items");
+          v.forEach(function(name){
+            var li = h("li"), id = resolve(name);
+            li.appendChild(id ? goLink(id) : document.createTextNode(name));
+            ul.appendChild(li);
+          });
+          dd.appendChild(ul);
+        }
         else if (URL_RE.test(v)) dd.appendChild(extLink(v));
         else dd.textContent = v;
         dl.appendChild(dd);
