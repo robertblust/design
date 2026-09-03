@@ -4,13 +4,13 @@ import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The twenty-three this module is responsible for. A body that quietly stops being exported
+// The twenty-four this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
   "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
   "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
-  "transportFits", "wayOut"];
+  "translates", "transportFits", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);
@@ -72,6 +72,22 @@ test("lang reads documentElement.lang after applyLang has run", () => {
   // static source instead.
   const src = pageChecks(OPTS).lang.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /documentElement\.lang/);
+});
+
+test("translates presses DE, reads the German, and returns through EN", () => {
+  // The rendered DOM is only ever one language, so this is the single check that sees the
+  // German half of a page. Three things it must keep doing, each of which once regressed on
+  // the site it came from: press the DE segment rather than the box around both (`#lde`,
+  // not `#langind`); read `innerText`, so uppercase nav labels match as a visitor reads them;
+  // and go back through a *different* control (`#len`), because pressing DE twice is a no-op
+  // on a segmented control and "restored" would be asserted against a page that never moved.
+  const src = pageChecks(OPTS).translates.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /spec\.translates\.id \|\| "lde"/);
+  assert.match(src, /spec\.translates\.backId \|\| "len"/);
+  assert.match(src, /document\.body\.innerText/);
+  assert.match(src, /documentElement\.lang/);
+  // It is the last key: the only check that changes what the others read.
+  assert.equal(Object.keys(pageChecks(OPTS)).at(-1), "translates");
 });
 
 test("sourceLang is fetched cold, never through the live page", () => {

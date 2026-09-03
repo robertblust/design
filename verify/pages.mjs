@@ -673,7 +673,7 @@ export function pageChecks({ SITE, BASE }) {
         const got = spans.map(label);
         if (got.join(" · ") !== want.join(" · "))
           out.push(`reads "${got.join(" · ")}", expected "${want.join(" · ")}"`);
-        // One link per entry: an unclosed anchor swallows its neighbours rather than dropping
+        // One link per entry: an unclosed anchor swallows its neighbors rather than dropping
         // them, so a correct-looking label list can still hide a broken entry.
         for (const el of spans) {
           const n = el.querySelectorAll("a").length;
@@ -814,6 +814,81 @@ export function pageChecks({ SITE, BASE }) {
       if (!real) return `${img} is not fetchable`;
       if (real[0] !== declared[0] || real[1] !== declared[1])
         return `card is ${real.join("×")} but declared ${declared.join("×")}`;
+      return null;
+    },
+    // The one check that clicks. Every other check in this file reads the page as it first
+    // renders, which is English — German is markup in `data-de` that does not exist until a
+    // visitor switches, so a toggle whose listener is gone, an `<h1>` whose `data-de` is
+    // misspelled, or an `applyLang()` that stopped setting `documentElement.lang` all print
+    // "all checks pass" without it. This was companygraph.io's own check, written by breaking
+    // that page three ways and watching it catch each; blust.ch and guestgraph.io had no
+    // equivalent, so their German halves had never been seen by a test. It is last in this
+    // object because it is the only check that changes what the others read, and it puts the
+    // page back before it returns.
+    //
+    // The spec says what German must appear (`shows`), what English must be gone (`hides`),
+    // and optionally the German `<title>` (`title`), meta description (`desc`) and, on a talks
+    // index, where the first `[data-de-href]` download must point in each language (`dlHref`).
+    // Body text is `innerText`, so `text-transform: uppercase` nav labels are matched as the
+    // visitor reads them — "VORTRÄGE", not "Vorträge".
+    //
+    // A page's segmented control is #lde/#len; a deck's transport carries the same control as
+    // #langDe/#langEn, so a deck spec names `id` and `backId`. Going back is a different button,
+    // not the same one pressed twice: pressing DE while already in German is correctly a no-op.
+    async translates(page, spec) {
+      const body = () => page.evaluate(() => document.body.innerText);
+      const htmlLang = () => page.evaluate(() => document.documentElement.lang);
+      const desc = () => page.evaluate(() => (document.getElementById("metadesc") || {}).content);
+      const href = () => page.evaluate(() =>
+        (document.querySelector("[data-de-href]") || {}).getAttribute?.("href"));
+      const english = await body();
+      const englishTitle = await page.title();
+      const englishDesc = await desc();
+
+      const toggle = "#" + (spec.translates.id || "lde");
+      const back = "#" + (spec.translates.backId || "len");
+      await page.click(toggle);
+      const swapped = await htmlLang();
+      if (swapped !== spec.translates.lang)
+        return `after the toggle lang=${swapped}, expected ${spec.translates.lang}`;
+      const german = await body();
+      for (const s of spec.translates.shows || [])
+        if (!german.includes(s)) return `German page is missing ${JSON.stringify(s)}`;
+      for (const s of spec.translates.hides || [])
+        if (german.includes(s)) return `German page still shows the English ${JSON.stringify(s)}`;
+      // The <title> and the meta description are the page's word to a crawler or a tab strip;
+      // nothing in `shows`/`hides` reaches either. A visitor who picks German under an English
+      // title would sail past both.
+      if (spec.translates.title) {
+        const germanTitle = await page.title();
+        if (germanTitle !== spec.translates.title)
+          return `after the toggle title is ${JSON.stringify(germanTitle)}, expected ${JSON.stringify(spec.translates.title)}`;
+      }
+      if (spec.translates.desc) {
+        const germanDesc = await desc();
+        if (germanDesc !== spec.translates.desc)
+          return `after the toggle meta description is ${JSON.stringify(germanDesc)}, expected ${JSON.stringify(spec.translates.desc)}`;
+      }
+      // The PDF exists in both languages and the link swaps with the toggle. A German reader
+      // handed the English deck is a silent wrong answer: the page looks right, the download
+      // works, and only the file is in the wrong language.
+      if (spec.translates.dlHref) {
+        const germanHref = await href();
+        if (germanHref !== spec.translates.dlHref.de)
+          return `after the toggle the download points at ${JSON.stringify(germanHref)}, expected ${JSON.stringify(spec.translates.dlHref.de)}`;
+      }
+
+      await page.click(back);
+      const returned = await htmlLang();
+      if (returned !== "en") return `toggling back left lang=${returned}, expected en`;
+      if (await body() !== english) return "toggling back did not restore the English text";
+      if (await page.title() !== englishTitle) return "toggling back did not restore the English title";
+      if (await desc() !== englishDesc) return "toggling back did not restore the English meta description";
+      if (spec.translates.dlHref) {
+        const backHref = await href();
+        if (backHref !== spec.translates.dlHref.en)
+          return `toggling back left the download at ${JSON.stringify(backHref)}, expected ${JSON.stringify(spec.translates.dlHref.en)}`;
+      }
       return null;
     },
   };

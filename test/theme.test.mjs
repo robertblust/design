@@ -792,7 +792,7 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
       `expected ${selector}'s ${prop} to reference --${token}`);
 });
 
-test("the deck tokens do not leak a light value into --lcd's neighbours by accident", () => {
+test("the deck tokens do not leak a light value into --lcd's neighbors by accident", () => {
   // --deck-paper and --deck-well swap roles between themes. If someone copies the dark block
   // into the light one wholesale, this catches it: on light, the well must be lighter than the
   // paper, and on dark the reverse.

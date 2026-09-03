@@ -161,7 +161,7 @@ test("a prose page's fence declaring deck throws, because its block already clos
 // The declared word is "a", but the content past the opening line is word-for-word "b"'s —
 // exactly what a deck-footer lockup written in the wrong form would look like once a future
 // fence has two variants that emit different bytes with no brace involved.
-test("otherVariantMatch catches a mislabelled body when the variants genuinely differ", () => {
+test("otherVariantMatch catches a mislabeled body when the variants genuinely differ", () => {
   const candidates = {
     a: ["/* ─── lockup · v1 · a ───", "  nine lines of the short form", "/* ─── end lockup ───"].join("\n"),
     b: ["/* ─── lockup · v1 · b ───", "  thirty-one lines of the long form", "/* ─── end lockup ───"].join("\n"),
