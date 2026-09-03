@@ -74,7 +74,7 @@ export const STAGE_CHECKS = {
     if (name !== from.name) return `card shows ${JSON.stringify(name)}, expected ${JSON.stringify(from.name)}`;
     // Where you are and how you got here, in the drawing rather than only in the breadcrumb.
     // `spine` was set on the ancestor chain and dropped before it reached the DOM, and the
-    // focused node wore the same colour as a hovered one, so the canvas said neither.
+    // focused node wore the same color as a hovered one, so the canvas said neither.
     const context = await page.evaluate(() => ({
       spines: document.querySelectorAll("#fig .own.spine").length,
       ancestors: document.querySelectorAll("#fig .n.ancestor").length,

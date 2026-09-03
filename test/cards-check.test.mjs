@@ -90,7 +90,7 @@ const LIGHT = [250, 249, 245]; // ~0.98 luminance, same as this family's light g
 // real og:check in CI exactly like a static import would, so the gate has to be the thing CI
 // actually does — resolve the module with no node_modules above it — not a grep of the source
 // text. `Function.prototype.toString()` including comments is the same shape of problem: a
-// textual check can be satisfied by text that isn't the behaviour it claims to guard.
+// textual check can be satisfied by text that isn't the behavior it claims to guard.
 //
 // `mutate` prepends a line to a copy of the real cards/check.mjs, written into a fresh directory
 // under os.tmpdir() — which has no node_modules in any parent directory, matching the state of a
@@ -188,7 +188,7 @@ test("a stale card whose og.png is also light counts as two problems, not one", 
   // dark-background pass never runs on a stale tree — a card that is both stale and light was
   // reported once, by whichever pass ran first. checkCards keeps no such early return (Step 2:
   // "replace every process.exit(1) with an accumulated count"), so the two passes are independent
-  // and additive. That is a deliberate behaviour change, not an accident, and nothing else in this
+  // and additive. That is a deliberate behavior change, not an accident, and nothing else in this
   // file exercises a card that trips both passes at once.
   const root = tree({ "index.html": "<html>v1</html>" });
   const { state, stamp } = recipeFor(root);
@@ -203,10 +203,10 @@ test("a stale card whose og.png is also light counts as two problems, not one", 
 // decodePNG's real input is Chromium's screenshot() output: 8-bit RGBA (colorType 6, 4
 // channels), five different row filters depending on what compresses best, never just filter 0.
 // The fixtures above are uniform RGB with filter 0 on every row, which exercises exactly one of
-// four colour types and one of five filter branches. This fixture instead hand-encodes a PNG
-// whose four corners are four distinct, independently-computed colours, whose filler pixels
+// four color types and one of five filter branches. This fixture instead hand-encodes a PNG
+// whose four corners are four distinct, independently-computed colors, whose filler pixels
 // (everywhere else, including the very edge — one pixel inside of each corner) are a different,
-// much lighter colour, and whose rows cycle through all five PNG filter types. The unfiltered
+// much lighter color, and whose rows cycle through all five PNG filter types. The unfiltered
 // pixel values are known up front (they're what this function chooses to encode), so decodePNG's
 // output can be checked against an independently-computed expected average luminance rather than
 // merely against light/dark — a bug that reads the wrong corner, drops INSET, mishandles the

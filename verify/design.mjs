@@ -17,7 +17,7 @@
 //   sky             the one gradient, declared *and* painted by the body
 //   header          the lockup, the nav and the header's own metrics, measured
 //   monoScope       mono means data, and nothing else
-//   contrast        the text colours clear their ratios on --ground
+//   contrast        the text colors clear their ratios on --ground
 //   tokenVersion    the page's `design tokens · vN` marker matches this suite
 //   fences          presence of every fence a page declares, version-blind
 //   fenceOrder      the fences a page declares appear in the order it says they must
@@ -69,11 +69,11 @@ const hex = v => v.trim().replace(/^#/, "").toUpperCase();
 // The sky every page and every deck is lit by. It is a token like the rest, but unlike the
 // rest it cannot be compared to what the block says: a custom property's computed value has
 // its var() references substituted, so a page carrying
-// `--sky:radial-gradient(… var(--raise) … var(--ground) …)` reports the two colours already
+// `--sky:radial-gradient(… var(--raise) … var(--ground) …)` reports the two colors already
 // resolved. This is that resolved string — what the page must actually report.
 export const SKY = "radial-gradient(120% 60% at 50% -10%, #171A21 0%, #0C0E13 60%)";
 
-// Chromium is free to serialise a colour inside a gradient either as the hex it was written
+// Chromium is free to serialise a color inside a gradient either as the hex it was written
 // as or as rgb(), and which one you get depends on where the value came from. Fold both to a
 // lower-case hex, and forgive the whitespace the serialiser may add or drop.
 const rgbToHex = v => v.replace(

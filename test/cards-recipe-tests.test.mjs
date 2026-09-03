@@ -71,7 +71,7 @@ function runShared(mutate = (src) => src) {
   return { status: run.status, out, results, failed: results.filter((r) => r.failed).map((r) => r.name) };
 }
 
-// Deleting a line rather than editing one: an edit that still compiles to the same behaviour
+// Deleting a line rather than editing one: an edit that still compiles to the same behavior
 // would report a false negative here, and every line below is load-bearing on its own.
 const cut = (needle) => (src) => {
   assert.ok(src.includes(needle), `cards/recipe.mjs no longer contains ${JSON.stringify(needle)}`);

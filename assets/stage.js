@@ -371,7 +371,7 @@
       x1 = Math.max(x1, b.x + (b.anchor === "start" ? b.text.length * CH_MONO : 0));
     });
     var k = Math.max(K_MIN, Math.min(1, (w * 0.92) / (x1 - x0), (h * 0.9) / (y1 - y0)));
-    // Centre what fits; anchor on the focus what does not. Centring the whole bounding box is
+    // Center what fits; anchor on the focus what does not. Centring the whole bounding box is
     // right until one band is taller than any frame — a profile claiming 59 skills has one —
     // and then the box's middle is somewhere inside that band and the focused node itself is
     // off the canvas. The reader is left looking at a list with nothing to say what it hangs
@@ -436,9 +436,9 @@
     return { w: r.width || 620, h: r.height || 520 };
   }
 
-  // Every label is painted with a halo of the canvas's own colour behind it, so a line that
+  // Every label is painted with a halo of the canvas's own color behind it, so a line that
   // has to pass under a name does not cut through it. Inline styles rather than attributes,
-  // because a presentation attribute cannot carry a var() and the colour is a token.
+  // because a presentation attribute cannot carry a var() and the color is a token.
   function halo(sel){
     return sel.style("paint-order", "stroke").style("stroke", "var(--raise)")
               .style("stroke-width", "3.5px").style("stroke-linejoin", "round");

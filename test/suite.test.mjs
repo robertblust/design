@@ -238,8 +238,8 @@ test("the fonts wait happens after the page loads and before checks run", async 
 test("runSuite returns rather than exiting", async (t) => {
   // process.exit in a library makes it untestable and takes the decision away from the
   // caller. A match against runSuite.toString() for the literal text "process.exit" would
-  // still pass if that call were dead, unreachable code that behaviour never touches —
-  // source text present, behaviour unaffected. The module-scope recorder installed above
+  // still pass if that call were dead, unreachable code that behavior never touches —
+  // source text present, behavior unaffected. The module-scope recorder installed above
   // covers every runSuite call this file makes, including this test's own two; asserting it
   // is still empty here tests what actually happened across the whole file, not just what
   // this test's own body did.

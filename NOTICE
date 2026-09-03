@@ -5,28 +5,28 @@ The assets/ directory is mostly third-party files, redistributed unmodified exce
 noted below. `assets/stage.js` and `assets/stage.css` are the exception: they are this
 package's own code, under the same Apache License, Version 2.0 as `lib/`, `bin/` and
 `verify/`, not third-party redistribution. The remaining files are listed below with their
-upstream project, upstream URL, copyright holder and licence:
+upstream project, upstream URL, copyright holder and license:
 
 - assets/d3.v7.min.js
   Upstream: D3 7.9.0 — https://d3js.org
   Copyright 2010-2023 Mike Bostock
-  Licence: ISC
+  License: ISC
 
 - assets/fonts/Bricolage-var.woff2
   Upstream: Bricolage Grotesque — https://github.com/ateliertriay/bricolage
-  Licence: SIL Open Font License, Version 1.1
+  License: SIL Open Font License, Version 1.1
 
 - assets/fonts/InstrumentSans-var.woff2
   Upstream: Instrument Sans — https://github.com/Instrument/instrument-sans
-  Licence: SIL Open Font License, Version 1.1
+  License: SIL Open Font License, Version 1.1
 
 - assets/fonts/PlexMono-400.woff2
   Upstream: IBM Plex Mono — https://github.com/IBM/plex
-  Licence: SIL Open Font License, Version 1.1
+  License: SIL Open Font License, Version 1.1
 
 - assets/fonts/PlexMono-600.woff2
   Upstream: IBM Plex Mono — https://github.com/IBM/plex
-  Licence: SIL Open Font License, Version 1.1
+  License: SIL Open Font License, Version 1.1
 
 A note on the Plex Mono file names: these two faces are shipped here under the family name
 "Plex Mono", not "IBM Plex Mono". The OFL 1.1 reserves the upstream Reserved Font Name for

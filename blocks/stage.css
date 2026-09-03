@@ -19,7 +19,7 @@
                         and setting only the link and the commit in mono left the sentence
                         around them looking like prose that happened to contain data.
 
-     The drawing's own behaviour is in `stage.js` and `stage.css`, which are byte-identical
+     The drawing's own behavior is in `stage.js` and `stage.css`, which are byte-identical
      copies too. A page that carries a stage carries all of it. */
   .figure-section{margin-top:clamp(2rem,5vh,3.5rem)}
   .figcap{margin-top:1.1rem; color:var(--dim); font-size:clamp(1rem,1.3vw,1.14rem); line-height:1.5; max-width:68ch}

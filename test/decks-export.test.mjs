@@ -2,9 +2,9 @@
 // The package has no dependencies and must not gain one for its own tests.
 //
 // Unlike cards/export.mjs, this module is not a union of three drifted copies: the three
-// exporters it replaces were behaviourally identical. So these tests assert the contract the
+// exporters it replaces were behaviorally identical. So these tests assert the contract the
 // three shared — the viewport, the waits, the hide rule, the per-slide toggle, the output path —
-// because that shared behaviour is exactly what a shared harness can now quietly lose.
+// because that shared behavior is exactly what a shared harness can now quietly lose.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";

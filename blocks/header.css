@@ -3,8 +3,8 @@
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
 
-     Inside the fence is the row's behaviour, byte-identical on all sixteen pages. Outside
-     it is each site's own: the brand mark's colours, the bar's gap. The wordmark's
+     Inside the fence is the row's behavior, byte-identical on all sixteen pages. Outside
+     it is each site's own: the brand mark's colors, the bar's gap. The wordmark's
      `white-space:nowrap` is outside for that reason — the contract is that it never breaks,
      not that every site declares it the same way, and `mobileNav` asserts the outcome.
 
@@ -75,7 +75,7 @@
   .seg button:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
   /* The theme control is a .seg like the language one, so it inherits the border, the radius
      and the pressed treatment. Only the icons differ: 14px square, drawn with currentColor so
-     the pressed state colours them without a second rule. */
+     the pressed state colors them without a second rule. */
   /* The language control's buttons are as tall as the text line box inside them; these hold a
      14px icon and came out 4px shorter, so the two controls sat at different heights in a row
      whose whole point is one baseline. One line box is the floor here too, which keeps the
@@ -91,7 +91,7 @@
   @media (max-width:900px){
     nav{gap:1.4rem}
   }
-  /* One mobile behaviour for the whole family. Below this width the links do not fit beside
+  /* One mobile behavior for the whole family. Below this width the links do not fit beside
      the wordmark, and every page in the three sites used to answer that differently — some
      wrapped the bar, some wrapped the nav, and the two whose `.bar` had no `flex-wrap` at
      all let the wordmark itself break in half. They collapse behind a button instead.
