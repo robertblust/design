@@ -173,6 +173,45 @@
        tighter chrome of its own just to come out ahead on width, not merely on height. */
     dialog.modal{width:98vw; max-width:98vw; padding:.7rem .8rem .8rem}
   }
+  /* The ledger: the timeline page's figure, every experience as a row on one vertical rule,
+     each opening into the card above. It is here rather than on that page because the card
+     it opens is this file's .card, and a row and its card have to agree on one stylesheet.
+     The column widths are the page's own gutter and mark; --lvl on a row is its indent, one
+     level when the entry began while a role ran, and the gutter stays flush because a
+     ledger keeps its date column. */
+  .ledger{--when:6.6rem; list-style:none; position:relative; margin-top:1rem; max-width:80ch}
+  .ledger::before{content:""; position:absolute; top:.6rem; bottom:.6rem; left:calc(var(--when) + .6rem); width:2px; background:var(--rule)}
+  .ledger li{position:relative}
+  .ledger summary{list-style:none; cursor:pointer; display:grid; grid-template-columns:var(--when) 1.25rem minmax(0,1fr);
+                  align-items:baseline; gap:0 .8rem; padding:.55rem 0}
+  .ledger summary::-webkit-details-marker{display:none}
+  .ledger summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:3px; border-radius:3px}
+  .ledger .when{font-family:"Plex Mono",monospace; font-size:.78rem; letter-spacing:.06em; color:var(--dim); font-variant-numeric:tabular-nums; white-space:nowrap}
+  /* The mark is the square the drawing gives a page, on the rule: the larger one in --c-firm
+     for a role or an independent period, the smaller in --c-mid for the rest; while the row
+     is open it wears the ring the focused node wears. */
+  .ledger .mark{position:relative; align-self:center; width:1.25rem; height:1rem}
+  .ledger .mark::after{content:""; position:absolute; left:calc(50% - 5px); top:calc(50% - 5px); width:10px; height:10px; background:var(--c-mid)}
+  .ledger .k-role .mark::after, .ledger .k-independent .mark::after{width:13px; height:13px; left:calc(50% - 6.5px); top:calc(50% - 6.5px); background:var(--c-firm)}
+  .ledger details[open] > summary .mark::after{outline:2px solid var(--ink); outline-offset:1px}
+  .ledger .what{padding-left:calc(var(--lvl, 0) * 1.5rem); min-width:0}
+  .ledger .name{font-weight:600; color:var(--ink)}
+  .ledger .k-role .name, .ledger .k-independent .name{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; font-weight:700; letter-spacing:-.015em; font-size:1.12rem}
+  .ledger .meta{display:block; color:var(--dim); font-size:.88rem; margin-top:.1rem}
+  .ledger summary:hover .name{color:var(--c-mid)}
+  .ledger details[open] > summary .name{color:var(--c-firm)}
+  /* The card opens under its row and takes the row's indent; the rule runs on past it. */
+  .ledger .body{padding:.3rem 0 1.3rem calc(var(--when) + 1.25rem + 1.6rem + var(--lvl,0) * 1.5rem); max-width:calc(72ch + 12rem)}
+  .ledger .body .card{height:auto}
+  .ledger .body .cbody{overflow:visible}
+  .ledger .now{margin-top:.6rem; padding-left:calc(var(--when) + 1.25rem + 1.6rem); font-family:"Plex Mono",monospace; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim)}
+  @media (max-width:640px){
+    .ledger{--when:4.2rem}
+    .ledger .body{padding-left:0}
+  }
+  /* Open all is an .expand that stays pressed: the same control the stage puts beside its
+     path line, with a state, because it reads Close all once every row is open. */
+  .expand[aria-pressed="true"]{color:var(--c-firm); border-color:var(--c-mid); background:var(--press)}
   /* figure tokens. No @media (prefers-reduced-motion) block here on purpose: every node is
      placed by its own transform attribute, and a blanket `transform:none !important` would
      not cancel a displacement, it would replace the attribute-derived position and collapse

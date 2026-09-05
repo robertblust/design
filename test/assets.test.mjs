@@ -85,3 +85,9 @@ test("stage.js no longer carries the card or the dates — it calls rbCard", () 
   assert.match(js, /rbCard\.render\(/);
   assert.match(js, /rbCard\.fmtPeriod\(/);
 });
+
+test("stage.css carries the ledger and the pressed expand control", () => {
+  const css = asset("assets/stage.css");
+  for (const sel of [".ledger{", ".ledger summary{", ".ledger .mark::after{", ".ledger .body .card{", '.expand[aria-pressed="true"]{'])
+    assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
+});
