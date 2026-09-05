@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
@@ -462,11 +463,11 @@ test("typography reads the stems from the vendored conventions-check, not a lite
   assert.doesNotMatch(src, /colour|behaviour/);
 });
 
-test("typography reads German cold and English rendered, and drops code on both sides", () => {
+test("typography reads German cold and English from the body's textContent, and drops code on both sides", () => {
   const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /fetch\(spec\.absolute\)/);
   assert.match(src, /data-(?:de|notes-de)|data-\(\?:de\|notes-de\)/);
-  assert.match(src, /innerText/);
+  assert.match(src, /textContent/);
   assert.match(src, /code/);
 });
 
@@ -490,6 +491,34 @@ test("typography names each hit with its side and its context", async () => {
     assert.match(out, /\[en\] colour/);
     assert.doesNotMatch(out, /Strasse/);
   } finally { globalThis.fetch = realFetch; }
+});
+
+test("typography strips tags before it decodes, so escaped angle brackets in German prose survive", async () => {
+  const html = `<p data-de="Adoption &lt; X — und Score &gt; +2 — im Scope.">x</p>`;
+  const stems = "STEMS='colour([^a-z]|$)|organis(e|ed|es|ing|ation|ations)'";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+  });
+  try {
+    const page = { evaluate: async () => "Clean English text." };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
+    const count = (out.match(/\[de\] em-dash/g) || []).length;
+    assert.equal(count, 2, `expected both em-dashes reported, got: ${out}`);
+    assert.match(out, /Adoption < X/, "the prose between the escaped brackets must survive the strip");
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("the vendored STEMS line compiles as a JavaScript regex and reads as the check reads it", async () => {
+  const src = await readFile(new URL("../conventions/conventions-check", import.meta.url), "utf8");
+  const line = src.match(/^STEMS='(.*)'$/m);
+  assert.ok(line, "conventions-check carries a STEMS= line");
+  const re = new RegExp(`(${line[1]})`, "i");
+  assert.match("the colour of it", re);
+  assert.match("Materialised views", re);
+  assert.doesNotMatch("the color of it", re);
+  assert.doesNotMatch("a Greyhound", re, "the ([^a-z]|$) anchor holds under the i flag");
 });
 
 test("typography passes a clean page and fails a site with no vendored stems", async () => {

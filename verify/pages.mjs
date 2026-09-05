@@ -903,11 +903,15 @@ export function pageChecks({ SITE, BASE }) {
         }
       };
 
-      // English: the rendered page, minus code, scripts and styles.
+      // English: the body, cloned and stripped of code, scripts and styles, read as
+      // textContent and not innerText. A deck keeps every slide in the DOM and shows one;
+      // innerText on the live body would read the visible slide and let the rest through.
+      // The clone is detached anyway, and a detached node's innerText is textContent, so this
+      // names what happens instead of leaning on it.
       const english = await page.evaluate(() => {
         const clone = document.body.cloneNode(true);
         clone.querySelectorAll("code, pre, script, style").forEach(el => el.remove());
-        return clone.innerText;
+        return clone.textContent;
       });
       scan("en", english, [
         ["spaced en-dash", / – /],
@@ -915,15 +919,17 @@ export function pageChecks({ SITE, BASE }) {
         ["stem", stems],
       ]);
 
-      // German: every translated value in the source, decoded, with tags and code removed.
-      // Scanned one value at a time, not joined into one string first: joining would let a
-      // hit's forty characters of context bleed from one attribute's text into its neighbor's,
-      // naming a word that was never near the actual mark.
+      // German: every translated value in the source, stripped of tags and code, then decoded.
+      // Tags and code go first, on the raw markup, because a decoded `&lt;` would otherwise
+      // read as a tag and take the prose after it along. Scanned one value at a time, not
+      // joined into one string first: joining would let a hit's forty characters of context
+      // bleed from one attribute's text into its neighbor's, naming a word that was never near
+      // the actual mark.
       const src = await (await fetch(spec.absolute)).text();
       const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+        .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
       const values = [...src.matchAll(/data-(?:de|notes-de)="([^"]*)"/g)]
-        .map(m => decode(m[1]).replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "));
+        .map(m => decode(m[1].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " ")));
       for (const value of values)
         scan("de", value, [
           ["ß", /ß/],

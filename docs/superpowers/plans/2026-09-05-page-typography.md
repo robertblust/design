@@ -404,7 +404,7 @@ python3 /tmp/sweep.py
 grep -c "„" $(git ls-files '*.html'); grep -o -c "—" talks/mental-model/index.html
 npm run verify > /tmp/verify.txt 2>&1; echo "verify exit $?"; grep -E "typography|✗|checks pass" /tmp/verify.txt
 ```
-Expected: the German quote count is 0; `typography` hits drop to whatever the script could not decide — read each remaining one, fix it by hand, rerun until `all checks pass`. Anything the script changed inside an English `<title>` or a `content="…"` attribute did not happen, because attributes other than `data-de` are not text nodes; check `og:description` and `meta description` by hand for spaced en-dashes and fix them the same way.
+Expected: the German quote count is 0; `typography` hits drop to whatever the script could not decide — read each remaining one, fix it by hand, rerun until `all checks pass`. A `<title>` is a text node and is swept; a `content="…"` attribute is not, and English `data-notes` values are not either — the 49 English spaced en-dashes in blust.ch's `data-notes` stay by ruling, because the check does not read them and moving them regenerates English clips; check `og:description` and `meta description` by hand for spaced en-dashes and fix them the same way.
 
 - [ ] **Step 3: The serial comma, by reading**
 
@@ -457,8 +457,9 @@ Design 0.28.0, and the pages set the way WRITING.md says
 
 The typography check runs on all eight pages. German quotes are guillemets and German
 dashes are spaced en-dashes, in every data-de and data-notes-de; English spaced en-dashes
-are spaced em-dashes, and date ranges close theirs. The serial comma left <N> lists after a
-reading pass. <M> German clips regenerated because their notes moved; no English clip did.
+in page text are spaced em-dashes, the 49 in data-notes stay where the check does not read
+them, and date ranges close theirs. The serial comma left <N> lists after a reading pass.
+<M> German clips regenerated because their notes moved; no English clip did.
 Both PDFs of both decks and every card are re-exported, and the quote rule in this file is
 written for guillemets.
 
@@ -477,7 +478,7 @@ Fill `<N>` and `<M>` with the measured numbers before committing. Stop; the merg
 
 ### Task 5: guestgraph.io, the same
 
-Repeat Task 4 in `~/git/guestgraph/guestgraph.github.io` with these differences: five pages; the narration generator is `talks/intro/tts/generate.py` and is run from `talks/intro/tts/`; there is no `tts/` at the root; the agent file's quote rule is the bullet under *Notes live inside HTML attributes*; there are no English spaced en-dashes expected, so Step 2's English pass should report no change and Step 3's list is short. Same commit and pull request shape with its own numbers. Stop for the merge.
+Repeat Task 4 in `~/git/guestgraph/guestgraph.github.io` with these differences: five pages; the narration generator is `talks/intro/tts/generate.py` and is run from `talks/intro/tts/`; there is no `tts/` at the root; the agent file's quote rule is the bullet under *Notes live inside HTML attributes*; there are no English spaced en-dashes expected, so Step 2's English pass should report no change and Step 3's list is short. One British stem the sweep cannot clear: `instalments` in `billing/index.html` (line 604 at the time of writing) becomes `installments`, by hand, before the check is rerun. Same commit and pull request shape with its own numbers. Stop for the merge.
 
 ---
 

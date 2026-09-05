@@ -45,8 +45,9 @@ vendored conventions is not a member and has no business passing. One list, no d
 **Required on every page.** The runner refuses a `PAGES` entry without `typography: true`, the
 way it refuses one without `seo`, so a page cannot opt out by omission.
 
-**Both halves, each from where it lives.** English is read from the rendered `innerText`, as
-the visitor sees it; German is read from the cold-fetched source, every `data-de` and
+**Both halves, each from where it lives.** English is read from the body's `textContent` with
+code, scripts and styles removed, every slide of a deck included, not only the one shown;
+German is read from the cold-fetched source, every `data-de` and
 `data-notes-de` value, the way `sourceLang` and `noNewTab` reach the half the DOM never shows.
 `<code>` and `<pre>` content is dropped on both sides: mono means data, and a record value or a
 URL is not prose.
@@ -72,15 +73,16 @@ from the vendored list, matched case-insensitively as a JavaScript regular expre
 list's `([^a-z]|$)` anchors are ERE that JavaScript reads the same way.
 
 **German.** `fetch(spec.absolute)` for the raw source, every `data-de` and `data-notes-de`
-value, entities decoded and tags removed by parsing each value into a template element and
-reading its `textContent` after `<code>` elements are removed. Fails on ß; on any of „ “ ”; on
+value, each value stripped of `<code>` and tags first and decoded second, because a decoded
+`&lt;` would read as a tag and take the prose after it along; each value is scanned on its own
+so a hit's context stays inside the attribute it came from. Fails on ß; on any of „ “ ”; on
 an em-dash; and on a du-form, `du`, `dich`, `dir`, `dein` with its endings, as whole words.
 
 **The stem list.** Read once per check from `conventions/conventions-check` at the site's root
 with `fetch`, the line matching `^STEMS='(.*)'$`. Missing file or line: the check fails with
 `no vendored conventions-check — this site is not a member`.
 
-**Messages.** One line per hit, `[en]` or `[de]`, the offending character or word, and forty
+**Messages.** One entry per hit, joined by `; ` as the other checks join theirs, `[en]` or `[de]`, the offending character or word, and forty
 characters of context on each side, because a report that says only *typography failed* sends
 the reader on the search the check exists to end. All hits are listed, not the first.
 
@@ -88,13 +90,18 @@ the reader on the search the check exists to end. All hits are listed, not the f
 `typography: true`, or the suite fails naming the pages that do not.
 
 **`stage.js`.** `fmtPeriod` sets the range dash per language: `May 2012–Oct 2016` closed in
-English, `Mai 2012 – Okt. 2016` spaced in German. `fmtDate` is unchanged since 0.26.0.
+English, `Mai 2012 – Okt 2016` spaced in German, and an open range closes or spaces the same
+way, `May 2012–now` and `Mai 2012 – heute`, because the English rule has no exception for an
+open end. `fmtDate` is unchanged since 0.26.0, and German months keep the three-letter form it
+has always printed; the period WRITING.md gives them is a date change, and dates are out of
+scope here.
 
 **Tests.** In `test/verify-pages.test.mjs`: `typography` is in the exported set and sits
 before `translates`; its source reads the stems from `conventions/conventions-check` and not
-from a literal; it reads German from `fetch(spec.absolute)` and English from `innerText`; it
-drops `<code>`. In `test/suite.test.mjs`: a `PAGES` entry without `typography` fails the run. A
-fixture page under `test/` with one hit of each kind proves each message once.
+from a literal; it reads German from `fetch(spec.absolute)` and English from the clone's
+`textContent`; it drops `<code>`. In `test/suite.test.mjs`: a `PAGES` entry without
+`typography` fails the run. Inline fixture strings with one hit of each kind prove each
+message once; there is no fixture file.
 
 ## 4. The sweep, per site
 
@@ -131,4 +138,7 @@ list the sweep a site does when it takes the release, and the number of clips it
 
 Not a rule: every rule here is `WRITING.md`'s. Not a change to conventions, whose prose check
 keeps reading Markdown only. Not a language-aware scan of Markdown, which stays `exclude`'s job.
-Not an automated serial comma. Not a change to dates, which have read en-US since 0.26.0.
+Not an automated serial comma. Not a change to dates, which have read en-US since 0.26.0. Not a
+scan of English `data-notes`: those are speaker notes whose English narration clips hash on the
+text, so moving their 49 spaced en-dashes on blust.ch regenerates 49 clips, and that is the
+owner's word, not this release's; they can join the English half in a later minor.
