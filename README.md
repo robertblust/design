@@ -23,6 +23,11 @@ site's suite a few checks.
 { "groups": ["fonts", "stage"] }   // guestgraph.io takes ["fonts"] — it draws no graph
 ```
 
+A page that draws a stage loads three scripts in this order — `d3.v7.min.js`, `card.js`,
+`stage.js` — and `card.js` before `stage.js` is not a preference: the stage calls `rbCard` on
+the first click and throws without it. A page that only shows cards, blust.ch's timeline,
+loads `card.js` alone.
+
 ```jsonc
 // package.json
 "scripts": {
@@ -174,11 +179,12 @@ WRITING.md's German marks, because those are script strings the cold scan in `ty
 never sees; `typography` holds the English pair the same way, since both live in the head
 outside the body it reads.
 
-## A warning about `stage.js`
+## A warning about `stage.js` and `card.js`
 
-`stage.js` is the one shared file no deck loads — a deck draws static SVG and has to open
-from `file://` with no network. **Never link a deck to `stage.js` or `stage.css`.** They
-are reached only by served prose pages, through a plain `<link>` and `<script src>`.
+`stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and has
+to open from `file://` with no network. **Never link a deck to `stage.js`, `card.js` or
+`stage.css`.** They are reached only by served prose pages, through a plain `<link>` and
+`<script src>`.
 
 ## Releasing
 
