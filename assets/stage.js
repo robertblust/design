@@ -12,8 +12,9 @@
 // Nothing in this script knows a name from either page. It reads types, entities and edges
 // out of the page's data block — the one <script type="application/json"> the page marks
 // data-stage, whatever its id — and derives every label, path and count from them; the only
-// strings it carries are the two band eyebrows, the root/folder card's word for "pages", and
-// the file link's aria-label, all of which the site's language toggle swaps through t().
+// strings it carries are the two band eyebrows and the root/folder card's word for "pages",
+// which the site's language toggle swaps through t(). The entity card and every date are
+// rbCard's, from card.js, which a page loads before this file — or the first click throws.
 (function(){
   var block = document.querySelector('script[type="application/json"][data-stage]');
   var data = JSON.parse(block.textContent);
@@ -39,48 +40,10 @@
   var STR = {
     out:   { en:"refers to",   de:"Verweist auf" },
     "in":  { en:"referred by", de:"Verwiesen von" },
-    pages: { en:"pages",       de:"Seiten" },
-    view:  { en:"View this file on GitHub", de:"Diese Datei auf GitHub ansehen" },
-    now:   { en:"present",     de:"heute" }
-  };
-  // A date is drawn as prose, not as the ISO the model stores, so the months travel with the
-  // script the way every other word here does. The three lengths are core's three precisions:
-  // a year, a month, a day — written at the precision the model holds and never padded up.
-  var MONTHS = {
-    en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-    de: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"]
+    pages: { en:"pages",       de:"Seiten" }
   };
   function lang(){ return document.documentElement.lang === "de" ? "de" : "en"; }
   function t(k){ return STR[k][lang()]; }
-
-  // The parser hands every entity that has one a `stamp` — its kind and its period, raw. It
-  // does that so nothing here has to know that core calls those fields kind, start and end;
-  // this file knows no core vocabulary and `rootId` is resolved upstream for the same reason.
-  // What is left here is the part that is a drawing's business: how a date reads, and in
-  // which language.
-  function fmtDate(v){
-    var m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(v || "");
-    if (!m) return v || "";
-    if (!m[2]) return m[1];
-    var mon = MONTHS[lang()][+m[2] - 1];
-    if (!m[3]) return mon + " " + m[1];
-    // "May 4, 2012" and "4. Mai 2012". The page is en-US, so the English day follows the
-    // month and a comma sets off the year; the German ordinal carries its point and comes
-    // first. Day-month-year is what this used to print in English, which is neither.
-    if (lang() === "de") return (+m[3]) + ". " + mon + " " + m[1];
-    return mon + " " + (+m[3]) + ", " + m[1];
-  }
-  // Three shapes, and the model says which by what it holds. No end means still running. An
-  // end equal to its start is a one-off — a talk, a certification — and printing it twice
-  // would say a day lasted from itself to itself.
-  function fmtPeriod(st){
-    if (!st || !st.start) return "";
-    if (!st.end) return fmtDate(st.start) + (lang() === "de" ? " – " : "–") + t("now");
-    if (st.end === st.start) return fmtDate(st.start);
-    // A range between two dates, or from one date to now: English closes the en-dash,
-    // German spaces it, and an open end is no exception — "now" stands where a date would.
-    return fmtDate(st.start) + (lang() === "de" ? " – " : "–") + fmtDate(st.end);
-  }
   function stampOf(p){ return (p.node && p.node.entity && p.node.entity.stamp) || null; }
   // Everything secondary about a node goes on one line beneath its name: what an experience
   // was and when, what level a skill is claimed at, which field an edge came from. They used to
@@ -98,7 +61,7 @@
   // a column of these reads down its left edge.
   function stampText(p){
     var st = stampOf(p); if (!st) return "";
-    var when = fmtPeriod(st);
+    var when = rbCard.fmtPeriod(st, lang());
     return st.kind && when ? st.kind + " · " + when : (st.kind || when);
   }
 
@@ -585,45 +548,6 @@
     a.addEventListener("click", function(ev){ ev.preventDefault(); focus(nEntity(byId[id])); });
     return a;
   }
-  // A link out of the model. `url` on an entry and every URL in a References table point at
-  // the web rather than at another node, so they are not `goLink`s — that one focuses a node
-  // and never leaves the page. This one is an ordinary href, in the same tab as everything
-  // else here: nothing on this site opens a new one.
-  //
-  // The scheme is dropped from what is shown and kept in what is followed. A card column is
-  // narrow, `https://` is eight characters of no information, and the family already writes
-  // these as "wiki.eclipse.org/…" wherever it writes them in prose.
-  var URL_RE = /^https?:\/\/\S+$/;
-  function extLink(url){
-    var a = h("a", url.replace(/^https?:\/\//, "").replace(/\/$/, ""), "ext");
-    a.href = url;
-    return a;
-  }
-  function resolve(text){ for (var i = 0; i < data.entities.length; i++) if (data.entities[i].name === text) return data.entities[i].id; return null; }
-  // Markdown inline code — the one span-level mark the model's fixed shape uses. A field
-  // name, a file path, a `ref → type`: every one of them a string quoted out of a file,
-  // which is exactly what this system's mono face is for, so a card that printed the
-  // backticks was showing the markup instead of the data. Appended as text nodes and
-  // elements, never as innerHTML: these strings come out of the data block, and the day a
-  // name in the model contains a "<" an innerHTML assignment would start parsing it as
-  // markup. A backtick with no partner stays the character it is.
-  function inline(el, text){
-    String(text).split(/`([^`]+)`/).forEach(function(part, i){
-      if (!part) return;
-      if (i % 2) { el.appendChild(h("code", part, "mono")); return; }
-      // A URL in a sentence is as followable as one in a field, and a card that linked the one
-      // and not the other was drawing the same fact two ways. Split on the URL rather than the
-      // whole part, so the prose either side of it stays prose. Backticks are handled above, so
-      // a URL written as code stays code.
-      part.split(/(https?:\/\/[^\s)\]]+)/).forEach(function(bit, j){
-        if (!bit) return;
-        el.appendChild(j % 2 ? extLink(bit.replace(/[.,;:]+$/, "")) : document.createTextNode(bit));
-      });
-    });
-    return el;
-  }
-  function para(text, cls){ return inline(h("p", null, cls), text); }
-
   // Renders the focused node into the card's (body, foot) pair. Expand no longer copies this
   // into a second element — it moves the card itself into the dialog — so there is exactly
   // one target, and a .go link clicked inside it updates the same #cbody/#cfoot whether the
@@ -646,84 +570,12 @@
       }
       return;
     }
-    var e = n.entity;
-    bodyEl.appendChild(h("div", e.type + " · " + e.id, "eyebrow"));
-    bodyEl.appendChild(h("h3", e.name));
-    if (e.tagline) bodyEl.appendChild(h("p", e.tagline, "tag"));
-    // The root is the company and the container both, so its card keeps the count the folder
-    // cards carry: what this is, and how much is filed under it.
-    if (n.kind === "root") bodyEl.appendChild(h("p", pagesUnder(n) + " " + t("pages"), "empty"));
-    var keys = Object.keys(e.fields);
-    if (keys.length) {
-      var dl = h("dl");
-      keys.forEach(function(k){
-        dl.appendChild(h("dt", k));
-        var dd = h("dd"), v = e.fields[k];
-        // A list is drawn as a list. Comma-joined, every entry was a link with a comma
-        // between two underlines, and three skills read as one run-on sentence rather than
-        // three things — the model wrote a list and the card turned it back into prose.
-        // One entry per line also gives each link an edge a pointer can find.
-        if (Array.isArray(v)) {
-          var ul = h("ul", null, "items");
-          v.forEach(function(name){
-            var li = h("li"), id = resolve(name);
-            li.appendChild(id ? goLink(id) : document.createTextNode(name));
-            ul.appendChild(li);
-          });
-          dd.appendChild(ul);
-        }
-        else if (URL_RE.test(v)) dd.appendChild(extLink(v));
-        else dd.textContent = v;
-        dl.appendChild(dd);
-      });
-      bodyEl.appendChild(dl);
-    }
-    // Every table the section holds, in the order the file wrote them — one section of the
-    // fixed shape can declare a table and then the columns of another, so a section is a
-    // list of tables, not one. A caption addresses the table under it and is quoted from
-    // the file, so it is mono: it is data, not this page's prose. A section with a single
-    // uncaptioned table renders exactly what it rendered when `table` was the only one.
-    e.sections.forEach(function(s){
-      bodyEl.appendChild(h("h4", s.heading));
-      (s.tables || []).forEach(function(tab){
-        if (tab.caption) bodyEl.appendChild(para(tab.caption, "caption mono"));
-        var tbl = h("table"), thead = h("thead"), hr = h("tr");
-        tab.columns.forEach(function(c){ hr.appendChild(h("th", c)); });
-        thead.appendChild(hr); tbl.appendChild(thead);
-        var tb = h("tbody");
-        tab.rows.forEach(function(row){
-          var tr = h("tr");
-          row.forEach(function(cell){
-            var td = h("td"), id = resolve(cell);
-            if (id) td.appendChild(goLink(id));
-            else if (URL_RE.test(cell)) td.appendChild(extLink(cell));
-            else inline(td, cell);
-            tr.appendChild(td);
-          });
-          tb.appendChild(tr);
-        });
-        tbl.appendChild(tb); bodyEl.appendChild(tbl);
-      });
-      // A block whose lines each open with "- " is a list in the file, and is drawn as one. It
-      // used to be a paragraph per item with the "- " still in the text: the marker the file
-      // writes to mean "list" was being shown as if it were a word, and the items had no
-      // hanging indent, so a wrapped one ran back under its own dash.
-      if (s.text) s.text.split(/\n\n+/).forEach(function(par){
-        if (/^-\s/.test(par)) {
-          var ul = h("ul", null, "prose");
-          par.split(/\n(?=-\s)/).forEach(function(item){
-            ul.appendChild(inline(h("li"), item.replace(/^-\s+/, "").replace(/\n\s*/g, " ")));
-          });
-          bodyEl.appendChild(ul);
-        } else bodyEl.appendChild(para(par.replace(/\n/g, " ")));
-      });
+    // An entity's card is the shared one; what the stage adds is the way back into the
+    // drawing (a resolved reference focuses its node) and, on the root, the page count.
+    rbCard.render(n.entity, bodyEl, footEl, {
+      data: data, lang: lang(), link: goLink,
+      note: n.kind === "root" ? pagesUnder(n) + " " + t("pages") : null
     });
-    // Mono, so it is data: the file and the commit it is pinned at, which is what the link
-    // resolves to. The phrasing a reader needs is on the label, not in the row.
-    var a = h("a", e.path.slice(e.path.lastIndexOf("/") + 1) + " @ " + data.commit.slice(0, 7));
-    a.href = "https://github.com/" + repo + "/blob/" + data.commit + "/" + e.path;
-    a.setAttribute("aria-label", t("view"));
-    footEl.appendChild(a);
   }
 
   // The card always renders in place — there is nothing else to keep in sync, since the
