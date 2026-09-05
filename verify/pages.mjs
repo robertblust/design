@@ -22,6 +22,38 @@ import { findFence } from "../lib/rewrite.mjs";
 // with it too, not just the package's own blocks/deck-transport.css.
 import { lcdVarReferences } from "./lcd-scan.mjs";
 
+// The German marks WRITING.md sets, kept once because two checks hold text to them:
+// typography, over the cold data-de and data-notes-de values, and translates, over the
+// German <title> and meta description — script strings the cold scan never sees, which
+// exist only once the toggle is pressed.
+const DE_RULES = [
+  ["ß", /ß/],
+  ["„", /„/], ["“", /“/], ["”", /”/],
+  ["em-dash", /—/],
+  ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
+];
+
+// Every hit in `text`, each named with its side, the mark or word, and forty characters of
+// context each way, because a report that says only *typography failed* sends the reader
+// on the search the check exists to end.
+function markHits(side, text, rules) {
+  const ctx = (i, len) => {
+    const a = Math.max(0, i - 40), b = Math.min(text.length, i + len + 40);
+    return `"${(a ? "…" : "") + text.slice(a, b).replace(/\s+/g, " ") + (b < text.length ? "…" : "")}"`;
+  };
+  const hits = [];
+  for (const [what, re] of rules) {
+    const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+    let m;
+    while ((m = g.exec(text))) {
+      const word = what === "stem" ? m[0].replace(/[^a-z]+$/i, "") : what;
+      hits.push(`[${side}] ${word} in ${ctx(m.index, m[0].length)}`);
+      if (g.lastIndex === m.index) g.lastIndex++;
+    }
+  }
+  return hits;
+}
+
 export function pageChecks({ SITE, BASE }) {
   if (!SITE) throw new Error("pageChecks needs SITE, the site's canonical origin");
   if (!BASE) throw new Error("pageChecks needs BASE, the origin actually being tested");
@@ -886,33 +918,13 @@ export function pageChecks({ SITE, BASE }) {
       if (!stemsLine) return `no vendored conventions-check at ${stemsUrl} — this site is not a member`;
       const stems = new RegExp(`(${stemsLine[1]})`, "i");
 
-      const ctx = (text, i, len) => {
-        const a = Math.max(0, i - 40), b = Math.min(text.length, i + len + 40);
-        return `"${(a ? "…" : "") + text.slice(a, b).replace(/\s+/g, " ") + (b < text.length ? "…" : "")}"`;
-      };
       const hits = [];
-      const scan = (side, text, rules) => {
-        for (const [what, re] of rules) {
-          const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
-          let m;
-          while ((m = g.exec(text))) {
-            const word = what === "stem" ? m[0].replace(/[^a-z]+$/i, "") : what;
-            hits.push(`[${side}] ${word} in ${ctx(text, m.index, m[0].length)}`);
-            if (g.lastIndex === m.index) g.lastIndex++;
-          }
-        }
-      };
+      const scan = (side, text, rules) => hits.push(...markHits(side, text, rules));
 
       const enRules = [
         ["spaced en-dash", / – /],
         ["„", /„/], ["«", /«/], ["»", /»/],
         ["stem", stems],
-      ];
-      const deRules = [
-        ["ß", /ß/],
-        ["„", /„/], ["“", /“/], ["”", /”/],
-        ["em-dash", /—/],
-        ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
       ];
 
       // English: the body, cloned and stripped of code, scripts and styles, read as
@@ -920,12 +932,20 @@ export function pageChecks({ SITE, BASE }) {
       // innerText on the live body would read the visible slide and let the rest through.
       // The clone is detached anyway, and a detached node's innerText is textContent, so this
       // names what happens instead of leaning on it.
-      const english = await page.evaluate(() => {
+      const rendered = await page.evaluate(() => {
         const clone = document.body.cloneNode(true);
         clone.querySelectorAll("code, pre, script, style").forEach(el => el.remove());
-        return clone.textContent;
+        return {
+          text: clone.textContent,
+          title: document.title,
+          desc: (document.getElementById("metadesc") || {}).content || "",
+        };
       });
-      scan("en", english, enRules);
+      scan("en", rendered.text, enRules);
+      // The <title> and the meta description are in the head, outside the body clone, and
+      // they are the first English a crawler or a tab strip reads.
+      scan("en title", rendered.title, enRules);
+      scan("en desc", rendered.desc, enRules);
 
       // The cold source: every data-de, data-notes-de and data-notes value, stripped of tags
       // and code, then decoded. Tags and code go first, on the raw markup, because a decoded
@@ -940,7 +960,7 @@ export function pageChecks({ SITE, BASE }) {
       const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
         .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
       for (const [name, value] of values)
-        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
+        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : DE_RULES);
 
       return hits.length ? hits.join("; ") : null;
     },
@@ -997,6 +1017,14 @@ export function pageChecks({ SITE, BASE }) {
         if (germanDesc !== spec.translates.desc)
           return `after the toggle meta description is ${JSON.stringify(germanDesc)}, expected ${JSON.stringify(spec.translates.desc)}`;
       }
+      // The German title and description are script strings, UI.de and TALK.de, that the
+      // cold scan in typography never sees and that exist only now, after the toggle; they
+      // are the tab strip's and the crawler's German, so they are held to the same marks.
+      const germanMarks = [
+        ...markHits("de title", await page.title(), DE_RULES),
+        ...markHits("de desc", (await desc()) || "", DE_RULES),
+      ];
+      if (germanMarks.length) return germanMarks.join("; ");
       // The PDF exists in both languages and the link swaps with the toggle. A German reader
       // handed the English deck is a silent wrong answer: the page looks right, the download
       // works, and only the file is in the wrong language.
