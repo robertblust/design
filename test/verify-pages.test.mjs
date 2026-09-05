@@ -1,16 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The twenty-five this module is responsible for. A body that quietly stops being exported
+// The twenty-six this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
   "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
   "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
-  "translates", "transportBaseline", "transportFits", "wayOut"];
+  "translates", "transportBaseline", "transportFits", "typography", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);
@@ -446,4 +447,114 @@ test("two independently built check sets do not share mutable state", () => {
   const a = pageChecks({ SITE: "https://a.test", BASE: "http://a.local" });
   const b = pageChecks({ SITE: "https://b.test", BASE: "http://b.local" });
   assert.notEqual(a.seo, b.seo);
+});
+
+test("typography sits immediately before translates", () => {
+  const keys = Object.keys(pageChecks(OPTS));
+  assert.equal(keys.indexOf("typography"), keys.indexOf("translates") - 1);
+});
+
+test("typography reads the stems from the vendored conventions-check, not a literal", () => {
+  // One list in the family. A literal here would be the second copy the conventions
+  // repository exists to remove; the check fetches the site's own vendored script.
+  const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /conventions\/conventions-check/);
+  assert.match(src, /STEMS=/);
+  assert.doesNotMatch(src, /colour|behaviour/);
+});
+
+test("typography reads German and English notes cold, English text from the body's textContent, and drops code on all sides", () => {
+  const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /fetch\(spec\.absolute\)/);
+  assert.match(src, /data-\(de\|notes-de\|notes\)/);
+  assert.match(src, /textContent/);
+  assert.match(src, /code/);
+});
+
+test("typography names each hit with its side and its context", async () => {
+  // A stub page and a stub fetch: the check must work from what it reads, not from Playwright.
+  const html = `<html lang="en"><body><p data-de="Der Weg — „hier“ ist es.">The way – it is.</p>
+    <p data-de="Die Strasse ist grösser.">Fine.</p></body></html>`;
+  const stems = "#!/bin/sh\nSTEMS='colour|behaviour|grey([^a-z]|$)'\n";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+  });
+  try {
+    const page = { evaluate: async () => "The way – it is. The colour of it. Fine." };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
+    assert.ok(out, "expected findings");
+    assert.match(out, /\[de\] em-dash/);
+    assert.match(out, /\[de\] „/);
+    assert.match(out, /\[en\] spaced en-dash/);
+    assert.match(out, /\[en\] colour/);
+    assert.doesNotMatch(out, /Strasse/);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("typography strips tags before it decodes, so escaped angle brackets in German prose survive", async () => {
+  const html = `<p data-de="Adoption &lt; X — und Score &gt; +2 — im Scope.">x</p>`;
+  const stems = "STEMS='colour([^a-z]|$)|organis(e|ed|es|ing|ation|ations)'";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+  });
+  try {
+    const page = { evaluate: async () => "Clean English text." };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
+    const count = (out.match(/\[de\] em-dash/g) || []).length;
+    assert.equal(count, 2, `expected both em-dashes reported, got: ${out}`);
+    assert.match(out, /Adoption < X/, "the prose between the escaped brackets must survive the strip");
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("typography holds English speaker notes to the English rules, and German notes to the German ones", async () => {
+  // data-notes is English: a spaced en-dash there is a hit; data-notes-de is German: the same
+  // dash there is correct, and the em-dash beside it is the hit.
+  const html = `<section data-notes="First point – second point." data-notes-de="Erster Punkt – zweiter Punkt — dritter."></section>`;
+  const stems = "STEMS='colour([^a-z]|$)'";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+  });
+  try {
+    const page = { evaluate: async () => "Clean English text." };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
+    assert.match(out, /\[en\] spaced en-dash in "First point – second point\."/);
+    assert.match(out, /\[de\] em-dash/);
+    assert.doesNotMatch(out, /\[de\] spaced en-dash/);
+    assert.doesNotMatch(out, /\[en\] em-dash/);
+    assert.equal((out.match(/\[/g) || []).length, 2, `exactly two hits, got: ${out}`);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("the vendored STEMS line compiles as a JavaScript regex and reads as the check reads it", async () => {
+  const src = await readFile(new URL("../conventions/conventions-check", import.meta.url), "utf8");
+  const line = src.match(/^STEMS='(.*)'$/m);
+  assert.ok(line, "conventions-check carries a STEMS= line");
+  const re = new RegExp(`(${line[1]})`, "i");
+  assert.match("the colour of it", re);
+  assert.match("Materialised views", re);
+  assert.doesNotMatch("the color of it", re);
+  assert.doesNotMatch("a Greyhound", re, "the ([^a-z]|$) anchor holds under the i flag");
+});
+
+test("typography passes a clean page and fails a site with no vendored stems", async () => {
+  const realFetch = globalThis.fetch;
+  const clean = `<html><body><p data-de="Der Weg – «hier» ist es.">The way — it is.</p></body></html>`;
+  globalThis.fetch = async (url) => ({
+    ok: true, text: async () => (String(url).endsWith("conventions-check") ? "STEMS='colour'\n" : clean) });
+  try {
+    const page = { evaluate: async () => "The way — it is. May 2012–Oct 2016." };
+    assert.equal(await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" }), null);
+  } finally { globalThis.fetch = realFetch; }
+  globalThis.fetch = async (url) => (String(url).endsWith("conventions-check") ? { ok: false, text: async () => "" } : { ok: true, text: async () => clean });
+  try {
+    const page = { evaluate: async () => "" };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
+    assert.match(out, /no vendored conventions-check/);
+  } finally { globalThis.fetch = realFetch; }
 });

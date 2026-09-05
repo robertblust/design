@@ -4,7 +4,7 @@
 
 **Goal:** design v0.28.0 with a `typography` page check and a per-language range dash, and the three sites green under it after one sweep each of their German and English text.
 
-**Architecture:** `typography` joins the shared page checks in `verify/pages.mjs`, before `translates`. It reads English from the rendered page with code removed, and German from the cold-fetched source, every `data-de` and `data-notes-de` value with tags and code removed. Its British stems come from the site's vendored `conventions/conventions-check`, fetched at run time, so the family keeps one list. The runner refuses a page that has not opted in. `fmtPeriod` in `stage.js` sets the range dash per language. Each site then takes the release, opts every page in, sweeps its text with one script plus one reading pass, regenerates the German clips whose notes moved, re-exports PDFs and cards, and rewrites its quote rule.
+**Architecture:** `typography` joins the shared page checks in `verify/pages.mjs`, before `translates`. It reads English from the rendered page with code removed, and German from the cold-fetched source, every `data-de` and `data-notes-de` value with tags and code removed. Its British stems come from the site's vendored `conventions/conventions-check`, fetched at run time, so the family keeps one list. The runner refuses a page that has not opted in. `fmtPeriod` in `stage.js` sets the range dash per language. Each site then takes the release, opts every page in, sweeps its text with one script plus one reading pass, regenerates the clips whose notes moved, re-exports PDFs and cards, and rewrites its quote rule.
 
 **Tech Stack:** Node ESM, Playwright page objects, `node --test`; Python 3 for the one-off sweep; ElevenLabs via each site's `generate.py`.
 
@@ -19,7 +19,7 @@
 - Every exit code is read on its own, never through `| tail`.
 - Merges and the tag wait for the owner's word. So does the first narration run that bills.
 - In a site, nothing inside a `<code>`, `<pre>` or `<script>` element and nothing in a `data-de` value's nested markup attributes is rewritten by the sweep; only text is.
-- German narration clips are regenerated only for notes whose text changed; English clips do not move, and a `--dry-run` that names an English clip is a sign that English text was touched by mistake.
+- German and English narration clips are regenerated only for notes whose text changed; a `--dry-run` that names a clip whose note the diff does not show changed is a sign that text was touched by mistake.
 
 ---
 
@@ -357,7 +357,7 @@ Expected: `pages opted in: 8`; verify fails with `typography` findings on most p
 
 - [ ] **Step 2: The mechanical sweep, German then English**
 
-Save this as `/tmp/sweep.py` and run it from the repository root; it edits every `index.html` in place, reports counts, and touches nothing inside `<script>`, `<style>`, `<code>`, `<pre>` or inside a tag's attributes other than `data-de` and `data-notes-de` values.
+Save this as `/tmp/sweep.py` and run it from the repository root; it edits every `index.html` in place, reports counts, and touches nothing inside `<script>`, `<style>`, `<code>`, `<pre>` or inside a tag's attributes other than `data-de`, `data-notes-de` and `data-notes` values.
 
 ```python
 import re, pathlib, sys
@@ -389,6 +389,8 @@ for f in sorted(pathlib.Path(".").rglob("index.html")):
     before = s
     # 1. German values
     s = re.sub(r'(data-(?:de|notes-de)=")([^"]*)(")', lambda m: m.group(1) + sweep_german(m.group(2)) + m.group(3), s)
+    # 1b. English speaker notes: the same rules as English text, applied to the attribute value
+    s = re.sub(r'(data-notes=")([^"]*)(")', lambda m: m.group(1) + sweep_english_text(m.group(2)) + m.group(3), s)
     # 2. English text nodes outside script/style/code/pre and outside tags
     parts = re.split(r"(<script[\s\S]*?</script>|<style[\s\S]*?</style>|<code[\s\S]*?</code>|<pre[\s\S]*?</pre>|<!--[\s\S]*?-->|<[^>]+>)", s)
     for i in range(0, len(parts), 2):
@@ -404,7 +406,7 @@ python3 /tmp/sweep.py
 grep -c "„" $(git ls-files '*.html'); grep -o -c "—" talks/mental-model/index.html
 npm run verify > /tmp/verify.txt 2>&1; echo "verify exit $?"; grep -E "typography|✗|checks pass" /tmp/verify.txt
 ```
-Expected: the German quote count is 0; `typography` hits drop to whatever the script could not decide — read each remaining one, fix it by hand, rerun until `all checks pass`. Anything the script changed inside an English `<title>` or a `content="…"` attribute did not happen, because attributes other than `data-de` are not text nodes; check `og:description` and `meta description` by hand for spaced en-dashes and fix them the same way.
+Expected: the German quote count is 0; `typography` hits drop to whatever the script could not decide — read each remaining one, fix it by hand, rerun until `all checks pass`. A `<title>` is a text node and is swept; a `content="…"` attribute is not, and English `data-notes` values are swept by the script's own pass, so the English clips whose notes moved will show up in the narration dry run; check `og:description` and `meta description` by hand for spaced en-dashes and fix them the same way.
 
 - [ ] **Step 3: The serial comma, by reading**
 
@@ -427,7 +429,7 @@ Each line is a candidate. Remove the comma before `and` only where the sentence 
 ```bash
 ./tts/generate.py --dry-run
 ```
-Expected: it names German clips only, one per note the sweep touched, and no English clip. If it names an English clip, find the English text the sweep changed in that note and decide whether the change was right; do not generate until the dry run is understood. Then, on the owner's word, since this bills:
+Expected: it names one clip per note the sweep touched, German and English — on blust.ch the English notes carried 49 spaced en-dashes, so English clips are expected here. Read the list against the diff; if a clip is named whose note the diff does not show changed, stop and understand it before generating. Then, on the owner's word, since this bills:
 ```bash
 export ELEVENLABS_API_KEY="$(zsh -ic 'printf %s "$ELEVENLABS_API_KEY"' 2>/dev/null)"
 ./tts/generate.py
@@ -456,11 +458,11 @@ git commit -F - <<'EOF'
 Design 0.28.0, and the pages set the way WRITING.md says
 
 The typography check runs on all eight pages. German quotes are guillemets and German
-dashes are spaced en-dashes, in every data-de and data-notes-de; English spaced en-dashes
-are spaced em-dashes, and date ranges close theirs. The serial comma left <N> lists after a
-reading pass. <M> German clips regenerated because their notes moved; no English clip did.
-Both PDFs of both decks and every card are re-exported, and the quote rule in this file is
-written for guillemets.
+dashes are spaced en-dashes, in every data-de and data-notes-de; English spaced en-dashes,
+in page text and in data-notes, are spaced em-dashes, and date ranges close theirs. The
+serial comma left <N> lists after a reading pass. <M> German and <K> English clips
+regenerated because their notes moved. Both PDFs of both decks and every card are
+re-exported, and the quote rule in this file is written for guillemets.
 
 Verified: npm run verify all checks pass with typography on every page; og:check,
 design:check and the narration dry run report nothing stale.
@@ -477,13 +479,13 @@ Fill `<N>` and `<M>` with the measured numbers before committing. Stop; the merg
 
 ### Task 5: guestgraph.io, the same
 
-Repeat Task 4 in `~/git/guestgraph/guestgraph.github.io` with these differences: five pages; the narration generator is `talks/intro/tts/generate.py` and is run from `talks/intro/tts/`; there is no `tts/` at the root; the agent file's quote rule is the bullet under *Notes live inside HTML attributes*; there are no English spaced en-dashes expected, so Step 2's English pass should report no change and Step 3's list is short. Same commit and pull request shape with its own numbers. Stop for the merge.
+Repeat Task 4 in `~/git/guestgraph/guestgraph.github.io` with these differences: five pages; the narration generator is `talks/intro/tts/generate.py` and is run from `talks/intro/tts/`; there is no `tts/` at the root; the agent file's quote rule is the bullet under *Notes live inside HTML attributes*; there are no English spaced en-dashes expected, so Step 2's English pass should report no change and Step 3's list is short. A dry run naming an English clip here is a mistake to understand, not to generate. One British stem the sweep cannot clear: `instalments` in `billing/index.html` (line 604 at the time of writing) becomes `installments`, by hand, before the check is rerun. Same commit and pull request shape with its own numbers. Stop for the merge.
 
 ---
 
 ### Task 6: companygraph.io, the same
 
-Repeat Task 4 in `~/git/companygraph/companygraph.github.io` with these differences: seven pages; the narration generator is `talks/intro/tts/generate.py`; the agent file's quote rule is inside the bullet *Notes are `data-notes` (English) and `data-notes-de` (German)* under *The deck and the talks index*, and the parenthesis there is rewritten for guillemets; `npm run example:check` and `npm run pin:check` join the checks in Step 5. Same commit and pull request shape with its own numbers. Stop for the merge.
+Repeat Task 4 in `~/git/companygraph/companygraph.github.io` with these differences: seven pages; the narration generator is `talks/intro/tts/generate.py`; the agent file's quote rule is inside the bullet *Notes are `data-notes` (English) and `data-notes-de` (German)* under *The deck and the talks index*, and the parenthesis there is rewritten for guillemets; `npm run example:check` and `npm run pin:check` join the checks in Step 5. There are no English spaced en-dashes expected here either, so Step 2's English pass should report no change; a dry run naming an English clip here is a mistake to understand, not to generate. Same commit and pull request shape with its own numbers. Stop for the merge.
 
 ---
 

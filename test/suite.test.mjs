@@ -41,7 +41,7 @@ function fakeFetch(over = {}) {
 
 const OPTS = () => ({
   browser: fakeBrowser(), SITE: "https://x.test", BASE: "https://x.test",
-  PAGES: [{ path: "/", seo: true, tokenVersion: true, fences: ["design tokens"] }],
+  PAGES: [{ path: "/", seo: true, tokenVersion: true, fences: ["design tokens"], typography: true }],
   CHECKS: {}, systemFaces: new Set(["plex mono", "monospace"]),
 });
 
@@ -76,7 +76,7 @@ test("a page that has not opted into seo is a failure", async (t) => {
   const real = globalThis.fetch;
   globalThis.fetch = fakeFetch();
   t.after(() => { globalThis.fetch = real; });
-  const o = OPTS(); o.PAGES = [{ path: "/", tokenVersion: true, fences: [] }];
+  const o = OPTS(); o.PAGES = [{ path: "/", tokenVersion: true, fences: [], typography: true }];
   assert.ok(await runSuite(o) > 0, "a page without seo passed");
 });
 
@@ -86,8 +86,18 @@ test("a page that has not opted into tokenVersion is a failure", async (t) => {
   const real = globalThis.fetch;
   globalThis.fetch = fakeFetch();
   t.after(() => { globalThis.fetch = real; });
-  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, fences: [] }];
+  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, fences: [], typography: true }];
   assert.ok(await runSuite(o) > 0, "a page without tokenVersion passed");
+});
+
+test("a page that has not opted into typography is a failure", async (t) => {
+  // Same contract again, same reason: the runner skips any check whose key is undefined, so
+  // removing this one line from a page's spec turns the guard off and changes no output.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, tokenVersion: true, fences: ["design tokens"] }];
+  assert.ok(await runSuite(o) > 0, "a page without typography passed");
 });
 
 test("a page that has not opted into fences is a failure", async (t) => {
@@ -96,7 +106,7 @@ test("a page that has not opted into fences is a failure", async (t) => {
   const real = globalThis.fetch;
   globalThis.fetch = fakeFetch();
   t.after(() => { globalThis.fetch = real; });
-  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, tokenVersion: true }];
+  const o = OPTS(); o.PAGES = [{ path: "/", seo: true, tokenVersion: true, typography: true }];
   assert.ok(await runSuite(o) > 0, "a page without fences passed");
 });
 
@@ -117,7 +127,7 @@ test("a sitemap that does not name this site is a failure", async (t) => {
   });
   t.after(() => { globalThis.fetch = real; });
   const o = OPTS();
-  o.PAGES = [{ path: "/about/", seo: true, tokenVersion: true, fences: ["design tokens"] }];
+  o.PAGES = [{ path: "/about/", seo: true, tokenVersion: true, fences: ["design tokens"], typography: true }];
   assert.ok(await runSuite(o) > 0, "a sitemap naming another site passed");
 });
 

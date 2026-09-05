@@ -869,6 +869,81 @@ export function pageChecks({ SITE, BASE }) {
         return `card is ${real.join("×")} but declared ${declared.join("×")}`;
       return null;
     },
+    // English is the page text the visitor reads and the speaker notes in `data-notes` that
+    // the presenter reads, so it comes from the rendered body and from the cold source; German
+    // is markup in `data-de` and `data-notes-de` that the DOM never shows, so it comes from the
+    // cold source only. Code is not prose on either side: mono means data, and a record value
+    // or a URL says nothing about how the page is set.
+    //
+    // The British stems are not written here. Every member vendors conventions/conventions-check,
+    // whose STEMS= line is the family's one list; this check fetches that file from the site
+    // under test and fails when it is not there, because a site without it is not a member.
+    async typography(page, spec) {
+      const stemsUrl = `${BASE}/conventions/conventions-check`;
+      const stemsRes = await fetch(stemsUrl).catch(() => null);
+      const stemsSrc = stemsRes && stemsRes.ok ? await stemsRes.text() : "";
+      const stemsLine = stemsSrc.match(/^STEMS='(.*)'$/m);
+      if (!stemsLine) return `no vendored conventions-check at ${stemsUrl} — this site is not a member`;
+      const stems = new RegExp(`(${stemsLine[1]})`, "i");
+
+      const ctx = (text, i, len) => {
+        const a = Math.max(0, i - 40), b = Math.min(text.length, i + len + 40);
+        return `"${(a ? "…" : "") + text.slice(a, b).replace(/\s+/g, " ") + (b < text.length ? "…" : "")}"`;
+      };
+      const hits = [];
+      const scan = (side, text, rules) => {
+        for (const [what, re] of rules) {
+          const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+          let m;
+          while ((m = g.exec(text))) {
+            const word = what === "stem" ? m[0].replace(/[^a-z]+$/i, "") : what;
+            hits.push(`[${side}] ${word} in ${ctx(text, m.index, m[0].length)}`);
+            if (g.lastIndex === m.index) g.lastIndex++;
+          }
+        }
+      };
+
+      const enRules = [
+        ["spaced en-dash", / – /],
+        ["„", /„/], ["«", /«/], ["»", /»/],
+        ["stem", stems],
+      ];
+      const deRules = [
+        ["ß", /ß/],
+        ["„", /„/], ["“", /“/], ["”", /”/],
+        ["em-dash", /—/],
+        ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
+      ];
+
+      // English: the body, cloned and stripped of code, scripts and styles, read as
+      // textContent and not innerText. A deck keeps every slide in the DOM and shows one;
+      // innerText on the live body would read the visible slide and let the rest through.
+      // The clone is detached anyway, and a detached node's innerText is textContent, so this
+      // names what happens instead of leaning on it.
+      const english = await page.evaluate(() => {
+        const clone = document.body.cloneNode(true);
+        clone.querySelectorAll("code, pre, script, style").forEach(el => el.remove());
+        return clone.textContent;
+      });
+      scan("en", english, enRules);
+
+      // The cold source: every data-de, data-notes-de and data-notes value, stripped of tags
+      // and code, then decoded. Tags and code go first, on the raw markup, because a decoded
+      // `&lt;` would otherwise read as a tag and take the prose after it along. Scanned one
+      // value at a time, not joined into one string first: joining would let a hit's forty
+      // characters of context bleed from one attribute's text into its neighbor's, naming a
+      // word that was never near the actual mark. `data-notes` takes the English rules; the
+      // other two take the German rules.
+      const src = await (await fetch(spec.absolute)).text();
+      const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+      const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
+        .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
+      for (const [name, value] of values)
+        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
+
+      return hits.length ? hits.join("; ") : null;
+    },
     // The one check that clicks. Every other check in this file reads the page as it first
     // renders, which is English — German is markup in `data-de` that does not exist until a
     // visitor switches, so a toggle whose listener is gone, an `<h1>` whose `data-de` is
