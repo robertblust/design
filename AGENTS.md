@@ -28,7 +28,8 @@ Two jobs, both required by the ruleset on `main`: `test`, this repository's own 
 `conventions / conventions`. The suite includes `test/spelling.test.mjs`, which holds what the
 package ships — blocks, scripts, comments — to American English; the shared prose check reads
 Markdown only, so the two do not overlap and both stay. The prose check leaves out
-`.superpowers`, tooling scratch. Everything about how to write and how to work with git is in
+`.superpowers`, tooling scratch, and `docs/superpowers`, whose specs and plans quote the very
+words it scans for. Everything about how to write and how to work with git is in
 `conventions/`.
 
 ## What every change here costs downstream
