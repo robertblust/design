@@ -482,7 +482,7 @@ test("typography names each hit with its side and its context", async () => {
     text: async () => (String(url).endsWith("conventions-check") ? stems : html),
   });
   try {
-    const page = { evaluate: async () => "The way – it is. The colour of it. Fine." };
+    const page = { evaluate: async () => ({ text: "The way – it is. The colour of it. Fine.", title: "", desc: "" }) };
     const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
     assert.ok(out, "expected findings");
     assert.match(out, /\[de\] em-dash/);
@@ -502,7 +502,7 @@ test("typography strips tags before it decodes, so escaped angle brackets in Ger
     text: async () => (String(url).endsWith("conventions-check") ? stems : html),
   });
   try {
-    const page = { evaluate: async () => "Clean English text." };
+    const page = { evaluate: async () => ({ text: "Clean English text.", title: "", desc: "" }) };
     const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
     const count = (out.match(/\[de\] em-dash/g) || []).length;
     assert.equal(count, 2, `expected both em-dashes reported, got: ${out}`);
@@ -521,7 +521,7 @@ test("typography holds English speaker notes to the English rules, and German no
     text: async () => (String(url).endsWith("conventions-check") ? stems : html),
   });
   try {
-    const page = { evaluate: async () => "Clean English text." };
+    const page = { evaluate: async () => ({ text: "Clean English text.", title: "", desc: "" }) };
     const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
     assert.match(out, /\[en\] spaced en-dash in "First point – second point\."/);
     assert.match(out, /\[de\] em-dash/);
@@ -529,6 +529,47 @@ test("typography holds English speaker notes to the English rules, and German no
     assert.doesNotMatch(out, /\[en\] em-dash/);
     assert.equal((out.match(/\[/g) || []).length, 2, `exactly two hits, got: ${out}`);
   } finally { globalThis.fetch = realFetch; }
+});
+
+test("typography holds the English title and meta description to the English rules", async () => {
+  // Both live in the head, outside the body clone, and they are the first English a crawler
+  // or a tab strip reads; a British word in a title would pass every other check.
+  const realFetch = globalThis.fetch;
+  try {
+    const stems = "STEMS='colour([^a-z]|$)|organis(e|ed|es|ing|ation|ations)'";
+    globalThis.fetch = async url => ({ ok: true, text: async () => String(url).endsWith("conventions-check") ? stems : "<p>x</p>" });
+    const page = { evaluate: async () => ({ text: "Clean English text.", title: "The colour of it", desc: "One – two." }) };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
+    assert.match(out, /\[en title\] colour in "The colour of it"/);
+    assert.match(out, /\[en desc\] spaced en-dash in "One – two\."/);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("translates holds the German title and meta description to the German marks after the toggle", async () => {
+  // The German title is a script string, UI.de or TALK.de, that the cold scan never sees and
+  // that exists only after the toggle; blust.ch shipped "Ideen — Robert Blust" under a rule
+  // that gives German no em-dash, and no check said so.
+  let lang = "en";
+  const page = {
+    click: async sel => { lang = sel === "#lde" ? "de" : "en"; },
+    title: async () => lang === "de" ? "Ideen — Robert Blust" : "Ideas — Robert Blust",
+    evaluate: async fn => {
+      const s = fn.toString();
+      if (s.includes("documentElement.lang")) return lang;
+      if (s.includes("metadesc")) return lang === "de" ? "Zwei Ideen, zur Prüfung gestellt." : "Two ideas.";
+      if (s.includes("data-de-href")) return null;
+      return lang === "de" ? "Ideen" : "Ideas";
+    },
+  };
+  const spec = { translates: { lang: "de", shows: ["Ideen"], hides: ["Ideas"] } };
+  const out = await pageChecks(OPTS).translates(page, spec);
+  assert.match(out, /\[de title\] em-dash in "Ideen — Robert Blust"/);
+  assert.doesNotMatch(out, /\[de desc\]/);
+  // And a clean pair passes, so the rule does not fire on the marks it allows. The first run
+  // returned at the marks, before the toggle back, so the stub is reset to English first.
+  lang = "en";
+  page.title = async () => lang === "de" ? "Ideen – Robert Blust" : "Ideas — Robert Blust";
+  assert.equal(await pageChecks(OPTS).translates(page, spec), null);
 });
 
 test("the vendored STEMS line compiles as a JavaScript regex and reads as the check reads it", async () => {

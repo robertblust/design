@@ -169,7 +169,10 @@ been needed.
 
 The sites' `translates` check — the one shared check that presses DE and reads the German — is
 here in `verify/pages.mjs` beside the rest, so the German half of every page in the family is
-seen by the same code.
+seen by the same code. After the toggle it also holds the German `<title>` and meta description to
+WRITING.md's German marks, because those are script strings the cold scan in `typography`
+never sees; `typography` holds the English pair the same way, since both live in the head
+outside the body it reads.
 
 ## A warning about `stage.js`
 
