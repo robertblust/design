@@ -46,17 +46,19 @@ vendored conventions is not a member and has no business passing. One list, no d
 way it refuses one without `seo`, so a page cannot opt out by omission.
 
 **Both halves, each from where it lives.** English is read from the body's `textContent` with
-code, scripts and styles removed, every slide of a deck included, not only the one shown;
-German is read from the cold-fetched source, every `data-de` and
-`data-notes-de` value, the way `sourceLang` and `noNewTab` reach the half the DOM never shows.
-`<code>` and `<pre>` content is dropped on both sides: mono means data, and a record value or a
-URL is not prose.
+code, scripts and styles removed, every slide of a deck included, not only the one shown.
+English speaker notes are `data-notes` values the DOM never shows either, so they are read from
+the same cold source as the German, with the English rules. German is read from the
+cold-fetched source, every `data-de` and `data-notes-de` value, the way `sourceLang` and
+`noNewTab` reach the half the DOM never shows. `<code>` and `<pre>` content is dropped on both
+sides: mono means data, and a record value or a URL is not prose.
 
 **The sweep is mechanical where it can be and read where it cannot.** Quotes and dashes are
 mechanical inside attributes. The serial comma stays a reading task, as the family decided.
 
-**The clips regenerate.** A German note's clip caches on a hash of its text; 34 of 36 notes
-change, so 34 clips are regenerated, and the English clips do not move.
+**The clips regenerate.** A note's clip caches on a hash of its text; 34 of 36 German notes
+change, so 34 German clips are regenerated. On blust.ch, 49 English notes carry a spaced
+en-dash, so their 49 English clips regenerate too.
 
 **The agent files' quote rule changes with the pages.** Each site's rule *German quotes must be
 typographic, „…“* becomes guillemets, with the same reason: nothing in «…» can end an
@@ -72,11 +74,12 @@ a clone of the body. Fails on a spaced en-dash, ` – `; on „, « or »; and o
 from the vendored list, matched case-insensitively as a JavaScript regular expression — the
 list's `([^a-z]|$)` anchors are ERE that JavaScript reads the same way.
 
-**German.** `fetch(spec.absolute)` for the raw source, every `data-de` and `data-notes-de`
-value, each value stripped of `<code>` and tags first and decoded second, because a decoded
-`&lt;` would read as a tag and take the prose after it along; each value is scanned on its own
-so a hit's context stays inside the attribute it came from. Fails on ß; on any of „ “ ”; on
-an em-dash; and on a du-form, `du`, `dich`, `dir`, `dein` with its endings, as whole words.
+**The cold source.** `fetch(spec.absolute)` for the raw source, every `data-de`, `data-notes-de`
+and `data-notes` value, each value stripped of `<code>` and tags first and decoded second,
+because a decoded `&lt;` would read as a tag and take the prose after it along; each value is
+scanned on its own so a hit's context stays inside the attribute it came from, and `data-notes`
+takes the English rules where the other two take the German rules. Fails on ß; on any of „ “ ”;
+on an em-dash; and on a du-form, `du`, `dich`, `dir`, `dein` with its endings, as whole words.
 
 **The stem list.** Read once per check from `conventions/conventions-check` at the site's root
 with `fetch`, the line matching `^STEMS='(.*)'$`. Missing file or line: the check fails with
@@ -99,7 +102,8 @@ scope here.
 **Tests.** In `test/verify-pages.test.mjs`: `typography` is in the exported set and sits
 before `translates`; its source reads the stems from `conventions/conventions-check` and not
 from a literal; it reads German from `fetch(spec.absolute)` and English from the clone's
-`textContent`; it drops `<code>`. In `test/suite.test.mjs`: a `PAGES` entry without
+`textContent`; and English notes from the same cold source; it drops `<code>`. In
+`test/suite.test.mjs`: a `PAGES` entry without
 `typography` fails the run. Inline fixture strings with one hit of each kind prove each
 message once; there is no fixture file.
 
@@ -111,14 +115,16 @@ In each site's pull request, after `npm run design` and `typography: true` on ev
   nested inside one becomes ‹…›. 22 pairs in the family.
 - **German dashes.** Every em-dash inside those attributes becomes a spaced en-dash; a closed
   em-dash gains its spaces. 163 in the family.
-- **English dashes.** Every spaced en-dash in English page text becomes a spaced em-dash, except
-  a numeric or date range, which becomes a closed en-dash. 81, all on blust.ch.
+- **English dashes.** Every spaced en-dash in English page text and in `data-notes` becomes a
+  spaced em-dash, except a numeric or date range, which becomes a closed en-dash. 81, all on
+  blust.ch.
 - **The serial comma.** A reading pass over the English page text, on the order of eighty
   lists, corrected by hand and reviewed in the diff.
-- **Narration.** `./tts/generate.py --dry-run` names the German clips whose text moved;
-  `generate.py` writes them, with `ELEVENLABS_API_KEY` pulled in as the site's agent file says.
-  English clips do not move, and `--dry-run` reporting an English clip is the sign that English
-  text was touched by mistake.
+- **Narration.** `./tts/generate.py --dry-run` names every clip whose text moved, German and
+  English; `generate.py` writes them, with `ELEVENLABS_API_KEY` pulled in as the site's agent
+  file says. On blust.ch the English clips move because their notes carried spaced en-dashes; a
+  dry run naming an English clip on the other two sites, where none is expected, is the sign
+  that English text was touched by mistake.
 - **PDFs and cards.** `npm run pdf` and `npm run og`, both files committed with the pages.
 - **The agent file.** The quote rule rewritten for guillemets; the section on notes living in
   attributes keeps its other two rules.
@@ -138,7 +144,4 @@ list the sweep a site does when it takes the release, and the number of clips it
 
 Not a rule: every rule here is `WRITING.md`'s. Not a change to conventions, whose prose check
 keeps reading Markdown only. Not a language-aware scan of Markdown, which stays `exclude`'s job.
-Not an automated serial comma. Not a change to dates, which have read en-US since 0.26.0. Not a
-scan of English `data-notes`: those are speaker notes whose English narration clips hash on the
-text, so moving their 49 spaced en-dashes on blust.ch regenerates 49 clips, and that is the
-owner's word, not this release's; they can join the English half in a later minor.
+Not an automated serial comma. Not a change to dates, which have read en-US since 0.26.0.

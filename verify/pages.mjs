@@ -869,11 +869,11 @@ export function pageChecks({ SITE, BASE }) {
         return `card is ${real.join("×")} but declared ${declared.join("×")}`;
       return null;
     },
-    // The two languages, each read from where it lives, held to WRITING.md's marks. English
-    // is what the visitor sees, so it comes from the rendered text; German is markup in
-    // `data-de` and `data-notes-de` that the DOM never shows, so it comes from the cold
-    // source, as sourceLang and noNewTab already read it. Code is not prose on either side:
-    // mono means data, and a record value or a URL says nothing about how the page is set.
+    // English is the page text the visitor reads and the speaker notes in `data-notes` that
+    // the presenter reads, so it comes from the rendered body and from the cold source; German
+    // is markup in `data-de` and `data-notes-de` that the DOM never shows, so it comes from the
+    // cold source only. Code is not prose on either side: mono means data, and a record value
+    // or a URL says nothing about how the page is set.
     //
     // The British stems are not written here. Every member vendors conventions/conventions-check,
     // whose STEMS= line is the family's one list; this check fetches that file from the site
@@ -903,6 +903,18 @@ export function pageChecks({ SITE, BASE }) {
         }
       };
 
+      const enRules = [
+        ["spaced en-dash", / – /],
+        ["„", /„/], ["«", /«/], ["»", /»/],
+        ["stem", stems],
+      ];
+      const deRules = [
+        ["ß", /ß/],
+        ["„", /„/], ["“", /“/], ["”", /”/],
+        ["em-dash", /—/],
+        ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
+      ];
+
       // English: the body, cloned and stripped of code, scripts and styles, read as
       // textContent and not innerText. A deck keeps every slide in the DOM and shows one;
       // innerText on the live body would read the visible slide and let the rest through.
@@ -913,30 +925,22 @@ export function pageChecks({ SITE, BASE }) {
         clone.querySelectorAll("code, pre, script, style").forEach(el => el.remove());
         return clone.textContent;
       });
-      scan("en", english, [
-        ["spaced en-dash", / – /],
-        ["„", /„/], ["«", /«/], ["»", /»/],
-        ["stem", stems],
-      ]);
+      scan("en", english, enRules);
 
-      // German: every translated value in the source, stripped of tags and code, then decoded.
-      // Tags and code go first, on the raw markup, because a decoded `&lt;` would otherwise
-      // read as a tag and take the prose after it along. Scanned one value at a time, not
-      // joined into one string first: joining would let a hit's forty characters of context
-      // bleed from one attribute's text into its neighbor's, naming a word that was never near
-      // the actual mark.
+      // The cold source: every data-de, data-notes-de and data-notes value, stripped of tags
+      // and code, then decoded. Tags and code go first, on the raw markup, because a decoded
+      // `&lt;` would otherwise read as a tag and take the prose after it along. Scanned one
+      // value at a time, not joined into one string first: joining would let a hit's forty
+      // characters of context bleed from one attribute's text into its neighbor's, naming a
+      // word that was never near the actual mark. `data-notes` takes the English rules; the
+      // other two take the German rules.
       const src = await (await fetch(spec.absolute)).text();
       const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
-      const values = [...src.matchAll(/data-(?:de|notes-de)="([^"]*)"/g)]
-        .map(m => decode(m[1].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " ")));
-      for (const value of values)
-        scan("de", value, [
-          ["ß", /ß/],
-          ["„", /„/], ["“", /“/], ["”", /”/],
-          ["em-dash", /—/],
-          ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
-        ]);
+      const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
+        .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
+      for (const [name, value] of values)
+        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
 
       return hits.length ? hits.join("; ") : null;
     },

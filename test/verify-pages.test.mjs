@@ -463,10 +463,10 @@ test("typography reads the stems from the vendored conventions-check, not a lite
   assert.doesNotMatch(src, /colour|behaviour/);
 });
 
-test("typography reads German cold and English from the body's textContent, and drops code on both sides", () => {
+test("typography reads German and English notes cold, English text from the body's textContent, and drops code on all sides", () => {
   const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /fetch\(spec\.absolute\)/);
-  assert.match(src, /data-(?:de|notes-de)|data-\(\?:de\|notes-de\)/);
+  assert.match(src, /data-\(de\|notes-de\|notes\)/);
   assert.match(src, /textContent/);
   assert.match(src, /code/);
 });
@@ -507,6 +507,27 @@ test("typography strips tags before it decodes, so escaped angle brackets in Ger
     const count = (out.match(/\[de\] em-dash/g) || []).length;
     assert.equal(count, 2, `expected both em-dashes reported, got: ${out}`);
     assert.match(out, /Adoption < X/, "the prose between the escaped brackets must survive the strip");
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("typography holds English speaker notes to the English rules, and German notes to the German ones", async () => {
+  // data-notes is English: a spaced en-dash there is a hit; data-notes-de is German: the same
+  // dash there is correct, and the em-dash beside it is the hit.
+  const html = `<section data-notes="First point – second point." data-notes-de="Erster Punkt – zweiter Punkt — dritter."></section>`;
+  const stems = "STEMS='colour([^a-z]|$)'";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+  });
+  try {
+    const page = { evaluate: async () => "Clean English text." };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
+    assert.match(out, /\[en\] spaced en-dash in "First point – second point\."/);
+    assert.match(out, /\[de\] em-dash/);
+    assert.doesNotMatch(out, /\[de\] spaced en-dash/);
+    assert.doesNotMatch(out, /\[en\] em-dash/);
+    assert.equal((out.match(/\[/g) || []).length, 2, `exactly two hits, got: ${out}`);
   } finally { globalThis.fetch = realFetch; }
 });
 
