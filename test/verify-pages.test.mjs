@@ -4,7 +4,7 @@ import { pageChecks } from "../verify/pages.mjs";
 
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
-// The twenty-five this module is responsible for. A body that quietly stops being exported
+// The twenty-six this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",

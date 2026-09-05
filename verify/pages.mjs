@@ -869,25 +869,6 @@ export function pageChecks({ SITE, BASE }) {
         return `card is ${real.join("×")} but declared ${declared.join("×")}`;
       return null;
     },
-    // The one check that clicks. Every other check in this file reads the page as it first
-    // renders, which is English — German is markup in `data-de` that does not exist until a
-    // visitor switches, so a toggle whose listener is gone, an `<h1>` whose `data-de` is
-    // misspelled, or an `applyLang()` that stopped setting `documentElement.lang` all print
-    // "all checks pass" without it. This was companygraph.io's own check, written by breaking
-    // that page three ways and watching it catch each; blust.ch and guestgraph.io had no
-    // equivalent, so their German halves had never been seen by a test. It is last in this
-    // object because it is the only check that changes what the others read, and it puts the
-    // page back before it returns.
-    //
-    // The spec says what German must appear (`shows`), what English must be gone (`hides`),
-    // and optionally the German `<title>` (`title`), meta description (`desc`) and, on a talks
-    // index, where the first `[data-de-href]` download must point in each language (`dlHref`).
-    // Body text is `innerText`, so `text-transform: uppercase` nav labels are matched as the
-    // visitor reads them — "VORTRÄGE", not "Vorträge".
-    //
-    // A page's segmented control is #lde/#len; a deck's transport carries the same control as
-    // #langDe/#langEn, so a deck spec names `id` and `backId`. Going back is a different button,
-    // not the same one pressed twice: pressing DE while already in German is correctly a no-op.
     // The two languages, each read from where it lives, held to WRITING.md's marks. English
     // is what the visitor sees, so it comes from the rendered text; German is markup in
     // `data-de` and `data-notes-de` that the DOM never shows, so it comes from the cold
@@ -953,6 +934,25 @@ export function pageChecks({ SITE, BASE }) {
 
       return hits.length ? hits.join("; ") : null;
     },
+    // The one check that clicks. Every other check in this file reads the page as it first
+    // renders, which is English — German is markup in `data-de` that does not exist until a
+    // visitor switches, so a toggle whose listener is gone, an `<h1>` whose `data-de` is
+    // misspelled, or an `applyLang()` that stopped setting `documentElement.lang` all print
+    // "all checks pass" without it. This was companygraph.io's own check, written by breaking
+    // that page three ways and watching it catch each; blust.ch and guestgraph.io had no
+    // equivalent, so their German halves had never been seen by a test. It is last in this
+    // object because it is the only check that changes what the others read, and it puts the
+    // page back before it returns.
+    //
+    // The spec says what German must appear (`shows`), what English must be gone (`hides`),
+    // and optionally the German `<title>` (`title`), meta description (`desc`) and, on a talks
+    // index, where the first `[data-de-href]` download must point in each language (`dlHref`).
+    // Body text is `innerText`, so `text-transform: uppercase` nav labels are matched as the
+    // visitor reads them — "VORTRÄGE", not "Vorträge".
+    //
+    // A page's segmented control is #lde/#len; a deck's transport carries the same control as
+    // #langDe/#langEn, so a deck spec names `id` and `backId`. Going back is a different button,
+    // not the same one pressed twice: pressing DE while already in German is correctly a no-op.
     async translates(page, spec) {
       const body = () => page.evaluate(() => document.body.innerText);
       const htmlLang = () => page.evaluate(() => document.documentElement.lang);
