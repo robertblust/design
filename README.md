@@ -202,11 +202,13 @@ release is what the sites take. The `protect-main` ruleset requires a pull reque
 green status check before anything lands, and it forbids deleting or force-pushing the
 branch.
 
-**The required context is `test`, not `CI`.** A ruleset names the *job id*. This repository's
-workflow is called `CI` and its single job is `test` — the reverse of the three sites, whose
-job is `verify`. Rename that job and the branch still looks protected while nothing ever
-reports again, which blocks every merge and hides the missing gate behind it. If the job is
-ever renamed, update the ruleset in the same change.
+**The ruleset requires two checks, `test` and `conventions / conventions`, not `CI`.** A
+ruleset names the *job id*. This repository's workflow is called `CI` and its single job is
+`test` — the reverse of the three sites, whose job is `verify`. Rename that job and the branch
+still looks protected while nothing ever reports again, which blocks every merge and hides the
+missing gate behind it. If the job is ever renamed, update the ruleset in the same change. The
+second check, `conventions / conventions`, is the shared job every member of the family runs,
+called from robertblust/conventions at the pinned tag.
 
 Everything else about the ruleset is byte-identical to the three sites' own `protect-main`,
 deliberately: one shape to know, and a difference between them means one of them drifted
