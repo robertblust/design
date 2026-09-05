@@ -888,6 +888,71 @@ export function pageChecks({ SITE, BASE }) {
     // A page's segmented control is #lde/#len; a deck's transport carries the same control as
     // #langDe/#langEn, so a deck spec names `id` and `backId`. Going back is a different button,
     // not the same one pressed twice: pressing DE while already in German is correctly a no-op.
+    // The two languages, each read from where it lives, held to WRITING.md's marks. English
+    // is what the visitor sees, so it comes from the rendered text; German is markup in
+    // `data-de` and `data-notes-de` that the DOM never shows, so it comes from the cold
+    // source, as sourceLang and noNewTab already read it. Code is not prose on either side:
+    // mono means data, and a record value or a URL says nothing about how the page is set.
+    //
+    // The British stems are not written here. Every member vendors conventions/conventions-check,
+    // whose STEMS= line is the family's one list; this check fetches that file from the site
+    // under test and fails when it is not there, because a site without it is not a member.
+    async typography(page, spec) {
+      const stemsUrl = `${BASE}/conventions/conventions-check`;
+      const stemsRes = await fetch(stemsUrl).catch(() => null);
+      const stemsSrc = stemsRes && stemsRes.ok ? await stemsRes.text() : "";
+      const stemsLine = stemsSrc.match(/^STEMS='(.*)'$/m);
+      if (!stemsLine) return `no vendored conventions-check at ${stemsUrl} — this site is not a member`;
+      const stems = new RegExp(`(${stemsLine[1]})`, "i");
+
+      const ctx = (text, i, len) => {
+        const a = Math.max(0, i - 40), b = Math.min(text.length, i + len + 40);
+        return `"${(a ? "…" : "") + text.slice(a, b).replace(/\s+/g, " ") + (b < text.length ? "…" : "")}"`;
+      };
+      const hits = [];
+      const scan = (side, text, rules) => {
+        for (const [what, re] of rules) {
+          const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+          let m;
+          while ((m = g.exec(text))) {
+            const word = what === "stem" ? m[0].replace(/[^a-z]+$/i, "") : what;
+            hits.push(`[${side}] ${word} in ${ctx(text, m.index, m[0].length)}`);
+            if (g.lastIndex === m.index) g.lastIndex++;
+          }
+        }
+      };
+
+      // English: the rendered page, minus code, scripts and styles.
+      const english = await page.evaluate(() => {
+        const clone = document.body.cloneNode(true);
+        clone.querySelectorAll("code, pre, script, style").forEach(el => el.remove());
+        return clone.innerText;
+      });
+      scan("en", english, [
+        ["spaced en-dash", / – /],
+        ["„", /„/], ["«", /«/], ["»", /»/],
+        ["stem", stems],
+      ]);
+
+      // German: every translated value in the source, decoded, with tags and code removed.
+      // Scanned one value at a time, not joined into one string first: joining would let a
+      // hit's forty characters of context bleed from one attribute's text into its neighbor's,
+      // naming a word that was never near the actual mark.
+      const src = await (await fetch(spec.absolute)).text();
+      const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+      const values = [...src.matchAll(/data-(?:de|notes-de)="([^"]*)"/g)]
+        .map(m => decode(m[1]).replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "));
+      for (const value of values)
+        scan("de", value, [
+          ["ß", /ß/],
+          ["„", /„/], ["“", /“/], ["”", /”/],
+          ["em-dash", /—/],
+          ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
+        ]);
+
+      return hits.length ? hits.join("; ") : null;
+    },
     async translates(page, spec) {
       const body = () => page.evaluate(() => document.body.innerText);
       const htmlLang = () => page.evaluate(() => document.documentElement.lang);

@@ -10,7 +10,7 @@ const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
   "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
   "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
-  "translates", "transportBaseline", "transportFits", "wayOut"];
+  "translates", "transportBaseline", "transportFits", "typography", "wayOut"];
 
 test("every shared check is present and callable", () => {
   const checks = pageChecks(OPTS);
@@ -446,4 +446,65 @@ test("two independently built check sets do not share mutable state", () => {
   const a = pageChecks({ SITE: "https://a.test", BASE: "http://a.local" });
   const b = pageChecks({ SITE: "https://b.test", BASE: "http://b.local" });
   assert.notEqual(a.seo, b.seo);
+});
+
+test("typography sits immediately before translates", () => {
+  const keys = Object.keys(pageChecks(OPTS));
+  assert.equal(keys.indexOf("typography"), keys.indexOf("translates") - 1);
+});
+
+test("typography reads the stems from the vendored conventions-check, not a literal", () => {
+  // One list in the family. A literal here would be the second copy the conventions
+  // repository exists to remove; the check fetches the site's own vendored script.
+  const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /conventions\/conventions-check/);
+  assert.match(src, /STEMS=/);
+  assert.doesNotMatch(src, /colour|behaviour/);
+});
+
+test("typography reads German cold and English rendered, and drops code on both sides", () => {
+  const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /fetch\(spec\.absolute\)/);
+  assert.match(src, /data-(?:de|notes-de)|data-\(\?:de\|notes-de\)/);
+  assert.match(src, /innerText/);
+  assert.match(src, /code/);
+});
+
+test("typography names each hit with its side and its context", async () => {
+  // A stub page and a stub fetch: the check must work from what it reads, not from Playwright.
+  const html = `<html lang="en"><body><p data-de="Der Weg — „hier“ ist es.">The way – it is.</p>
+    <p data-de="Die Strasse ist grösser.">Fine.</p></body></html>`;
+  const stems = "#!/bin/sh\nSTEMS='colour|behaviour|grey([^a-z]|$)'\n";
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({
+    ok: true,
+    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+  });
+  try {
+    const page = { evaluate: async () => "The way – it is. The colour of it. Fine." };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
+    assert.ok(out, "expected findings");
+    assert.match(out, /\[de\] em-dash/);
+    assert.match(out, /\[de\] „/);
+    assert.match(out, /\[en\] spaced en-dash/);
+    assert.match(out, /\[en\] colour/);
+    assert.doesNotMatch(out, /Strasse/);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+test("typography passes a clean page and fails a site with no vendored stems", async () => {
+  const realFetch = globalThis.fetch;
+  const clean = `<html><body><p data-de="Der Weg – «hier» ist es.">The way — it is.</p></body></html>`;
+  globalThis.fetch = async (url) => ({
+    ok: true, text: async () => (String(url).endsWith("conventions-check") ? "STEMS='colour'\n" : clean) });
+  try {
+    const page = { evaluate: async () => "The way — it is. May 2012–Oct 2016." };
+    assert.equal(await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" }), null);
+  } finally { globalThis.fetch = realFetch; }
+  globalThis.fetch = async (url) => (String(url).endsWith("conventions-check") ? { ok: false, text: async () => "" } : { ok: true, text: async () => clean });
+  try {
+    const page = { evaluate: async () => "" };
+    const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
+    assert.match(out, /no vendored conventions-check/);
+  } finally { globalThis.fetch = realFetch; }
 });
