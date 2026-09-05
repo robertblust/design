@@ -1,4 +1,4 @@
-  /* ─── header contract · v7 · shared ──────────────────────────────────
+  /* ─── header contract · v8 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -9,10 +9,10 @@
      not that every site declares it the same way, and `mobileNav` asserts the outcome.
 
      The contract:
-       · order      Ideas, Principles, Model, Example, Talks, Billing, Privacy, then the
-                    language control. A site skips what it does not have and reorders
-                    nothing. Read right to left, the switcher is at the edge and each step
-                    left is more the site's own subject.
+       · order      Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy,
+                    then the language control. A site skips what it does not have and
+                    reorders nothing. Read right to left, the switcher is at the edge and
+                    each step left is more the site's own subject.
        · baseline   One line runs through the middle of every text in the row. The links
                     carry equal space above and below, because the hover underline hangs
                     below and centering the boxes would otherwise ride the text high.

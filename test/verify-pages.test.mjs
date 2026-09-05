@@ -1,8 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { pageChecks } from "../verify/pages.mjs";
 
+const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 
 // The twenty-six this module is responsible for. A body that quietly stops being exported
@@ -598,4 +602,19 @@ test("typography passes a clean page and fails a site with no vendored stems", a
     const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
     assert.match(out, /no vendored conventions-check/);
   } finally { globalThis.fetch = realFetch; }
+});
+
+test("navOrder's rule names Timeline after Model", () => {
+  const src = pageChecks(OPTS).navOrder.toString();
+  const m = /const ORDER = \[([^\]]+)\]/.exec(src);
+  assert.ok(m, "navOrder has no ORDER list");
+  const order = m[1].split(",").map(s => s.trim().replace(/"/g, ""));
+  assert.equal(order.indexOf("Timeline"), order.indexOf("Model") + 1);
+  assert.equal(order.indexOf("Example"), order.indexOf("Timeline") + 1);
+});
+
+test("the header contract's order comment agrees with navOrder", () => {
+  const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
+  assert.match(css, /order\s+Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy/);
+  assert.match(css, /header contract · v8 · shared/);
 });

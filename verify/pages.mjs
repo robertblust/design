@@ -514,7 +514,7 @@ export function pageChecks({ SITE, BASE }) {
       return null;
     },
     async navOrder(page) {
-      const ORDER = ["Ideas", "Principles", "Model", "Example", "Talks", "Billing", "Privacy"];
+      const ORDER = ["Ideas", "Principles", "Model", "Timeline", "Example", "Talks", "Billing", "Privacy"];
       return await page.evaluate(order => {
         const nav = document.querySelector("nav");
         if (!nav) return "there is no nav";
