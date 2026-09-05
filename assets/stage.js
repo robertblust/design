@@ -77,7 +77,9 @@
     if (!st || !st.start) return "";
     if (!st.end) return fmtDate(st.start) + " – " + t("now");
     if (st.end === st.start) return fmtDate(st.start);
-    return fmtDate(st.start) + " – " + fmtDate(st.end);
+    // A range between two dates: English closes the en-dash, German spaces it. The open range
+    // above keeps its spaces in both, because "now" is a word and not a date.
+    return fmtDate(st.start) + (lang() === "de" ? " – " : "–") + fmtDate(st.end);
   }
   function stampOf(p){ return (p.node && p.node.entity && p.node.entity.stamp) || null; }
   // Everything secondary about a node goes on one line beneath its name: what an experience

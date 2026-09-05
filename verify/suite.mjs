@@ -38,6 +38,13 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     const off = PAGES.filter(p => !p.fences).map(p => p.path);
     if (off.length) { console.log("✗ PAGES  fences is not enabled on: " + off.join(", ")); failures++; }
   }
+  // And every page must opt into typography, for the same reason as seo: the runner skips a
+  // check whose key is undefined, so a page left out of this one is a page whose German half
+  // no test reads. WRITING.md binds every page; the guard is what makes that true here.
+  {
+    const off = PAGES.filter(p => !p.typography).map(p => p.path);
+    if (off.length) { console.log("✗ PAGES  typography is not enabled on: " + off.join(", ")); failures++; }
+  }
   // And the suite must be talking to this site. A sibling repository left serving on :8000 is
   // not hypothetical — it happened during review, and the run reported six failures belonging
   // to a site nobody was testing.
