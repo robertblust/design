@@ -591,7 +591,7 @@
     });
   }
 
-  expandBtn.addEventListener("click", function(){
+  function expand(){
     // Drop the marker where the stage stands before taking it away, so close has somewhere
     // exact to put it back — in front of whatever followed it, not in front of the caption.
     stageHome.insertBefore(stageMark, stageHead);
@@ -600,7 +600,8 @@
     // The stage has changed boxes, so it changes memories with it.
     setCard(storedCard(), false);
     refit();
-  });
+  }
+  expandBtn.addEventListener("click", expand);
   document.getElementById("modalclose").addEventListener("click", function(){ modal.close(); });
   // Escape is native to <dialog> and needs no handler here. A click on the backdrop lands
   // with the dialog itself as the event target — nothing else is there to hit — which is
@@ -753,4 +754,17 @@
   var initial = decodeURIComponent(location.hash.slice(1));
   focus(nodeById(initial) || nRoot());
   first = false;
+
+  // A link may ask for the stage expanded — blust.ch's timeline does, for a skill — with
+  // ?stage=expanded beside the hash that names the node. The page adopts the state and takes
+  // the parameter back out of the address, the way it takes lang and theme: Expand leaves the
+  // URL alone, and a page that has read the request should look no different from one that
+  // was expanded by hand. The hash stays, since the focus is a place and has an address.
+  if (/[?&]stage=expanded(&|$)/.test(location.search)) {
+    try {
+      var q = location.search.replace(/([?&])stage=expanded(&|$)/, "$1").replace(/[?&]$/, "");
+      history.replaceState(null, "", location.pathname + q + location.hash);
+    } catch (err) {}
+    expand();
+  }
 })();
