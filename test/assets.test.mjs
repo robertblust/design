@@ -143,6 +143,7 @@ test("a chip carries the claimed level as marks, and a hover is a note on the th
   assert.match(js, /el\.removeAttribute\("title"\)/, "a described element keeps a browser title beside the tooltip");
   assert.match(js, /setAttribute\("role", "tooltip"\)/, "the tooltip has no role");
   assert.match(js, /setAttribute\("aria-describedby", "tip"\)/, "the target does not point at the tooltip");
+  assert.match(js, /closest\("dialog\[open\]"\)\) \|\| document\.body/, "the tooltip stays under an open dialog's top layer");
   assert.match(js, /describe: describe/, "describe is not exported for the stage");
   assert.ok(!/\.title = /.test(stage), "stage.js still sets a browser title");
   assert.match(stage, /rbCard\.describe\(/, "the transport does not use the tooltip");
