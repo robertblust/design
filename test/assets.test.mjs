@@ -119,6 +119,20 @@ test("the card's prose is dim and its section headings are headings, not labels"
   assert.ok(css.includes(".cbody td code{color:var(--ink)}"), "a quoted token in a cell went dim");
 });
 
+test("the stage carries a history control that acts on the browser's history and nothing else", () => {
+  const js = asset("assets/stage.js"), css = asset("assets/stage.css");
+  assert.match(js, /hist\.className = "history"/, "stage.js does not build the control");
+  assert.match(js, /stageHead\.insertBefore\(hist, expandBtn\)/, "the control is not placed between the path and Expand");
+  for (const call of ["history.back()", "history.forward()", "history.go(-pos)"]) assert.ok(js.includes(call), `stage.js lacks ${call}`);
+  assert.ok(!/\bfocus\(trailNode|focus\(nodeById\(trail/.test(js), "the control focuses a node itself instead of moving the browser");
+  assert.match(js, /aria-disabled/, "a side with nowhere to go is disabled for real, which drops the focus");
+  assert.ok(!/hFirst\.disabled|hBack\.disabled|hNext\.disabled/.test(js), "a button uses the disabled attribute");
+  assert.match(js, /ev\.key === "ArrowLeft"/, "Left is not bound"); assert.match(js, /ev\.key === "ArrowRight"/, "Right is not bound");
+  assert.match(js, /ev\.altKey \|\| ev\.ctrlKey \|\| ev\.metaKey/, "the keys do not yield to a modifier");
+  for (const sel of [".stagehead{display:grid; grid-template-columns:1fr auto 1fr", ".history .slab{", ".history .lcd{", ".history .step{", '.history button[aria-disabled="true"]{'])
+    assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
+});
+
 test("the ledger's gutter shows the range wide and the start year narrow", () => {
   const css = asset("assets/stage.css");
   assert.ok(css.includes(".ledger .when .start{display:none}"), "the start year is not hidden wide");

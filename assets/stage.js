@@ -40,7 +40,15 @@
   var STR = {
     out:   { en:"refers to",   de:"Verweist auf" },
     "in":  { en:"referred by", de:"Verwiesen von" },
-    pages: { en:"pages",       de:"Seiten" }
+    pages: { en:"pages",       de:"Seiten" },
+    // the history control, which the script builds and so labels itself
+    trail: { en:"Where you have been on this page", de:"Wo Sie auf dieser Seite waren" },
+    start: { en:"Back to where the page opened",    de:"Zurück zum Anfang" },
+    back:  { en:"Back",  de:"Zurück" },
+    next:  { en:"Next",  de:"Weiter" },
+    backTo:{ en:"Back to ",    de:"Zurück zu " },
+    nextTo:{ en:"Forward to ", de:"Weiter zu " },
+    folder:{ en:"folder", de:"Ordner" }
   };
   function lang(){ return document.documentElement.lang === "de" ? "de" : "en"; }
   function t(k){ return STR[k][lang()]; }
@@ -376,6 +384,115 @@
   // the page at all.
   var stageHead = document.getElementById("stagehead"), stageEl = document.getElementById("stage");
   var stageHome = stageHead.parentNode, stageMark = document.createComment("stage");
+
+  // ── the history ───────────────────────────────────────────────────────────────────────
+  // Every focus but the root is a place with an address, so the browser's Back and Forward
+  // already move the focus; what the page lacked was a control that says so. This is the
+  // deck's transport, cut to the head row: first, back, a readout, next. It acts on the
+  // browser's history and on nothing else — back() and forward() and go() — and the
+  // hashchange listener below turns each into a focus, so this control, the browser's own
+  // buttons and the keyboard can never disagree about where the visitor is.
+  //
+  // What the browser does not tell a page is whether there is anywhere to go, so the stage
+  // keeps a trail of its own: the addresses it has focused on this visit, and a position in
+  // them. A click pushes; a hashchange that lands on the neighbor behind or ahead moves the
+  // position; the first entry is the page as it opened, and Back from it would leave the
+  // page, which is the browser's Back to give and not this one's. The root has no address
+  // and is written with replaceState, so a click on it replaces the entry it was clicked
+  // from, in the trail as in the browser.
+  //
+  // Built here rather than in the page's markup so that a page takes it with the script and
+  // nothing else — the same reason the band eyebrows are the script's. aria-disabled, not
+  // disabled: a real disabled state drops the focus on the floor the moment Next runs out of
+  // road, which is exactly when the keyboard is on it.
+  var trail = [], pos = -1, pending = null, expect = -1;
+  function ctl(cls, svgBody){
+    var b = document.createElement("button"); b.type = "button"; b.className = cls;
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + svgBody + '</svg>';
+    return b;
+  }
+  // The slab holds the instrument; the two names beside it are the page's own text, in
+  // fixed slots so the instrument never moves as the names change length. Each is what the
+  // button nearest it would do, and the buttons already say so to a screen reader, so the
+  // names are hidden from it rather than read twice.
+  var hist = document.createElement("div"); hist.className = "history"; hist.setAttribute("role", "group");
+  var slab = document.createElement("div"); slab.className = "slab";
+  var hWas = document.createElement("span"); hWas.className = "step was"; hWas.setAttribute("aria-hidden", "true");
+  var hWill = document.createElement("span"); hWill.className = "step will"; hWill.setAttribute("aria-hidden", "true");
+  var hFirst = ctl("first", '<rect x="4.4" y="5" width="2.3" height="14" rx="1"/><path d="M13.2 5.4v13.2L7.6 12z"/><path d="M21 5.4v13.2L13.6 12z"/>');
+  var hBack  = ctl("back",  '<path d="M16.6 4.6v14.8L6 12z"/>');
+  var hNext  = ctl("next",  '<path d="M7.4 4.6v14.8L18 12z"/>');
+  var hLcd = document.createElement("div"); hLcd.className = "lcd"; hLcd.setAttribute("aria-hidden", "true");
+  hLcd.innerHTML = '<b class="cur">01</b><span class="sep">/</span><span class="tot">01</span>';
+  slab.appendChild(hFirst); slab.appendChild(hBack); slab.appendChild(hLcd); slab.appendChild(hNext);
+  hist.appendChild(hWas); hist.appendChild(slab); hist.appendChild(hWill);
+  stageHead.insertBefore(hist, expandBtn);
+  function able(b, ok){ b.setAttribute("aria-disabled", ok ? "false" : "true"); }
+  function trailNode(i){ return nodeById(trail[i]) || nRoot(); }
+  function trailName(i){ return trailNode(i).label; }
+  // The kind of thing a step is, the way the figure's eyebrow says it: an entity's type, the
+  // word for a folder, and for the root the type of the entity it carries, when it does.
+  function trailType(i){
+    var n = trailNode(i);
+    if (n.kind === "entity") return n.entity.type;
+    if (n.kind === "folder") return t("folder");
+    return n.entity ? n.entity.type : "";
+  }
+  function setStep(el, i){
+    el.innerHTML = "";
+    if (i < 0) return;
+    var k = document.createElement("i"); k.className = "k"; k.textContent = trailType(i);
+    var b = document.createElement("b"); b.textContent = trailName(i);
+    el.appendChild(k); el.appendChild(b); el.title = trailName(i);
+  }
+  function renderHist(){
+    var canBack = pos > 0, canNext = pos < trail.length - 1;
+    able(hFirst, canBack); able(hBack, canBack); able(hNext, canNext);
+    hist.setAttribute("aria-label", t("trail"));
+    hFirst.setAttribute("aria-label", t("start")); hFirst.title = canBack ? t("start") : "";
+    hBack.setAttribute("aria-label", canBack ? t("backTo") + trailName(pos - 1) : t("back")); hBack.title = canBack ? t("backTo") + trailName(pos - 1) : "";
+    hNext.setAttribute("aria-label", canNext ? t("nextTo") + trailName(pos + 1) : t("next")); hNext.title = canNext ? t("nextTo") + trailName(pos + 1) : "";
+    setStep(hWas, canBack ? pos - 1 : -1); setStep(hWill, canNext ? pos + 1 : -1);
+    hLcd.firstChild.textContent = String(pos + 1).padStart(2, "0");
+    hLcd.lastChild.textContent = String(trail.length).padStart(2, "0");
+  }
+  function offRoad(ev){ return ev.currentTarget.getAttribute("aria-disabled") === "true"; }
+  hFirst.addEventListener("click", function(ev){ if (!offRoad(ev) && pos > 0) { expect = 0; history.go(-pos); } });
+  hBack.addEventListener("click", function(ev){ if (!offRoad(ev)) history.back(); });
+  hNext.addEventListener("click", function(ev){ if (!offRoad(ev)) history.forward(); });
+  // The deck's keys: Left is back, Right is next, Home is first. The deck binds them to the
+  // document and nothing else lives there; a prose page has a header, a language control,
+  // links and the drag handle, so here they yield to anything that already uses the key —
+  // a handler that prevented the default, a field being typed in — and to any modifier,
+  // because Alt-Left is the browser's own Back and Cmd-Left goes to the start of a line.
+  document.addEventListener("keydown", function(ev){
+    if (ev.defaultPrevented || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+    var el = ev.target;
+    if (el && el.closest && el.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']")) return;
+    if (ev.key === "ArrowLeft") { if (pos > 0) { history.back(); ev.preventDefault(); } }
+    else if (ev.key === "ArrowRight") { if (pos < trail.length - 1) { history.forward(); ev.preventDefault(); } }
+    else if (ev.key === "Home") { if (pos > 0) { expect = 0; history.go(-pos); ev.preventDefault(); } }
+  });
+  // The trail learns from the address, never from a click directly: whichever way the
+  // address moved — this control, the browser's buttons, a typed hash — the same reading
+  // applies. A click's own hashchange is announced through `pending` so it is not read as
+  // a step back onto an entry that happens to carry the same address. A jump of more than
+  // one step — first, or the browser's own long-press list — lands on no neighbor: our own
+  // jump says where it is going through `expect`, and any other is read as the nearest
+  // entry that carries the address, because a place the trail holds is never a new place.
+  // Only an address the trail has never seen is pushed.
+  function trailMove(key){
+    if (pending !== null && pending === key) { pending = null; return; }
+    if (expect >= 0) { var e = expect; expect = -1; if (trail[e] === key) { pos = e; return; } }
+    if (pos > 0 && trail[pos - 1] === key) { pos--; return; }
+    if (pos < trail.length - 1 && trail[pos + 1] === key) { pos++; return; }
+    if (trail[pos] === key) return;
+    for (var d = 2; d < trail.length; d++) {
+      if (pos - d >= 0 && trail[pos - d] === key) { pos -= d; return; }
+      if (pos + d < trail.length && trail[pos + d] === key) { pos += d; return; }
+    }
+    trail = trail.slice(0, pos + 1); trail.push(key); pos = trail.length - 1;
+  }
   var reduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
   var first = true;
   function dur(){ return (first || (reduce && reduce.matches)) ? 0 : 400; }
@@ -620,7 +737,8 @@
   });
 
   // ── focus ─────────────────────────────────────────────────────────────────────────────
-  function focus(n){
+  function focus(n, fromAddress){
+    var was = focused;
     focused = n;
     var segs = pathOf(n);
     pathLine.innerHTML = segs.map(function(s, i){
@@ -632,10 +750,16 @@
     // on the root from halfway down a path — and the share card, which asks for a state by
     // URL and nothing else, had no way to ask for an opened folder at all.
     var hash = n.kind === "root" ? "" : "#" + n.id;
+    var key = n.kind === "root" ? "" : n.id;
+    if (!fromAddress && pos >= 0 && (!was || was.id !== n.id)) {
+      if (hash) { trail = trail.slice(0, pos + 1); trail.push(key); pos = trail.length - 1; pending = key; }
+      else trail[pos] = key;
+    }
     if (hash) location.hash = hash;
     else if (location.hash) { try { history.replaceState(null, "", location.pathname + location.search); } catch (err) { location.hash = ""; } }
     render();
     showCard(n);
+    renderHist();
   }
 
   document.getElementById("recenter").addEventListener("click", function(){
@@ -645,7 +769,7 @@
 
   // The site's language toggle rewrites every [data-de] node and sets <html lang>; the two
   // eyebrows and the folder card are built here, after that pass, so they follow the flag.
-  new MutationObserver(function(){ if (focused) { render(); showCard(focused); } })
+  new MutationObserver(function(){ if (focused) { render(); showCard(focused); renderHist(); } })
     .observe(document.documentElement, { attributes:true, attributeFilter:["lang"] });
 
   // ── the divider ───────────────────────────────────────────────────────────────────────
@@ -747,12 +871,15 @@
     // does one naming nothing this page holds: focus() writes a hash for every node but the
     // root, so a bare or unrecognized hash is exactly what the root looks like.
     var n = nodeById(id);
-    if (!n) { if (!focused || focused.kind !== "root") focus(nRoot()); return; }
-    if (!focused || focused.id !== id) focus(n);
+    trailMove(n ? id : "");
+    if (!n) { if (!focused || focused.kind !== "root") focus(nRoot(), true); else renderHist(); return; }
+    if (!focused || focused.id !== id) focus(n, true); else renderHist();
   });
 
   var initial = decodeURIComponent(location.hash.slice(1));
-  focus(nodeById(initial) || nRoot());
+  var opener = nodeById(initial) || nRoot();
+  trail = [opener.kind === "root" ? "" : opener.id]; pos = 0;
+  focus(opener, true);
   first = false;
 
   // A link may ask for the stage expanded — blust.ch's timeline does, for a skill — with
