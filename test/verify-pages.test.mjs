@@ -562,6 +562,8 @@ test("translates holds the German title and meta description to the German marks
       if (s.includes("documentElement.lang")) return lang;
       if (s.includes("metadesc")) return lang === "de" ? "Zwei Ideen, zur Prüfung gestellt." : "Two ideas.";
       if (s.includes("data-de-href")) return null;
+      // a page whose every -de element switches: the walk finds nothing kept
+      if (s.includes("data-de-aria")) return [];
       return lang === "de" ? "Ideen" : "Ideas";
     },
   };
@@ -617,4 +619,16 @@ test("the header contract's order comment agrees with navOrder", () => {
   const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
   assert.match(css, /order\s+Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy/);
   assert.match(css, /header contract · v8 · shared/);
+});
+
+test("translates holds every -de attribute to the switch, not a sample", () => {
+  // A spec's shows/hides list samples three strings a page. The German of an element the
+  // list never names could stay English, or be rewritten by a script after the toggle, and
+  // every suite would still say "all checks pass". So after the toggle the check walks
+  // every element that carries data-de and every one that carries data-de-aria, and after
+  // toggling back it walks them again against the English it captured.
+  const src = pageChecks(OPTS).translates.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /\[data-de\]/, "translates never selects the data-de elements");
+  assert.match(src, /\[data-de-aria\]/, "translates never selects the data-de-aria elements");
+  assert.match(src, /data-en-aria/, "translates does not hold the English label on the way back");
 });

@@ -1,4 +1,4 @@
-  /* ─── language · v3 · {{variant}} ─────────────────────────────────────────────
+  /* ─── language · v4 · {{variant}} ─────────────────────────────────────────────
      One language across three domains, and where it is remembered. Generated
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
@@ -52,4 +52,25 @@
   // carries the language too; both fire before the browser follows the href.
   document.addEventListener("mousedown", carryLang, true);
   document.addEventListener("click", carryLang, true);
+
+  /* An aria-label is markup the switch cannot reach through innerHTML, so a label that had
+     to be read in both languages was written bilingual, "Menü — menu", and put an em-dash
+     into German. Every element that carries data-de-aria gets the label for the language
+     whenever <html lang> changes; the English is captured here on load, as data-en-aria, and
+     never written by hand. The block watches the attribute rather than being called, so a
+     page adds nothing to its own applyLang and the contract above does not grow. */
+  function ariaI18n(){ return Array.prototype.slice.call(document.querySelectorAll("[data-de-aria]")); }
+  function applyAria(){
+    var l = document.documentElement.lang === "de" ? "de" : "en";
+    ariaI18n().forEach(function(el){
+      if (!el.hasAttribute("data-en-aria")) el.setAttribute("data-en-aria", el.getAttribute("aria-label") || "");
+      el.setAttribute("aria-label", el.getAttribute("data-" + l + "-aria"));
+    });
+  }
+  function watchAria(){
+    applyAria();
+    if (window.MutationObserver)
+      new MutationObserver(applyAria).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watchAria); else watchAria();
   /* ─── end language ─────────────────────────────────────────────────── */

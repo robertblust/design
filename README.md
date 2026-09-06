@@ -160,7 +160,13 @@ here in `verify/pages.mjs` beside the rest, so the German half of every page in 
 seen by the same code. After the toggle it also holds the German `<title>` and meta description to
 WRITING.md's German marks, because those are script strings the cold scan in `typography`
 never sees; `typography` holds the English pair the same way, since both live in the head
-outside the body it reads.
+outside the body it reads. A spec's `shows` and `hides` sample three strings a page, so after
+the toggle the check also walks every element carrying `data-de` and every one carrying
+`data-de-aria` and names any that kept its English: a translation the list never quotes, or
+one a script rewrote after the switch, fails here instead of shipping. The `data-de-aria`
+labels are applied by the language block itself, which watches `<html lang>` and writes the
+label for the language into every such element, the English captured on load as
+`data-en-aria`; a page adds nothing to its own switch to get it.
 
 ## A warning about `stage.js` and `card.js`
 
