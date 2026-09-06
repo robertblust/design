@@ -54,9 +54,8 @@ test("readConfig rejects an empty groups array", () => {
   assert.throws(() => readConfig(root), /design\.config\.json/);
 });
 
-// The config names groups and nothing else. The storage keys used to live here as parameters
-// the fences read by name; a key left behind is a value someone still believes in, so it is an
-// error that names the file and the key rather than something skipped.
+// The config names groups and nothing else. A key it does not name is a value someone still
+// believes in, so it is an error that names the file and the key rather than something skipped.
 test("readConfig rejects a key it does not read, naming the file and the key", () => {
   const root = site({}, { groups: ["fonts"], langKey: "rb-lang" });
   assert.throws(() => readConfig(root), (e) =>

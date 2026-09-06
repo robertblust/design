@@ -152,9 +152,8 @@ const wrap = (block) => [
 
 test("deck runtime and its nested language fence reach a fixed point together", () => {
   const langKey = "lang";
-  // A page adopting this block with a site's old key still baked in — the shape of the
-  // reported defect, and of every page before the keys became the family's — and a stale
-  // version marker on top of it, so the first sync has something to do to both signals.
+  // A page carrying a site's own key in the nested fence and a stale version marker on top
+  // of it, so the first sync has something to do to both signals at once.
   const stale = blockFor("deck runtime", null)
     .replace('LANG_KEY = "lang"', 'LANG_KEY = "rb-lang"')
     .replace(/· v\d+ ·/, "· v1 ·");

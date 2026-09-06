@@ -43,8 +43,7 @@
      emits for a deck: the sync tool's pass over this outer fence and its separate pass
      over the nested one must agree, or the two rewrite each other forever with no fixed
      point. They agree because both come from one source and the key they write, `lang`,
-     is the family's and not a site's. v1 to v6 filled a slot in both from the site's
-     config for the same reason; the slot is gone with the parameter.
+     is the family's and not a site's.
   */
   var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
   // slide numbering is zero-based everywhere the viewer can see it: the kicker on each
@@ -67,8 +66,8 @@
      ReferenceError and the language silently stops crossing domains.
 
      The key is `lang`, the family's: one name on three origins, the same word the address
-     carries. It used to be a site's own, with a prefix, and a parameter the site supplied;
-     the choice was one promise across the family, so the package makes it.
+     carries. A storage key is a promise to every visitor, and this one is made once, for the
+     family, by the package, so that no site can make it differently.
   */
   var LANG_KEY = "lang";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }

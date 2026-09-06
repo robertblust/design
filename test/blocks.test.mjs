@@ -275,9 +275,9 @@ test("the deck runtime block declares no variants and closes nothing", () => {
 });
 
 test("the deck runtime's nested language fence is the language block's deck variant, byte for byte", () => {
-  // The defect this guards: v1's source carried one site's key in the nested fence, and the
-  // nested fence's own pass and this fence's pass rewrote each other forever. The two agree
-  // when the nested text is exactly what blockFor emits for a deck, family key included.
+  // The nested fence's own pass and this fence's pass must agree, or the two rewrite each
+  // other forever. They agree when the nested text is exactly what blockFor emits for a deck,
+  // family key included.
   const raw = fs.readFileSync(path.join(PKG, FENCES["deck runtime"].source), "utf8");
   assert.ok(raw.includes(blockFor("language", "deck")), "the nested language fence has drifted from blocks/lang.js");
   assert.equal((raw.match(/var LANG_KEY = "[^"]*";/g) || []).join(), 'var LANG_KEY = "lang";');

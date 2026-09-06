@@ -131,15 +131,14 @@ the page's own diff, to diverge from the shared copy — not a way to make a red
 Every substitution this package makes comes from a value it owns: the variant word from a
 fixed set `lib/fences.mjs` declares, the version from `versions.json`, a part from a file
 beside the block. Nothing comes from the site. `design.config.json` names the groups a site
-takes and nothing else, and a key left in it is an error that names the file and the key.
+takes and nothing else, and a key it does not name is an error that names the file and the key.
 
-The storage keys were parameters once. Each site chose its own, `rb-lang`, `cg-lang`,
-`gg-lang`, on the argument that a storage key is a promise a site makes to its visitors. The
-family decided it is one promise across three origins: `lang` and `theme`, the words the
-address already carries, written by every page the same way, and a promise the package makes
-is one no site can quietly make differently. A storage key still cannot be renamed without
-starting every visitor over, which is why that rename happened once, in a release whose notes
-said so. The parameter mechanism went with the last parameter.
+The storage keys are the family's. `lang` and `theme`, the words the address already carries,
+are what every page on the three origins reads and writes, and they are written into the
+blocks rather than chosen per site: a storage key is a promise to every visitor, it is one
+promise across three origins, and a promise the package makes is one no site can quietly make
+differently. Renaming a storage key starts every visitor over, so a rename is a release whose
+notes say so, never a site's diff.
 
 `FAMILY`, the regex naming the three domains a language rides between, is exported from
 `lib/family.mjs` and the sites import it: a site that could set its own would be a site that

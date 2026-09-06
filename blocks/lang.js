@@ -11,8 +11,8 @@
      ReferenceError and the language silently stops crossing domains.
 
      The key is `lang`, the family's: one name on three origins, the same word the address
-     carries. It used to be a site's own, with a prefix, and a parameter the site supplied;
-     the choice was one promise across the family, so the package makes it.
+     carries. A storage key is a promise to every visitor, and this one is made once, for the
+     family, by the package, so that no site can make it differently.
   */
   var LANG_KEY = "lang";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }

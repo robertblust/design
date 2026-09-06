@@ -110,8 +110,8 @@ test("--press exists in both themes and is not --raise", () => {
 });
 
 test("both theme blocks carry the family's key and no site's", () => {
-  // The keys were a site's own until v0.32.0, with a prefix and a parameter; `theme` is the
-  // family's now, one name on three origins, and neither block may carry an old one.
+  // `theme` is the family's key, one name on three origins; neither block may carry a
+  // site's own, nor a slot for one.
   for (const f of ["theme boot", "theme"]) {
     const js = blockFor(f, "page");
     assert.match(js, /"theme"/, `${f} does not name the key`);
