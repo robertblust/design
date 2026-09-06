@@ -347,8 +347,11 @@
   .expand[aria-pressed="true"]{color:var(--c-firm); border-color:var(--c-mid); background:var(--press)}
   /* The head row's right-hand group: a page with more than one thing to do to its figure
      puts them side by side here, stretched to one height, the way the timeline puts its
-     kind filter beside Open all. A page with one control needs no group. */
-  .stagehead .right{justify-self:end; display:inline-flex; align-items:stretch; gap:.5rem}
+     kind filter beside Open all. A page with one control needs no group. The group names
+     its column: the head row has three, path, transport and control, and a page with no
+     transport would otherwise fill the middle one with the group and leave the right
+     edge empty. */
+  .stagehead .right{grid-column:3; justify-self:end; display:inline-flex; align-items:stretch; gap:.5rem}
   /* The kind filter: one control in Open all's exact dress that names what the ledger
      shows, opening a list with a box per kind under its right edge. A kind off takes its
      rows out; the rule runs on. The page builds the list from its block and describes each

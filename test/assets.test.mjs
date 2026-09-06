@@ -156,6 +156,7 @@ test("stage.css carries the kind filter beside Open all", () => {
   for (const sel of [".stagehead .right{", ".kinds > summary{", ".kinds .menu{", ".kinds .menu input:checked{", ".kinds .menu .all{", ".ledger .none{"])
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
   assert.match(css, /\.expand\{[^}]*line-height:1\.5/, "Open all and the filter do not share a line box");
+  assert.match(css, /\.stagehead \.right\{grid-column:3;/, "the right-hand group does not name its column, and a page with no transport centers it");
 });
 
 test("the ledger's mark is the kind, and the track leads", () => {
