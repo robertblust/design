@@ -160,6 +160,9 @@
                margin:auto; border:1.5px solid var(--c-mid); border-radius:12px;
                background:var(--raise); color:var(--ink); flex-direction:column}
   dialog.modal[open]{display:flex}
+  /* The dialog holds focus itself when a link opened it, so that no control is lit before
+     the visitor has touched anything; it is a container, and a container draws no ring. */
+  dialog.modal:focus, dialog.modal:focus-visible{outline:none}
   dialog.modal::backdrop{background:rgba(0,0,0,.6)}
   @keyframes modalIn{ from{opacity:0} to{opacity:1} }
   dialog.modal[open]{animation:modalIn .15s ease-out}

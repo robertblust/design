@@ -174,10 +174,12 @@ export const STAGE_CHECKS = {
       open: !!(document.getElementById("stagemodal") || {}).open,
       inModal: !!document.querySelector("#stagemodal #fig"),
       search: location.search,
+      lit: document.activeElement && document.activeElement.id === "modalclose",
       focus: (document.querySelector("#fig .n.focus") || {}).dataset ? document.querySelector("#fig .n.focus").dataset.id : null }));
     if (!arrived.open || !arrived.inModal) return "arriving with ?stage=expanded did not open the expanded stage";
     if (arrived.focus !== from.id) return `arriving with ?stage=expanded#${from.id} focused ${JSON.stringify(arrived.focus)}`;
     if (arrived.search !== "") return `the address still carries ${JSON.stringify(arrived.search)} after the page read it`;
+    if (arrived.lit) return "arriving with ?stage=expanded leaves the close button focused, and lit";
     await page.goto(spec.absolute, { waitUntil: "networkidle" });
     return null;
   },
