@@ -97,7 +97,14 @@
   .cbody p code, .cbody ul.prose code{color:var(--ink)}
   .cbody table{margin-top:.5rem; border-collapse:collapse; width:100%; font-size:.88rem}
   .cbody th{text-align:left; font-family:"Plex Mono",monospace; font-weight:600; font-size:.72rem; letter-spacing:.06em; color:var(--dim); padding:.3rem .6rem .3rem 0; border-bottom:1px solid var(--rule)}
-  .cbody td{padding:.35rem .6rem .35rem 0; vertical-align:top; border-bottom:1px solid var(--rule)}
+  /* A cell is one of four things, and the renderer has already decided which: a reference is
+     a link in the interactive blue, a URL an external link, a quoted token code in ink, and
+     what remains is text from the file, a sentence or a one-word classifier. The sentence is
+     prose and reads in dim like every paragraph; the classifier does the job the field label
+     does in the list above, which is dim already. So a row reads link, link, dim sentence,
+     and no rule has to know which column it is in. */
+  .cbody td{padding:.35rem .6rem .35rem 0; vertical-align:top; border-bottom:1px solid var(--rule); color:var(--dim)}
+  .cbody td code{color:var(--ink)}
   /* A caption addresses the table under it and is quoted out of the file it came from —
      mono, because it is data, not this page's prose. Carries .mono for the face, which
      the page defines, and this rule for the size and the space above its table. */

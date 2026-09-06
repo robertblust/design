@@ -115,6 +115,8 @@ test("the card's prose is dim and its section headings are headings, not labels"
   assert.match(h4, /Bricolage Grotesque/, ".cbody h4 is not in the title's face");
   assert.match(h4, /border-top:1px solid var\(--rule\)/, ".cbody h4 has no rule above it");
   assert.ok(css.includes(".ledger .cbody h4{"), "the ledger does not step the heading down");
+  assert.match(decls(".cbody td{"), /color:var\(--dim\)/, "a table cell inherits ink");
+  assert.ok(css.includes(".cbody td code{color:var(--ink)}"), "a quoted token in a cell went dim");
 });
 
 test("the ledger's gutter shows the range wide and the start year narrow", () => {
