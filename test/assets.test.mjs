@@ -151,6 +151,13 @@ test("a chip carries the claimed level as marks, and a hover is a note on the th
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
 
+test("stage.css carries the kind filter beside Open all", () => {
+  const css = asset("assets/stage.css");
+  for (const sel of [".stagehead .right{", ".kinds > summary{", ".kinds .menu{", ".kinds .menu input:checked{", ".kinds .menu .all{", ".ledger .none{"])
+    assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
+  assert.match(css, /\.expand\{[^}]*line-height:1\.5/, "Open all and the filter do not share a line box");
+});
+
 test("the ledger's gutter shows the range wide and the start year narrow", () => {
   const css = asset("assets/stage.css");
   assert.ok(css.includes(".ledger .when .start{display:none}"), "the start year is not hidden wide");
