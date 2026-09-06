@@ -292,21 +292,38 @@
   .ledger summary::-webkit-details-marker{display:none}
   .ledger summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:3px; border-radius:3px}
   .ledger .when{font-family:"Plex Mono",monospace; font-size:.78rem; letter-spacing:.06em; color:var(--dim); font-variant-numeric:tabular-nums; white-space:nowrap}
-  /* The mark is the square the drawing gives a page, on the rule: the larger one in --c-firm
-     for a role or an independent period, the smaller in --c-mid for the rest; while the row
-     is open it wears the ring the focused node wears. */
+  /* The mark is the kind, drawn the way the model page's drawing gives every type a shape,
+     so a reader tells a talk from a project before reading the line under the name. Two
+     kinds are the track: a role is a filled square in --c-firm and an independent period a
+     hollow one of the same size, the same track with no employer on it. The rest are one
+     size down in --c-mid: a project a hollow diamond, community work a circle, education a
+     triangle. A kind the stylesheet does not know keeps the plain square. While the row is
+     open the mark wears the ring the focused node wears, on the box and not the shape, so
+     the ring is one ring whatever the shape inside it. */
   .ledger .mark{position:relative; align-self:center; width:1.25rem; height:1rem}
   .ledger .mark::after{content:""; position:absolute; left:calc(50% - 5px); top:calc(50% - 5px); width:10px; height:10px; background:var(--c-mid)}
-  .ledger .k-role .mark::after, .ledger .k-independent .mark::after{width:13px; height:13px; left:calc(50% - 6.5px); top:calc(50% - 6.5px); background:var(--c-firm)}
-  .ledger details[open] > summary .mark::after{outline:2px solid var(--ink); outline-offset:1px}
-  .ledger .what{padding-left:calc(var(--lvl, 0) * 1.5rem); min-width:0}
-  .ledger .name{font-weight:600; color:var(--ink)}
-  .ledger .k-role .name, .ledger .k-independent .name{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; font-weight:700; letter-spacing:-.015em; font-size:1.12rem}
-  .ledger .meta{display:block; color:var(--dim); font-size:.88rem; margin-top:.1rem}
+  .ledger .k-role .mark::after, .ledger .k-independent .mark::after{width:14px; height:14px; left:calc(50% - 7px); top:calc(50% - 7px); background:var(--c-firm); border-radius:2px}
+  .ledger .k-independent .mark::after{background:var(--ground); border:2.5px solid var(--c-firm); box-sizing:border-box}
+  .ledger .k-project .mark::after{width:9px; height:9px; left:calc(50% - 4.5px); top:calc(50% - 4.5px); background:var(--ground); border:2px solid var(--c-mid); box-sizing:border-box; transform:rotate(45deg)}
+  .ledger .k-community .mark::after{border-radius:50%}
+  .ledger .k-education .mark::after{width:11px; height:10px; left:calc(50% - 5.5px); top:calc(50% - 5px); clip-path:polygon(50% 0, 100% 100%, 0 100%)}
+  .ledger details[open] > summary .mark::before{content:""; position:absolute; left:calc(50% - 10px); top:calc(50% - 10px); width:20px; height:20px; box-sizing:border-box; border:2px solid var(--ink); border-radius:3px}
+  /* The track leads: a role or an independent period reads a size up in the title face with
+     air above it, everything that began inside one reads a size down at a lighter weight,
+     further in, and bundles on a dotted stem. The stem is drawn on a row the page marks
+     `under`, because the page is what knows that a row began while a track ran; a page that
+     sets --lvl and no class gets the indent and no stem. */
+  .ledger .what{padding-left:calc(var(--lvl, 0) * 2.2rem); min-width:0}
+  .ledger .name{font-weight:500; color:var(--ink); font-size:.95rem}
+  .ledger .k-role .name, .ledger .k-independent .name{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; font-weight:700; letter-spacing:-.02em; font-size:1.3rem}
+  .ledger .k-role summary, .ledger .k-independent summary{padding-top:.9rem}
+  .ledger li.under::before{content:""; position:absolute; left:calc(var(--when) + 2.95rem); top:0; bottom:0; border-left:1px dotted var(--c-weak)}
+  .ledger .meta{display:block; color:var(--dim); font-size:.8rem; margin-top:.1rem}
+  .ledger .k-role .meta, .ledger .k-independent .meta{font-size:.88rem}
   .ledger summary:hover .name{color:var(--c-mid)}
   .ledger details[open] > summary .name{color:var(--c-firm)}
   /* The card opens under its row and takes the row's indent; the rule runs on past it. */
-  .ledger .body{padding:.3rem 0 1.3rem calc(var(--when) + 1.25rem + 1.6rem + var(--lvl,0) * 1.5rem); max-width:calc(72ch + 12rem)}
+  .ledger .body{padding:.3rem 0 1.3rem calc(var(--when) + 1.25rem + 1.6rem + var(--lvl,0) * 2.2rem); max-width:calc(72ch + 12rem)}
   .ledger .body .card{height:auto}
   .ledger .body .cbody{overflow:visible}
   /* The row leads the card: inside a ledger the card's title steps down to the row's scale,
