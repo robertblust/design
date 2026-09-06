@@ -58,7 +58,7 @@
      because both are things you can do to the stage, not things it reports. It is visible at
      every focus: the whole stage — path, canvas and card — is always worth expanding, unlike
      the card alone, which had nothing to show for the root or a folder. */
-  .expand{font:inherit; font-size:.72rem; letter-spacing:.08em; background:var(--raise);
+  .expand{font:inherit; font-size:.72rem; letter-spacing:.08em; line-height:1.5; background:var(--raise);
           color:var(--c-mid); border:1px solid var(--rule); border-radius:6px;
           padding:.35rem .6rem; cursor:pointer; white-space:nowrap}
   .expand:hover, .expand:focus-visible{border-color:var(--c-mid)}
@@ -328,6 +328,38 @@
   /* Open all is an .expand that stays pressed: the same control the stage puts beside its
      path line, with a state, because it reads Close all once every row is open. */
   .expand[aria-pressed="true"]{color:var(--c-firm); border-color:var(--c-mid); background:var(--press)}
+  /* The head row's right-hand group: a page with more than one thing to do to its figure
+     puts them side by side here, stretched to one height, the way the timeline puts its
+     kind filter beside Open all. A page with one control needs no group. */
+  .stagehead .right{justify-self:end; display:inline-flex; align-items:stretch; gap:.5rem}
+  /* The kind filter: one control in Open all's exact dress that names what the ledger
+     shows, opening a list with a box per kind under its right edge. A kind off takes its
+     rows out; the rule runs on. The page builds the list from its block and describes each
+     kind with the note card.js moves to it, so a hover says what a kind is. */
+  .kinds{position:relative}
+  .kinds > summary{list-style:none; height:100%; box-sizing:border-box; font-size:.72rem; letter-spacing:.08em; line-height:1.5;
+                   background:var(--raise); color:var(--c-mid); border:1px solid var(--rule); border-radius:6px;
+                   padding:.35rem .6rem; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:.5rem}
+  .kinds > summary::-webkit-details-marker{display:none}
+  .kinds > summary::after{content:""; width:0; height:0; border-style:solid; border-width:5px 4px 0 4px;
+                          border-color:var(--c-weak) transparent transparent transparent}
+  .kinds[open] > summary, .kinds > summary:hover{border-color:var(--c-mid)}
+  .kinds[open] > summary{color:var(--c-firm); background:var(--press)}
+  .kinds > summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px}
+  .kinds .menu{position:absolute; top:calc(100% + .4rem); right:0; z-index:5; min-width:15rem;
+               background:var(--raise); border:1px solid var(--rule); border-radius:8px; padding:.4rem; box-shadow:0 8px 24px var(--deck-drop)}
+  .kinds .menu label{display:flex; align-items:center; gap:.6rem; padding:.35rem .5rem; border-radius:5px; font-size:.86rem; cursor:pointer}
+  .kinds .menu label:hover{background:var(--press)}
+  .kinds .menu input{appearance:none; width:12px; height:12px; margin:0; border:2px solid var(--c-weak); background:none; flex:0 0 auto; border-radius:0}
+  .kinds .menu input:checked{background:var(--c-firm); border-color:var(--c-firm)}
+  .kinds .menu input:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px}
+  .kinds .menu .n{margin-left:auto; font-family:"Plex Mono",monospace; font-size:.68rem; letter-spacing:.06em; color:var(--dim)}
+  .kinds .menu .all{margin:.3rem .5rem .1rem; padding-top:.45rem; border-top:1px solid var(--rule); font-size:.76rem}
+  .kinds .menu .all button{font:inherit; background:none; border:0; padding:0; color:var(--c-mid); cursor:pointer}
+  .kinds .menu .all button:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px; border-radius:3px}
+  /* The one line the ledger shows when every kind is off, with the way back. */
+  .ledger .none{padding:1.2rem 0 1.2rem calc(var(--when) + 1.25rem + 1.6rem); color:var(--dim); font-size:.93rem}
+  .ledger .none a{color:var(--c-mid)}
   /* figure tokens. No @media (prefers-reduced-motion) block here on purpose: every node is
      placed by its own transform attribute, and a blanket `transform:none !important` would
      not cancel a displacement, it would replace the attribute-derived position and collapse
