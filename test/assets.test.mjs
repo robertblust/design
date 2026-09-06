@@ -91,3 +91,15 @@ test("stage.css carries the ledger and the pressed expand control", () => {
   for (const sel of [".ledger{", ".ledger summary{", ".ledger .mark::after{", ".ledger .body .card{", '.expand[aria-pressed="true"]{'])
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
+
+test("the card's eyebrow is the type alone, source is not drawn and skills are a grouped last section", () => {
+  const js = asset("assets/card.js");
+  assert.ok(!js.includes('e.type + " · " + e.id'), "the eyebrow still carries the path");
+  assert.match(js, /h\("div", e\.type, "eyebrow"\)/);
+  assert.match(js, /k !== "source" && k !== "skills"/, "source or skills is still drawn in the field list");
+  assert.match(js, /h\("details", null, "grp"\)/, "skills are not grouped");
+  assert.equal((js.match(/localeCompare\(y, "en"\)/g) || []).length, 2, "groups and chips are not both sorted");
+  const css = asset("assets/stage.css");
+  for (const sel of [".cbody .grp > summary{", ".cbody .grp > .chips{", ".cbody .chips a{", ".ledger .cbody h3{"])
+    assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
+});
