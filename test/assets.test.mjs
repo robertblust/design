@@ -104,6 +104,19 @@ test("the card's eyebrow is the type alone, source is not drawn and skills are a
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
 
+test("the card's prose is dim and its section headings are headings, not labels", () => {
+  const css = asset("assets/stage.css");
+  const decls = (sel) => { const r = css.slice(css.indexOf(sel)); return r.slice(0, r.indexOf("}")); };
+  assert.match(decls(".cbody p{"), /color:var\(--dim\)/, "the card's paragraphs inherit ink");
+  assert.match(decls(".cbody ul.prose{"), /color:var\(--dim\)/, "the card's lists inherit ink");
+  assert.ok(css.includes(".cbody p code, .cbody ul.prose code{color:var(--ink)}"), "inline code went dim with the prose");
+  const h4 = decls(".cbody h4{");
+  assert.doesNotMatch(h4, /text-transform/, ".cbody h4 is still an uppercase label");
+  assert.match(h4, /Bricolage Grotesque/, ".cbody h4 is not in the title's face");
+  assert.match(h4, /border-top:1px solid var\(--rule\)/, ".cbody h4 has no rule above it");
+  assert.ok(css.includes(".ledger .cbody h4{"), "the ledger does not step the heading down");
+});
+
 test("the ledger's gutter shows the range wide and the start year narrow", () => {
   const css = asset("assets/stage.css");
   assert.ok(css.includes(".ledger .when .start{display:none}"), "the start year is not hidden wide");
