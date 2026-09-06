@@ -292,9 +292,15 @@
     var y = Math.round(r.top - hgt - gap); if (y < 8) y = Math.round(r.bottom + gap);
     t.style.left = x + "px"; t.style.top = y + "px";
   }
+  // An open <dialog> is in the browser's top layer, above everything that is not, and no
+  // z-index climbs into it; a tooltip left in the body sits under the expanded stage. So the
+  // tooltip moves into whichever dialog holds its target and back out to the body when the
+  // target is on the page — position:fixed reads the same from either parent.
   function showTip(el){
     if (held === el) return;
     hideTip(); held = el; tipEl();
+    var home = (el.closest && el.closest("dialog[open]")) || document.body;
+    if (tip.parentNode !== home) home.appendChild(tip);
     tipK.textContent = el.getAttribute("data-tip-kind") || ""; tipN.textContent = el.getAttribute("data-tip-name") || ""; tipD.textContent = el.getAttribute("data-tip") || "";
     el.setAttribute("aria-describedby", "tip");
     tipTimer = setTimeout(function(){ tip.setAttribute("aria-hidden", "false"); placeTip(el); tip.classList.add("show"); }, 120);
