@@ -133,6 +133,23 @@ test("the stage carries a history control that acts on the browser's history and
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
 
+test("a chip carries the claimed level as marks, and a hover is a note on the thing", () => {
+  const js = asset("assets/card.js"), css = asset("assets/stage.css"), stage = asset("assets/stage.js");
+  assert.match(js, /function withLevel\(/, "card.js does not decorate a chip with its level");
+  assert.match(js, /marks\.setAttribute\("aria-hidden", "true"\)/, "the marks are read out square by square");
+  assert.match(js, /a\.setAttribute\("aria-label", name \+ ", " \+ claimed\)/, "the label does not name the level");
+  assert.match(js, /tab\.columns\.indexOf\("Level"\)/, "the level is not read off the owner's Level column");
+  assert.match(js, /function describe\(el, kind, name, text\)/, "card.js has no tooltip");
+  assert.match(js, /el\.removeAttribute\("title"\)/, "a described element keeps a browser title beside the tooltip");
+  assert.match(js, /setAttribute\("role", "tooltip"\)/, "the tooltip has no role");
+  assert.match(js, /setAttribute\("aria-describedby", "tip"\)/, "the target does not point at the tooltip");
+  assert.match(js, /describe: describe/, "describe is not exported for the stage");
+  assert.ok(!/\.title = /.test(stage), "stage.js still sets a browser title");
+  assert.match(stage, /rbCard\.describe\(/, "the transport does not use the tooltip");
+  for (const sel of [".cbody .chips .lv{", ".cbody .chips .lv i.on{", ".tip{position:fixed", "background:var(--raise); border:1px solid var(--rule)", ".tip .k{display:none}", ".tip .n{color:var(--ink)"])
+    assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
+});
+
 test("the ledger's gutter shows the range wide and the start year narrow", () => {
   const css = asset("assets/stage.css");
   assert.ok(css.includes(".ledger .when .start{display:none}"), "the start year is not hidden wide");
