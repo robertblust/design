@@ -185,9 +185,33 @@
   .cbody .grp > summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px; border-radius:3px}
   .cbody .grp > summary .n{font-family:"Plex Mono",monospace; font-size:.74rem; color:var(--dim); letter-spacing:.06em}
   .cbody .grp > .chips{display:flex; flex-wrap:wrap; gap:.4rem .45rem; padding:.3rem 0 .55rem 1.1rem}
-  .cbody .chips a{font-size:.86rem; line-height:1.25; padding:.26rem .6rem; border-radius:6px; border:1px solid var(--rule);
+  .cbody .chips a{display:inline-flex; align-items:center; gap:.45rem;
+                  font-size:.86rem; line-height:1.25; padding:.26rem .6rem; border-radius:6px; border:1px solid var(--rule);
                   color:var(--c-mid); text-decoration:none}
   .cbody .chips a:hover, .cbody .chips a:focus-visible{border-color:var(--c-mid)}
+  /* The level's marks on a chip: one square per level the model defines, filled to the one
+     claimed. The square is the figure's mark for a page — outlined in the candidate blue
+     when empty, filled in the resolved one when reached — so the scale reads as the model's. */
+  .cbody .chips .lv{display:inline-flex; gap:2px; flex:0 0 auto}
+  .cbody .chips .lv i{width:6px; height:6px; border:1.5px solid var(--c-weak); display:block}
+  .cbody .chips .lv i.on{background:var(--c-firm); border-color:var(--c-firm)}
+  /* The tooltip card.js moves to whatever is hovered or focused: a note, on the family's
+     control surface — the raised ground, the hairline rule and the small radius Expand and
+     recenter wear — with the name in ink and the one line in dim after it, one line where it
+     fits and two where it does not. It says what a browser title said, in the page's own
+     voice, and it is the same box on a chip, on a reference and on the transport. The type
+     card.js also hands over is not shown: the name is what the note is about. Fixed, above
+     the target, and never past the viewport's edge; the script does the placing, this only
+     dresses it. */
+  .tip{position:fixed; z-index:20; left:0; top:0; pointer-events:none; opacity:0; transform:translateY(2px);
+       transition:opacity .12s ease, transform .12s ease; max-width:min(22rem, calc(100vw - 2rem));
+       background:var(--raise); border:1px solid var(--rule); border-radius:6px; padding:.42rem .62rem;
+       box-shadow:0 6px 18px var(--deck-drop); font-size:.8rem; line-height:1.35; color:var(--dim)}
+  .tip.show{opacity:1; transform:none}
+  .tip .k{display:none}
+  .tip .n{color:var(--ink); font-weight:600}
+  .tip .n:not(:empty) + .d:not(:empty)::before{content:" "}
+  @media (prefers-reduced-motion: reduce){ .tip{transition:none} }
   @media (prefers-reduced-motion: reduce){
     .cbody .grp > summary::before{transition:none}
   }

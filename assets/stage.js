@@ -438,20 +438,30 @@
     if (n.kind === "folder") return t("folder");
     return n.entity ? n.entity.type : "";
   }
+  function tipFor(el, i){
+    if (i < 0) { el.removeAttribute("data-tip-kind"); el.removeAttribute("data-tip-name"); el.removeAttribute("data-tip"); return; }
+    var n = trailNode(i);
+    rbCard.describe(el, trailType(i), trailName(i), n.entity && n.entity.tagline ? n.entity.tagline : "");
+  }
   function setStep(el, i){
     el.innerHTML = "";
-    if (i < 0) return;
+    if (i < 0) { tipFor(el, -1); return; }
+    tipFor(el, i);
     var k = document.createElement("i"); k.className = "k"; k.textContent = trailType(i);
     var b = document.createElement("b"); b.textContent = trailName(i);
-    el.appendChild(k); el.appendChild(b); el.title = trailName(i);
+    el.appendChild(k); el.appendChild(b);
   }
   function renderHist(){
     var canBack = pos > 0, canNext = pos < trail.length - 1;
     able(hFirst, canBack); able(hBack, canBack); able(hNext, canNext);
     hist.setAttribute("aria-label", t("trail"));
-    hFirst.setAttribute("aria-label", t("start")); hFirst.title = canBack ? t("start") : "";
-    hBack.setAttribute("aria-label", canBack ? t("backTo") + trailName(pos - 1) : t("back")); hBack.title = canBack ? t("backTo") + trailName(pos - 1) : "";
-    hNext.setAttribute("aria-label", canNext ? t("nextTo") + trailName(pos + 1) : t("next")); hNext.title = canNext ? t("nextTo") + trailName(pos + 1) : "";
+    hFirst.setAttribute("aria-label", t("start"));
+    hBack.setAttribute("aria-label", canBack ? t("backTo") + trailName(pos - 1) : t("back"));
+    hNext.setAttribute("aria-label", canNext ? t("nextTo") + trailName(pos + 1) : t("next"));
+    // The hover is the place's card in miniature, through card.js's tooltip: its type, its
+    // name, its one line. A side with nowhere to go says nothing on hover; the label still
+    // names the button.
+    tipFor(hFirst, canBack ? 0 : -1); tipFor(hBack, canBack ? pos - 1 : -1); tipFor(hNext, canNext ? pos + 1 : -1);
     setStep(hWas, canBack ? pos - 1 : -1); setStep(hWill, canNext ? pos + 1 : -1);
     hLcd.firstChild.textContent = String(pos + 1).padStart(2, "0");
     hLcd.lastChild.textContent = String(trail.length).padStart(2, "0");

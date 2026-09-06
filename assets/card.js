@@ -88,8 +88,17 @@
 
   function render(e, bodyEl, footEl, opts){
     var data = opts.data, lang = opts.lang === "de" ? "de" : "en", link = opts.link;
-    function ref(name){ var id = resolve(data, name); return id && link ? link(id) : document.createTextNode(name); }
+    function ref(name){
+      var id = resolve(data, name);
+      if (!id || !link) return document.createTextNode(name);
+      var a = link(id), ent = entityOf(data, id);
+      if (ent && a.setAttribute) describe(a, ent.type, ent.name, ent.tagline || "");
+      return a;
+    }
     clear(bodyEl); clear(footEl);
+    // Who claims this entity's skills at a level, and which levels there are — read once per
+    // card, before the chips that use them are drawn.
+    var owner = levelOwner(data, e), lvls = levelsOf(data, owner);
     // The type alone. The path used to follow it, and it was the longest line on the card
     // for the least information: the foot names the file, and on the model page the path
     // line above the drawing already says where you are.
@@ -134,7 +143,7 @@
           var tr = h("tr");
           row.forEach(function(cell){
             var td = h("td"), id = resolve(data, cell);
-            if (id && link) td.appendChild(link(id));
+            if (id && link) { var cellA = link(id), cellE = entityOf(data, id); if (cellE && cellA.setAttribute) describe(cellA, cellE.type, cellE.name, cellE.tagline || ""); td.appendChild(cellA); }
             else if (URL_RE.test(cell)) td.appendChild(extLink(cell));
             else inline(td, cell);
             tr.appendChild(td);
@@ -187,11 +196,30 @@
           s.appendChild(h("span", String(byGroup[key].length), "n"));
           var chips = h("div", null, "chips");
           byGroup[key].slice().sort(function(x, y){ return x.localeCompare(y, "en"); })
-            .forEach(function(name){ chips.appendChild(ref(name)); });
+            .forEach(function(name){ chips.appendChild(withLevel(ref(name), name)); });
           d.appendChild(s); d.appendChild(chips); grps.appendChild(d);
         });
         bodyEl.appendChild(grps);
       }
+    }
+    // A chip carries the level the owner claims the skill at, as marks: one small square per
+    // level the model defines, filled up to the claimed one. The square is the figure's mark
+    // for a page, and the count is the model's, so the scale is the model's and not this
+    // file's. The owner is the nearest entity above this one on disk that holds a table with
+    // a Level column — a profile, in the vocabulary that has one — and a skill it does not
+    // claim, or a model with no levels, draws a plain chip. The hover and the label say the
+    // level's name; the hover adds its one line, because four filled of four needs no key.
+    function withLevel(a, name){
+      if (!a.setAttribute || !lvls.length || !owner) return a;
+      var claimed = claimedLevel(owner, name), at = -1;
+      lvls.forEach(function(l, i){ if (l.name === claimed) at = i; });
+      if (at < 0) return a;
+      var marks = h("span", null, "lv"); marks.setAttribute("aria-hidden", "true");
+      lvls.forEach(function(l, i){ marks.appendChild(h("i", null, i <= at ? "on" : "")); });
+      a.appendChild(marks);
+      a.setAttribute("aria-label", name + ", " + claimed);
+      describe(a, lvls[at].type, lvls[at].name, lvls[at].tagline || "");
+      return a;
     }
     // Mono, so it is data: the file and the commit it is pinned at, which is what the link
     // resolves to. The phrasing a reader needs is on the label, not in the row.
@@ -201,5 +229,90 @@
     footEl.appendChild(a);
   }
 
-  window.rbCard = { render: render, fmtPeriod: fmtPeriod, fmtDate: fmtDate };
+  function entityOf(data, id){ for (var i = 0; i < data.entities.length; i++) if (data.entities[i].id === id) return data.entities[i]; return null; }
+  // The levels a model defines, lowest first: every entity of the type the owner's Level
+  // column names, in the order of the rank their files carry. Read off the claim rather than
+  // off a type name, so this file learns no word from any vocabulary; a model whose claims
+  // resolve to nothing draws no marks anywhere.
+  function levelsOf(data, owner){
+    var tab = owner && levelTable(owner), li = tab ? tab.columns.indexOf("Level") : -1, type = null;
+    if (tab) for (var i = 0; i < tab.rows.length && !type; i++) { var id = resolve(data, tab.rows[i][li]), ent = id && entityOf(data, id); if (ent) type = ent.type; }
+    if (!type) return [];
+    return data.entities.filter(function(x){ return x.type === type; })
+      .sort(function(x, y){ return (+(x.fields && x.fields.rank) || 0) - (+(y.fields && y.fields.rank) || 0); });
+  }
+  function levelTable(ent){
+    var found = null;
+    (ent.sections || []).forEach(function(sec){ (sec.tables || []).forEach(function(tab){ if (!found && tab.columns.indexOf("Level") >= 0) found = tab; }); });
+    return found;
+  }
+  // The entity that claims levels for this one: itself, or the nearest entity above it on
+  // disk whose card holds a table with a Level column.
+  function levelOwner(data, e){
+    if (levelTable(e)) return e;
+    var best = null;
+    data.entities.forEach(function(x){
+      if (e.id.indexOf(x.id + "/") === 0 && levelTable(x) && (!best || x.id.length > best.id.length)) best = x;
+    });
+    return best;
+  }
+  function claimedLevel(owner, name){
+    var tab = levelTable(owner), si = tab.columns.indexOf("Skill"), li = tab.columns.indexOf("Level");
+    if (si < 0) si = 0;
+    for (var i = 0; i < tab.rows.length; i++) if (tab.rows[i][si] === name) return tab.rows[i][li];
+    return null;
+  }
+
+  // ── the tooltip ─────────────────────────────────────────────────────────────────────
+  // A hover on a thing in the model shows that thing's card in miniature: its type in the
+  // eyebrow, its name, its one line. One element for the whole page, moved to whatever is
+  // hovered or focused, fixed to the viewport so a card that scrolls inside itself cannot
+  // clip it, and pointer-events none so it never catches the pointer that summoned it. It
+  // carries role=tooltip and the target points at it with aria-describedby, so a keyboard
+  // and a screen reader get what a pointer gets. No element keeps a title beside it: a
+  // browser box under a designed one is two answers to one question. Anything on any page
+  // may use it — the stage's transport does — by setting the three data-tip attributes.
+  function describe(el, kind, name, text){
+    el.setAttribute("data-tip-kind", kind || ""); el.setAttribute("data-tip-name", name || ""); el.setAttribute("data-tip", text || "");
+    el.removeAttribute("title");
+  }
+  var tip = null, tipK, tipN, tipD, held = null, tipTimer = 0;
+  function tipEl(){
+    if (tip) return tip;
+    tip = h("div", null, "tip"); tip.id = "tip"; tip.setAttribute("role", "tooltip"); tip.setAttribute("aria-hidden", "true");
+    tipK = h("span", null, "k"); tipN = h("span", null, "n"); tipD = h("span", null, "d");
+    tip.appendChild(tipK); tip.appendChild(tipN); tip.appendChild(tipD);
+    document.body.appendChild(tip);
+    return tip;
+  }
+  function placeTip(el){
+    var t = tipEl(), r = el.getBoundingClientRect(); t.style.left = "0px"; t.style.top = "0px";
+    var w = t.offsetWidth, hgt = t.offsetHeight, gap = 8;
+    var x = Math.round(r.left + r.width / 2 - w / 2); x = Math.max(8, Math.min(x, window.innerWidth - w - 8));
+    var y = Math.round(r.top - hgt - gap); if (y < 8) y = Math.round(r.bottom + gap);
+    t.style.left = x + "px"; t.style.top = y + "px";
+  }
+  function showTip(el){
+    if (held === el) return;
+    hideTip(); held = el; tipEl();
+    tipK.textContent = el.getAttribute("data-tip-kind") || ""; tipN.textContent = el.getAttribute("data-tip-name") || ""; tipD.textContent = el.getAttribute("data-tip") || "";
+    el.setAttribute("aria-describedby", "tip");
+    tipTimer = setTimeout(function(){ tip.setAttribute("aria-hidden", "false"); placeTip(el); tip.classList.add("show"); }, 120);
+  }
+  function hideTip(){
+    clearTimeout(tipTimer);
+    if (tip) { tip.classList.remove("show"); tip.setAttribute("aria-hidden", "true"); }
+    if (held) held.removeAttribute("aria-describedby");
+    held = null;
+  }
+  function tipTarget(node){ return node && node.closest ? node.closest("[data-tip-name]") : null; }
+  document.addEventListener("mouseover", function(ev){ var el = tipTarget(ev.target); if (el) showTip(el); else if (held && !held.contains(ev.target)) hideTip(); });
+  document.addEventListener("mouseout", function(ev){ if (held && ev.relatedTarget && !held.contains(ev.relatedTarget) && !tipTarget(ev.relatedTarget)) hideTip(); });
+  document.addEventListener("focusin", function(ev){ var el = tipTarget(ev.target); if (el) showTip(el); else hideTip(); });
+  document.addEventListener("focusout", function(ev){ if (held && ev.target === held) hideTip(); });
+  document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") hideTip(); });
+  document.addEventListener("scroll", function(){ if (held && tip && tip.classList.contains("show")) placeTip(held); }, true);
+  window.addEventListener("resize", function(){ if (held) placeTip(held); });
+
+  window.rbCard = { render: render, fmtPeriod: fmtPeriod, fmtDate: fmtDate, describe: describe };
 })();
