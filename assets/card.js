@@ -156,9 +156,9 @@
     // Skills last, and grouped. Each skill file names a `group`, and the card reads it off
     // the entity a name resolves to. A group is a closed disclosure — its name and its count
     // on the line, its skills as chips when opened — so a role claiming forty-five skills is
-    // ten lines rather than forty-five. The groups come in the order the file first names
-    // them, which is the one order the file itself gives; inside a group the chips are
-    // alphabetical, because a wrapped row has no first and last to read. A skill whose file
+    // ten lines rather than forty-five. Alphabetical at both levels, the groups and the chips
+    // inside them: one rule a reader can predict, and one that knows no name from any page,
+    // where the file's own order would put a different group first on every card. A skill whose file
     // names no group, or that resolves to no file, is filed under "Other", last; a model
     // whose skills carry no groups at all gets the flat list under the heading.
     var skills = e.fields.skills;
@@ -179,7 +179,8 @@
         bodyEl.appendChild(flat);
       } else {
         var grps = h("div", null, "grps");
-        groups.filter(function(k){ return k !== "\u0000other"; }).concat(byGroup["\u0000other"] ? ["\u0000other"] : []).forEach(function(key){
+        groups.filter(function(k){ return k !== "\u0000other"; }).sort(function(x, y){ return x.localeCompare(y, "en"); })
+          .concat(byGroup["\u0000other"] ? ["\u0000other"] : []).forEach(function(key){
           var d = h("details", null, "grp"), s = h("summary", key === "\u0000other" ? STR.other[lang] : key);
           s.appendChild(h("span", String(byGroup[key].length), "n"));
           var chips = h("div", null, "chips");
