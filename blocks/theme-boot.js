@@ -1,4 +1,4 @@
-  /* ─── theme boot · v2 · {{variant}} ────────────────────────────────────
+  /* ─── theme boot · v3 · {{variant}} ────────────────────────────────────
      Set the theme before anything paints. Generated from @robertblust/design —
      editing it here does nothing, because the next `npm run design` overwrites it.
 
@@ -18,7 +18,7 @@
   (function(){
     try {
       var m = /[?&]theme=(light|dark)(&|$)/.exec(location.search);
-      var t = m ? m[1] : localStorage.getItem("{{themeKey}}");
+      var t = m ? m[1] : localStorage.getItem("theme");
       if (t === "light") document.documentElement.setAttribute("data-theme", "light");
     } catch (e) {}
   })();

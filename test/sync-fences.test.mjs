@@ -187,10 +187,10 @@ test("otherVariantMatch does not fire when the body simply differs from every ca
 test("the general variant guard finds nothing for a fence whose variants are byte-identical", () => {
   const root = site({
     "index.html": ["<script>", "  // before",
-      blockFor("language", "page", { langKey: "rb-lang" }), "  // after", "</script>"].join("\n"),
+      blockFor("language", "page"), "  // after", "</script>"].join("\n"),
   });
   fs.writeFileSync(path.join(root, "design.config.json"),
-    JSON.stringify({ groups: ["fonts"], langKey: "rb-lang" }));
+    JSON.stringify({ groups: ["fonts"] }));
   const e = planFences(root).find(x => x.fence === "language");
   assert.equal(e.state, "same");
 });

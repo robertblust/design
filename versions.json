@@ -3,12 +3,12 @@
   "header": "v8",
   "stage": "v2",
   "reset": "v1",
-  "lang": "v2",
+  "lang": "v3",
   "footer": "v1",
   "transport": "v9",
   "lockup": "v1",
   "fit": "v1",
-  "runtime": "v6",
-  "themeBoot": "v2",
-  "theme": "v3"
+  "runtime": "v7",
+  "themeBoot": "v3",
+  "theme": "v4"
 }

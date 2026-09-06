@@ -1,4 +1,4 @@
-  /* ─── theme · v3 · {{variant}} ───────────────────────────────────────
+  /* ─── theme · v4 · {{variant}} ───────────────────────────────────────
      One theme across three domains, and where it is remembered. Generated from
      @robertblust/design — editing it here does nothing.
 
@@ -10,7 +10,7 @@
      the page's own `noFlash` flag: a page that declares it and is missing either control fails
      there.
   */
-  var THEME_KEY = "{{themeKey}}";
+  var THEME_KEY = "theme";
   function themeStored(){ try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; } }
   function themeRemember(v){ try { localStorage.setItem(THEME_KEY, v); } catch (e) {} }
 

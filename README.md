@@ -126,40 +126,23 @@ page, and from then on the page owns that CSS outright. That is a visible decisi
 the page's own diff, to diverge from the shared copy — not a way to make a red
 `design:check` go quiet without deciding anything.
 
-## Parameters
+## No parameters
 
-Every substitution described above is one this package makes with values it already owns:
-the variant word comes from a fixed set this file declares, the version comes from
-`versions.json`. A fence can also declare a **parameter** — a value the *site* supplies,
-through its own `design.config.json`, because the package has no way to know it and no
-business deciding it.
+Every substitution this package makes comes from a value it owns: the variant word from a
+fixed set `lib/fences.mjs` declares, the version from `versions.json`, a part from a file
+beside the block. Nothing comes from the site. `design.config.json` names the groups a site
+takes and nothing else, and a key it does not name is an error that names the file and the key.
 
-`langKey` is the first. The language block reads and writes a visitor's saved language
-under a `localStorage` key, and that key cannot be derived from anything the package has:
-`blust.ch` stores it under `rb-lang`, and nothing about the domain, the fence or the page
-yields that string. It has to come from the site.
+The storage keys are the family's. `lang` and `theme`, the words the address already carries,
+are what every page on the three origins reads and writes, and they are written into the
+blocks rather than chosen per site: a storage key is a promise to every visitor, it is one
+promise across three origins, and a promise the package makes is one no site can quietly make
+differently. Renaming a storage key starts every visitor over, so a rename is a release whose
+notes say so, never a site's diff.
 
-It matters more than a typical setting, because a storage key is a promise made to every
-past visitor. Changing it does not migrate anyone's saved language — it silently starts
-everyone over, the same way renaming a cookie would. So `langKey` lives in
-`design.config.json`, in the site's own repository, where changing it is a line in a diff
-someone has to write and review, not a default this package could quietly change out from
-under a site on its own release schedule.
-
-Because of that, a page carrying the `language` fence with no `langKey` in the site's
-config is an error — `design sync` exits 2 and names the page, the fence and the missing
-key. It is deliberately not a default. An empty or made-up key would throw nowhere; it
-would just give every visitor of that site the same nameless storage slot, quietly, with
-nothing in `design:check` ever turning red to say so.
-
-`FAMILY` — the regex naming the three domains a language rides between — looks like it
-could be a parameter too, and isn't one. It is exported from `lib/family.mjs` instead, and
-the sites import it rather than supplying it. The distinction is what a parameter is
-*for*: `langKey` legitimately differs from one site to the next, and letting the package
-pick it would be picking wrong. `FAMILY` is the same three domains everywhere, on purpose
-— a site that could set its own would be a site that could quietly stop carrying the
-language to one of its siblings. A parameter is for what a site is entitled to choose, not
-for what merely happens, today, to be shared.
+`FAMILY`, the regex naming the three domains a language rides between, is exported from
+`lib/family.mjs` and the sites import it: a site that could set its own would be a site that
+could quietly stop carrying the language to one of its siblings.
 
 ## Spelling
 

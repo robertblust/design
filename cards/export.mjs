@@ -86,7 +86,7 @@ export async function exportCards({ chromium, recipe, log = console.log }) {
       // key, which *inherits* whatever the boot script's default happens to be rather than pinning
       // anything; it only ever looked pinned because the default was already dark. `setItem` is
       // what actually pins it.
-      await page.addInitScript(() => { try { localStorage.setItem("rb-theme", "dark"); } catch (e) {} });
+      await page.addInitScript(() => { try { localStorage.setItem("theme", "dark"); } catch (e) {} });
       // file://, like the decks themselves: every page in the family references its assets
       // relatively for exactly this reason, so no card needs a server and `npm run og` needs no
       // second terminal. A card may name the state it wants as a hash — companygraph's model page

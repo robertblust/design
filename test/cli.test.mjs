@@ -151,13 +151,13 @@ const wrap = (block) => [
 ].join("\n");
 
 test("deck runtime and its nested language fence reach a fixed point together", () => {
-  const langKey = "cg-lang";
-  // A page adopting this block with the wrong key already baked in — the exact shape of the
-  // reported defect — and a stale version marker on top of it, so the first sync has
-  // something to do to both signals at once.
-  const stale = blockFor("deck runtime", null, { langKey: "rb-lang" })
+  const langKey = "lang";
+  // A page carrying a site's own key in the nested fence and a stale version marker on top
+  // of it, so the first sync has something to do to both signals at once.
+  const stale = blockFor("deck runtime", null)
+    .replace('LANG_KEY = "lang"', 'LANG_KEY = "rb-lang"')
     .replace(/· v\d+ ·/, "· v1 ·");
-  const root = site({ "talks/t/index.html": wrap(stale) }, { groups: ["fonts"], langKey });
+  const root = site({ "talks/t/index.html": wrap(stale) }, { groups: ["fonts"] });
 
   const checkBefore = run(["sync", "--check"], root);
   assert.equal(checkBefore.code, 1, checkBefore.out);

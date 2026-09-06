@@ -188,14 +188,14 @@ test("document.fonts.ready is awaited on every card, whatever its settle", async
   assert.equal(fonts.length, 3, "one fonts.ready per card, not one per run and not per branch");
 });
 
-test("the theme init script pins rb-theme to dark rather than clearing it", async () => {
+test("the theme init script pins theme to dark rather than clearing it", async () => {
   // Clearing the key inherits whatever the boot script's default happens to be rather than
   // pinning anything — it only ever looked pinned while that default was dark, and a later
   // change to it would silently restyle every committed card.
   const h = harness();
   const calls = await h.run([{ dir: ".", ...FRAME }]);
   const [, src] = first(calls, "init");
-  assert.match(src, /setItem\(\s*"rb-theme"\s*,\s*"dark"\s*\)/);
+  assert.match(src, /setItem\(\s*"theme"\s*,\s*"dark"\s*\)/);
   assert.doesNotMatch(src, /removeItem/);
 });
 

@@ -32,18 +32,11 @@ test("every fence's version matches versions.json", () => {
   for (const n of FENCE_NAMES) assert.equal(FENCES[n].version, versions[FENCES[n].key], n);
 });
 
-// A placeholder value for each parameter a fence declares. What the values are does not matter
-// to the test below — only that every declared parameter is supplied, so the call succeeds
-// regardless of which fences declare params or what they are named.
-function paramsFor(spec) {
-  return Object.fromEntries((spec.params ?? []).map((name) => [name, `${name}-value`]));
-}
-
 test("each block carries its own opening and closing markers", () => {
   const visited = [];
   for (const n of FENCE_NAMES) {
     visited.push(n);
-    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null, paramsFor(FENCES[n]));
+    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null);
     const f = findFence(text, n);
     assert.ok(f, `${n}: the emitted block is not a findable fence`);
     assert.equal(f.start, 0, `${n}: the block must start at its own opening marker`);
@@ -64,8 +57,7 @@ test("every fence emits the version versions.json declares, for every fence", ()
   const visited = [];
   for (const n of FENCE_NAMES) {
     visited.push(n);
-    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null,
-                          paramsFor(FENCES[n]));
+    const text = blockFor(n, FENCES[n].variants ? FENCES[n].variants[0] : null);
     assert.equal(findFence(text, n).version, versions[FENCES[n].key],
                  `${n}: block file says ${findFence(text, n).version}, ` +
                  `versions.json says ${versions[FENCES[n].key]}`);

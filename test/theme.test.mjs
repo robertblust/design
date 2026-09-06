@@ -109,24 +109,20 @@ test("--press exists in both themes and is not --raise", () => {
   }
 });
 
-const TP = { themeKey: "x-theme" };
-
-test("neither theme block hardcodes a site's storage key", () => {
-  // The defect this exact shape caused once before, in `language` v1: a real key was baked in
-  // at extraction, correct for one site and wrong for the other two, with no fixed point —
-  // the sync tool corrected the visible bytes forever while the block re-emitted the frozen
-  // value. The parameter is what makes both passes agree.
+test("both theme blocks carry the family's key and no site's", () => {
+  // `theme` is the family's key, one name on three origins; neither block may carry a
+  // site's own, nor a slot for one.
   for (const f of ["theme boot", "theme"]) {
-    const js = blockFor(f, "page", TP);
-    assert.match(js, /x-theme/, `${f} did not substitute themeKey`);
-    assert.doesNotMatch(js, /rb-theme|cg-theme|gg-theme/, `${f} carries a real site's key`);
+    const js = blockFor(f, "page");
+    assert.match(js, /"theme"/, `${f} does not name the key`);
+    assert.doesNotMatch(js, /rb-theme|cg-theme|gg-theme|\{\{/, `${f} carries a site's key or a slot`);
   }
 });
 
 test("the boot block reads the URL as well as storage", () => {
   // A visitor arriving from a sibling domain with ?theme=light must paint light on the first
   // frame. Reading only localStorage would give them one frame of dark on every crossing.
-  const js = blockFor("theme boot", "page", TP);
+  const js = blockFor("theme boot", "page");
   assert.match(js, /location\.search/);
   assert.match(js, /localStorage\.getItem/);
 });
@@ -136,7 +132,7 @@ test("the boot block lets the URL win over storage, not the other way round", ()
   // carrying ?theme=light must paint light — the URL is the more recent, more specific choice.
   // `stored || (m && m[1])` would let the older, unrelated-site value win instead; this pins
   // the ternary so storage is only ever the fallback when the URL carries nothing.
-  const js = blockFor("theme boot", "page", TP);
+  const js = blockFor("theme boot", "page");
   assert.match(js, /var t = m \? m\[1\] : localStorage\.getItem\(/,
     "the URL match must be read before storage, as the ternary's condition, not merely present");
 });
@@ -151,7 +147,7 @@ test("the boot block never reads prefers-color-scheme", () => {
   // assertion over raw text otherwise conflates code and prose. The block's own doc comment is
   // allowed, and needs, to name `prefers-color-scheme`: saying what the code deliberately does
   // not do is the whole value of that sentence. Only the code is forbidden from reading it.
-  const js = blockFor("theme boot", "page", TP);
+  const js = blockFor("theme boot", "page");
   const code = js.replace(/\/\*[\s\S]*?\*\//g, "");
   assert.doesNotMatch(code, /prefers-color-scheme|matchMedia/);
 });
@@ -162,7 +158,7 @@ test("the boot block is guarded, because file:// throws", () => {
   // guard — `localStorage.getItem` moved outside any try and a decoy `try{void 0}catch(e){}` left
   // behind passes that check while throwing synchronously in the only <head> script on the page.
   // So the read itself has to be found inside the try it is claimed to be guarded by.
-  const js = blockFor("theme boot", "page", TP);
+  const js = blockFor("theme boot", "page");
   const m = /try\s*\{([\s\S]*?)\}\s*catch/.exec(js);
   assert.ok(m, "no try/catch found");
   assert.match(m[1], /localStorage\.getItem/,
@@ -170,7 +166,7 @@ test("the boot block is guarded, because file:// throws", () => {
 });
 
 test("theme carries the param to family domains only", () => {
-  const js = blockFor("theme", "page", TP);
+  const js = blockFor("theme", "page");
   assert.match(js, /THEME_FAMILY\s*=\s*\/\^\(www\\\.\)\?\(blust\\\.ch\|companygraph\\\.io\|guestgraph\\\.io\)\$\//);
   assert.match(js, /u\.origin === location\.origin \|\| !THEME_FAMILY\.test\(u\.hostname\)/);
 });
@@ -178,18 +174,18 @@ test("theme carries the param to family domains only", () => {
 test("the theme block carries FAMILY's source text, so page and check agree", () => {
   // lib/family.mjs exists because this pattern was hardcoded in twenty-three places, and a
   // fourth domain added there once left one of the copies behind with nothing to notice. The
-  // language block is pinned to it by test/params.test.mjs's identically named test; THEME_FAMILY
+  // language block is pinned to it by test/keys.test.mjs's identically named test; THEME_FAMILY
   // in blocks/theme.js is a second literal copy, and this is what pins that one the same way —
   // add a domain to lib/family.mjs and this test is what fails instead of theme.js silently
   // going on carrying the theme to only three of the four.
-  const js = blockFor("theme", "page", TP);
+  const js = blockFor("theme", "page");
   assert.ok(js.includes(FAMILY.source),
     "theme.js's inline THEME_FAMILY regex has drifted from lib/family.mjs");
 });
 
 test("theme decorates on mousedown as well as click", () => {
   // A middle-click or cmd-click opens a new tab without ever firing click.
-  const js = blockFor("theme", "page", TP);
+  const js = blockFor("theme", "page");
   assert.match(js, /addEventListener\("mousedown", carryTheme, true\)/);
   assert.match(js, /addEventListener\("click", carryTheme, true\)/);
 });
@@ -201,7 +197,7 @@ test("theme decorates on mousedown as well as click", () => {
 // normally injected into — the same reasoning `test/verify-pages.test.mjs`'s fix-round-1 suite
 // gives for running check bodies against a fake `page` rather than grepping them.
 function runThemeBlock() {
-  const js = blockFor("theme", "page", TP);
+  const js = blockFor("theme", "page");
   const store = {};
   const localStorage = {
     getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
@@ -232,7 +228,7 @@ test("carryTheme decorates a family link only when a theme is actually stored", 
   assert.equal(untouched.href, "https://companygraph.io/",
     "a visitor with nothing stored must have no link decorated — a default is not a choice");
 
-  sandbox.localStorage.setItem("x-theme", "light");
+  sandbox.localStorage.setItem("theme", "light");
   const decorated = { href: "https://companygraph.io/" };
   sandbox.carryTheme({ target: { closest: () => decorated } });
   assert.match(decorated.href, /[?&]theme=light(&|$)/,
@@ -240,17 +236,12 @@ test("carryTheme decorates a family link only when a theme is actually stored", 
 });
 
 test("theme cleans the address bar after adopting a param", () => {
-  const js = blockFor("theme", "page", TP);
+  const js = blockFor("theme", "page");
   assert.match(js, /history\.replaceState/);
 });
 
-test("both theme fences declare themeKey", () => {
-  // Used to also assert `variants` was null. The deck variant added below is what made that
-  // false; this test now only owns the one claim still true, and the variants claim has its
-  // own test.
-  for (const f of ["theme boot", "theme"]) {
-    assert.deepEqual(FENCES[f].params, ["themeKey"]);
-  }
+test("neither theme fence declares a parameter", () => {
+  for (const f of ["theme boot", "theme"]) assert.equal(FENCES[f].params, undefined);
 });
 
 // Fix round 1: every test below used to assert over `.toString()` of a check body — matching
@@ -385,7 +376,7 @@ test("contrast passes a fully AA palette and fails one where only --c-flag is un
 // noFlash no longer drives a browser at all — its whole input is the page's served HTML, so
 // these fakes are documents, not a Playwright page. `wrap` builds one the way a real page
 // carries the fence: a <script> holding the theme-boot marker (with the site's storage key
-// baked in, the way blockFor substitutes {{themeKey}}), positioned and tagged however each
+// baked in, the way the block carries its key), positioned and tagged however each
 // case needs, followed by a stylesheet.
 function wrap({ scriptTag = "<script>", beforeStyle = true, includeKey = true } = {}) {
   const key = includeKey ? "rb-theme" : "rb-something-else";
@@ -808,7 +799,7 @@ test("the deck tokens do not leak a light value into --lcd's neighbors by accide
 test("both theme fences offer a deck variant", () => {
   for (const f of ["theme boot", "theme"]) {
     assert.deepEqual(FENCES[f].variants, ["page", "deck"]);
-    assert.doesNotThrow(() => blockFor(f, "deck", { themeKey: "x-theme" }));
+    assert.doesNotThrow(() => blockFor(f, "deck"));
   }
 });
 
@@ -823,7 +814,7 @@ test("each theme fence's marker actually records which variant it is", () => {
   // proves the slot is actually there, not merely that blockFor ran without throwing.
   for (const f of ["theme boot", "theme"]) {
     for (const v of ["page", "deck"]) {
-      const first = blockFor(f, v, { themeKey: "x-theme" }).split("\n")[0];
+      const first = blockFor(f, v).split("\n")[0];
       assert.match(first, new RegExp(`· ${v} `), `${f}'s "${v}" marker does not say "${v}"`);
     }
   }
@@ -836,8 +827,8 @@ test("the theme fences' two variants differ only in the marker word, like langua
   // "deck" differ by exactly one line: the marker itself. Manufacturing a second difference
   // here (e.g. indentation) would not reflect anything true about these two files.
   for (const f of ["theme boot", "theme"]) {
-    const page = blockFor(f, "page", { themeKey: "x-theme" }).split("\n");
-    const deck = blockFor(f, "deck", { themeKey: "x-theme" }).split("\n");
+    const page = blockFor(f, "page").split("\n");
+    const deck = blockFor(f, "deck").split("\n");
     assert.equal(page.length, deck.length, `${f}: variants must be the same length`);
     let diffs = 0;
     for (let i = 0; i < page.length; i++) if (page[i] !== deck[i]) diffs++;
