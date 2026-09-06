@@ -766,5 +766,11 @@
       history.replaceState(null, "", location.pathname + q + location.hash);
     } catch (err) {}
     expand();
+    // Opening a dialog focuses its first control, the close button, and a page nobody has
+    // clicked yet paints that focus as a ring: the first thing a visitor sees is the way
+    // out, lit. The dialog takes the focus instead — Escape and Tab work from the top, and
+    // a container draws no ring.
+    modal.tabIndex = -1;
+    modal.focus({ preventScroll: true });
   }
 })();

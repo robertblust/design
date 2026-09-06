@@ -120,4 +120,6 @@ test("stage.js opens the expanded stage when the address asks for it, and cleans
   const branch = js.slice(js.indexOf("stage=expanded"));
   assert.ok(branch.includes("history.replaceState"), "the parameter is not taken out of the address");
   assert.ok(branch.includes("expand();"), "the parameter does not open the stage");
+  assert.ok(branch.includes("modal.focus("), "the dialog does not take the focus on arrival");
+  assert.ok(asset("assets/stage.css").includes("dialog.modal:focus, dialog.modal:focus-visible{outline:none}"), "the dialog would draw a ring");
 });
