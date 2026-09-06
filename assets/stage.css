@@ -113,6 +113,28 @@
   .cbody dd ul.items{list-style:none; margin:0; padding:0; display:flex;
                      flex-direction:column; gap:.28rem}
   .cbody .empty{color:var(--dim); line-height:1.5}
+  /* The skills section: one closed group per category, the category's name and its count on
+     the line, its skills as chips when opened. A chip is one bordered token per reference,
+     wrapping, each with an edge a pointer can find; the border is the rule and the text the
+     interactive stop. Used for a set of references and for nothing else, or the card grows a
+     second card style. The triangle is the disclosure's own mark, drawn in the candidate
+     blue and turned when open. */
+  .cbody .grps{margin-top:.5rem; display:flex; flex-direction:column; gap:.2rem}
+  .cbody .grp > summary{cursor:pointer; list-style:none; display:flex; align-items:baseline; gap:.5rem; padding:.1rem 0; font-size:.93rem}
+  .cbody .grp > summary::-webkit-details-marker{display:none}
+  .cbody .grp > summary::before{content:""; width:0; height:0; border-style:solid; border-width:4px 0 4px 6px;
+                                border-color:transparent transparent transparent var(--c-weak); flex:0 0 auto; transition:transform .15s ease}
+  .cbody .grp[open] > summary::before{transform:rotate(90deg); border-left-color:var(--c-mid)}
+  .cbody .grp > summary:hover{color:var(--c-mid)}
+  .cbody .grp > summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px; border-radius:3px}
+  .cbody .grp > summary .n{font-family:"Plex Mono",monospace; font-size:.74rem; color:var(--dim); letter-spacing:.06em}
+  .cbody .grp > .chips{display:flex; flex-wrap:wrap; gap:.4rem .45rem; padding:.3rem 0 .55rem 1.1rem}
+  .cbody .chips a{font-size:.86rem; line-height:1.25; padding:.26rem .6rem; border-radius:6px; border:1px solid var(--rule);
+                  color:var(--c-mid); text-decoration:none}
+  .cbody .chips a:hover, .cbody .chips a:focus-visible{border-color:var(--c-mid)}
+  @media (prefers-reduced-motion: reduce){
+    .cbody .grp > summary::before{transition:none}
+  }
   @media (max-width: 860px){
     /* minmax(0,1fr), never a bare 1fr: a grid track sized `auto` at its floor takes the
        widest min-content of the items in it, and the card's is a table of quoted field
@@ -204,6 +226,9 @@
   .ledger .body{padding:.3rem 0 1.3rem calc(var(--when) + 1.25rem + 1.6rem + var(--lvl,0) * 1.5rem); max-width:calc(72ch + 12rem)}
   .ledger .body .card{height:auto}
   .ledger .body .cbody{overflow:visible}
+  /* The row leads the card: inside a ledger the card's title steps down to the row's scale,
+     the way the dialog sets the card's width. The card stays the same card. */
+  .ledger .cbody h3{font-size:1.2rem}
   .ledger .now{margin-top:.6rem; padding-left:calc(var(--when) + 1.25rem + 1.6rem); font-family:"Plex Mono",monospace; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim)}
   @media (max-width:640px){
     .ledger{--when:4.2rem}
