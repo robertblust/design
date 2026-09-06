@@ -158,6 +158,20 @@ test("stage.css carries the kind filter beside Open all", () => {
   assert.match(css, /\.expand\{[^}]*line-height:1\.5/, "Open all and the filter do not share a line box");
 });
 
+test("the ledger's mark is the kind, and the track leads", () => {
+  const css = asset("assets/stage.css");
+  const decls = (sel) => { const r = css.slice(css.indexOf(sel)); return r.slice(0, r.indexOf("}")); };
+  for (const sel of [".ledger .k-independent .mark::after{", ".ledger .k-project .mark::after{", ".ledger .k-community .mark::after{", ".ledger .k-education .mark::after{", ".ledger li.under::before{"])
+    assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
+  assert.match(decls("\n  .ledger .k-independent .mark::after{"), /border:2\.5px solid var\(--c-firm\)/, "an independent period is not a hollow square in the track's color");
+  assert.match(decls(".ledger .k-project .mark::after{"), /rotate\(45deg\)/, "a project is not a diamond");
+  assert.match(decls(".ledger .k-community .mark::after{"), /border-radius:50%/, "community work is not a circle");
+  assert.match(decls(".ledger .k-education .mark::after{"), /clip-path:polygon/, "education is not a triangle");
+  assert.match(decls(".ledger details[open] > summary .mark::before{"), /border:2px solid var\(--ink\)/, "the open ring is not on the box");
+  assert.match(decls(".ledger .k-role .name, .ledger .k-independent .name{"), /font-size:1\.3rem/, "the track's title did not step up");
+  assert.match(decls(".ledger .what{"), /2\.2rem/, "the indent did not widen");
+});
+
 test("the ledger's gutter shows the range wide and the start year narrow", () => {
   const css = asset("assets/stage.css");
   assert.ok(css.includes(".ledger .when .start{display:none}"), "the start year is not hidden wide");
