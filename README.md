@@ -182,7 +182,10 @@ release still needs notes: Dependabot renders them into the pull request it open
 repositories, and that pull request is the only thing telling someone there what changed.
 
 A change to any synced file is at least a **minor** — it makes every site's committed copy
-stale. A change needing a site edit beyond `npm run design` is a **major**. Dropping a file
+stale. Before tagging, set `version` in `package.json` to the tag: `design sync --check` in
+every site compares the tag its pin names with the version of the package it installed and is
+red when they differ, so a tag made without moving the field turns three sites red on their
+next re-pin instead of drifting unread. A change needing a site edit beyond `npm run design` is a **major**. Dropping a file
 from a group is also a **major** — `applySync` never deletes an orphan a site already has.
 
 `assets/d3.v7.min.js` is one such synced file, but it is also pinned as a real npm

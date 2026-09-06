@@ -7,6 +7,7 @@
 // bytes a visitor downloads are in the repository, and they got there deliberately.
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   readConfig, planSync, applySync, CONFIG_NAME, planFences, applyFences,
@@ -52,7 +53,35 @@ try {
 }
 const staleFences = fenceEntries.filter((e) => e.state !== "same");
 
+// The tag is the release and the sites pin the tag, so nothing read this package's own version
+// field and it fell seven tags behind. A site holds both values, the tag in its pin and the
+// version of the package it installed; they agree or the check is red, the same guard the
+// conventions workflow runs between the release it declares and a member's pin. A site with no
+// package.json, or none that pins this package by tag, is not judged.
+const PKG_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+function pinMismatch() {
+  const sitePkg = path.join(siteRoot, "package.json");
+  if (!fs.existsSync(sitePkg)) return null;
+  let spec;
+  try {
+    const p = JSON.parse(fs.readFileSync(sitePkg, "utf8"));
+    spec = { ...(p.dependencies || {}), ...(p.devDependencies || {}) }["@robertblust/design"];
+  } catch { return null; }
+  const m = spec && /#v(\d+\.\d+\.\d+)$/.exec(spec);
+  if (!m) return null;
+  const own = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")).version;
+  return m[1] === own ? null : { pinned: m[1], own };
+}
+const mismatch = pinMismatch();
+
 if (check) {
+  if (mismatch) {
+    console.log(
+      `  ✗ package.json pins @robertblust/design v${mismatch.pinned}, but the installed package ` +
+      `declares ${mismatch.own} — a release sets version in the package to its tag before tagging; ` +
+      `if the pin is the newer one, re-install it.`);
+    process.exit(1);
+  }
   if (!stale.length && !staleFences.length) {
     console.log(
       `  ✓ ${entries.length} file(s) and ${fenceEntries.length} fence(s) match @robertblust/design`);

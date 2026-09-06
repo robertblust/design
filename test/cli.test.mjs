@@ -191,3 +191,24 @@ test("deck runtime and its nested language fence reach a fixed point together", 
   const checkAfterSecond = run(["sync", "--check"], root);
   assert.equal(checkAfterSecond.code, 0, checkAfterSecond.out);
 });
+
+test("sync --check holds the site's pin to the version this package declares", () => {
+  // The tag is the release and the sites pin the tag, so nothing read this package's own
+  // version field and it fell seven tags behind. A site holds both values, the tag in its
+  // pin and the version of the package it installed; --check compares them and is red when
+  // they differ, so a tag made without moving the field turns three sites red instead of
+  // drifting. A site with no package.json, or none that pins this package, is not judged.
+  const own = JSON.parse(fs.readFileSync(path.join(PKG, "package.json"), "utf8")).version;
+  const root = site({}, { groups: ["fonts"] });
+  run(["sync"], root);
+  fs.writeFileSync(path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@robertblust/design": "github:robertblust/design#v0.0.1" } }));
+  const red = run(["sync", "--check"], root);
+  assert.equal(red.code, 1, red.out);
+  assert.match(red.out, /pins @robertblust\/design v0\.0\.1/);
+  assert.match(red.out, new RegExp(`declares ${own.replace(/\./g, "\\.")}`));
+  fs.writeFileSync(path.join(root, "package.json"),
+    JSON.stringify({ dependencies: { "@robertblust/design": `github:robertblust/design#v${own}` } }));
+  const green = run(["sync", "--check"], root);
+  assert.equal(green.code, 0, green.out);
+});
