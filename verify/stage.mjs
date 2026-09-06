@@ -165,6 +165,20 @@ export const STAGE_CHECKS = {
     for (const x of data.edges.filter(x => x.from === from.id)) if (!ns.find(n => n.id === x.to)) return `reference target ${x.to} is not on the canvas`;
     const hash = await page.evaluate(() => decodeURIComponent(location.hash.slice(1)));
     if (hash !== from.id) return `hash is ${JSON.stringify(hash)}, expected ${from.id}`;
+    // A link may ask for the stage expanded: arriving with ?stage=expanded beside a hash opens
+    // the dialog on that node and leaves the address clean, so a page that read the request
+    // looks like one expanded by hand. Left as found afterwards, for whatever check runs next.
+    await page.goto(`${spec.absolute}?stage=expanded#${from.id}`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+    const arrived = await page.evaluate(() => ({
+      open: !!(document.getElementById("stagemodal") || {}).open,
+      inModal: !!document.querySelector("#stagemodal #fig"),
+      search: location.search,
+      focus: (document.querySelector("#fig .n.focus") || {}).dataset ? document.querySelector("#fig .n.focus").dataset.id : null }));
+    if (!arrived.open || !arrived.inModal) return "arriving with ?stage=expanded did not open the expanded stage";
+    if (arrived.focus !== from.id) return `arriving with ?stage=expanded#${from.id} focused ${JSON.stringify(arrived.focus)}`;
+    if (arrived.search !== "") return `the address still carries ${JSON.stringify(arrived.search)} after the page read it`;
+    await page.goto(spec.absolute, { waitUntil: "networkidle" });
     return null;
   },
 

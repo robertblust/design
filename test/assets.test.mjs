@@ -111,3 +111,13 @@ test("the ledger's gutter shows the range wide and the start year narrow", () =>
   assert.ok(narrow.includes(".ledger .when .range{display:none}"), "the range is not hidden narrow");
   assert.ok(narrow.includes(".ledger .when .start{display:inline}"), "the start year is not shown narrow");
 });
+
+test("stage.js opens the expanded stage when the address asks for it, and cleans the address", () => {
+  const js = asset("assets/stage.js");
+  assert.match(js, /function expand\(\)/);
+  assert.match(js, /expandBtn\.addEventListener\("click", expand\)/);
+  assert.match(js, /stage=expanded/);
+  const branch = js.slice(js.indexOf("stage=expanded"));
+  assert.ok(branch.includes("history.replaceState"), "the parameter is not taken out of the address");
+  assert.ok(branch.includes("expand();"), "the parameter does not open the stage");
+});
