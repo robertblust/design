@@ -103,3 +103,11 @@ test("the card's eyebrow is the type alone, source is not drawn and skills are a
   for (const sel of [".cbody .grp > summary{", ".cbody .grp > .chips{", ".cbody .chips a{", ".ledger .cbody h3{"])
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
+
+test("the ledger's gutter shows the range wide and the start year narrow", () => {
+  const css = asset("assets/stage.css");
+  assert.ok(css.includes(".ledger .when .start{display:none}"), "the start year is not hidden wide");
+  const narrow = css.slice(css.indexOf("@media (max-width:640px){\n    .ledger{--when:4.2rem}"));
+  assert.ok(narrow.includes(".ledger .when .range{display:none}"), "the range is not hidden narrow");
+  assert.ok(narrow.includes(".ledger .when .start{display:inline}"), "the start year is not shown narrow");
+});

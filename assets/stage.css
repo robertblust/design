@@ -230,9 +230,16 @@
      the way the dialog sets the card's width. The card stays the same card. */
   .ledger .cbody h3{font-size:1.2rem}
   .ledger .now{margin-top:.6rem; padding-left:calc(var(--when) + 1.25rem + 1.6rem); font-family:"Plex Mono",monospace; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim)}
+  /* The gutter carries both years and the start year alone, and the width decides which
+     shows: the range above 640px, where both languages fit with room, the start year below
+     it, where an open end spelled out in either language overran the column. The start year
+     is what places a row on the axis; the full period is on the line under the name. */
+  .ledger .when .start{display:none}
   @media (max-width:640px){
     .ledger{--when:4.2rem}
     .ledger .body{padding-left:0}
+    .ledger .when .range{display:none}
+    .ledger .when .start{display:inline}
   }
   /* Open all is an .expand that stays pressed: the same control the stage puts beside its
      path line, with a state, because it reads Close all once every row is open. */
