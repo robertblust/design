@@ -123,3 +123,16 @@ test("stage.js opens the expanded stage when the address asks for it, and cleans
   assert.ok(branch.includes("modal.focus("), "the dialog does not take the focus on arrival");
   assert.ok(asset("assets/stage.css").includes("dialog.modal:focus, dialog.modal:focus-visible{outline:none}"), "the dialog would draw a ring");
 });
+
+test("card.js abbreviates the German months the way WRITING.md does", () => {
+  // Jan., Febr., März, Apr., Mai, Juni, Juli, Aug., Sept., Okt., Nov., Dez. — the period
+  // where German abbreviates and none where it does not. The English list stays three
+  // letters without a period, which is that language's rule.
+  const js = asset("assets/card.js");
+  const m = /de:\s*\[([^\]]+)\]/.exec(js);
+  assert.ok(m, "card.js has no German month list");
+  const de = m[1].split(",").map(s => s.trim().replace(/"/g, ""));
+  assert.deepEqual(de, ["Jan.", "Febr.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]);
+  const e = /en:\s*\[([^\]]+)\]/.exec(js);
+  assert.deepEqual(e[1].split(",").map(s => s.trim().replace(/"/g, "")), ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+});

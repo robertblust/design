@@ -1004,6 +1004,25 @@ export function pageChecks({ SITE, BASE }) {
         if (!german.includes(s)) return `German page is missing ${JSON.stringify(s)}`;
       for (const s of spec.translates.hides || [])
         if (german.includes(s)) return `German page still shows the English ${JSON.stringify(s)}`;
+      // shows/hides samples three strings a page. An element the list never names can stay
+      // English, or be rewritten by a script after the switch, with every suite green; so every
+      // element carrying data-de must show that value, serialized the way the browser serializes
+      // it, and every element carrying data-de-aria must be labeled with it.
+      const kept = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll("[data-de]").forEach((el, i) => {
+          const t = document.createElement(el.tagName);
+          t.innerHTML = el.getAttribute("data-de");
+          if (el.innerHTML !== t.innerHTML)
+            out.push(`data-de #${i} <${el.tagName.toLowerCase()}> shows ${JSON.stringify(el.textContent.trim().slice(0, 40))}`);
+        });
+        document.querySelectorAll("[data-de-aria]").forEach((el, i) => {
+          if (el.getAttribute("aria-label") !== el.getAttribute("data-de-aria"))
+            out.push(`data-de-aria #${i} <${el.tagName.toLowerCase()}> is labeled ${JSON.stringify(el.getAttribute("aria-label"))}`);
+        });
+        return out;
+      });
+      if (kept.length) return `after the toggle ${kept.length} element(s) kept their English: ${kept.slice(0, 3).join("; ")}`;
       // The <title> and the meta description are the page's word to a crawler or a tab strip;
       // nothing in `shows`/`hides` reaches either. A visitor who picks German under an English
       // title would sail past both.
@@ -1038,6 +1057,16 @@ export function pageChecks({ SITE, BASE }) {
       const returned = await htmlLang();
       if (returned !== "en") return `toggling back left lang=${returned}, expected en`;
       if (await body() !== english) return "toggling back did not restore the English text";
+      const stuck = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll("[data-de-aria]").forEach((el, i) => {
+          const en = el.getAttribute("data-en-aria");
+          if (en !== null && el.getAttribute("aria-label") !== en)
+            out.push(`data-de-aria #${i} <${el.tagName.toLowerCase()}> is still labeled ${JSON.stringify(el.getAttribute("aria-label"))}`);
+        });
+        return out;
+      });
+      if (stuck.length) return `toggling back left ${stuck.length} label(s) German: ${stuck.slice(0, 3).join("; ")}`;
       if (await page.title() !== englishTitle) return "toggling back did not restore the English title";
       if (await desc() !== englishDesc) return "toggling back did not restore the English meta description";
       if (spec.translates.dlHref) {

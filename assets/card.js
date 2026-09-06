@@ -22,11 +22,13 @@
     other:  { en:"Other",                   de:"Weitere" }
   };
   // A date is drawn as prose, not as the ISO the model stores, so the months travel with the
-  // script the way every other word here does. The three lengths are core's three precisions:
+  // script the way every other word here does. The German list carries the period where
+  // German abbreviates and none where it does not, the list WRITING.md sets; the English
+  // stays three letters without a period, which is that language's rule. The three lengths are core's three precisions:
   // a year, a month, a day — written at the precision the model holds and never padded up.
   var MONTHS = {
     en: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
-    de: ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"]
+    de: ["Jan.","Febr.","März","Apr.","Mai","Juni","Juli","Aug.","Sept.","Okt.","Nov.","Dez."]
   };
   function fmtDate(v, lang){
     var m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(v || "");

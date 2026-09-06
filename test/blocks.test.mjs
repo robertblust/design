@@ -294,3 +294,18 @@ test("the deck's chrome blocks paint no literal colors", () => {
       `${name}${variant ? " · " + variant : ""} still paints ${literals.join(", ")}`);
   }
 });
+
+test("the language block switches aria-labels with the page, without a page contract", () => {
+  // An aria-label is static markup: a bilingual "Menü — menu" was the only way to reach a
+  // screen reader in both languages, and it put an em-dash into German. The block watches
+  // <html lang> and writes the label for the language into every element carrying
+  // data-de-aria, the English captured on load. It watches rather than being called, so no
+  // page has to add a line to its own applyLang.
+  const js = fs.readFileSync(path.join(PKG, "blocks/lang.js"), "utf8");
+  assert.match(js, /language · v4 ·/, "the language block did not move to v4");
+  assert.equal(versions.lang, "v4");
+  assert.match(js, /MutationObserver/);
+  assert.match(js, /attributeFilter:\s*\["lang"\]/);
+  assert.match(js, /data-de-aria/);
+  assert.match(js, /data-en-aria/);
+});
