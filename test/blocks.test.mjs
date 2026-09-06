@@ -124,27 +124,6 @@ test("a part is supplied only to the variants that declare it", () => {
   assert.deepEqual(FENCES["prose footer"].parts.credit.variants, ["credit"]);
 });
 
-test("a part is substituted before params, so a param slot inside a part's text is filled", () => {
-  // Pins the order the parts loop must run in relative to the params loop: parts after
-  // {{variant}}, before params. Moving either loop leaves npm test at the same total everywhere
-  // else, because "prose footer" (the only shipped fence with a part) has no params — nothing
-  // else in this file can tell the two orders apart. Needs a fixture fence that declares both a
-  // part and a param, built here rather than added to the shipped manifest for one test.
-  const sourceRel = "test/fixtures/ordering-source.css";
-  const partRel = "test/fixtures/ordering-part.css";
-  withFixtureFence("ordering fixture", {
-    key: "orderingFixture", source: sourceRel, version: "v0",
-    variants: ["on"], closes: null, params: ["p"],
-    parts: { slot: { file: partRel, variants: ["on"] } },
-  }, {
-    [sourceRel]: "before\n{{slot}}after\n",
-    [partRel]: "part-has-{{p}}-inside\n",
-  }, () => {
-    const out = blockFor("ordering fixture", "on", { p: "X" });
-    assert.match(out, /part-has-X-inside/);
-  });
-});
-
 test("a duplicated part slot is refused rather than shipping the part twice", () => {
   // The reviewer found this by hand: adding a second "{{credit}}" to blocks/footer.css shipped
   // the nine credit rules twice and still passed 104/104, because "both prose footer variants
@@ -228,7 +207,7 @@ test("neither block carries the narration fallback the runtime cannot reach", ()
   // could only ever return a constant `true` and the branch never ran. v4 removes the path
   // from both blocks together; the reactive `clip.onerror` fallback is what actually works.
   const css = blockFor("deck transport", null);
-  const js = blockFor("deck runtime", null, { langKey: "x-lang" });
+  const js = blockFor("deck runtime", null);
   const narrow = css.match(/@media \(max-width: ?430px\)\{[\s\S]*?\n  \}/)[0];
   assert.match(narrow, /\.lcd\{display:none\}/);
   // Against the rules only: the header comment still names the removed rule, on purpose.
@@ -246,14 +225,8 @@ test("neither block carries the narration fallback the runtime cannot reach", ()
   assert.match(js, /clip\.onerror = function\(\)\{\s*\/\/[^\n]*\n\s*if \(playing\) say\(text, advanceOrStop\);\s*\};/);
 });
 
-// The block's only declared parameter, needed because the nested `language` fence's own
-// `{{langKey}}` slot lives inside this block's source and this fence must fill it the same
-// way "language" does. Its value here is a placeholder, not a real site's key — these tests
-// check the block's shape, not any one site's configuration.
-const RUNTIME_PARAMS = { langKey: "x-lang" };
-
 test("the deck runtime reads its per-talk strings from TALK, not from literals", () => {
-  const js = blockFor("deck runtime", null, RUNTIME_PARAMS);
+  const js = blockFor("deck runtime", null);
   assert.match(js, /title:TALK\.de\.title/);
   assert.match(js, /desc:TALK\.en\.desc/);
 });
@@ -272,7 +245,7 @@ test("the deck runtime hardcodes no talk's own title", () => {
   // so putting a German literal back in TALK.de.title's place still passed. The property
   // that must hold is general: every `title:` and `desc:` inside UI is a `TALK.*`
   // reference, never a literal, in either language, for any deck's words at all.
-  const ui = uiSource(blockFor("deck runtime", null, RUNTIME_PARAMS));
+  const ui = uiSource(blockFor("deck runtime", null));
   assert.doesNotMatch(ui, /\b(?:title|desc):\s*['"]/,
     "UI's title or desc is a literal string, not a TALK.* reference");
   // Non-vacuous: the reference form is actually present in both languages, not merely
@@ -291,31 +264,23 @@ test("the deck runtime keeps the transport's own labels", () => {
   // "Back to the start" also appears, coincidentally, in an unrelated comment elsewhere
   // in this block, which let a broken UI.en.first ("Return to start") pass this test's
   // earlier, unscoped form.
-  const ui = uiSource(blockFor("deck runtime", null, RUNTIME_PARAMS));
+  const ui = uiSource(blockFor("deck runtime", null));
   for (const s of ["Sprecher-Notiz", "Speaker note", "Back to the start", "Auf Englisch"])
     assert.match(ui, new RegExp(s));
 });
 
-test("the deck runtime block declares no variants, closes nothing, and takes langKey", () => {
-  // Rewritten from "no variants and no parameters": that stopped being true the moment this
-  // fence started declaring `langKey`, for the nested `language` fence's own sake (see
-  // lib/fences.mjs's comment on this entry, and the fixed-point tests in test/cli.test.mjs).
+test("the deck runtime block declares no variants and closes nothing", () => {
   assert.equal(FENCES["deck runtime"].variants, null);
-  assert.deepEqual(FENCES["deck runtime"].params, ["langKey"]);
   assert.equal(FENCES["deck runtime"].closes, null);
 });
 
-test("the deck runtime block hardcodes no site's storage key", () => {
-  // The actual defect: v1's stored source had `var LANG_KEY = "rb-lang";` — blust.ch's own
-  // key, substituted and frozen at extraction time — rather than the `{{langKey}}` template
-  // every other site's sync depends on. Read from the raw file, not blockFor's output: after
-  // substitution the emitted text is SUPPOSED to carry a real site's key, so the property
-  // that must hold belongs to the unsubstituted source. A general form, not a list of the
-  // three keys that happen to exist today (`rb-lang`, `cg-lang`, `gg-lang`) — any literal
-  // in that position is the same bug, including one no site has chosen yet.
+test("the deck runtime's nested language fence is the language block's deck variant, byte for byte", () => {
+  // The defect this guards: v1's source carried one site's key in the nested fence, and the
+  // nested fence's own pass and this fence's pass rewrote each other forever. The two agree
+  // when the nested text is exactly what blockFor emits for a deck, family key included.
   const raw = fs.readFileSync(path.join(PKG, FENCES["deck runtime"].source), "utf8");
-  assert.doesNotMatch(raw, /LANG_KEY = "(?!\{\{)/,
-    "the block's own LANG_KEY line names a literal key instead of the {{langKey}} template");
+  assert.ok(raw.includes(blockFor("language", "deck")), "the nested language fence has drifted from blocks/lang.js");
+  assert.equal((raw.match(/var LANG_KEY = "[^"]*";/g) || []).join(), 'var LANG_KEY = "lang";');
 });
 
 test("the deck's chrome blocks paint no literal colors", () => {

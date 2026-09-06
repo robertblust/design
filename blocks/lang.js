@@ -1,4 +1,4 @@
-  /* ─── language · v2 · {{variant}} ─────────────────────────────────────────────
+  /* ─── language · v3 · {{variant}} ─────────────────────────────────────────────
      One language across three domains, and where it is remembered. Generated
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
@@ -9,8 +9,12 @@
      wherever it reads and writes the visitor's saved choice. Rename `lang` or drop those calls
      and the fence still matches byte for byte — every check stays green — while a click throws
      ReferenceError and the language silently stops crossing domains.
+
+     The key is `lang`, the family's: one name on three origins, the same word the address
+     carries. It used to be a site's own, with a prefix, and a parameter the site supplied;
+     the choice was one promise across the family, so the package makes it.
   */
-  var LANG_KEY = "{{langKey}}";
+  var LANG_KEY = "lang";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }
   function langRemember(v){ try { localStorage.setItem(LANG_KEY, v); } catch (e) {} }
 

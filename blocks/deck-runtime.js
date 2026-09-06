@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v6 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v7 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -39,20 +39,12 @@
      attributes existing on the page around it; `transport` and `opensFromFile` are what
      actually hold that larger contract, between them, not this comment.
 
-     A `language` fence lives inside this one, parameterized exactly as it is anywhere
-     else it appears — its own `LANG_KEY` line is filled from the site's configured key
-     rather than frozen at extraction. This block declares the same `langKey` parameter
-     for the same reason: the sync tool's pass over this outer fence fills in the
-     site's key here, its separate pass over the nested fence fills in the identical
-     value there, and the two agree.
-     v1 shipped the nested line already substituted with a real value — whichever site
-     this block was extracted from — frozen at the moment of extraction. That value was
-     correct for the origin site and wrong for every other one, and it could never
-     converge: the nested fence's own pass would correct the visible text to each
-     site's real key, while this outer fence kept re-emitting the frozen one forever
-     after — a permanent `design:check` failure with no fixed point. Declaring
-     `langKey` here, matching the nested fence's own declaration, is what makes both
-     passes agree instead.
+     A `language` fence lives inside this one, byte for byte the block `blocks/lang.js`
+     emits for a deck: the sync tool's pass over this outer fence and its separate pass
+     over the nested one must agree, or the two rewrite each other forever with no fixed
+     point. They agree because both come from one source and the key they write, `lang`,
+     is the family's and not a site's. v1 to v6 filled a slot in both from the site's
+     config for the same reason; the slot is gone with the parameter.
   */
   var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
   // slide numbering is zero-based everywhere the viewer can see it: the kicker on each
@@ -62,7 +54,7 @@
   // the talks index keeps the language the reader already picked. Storage is guarded:
   // file:// is an opaque origin in some browsers and throws, and a deck that cannot read
   // a preference must still open — in English, its default.
-  /* ─── language · v2 · deck ─────────────────────────────────────────────
+  /* ─── language · v3 · deck ─────────────────────────────────────────────
      One language across three domains, and where it is remembered. Generated
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
@@ -73,8 +65,12 @@
      wherever it reads and writes the visitor's saved choice. Rename `lang` or drop those calls
      and the fence still matches byte for byte — every check stays green — while a click throws
      ReferenceError and the language silently stops crossing domains.
+
+     The key is `lang`, the family's: one name on three origins, the same word the address
+     carries. It used to be a site's own, with a prefix, and a parameter the site supplied;
+     the choice was one promise across the family, so the package makes it.
   */
-  var LANG_KEY = "{{langKey}}";
+  var LANG_KEY = "lang";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }
   function langRemember(v){ try { localStorage.setItem(LANG_KEY, v); } catch (e) {} }
 

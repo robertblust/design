@@ -342,7 +342,7 @@ export function pageChecks({ SITE, BASE }) {
       // have no way to fail: a page that writes nothing and a page whose trigger this check
       // failed to find are indistinguishable from the outside, and both used to return a clean
       // pass. Every page armed with storageKeys is here because it is known to write
-      // rb-lang/cg-lang/gg-lang on its language control, so zero observed writes means the
+      // `lang` on its language control, so zero observed writes means the
       // control above was not found or not exercised — not that the page has nothing to declare.
       if (!written.length)
         return "no write path was exercised — none of #lde/#len, #langDe/#langEn, " +
