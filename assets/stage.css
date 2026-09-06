@@ -322,9 +322,13 @@
   .ledger .k-role .meta, .ledger .k-independent .meta{font-size:.88rem}
   .ledger summary:hover .name{color:var(--c-mid)}
   .ledger details[open] > summary .name{color:var(--c-firm)}
-  /* The card opens under its row and takes the row's indent; the rule runs on past it. */
+  /* The card opens under its row and takes the row's indent; the rule runs on past it. The
+     card is positioned because the dotted `under` line is the row's own positioned
+     pseudo-element and would otherwise paint over the row's in-flow card: below 640px the
+     card takes the whole width and lies under that line. Positioned, the card paints after
+     the line in tree order and covers it, as it already covers the ledger's rule. */
   .ledger .body{padding:.3rem 0 1.3rem calc(var(--when) + 1.25rem + 1.6rem + var(--lvl,0) * 2.2rem); max-width:calc(72ch + 12rem)}
-  .ledger .body .card{height:auto}
+  .ledger .body .card{height:auto; position:relative}
   .ledger .body .cbody{overflow:visible}
   /* The row leads the card: inside a ledger the card's title steps down to the row's scale,
      the way the dialog sets the card's width. The card stays the same card. */
