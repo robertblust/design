@@ -220,11 +220,23 @@
        widest min-content of the items in it, and the card's is a table of quoted field
        names. On a phone that pushed the one column past the shell and scrolled the whole
        document sideways. The card scrolls inside itself instead — .cbody already does. */
-    /* One column below this width, so there is nothing to divide and no handle to show. */
-    .stage{height:auto; grid-template-columns:minmax(0,1fr)}
+    /* One column below this width, so there is nothing to divide and no handle to show.
+       With the handle gone the split is no longer the visitor's to move, so it is the one
+       the stage opens with above this width — half and half — turned on its side. Both
+       panes read the one number: --pane is what the visible screen has left once the head
+       row, the stage's own top margin and the gap between the panes are out of it, halved,
+       so the card's last pixel lands at the fold and the drawing and what it says about the
+       node are on screen at once, which is the pair's whole point. svh, not vh: on a phone
+       vh measures the screen with the browser's own bar scrolled away, so a pane sized in it
+       is taller than what the visitor can see, and the pair the arithmetic just fitted
+       spills anyway. The floor is the smallest canvas a graph is still worth drawing on;
+       under roughly a 600px screen the pair runs past the fold rather than shrink below it,
+       because two panes too small to read are worse than one scroll. */
+    .stage{--pane:max(240px, calc((100svh - 5.5rem) / 2));
+           height:auto; grid-template-columns:minmax(0,1fr)}
     .gutter{display:none}
-    .canvas{height:52vh; min-height:360px}
-    .card{height:44vh; min-height:300px}
+    .canvas{height:var(--pane)}
+    .card{height:var(--pane)}
   }
 
   /* The stage, expanded. Not a copy: Expand moves the same .stagehead and .stage elements
