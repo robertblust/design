@@ -96,11 +96,11 @@ process in a directory with no `node_modules` above it, rather than by grepping 
 
 ## Fences
 
-Beside the whole files this package copies into a site, ten of its blocks live *inside* a
+Beside the whole files this package copies into a site, eleven of its blocks live *inside* a
 page: a fence is a pair of comment markers the page already carries — `design tokens`,
-`header contract`, `stage contract`, `prose reset`, `language`, `prose footer`, `deck
-transport`, `deck lockup`, `deck fit` and `deck runtime` — and the package owns everything
-between and including them, prose, version and CSS alike. That is the whole reason a fence
+`header contract`, `title contract`, `stage contract`, `prose reset`, `language`, `prose
+footer`, `deck transport`, `deck lockup`, `deck fit` and `deck runtime` — and the package
+owns everything between and including them, prose, version and CSS alike. That is the whole reason a fence
 is not just another synced file: a synced file is copied whole, but a fenced block sits in
 the middle of a page the tool never fully owns, so the markers are what tell it exactly
 where its part starts and stops.

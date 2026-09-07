@@ -53,6 +53,27 @@ test("no block the package ships names a font family the sites do not ship", () 
   }
 });
 
+test("the title block carries the headline's two weights and both of the tagline's measures", () => {
+  // The narrow rule is the one that can go missing without anything looking wrong on a
+  // desktop: a fence owning 46ch and leaving the page to own the full-width override is a
+  // fence that owns neither, which is how these copies drifted in the first place.
+  const css = blockFor("title contract", null);
+  assert.match(css, /\.title h1 \.r70\{display:block; font-weight:300; color:var\(--dim\)\}/);
+  assert.match(css, /\.title h1 \.rcl\{display:block; font-weight:800\}/);
+  assert.match(css, /\.title h1 em\{font-style:normal; color:var\(--c-firm\)\}/);
+  assert.match(css, /\.tagline\{[^}]*max-width:46ch/);
+  assert.match(css, /@media \(max-width:900px\)\{ \.tagline\{max-width:100%\} \}/);
+  assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length,
+    "the block leaves a brace open");
+});
+
+test("the title contract fence declares no variants and no parameters", () => {
+  assert.equal(FENCES["title contract"].variants, null);
+  assert.equal(FENCES["title contract"].params, undefined);
+  assert.equal(FENCES["title contract"].closes, null);
+  assert.equal(FENCES["title contract"].version, versions.title);
+});
+
 test("the prose reset block balances every brace it opens", () => {
   // `closes` is null: unlike the token block, this one opens and closes every rule it
   // contains. Counted rather than eyeballed at the last line — an earlier assertion of this
