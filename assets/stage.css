@@ -11,9 +11,15 @@
      not tucked in the card's footer — Expand opens the whole stage, not just the card. */
   /* Three columns: the path, the history, Expand. The middle one is the transport the
      script builds, and it sits over the seam between canvas and card; in the dialog Expand
-     is turned into nothing and the right column stays, so the control does not move. */
+     is turned into nothing and the right column stays, so the control does not move.
+     Each names its own column rather than trusting the order it was written in. Auto
+     placement fills the tracks from the items present, so the moment one of the three is
+     not there — the path is not, below 860px — the other two slide left and the transport
+     stops sitting over the seam. A column named is a column kept. */
   .stagehead{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1rem}
-  .stagehead .expand{justify-self:end}
+  .stagehead .path{grid-column:1}
+  .stagehead .history{grid-column:2}
+  .stagehead .expand{grid-column:3; justify-self:end}
   .path{min-height:1.4em; font-size:.8rem; letter-spacing:.06em; color:var(--dim)}
   .path b{color:var(--c-firm); font-weight:600}
   /* Three columns: canvas, the handle between them, details. The details width is a custom
@@ -224,7 +230,9 @@
        With the handle gone the split is no longer the visitor's to move, so it is the one
        the stage opens with above this width — half and half — turned on its side. Both
        panes read the one number: --pane is what the visible screen has left once the head
-       row, the stage's own top margin and the gap between the panes are out of it, halved,
+       row, the stage's own top margin and the gap between the panes are out of it, halved —
+       4rem covers those three, the head row being the transport's own height now that the
+       path below it is gone —
        so the card's last pixel lands at the fold and the drawing and what it says about the
        node are on screen at once, which is the pair's whole point. svh, not vh: on a phone
        vh measures the screen with the browser's own bar scrolled away, so a pane sized in it
@@ -232,9 +240,17 @@
        spills anyway. The floor is the smallest canvas a graph is still worth drawing on;
        under roughly a 600px screen the pair runs past the fold rather than shrink below it,
        because two panes too small to read are worse than one scroll. */
-    .stage{--pane:max(240px, calc((100svh - 5.5rem) / 2));
+    .stage{--pane:max(240px, calc((100svh - 4rem) / 2));
            height:auto; grid-template-columns:minmax(0,1fr)}
     .gutter{display:none}
+    /* The path line goes. It is one long unbreakable id in a column a phone gives about
+       twenty characters, so it wrapped to three lines and made the head row taller than
+       the transport standing in it — a breadcrumb costing the drawing under it more height
+       than the breadcrumb is worth. What it said is not lost: the card under the canvas
+       carries the same node's type and name, and the drawing rings the node it is on. The
+       element stays in the document for the script to write into, so nothing downstream
+       has to know it is not shown. */
+    .path{display:none}
     .canvas{height:var(--pane)}
     .card{height:var(--pane)}
   }
