@@ -277,15 +277,23 @@
   .modal .stage{flex:1 1 auto; min-height:0; height:auto; margin-top:.8rem;
                 grid-template-columns:minmax(0,1fr) 10px var(--card-w)}
   @media (max-width: 860px){
-    /* The fixed vh splits below are sized for the page, which can scroll; the dialog
-       cannot, so its two regions split the box's own remaining height instead — the card
-       at a fixed height that leaves it readable without dominating the box, the canvas
-       taking every pixel left over. A percentage split shrank the canvas below its
-       on-page size on a short viewport, which is Expand doing the opposite of its job. */
+    /* Half and half here too, for the reason the page halves: with the handle gone the
+       split is nobody's to move, so it is the one the stage opens with. The page sizes its
+       panes against the screen because the page can scroll; the dialog cannot, so its two
+       take equal shares of the box's own remaining height — `flex:1 1 0`, a basis of zero
+       on both, which is what makes the shares equal rather than proportional to what is
+       inside them. The card gave up a fixed 230px for this, and it was fixed on the
+       argument that a percentage split shrank the dialog's canvas below its on-page size.
+       That argument is spent: the on-page canvas is half a screen now, so the dialog's was
+       already the smaller of the two, and a stage that changes its proportions when it is
+       expanded is a second layout to learn. Expand's gain on a phone is width — 98vw
+       against the shell's own margins — and it stays exactly that.
+       The canvas keeps a floor for the reason `--pane` has one; the card yields first,
+       because the drawing is what Expand is opened for. */
     .modal .stage{display:flex; flex-direction:column; height:auto}
     .modal .gutter{display:none}
-    .modal .canvas{height:auto; flex:1 1 auto; min-height:200px}
-    .modal .card{height:auto; flex:0 0 230px; min-height:0}
+    .modal .canvas{height:auto; flex:1 1 0; min-height:200px}
+    .modal .card{height:auto; flex:1 1 0; min-height:0}
     /* On a phone .shell's own 7vw side padding is already narrow, so the dialog needs
        tighter chrome of its own just to come out ahead on width, not merely on height. */
     dialog.modal{width:98vw; max-width:98vw; padding:.7rem .8rem .8rem}
