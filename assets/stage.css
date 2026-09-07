@@ -286,17 +286,31 @@
        argument that a percentage split shrank the dialog's canvas below its on-page size.
        That argument is spent: the on-page canvas is half a screen now, so the dialog's was
        already the smaller of the two, and a stage that changes its proportions when it is
-       expanded is a second layout to learn. Expand's gain on a phone is width — 98vw
-       against the shell's own margins — and it stays exactly that.
+       expanded is a second layout to learn. What Expand gains on a phone is the whole
+       screen, below.
        The canvas keeps a floor for the reason `--pane` has one; the card yields first,
        because the drawing is what Expand is opened for. */
     .modal .stage{display:flex; flex-direction:column; height:auto}
     .modal .gutter{display:none}
     .modal .canvas{height:auto; flex:1 1 0; min-height:200px}
     .modal .card{height:auto; flex:1 1 0; min-height:0}
-    /* On a phone .shell's own 7vw side padding is already narrow, so the dialog needs
-       tighter chrome of its own just to come out ahead on width, not merely on height. */
-    dialog.modal{width:98vw; max-width:98vw; padding:.7rem .8rem .8rem}
+    /* A sheet, not a card. On a desktop a dialog inset from its backdrop reads as a thing
+       laid over the page, which is what it is; on a phone every dialog a visitor already
+       knows — a share sheet, a photo, a map opened from a message — takes the whole screen,
+       and a card floating a few pixels in reads as neither one nor the other. So the border,
+       the radius and the margin go, the backdrop stops showing at all, and the sheet is the
+       screen. It is also what makes Expand worth opening here: at 98vw by 92vh its canvas
+       was both shorter and narrower than the page's own, so the control gave back less
+       than it took. At the full screen the height is the page's — 285 against 288 on an
+       iPhone 13, the head row and the gutter accounting for the three — and the width is
+       374 against 335. Wider, not taller, is what a phone has to give.
+       dvh and not svh: the page behind a modal cannot scroll, so the browser's own bar is
+       frozen wherever it stood when the sheet opened, and the dynamic unit is simply the
+       screen as it is at that moment. A gutter stays — the path line, the transport and the
+       × are text and controls, and text against the glass is a different mistake from a
+       card floating off it. */
+    dialog.modal{width:100vw; max-width:100vw; height:100dvh; max-height:100dvh;
+                 margin:0; border:0; border-radius:0; padding:.5rem}
   }
   /* The ledger: the timeline page's figure, every experience as a row on one vertical rule,
      each opening into the card above. It is here rather than on that page because the card
