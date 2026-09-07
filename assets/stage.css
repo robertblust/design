@@ -299,14 +299,23 @@
      size down in --c-mid: a project a hollow diamond, community work a circle, education a
      triangle. A kind the stylesheet does not know keeps the plain square. While the row is
      open the mark wears the ring the focused node wears, on the box and not the shape, so
-     the ring is one ring whatever the shape inside it. */
-  .ledger .mark{position:relative; align-self:center; width:1.25rem; height:1rem}
-  .ledger .mark::after{content:""; position:absolute; left:calc(50% - 5px); top:calc(50% - 5px); width:10px; height:10px; background:var(--c-mid)}
-  .ledger .k-role .mark::after, .ledger .k-independent .mark::after{width:14px; height:14px; left:calc(50% - 7px); top:calc(50% - 7px); background:var(--c-firm); border-radius:2px}
-  .ledger .k-independent .mark::after{background:var(--ground); border:2.5px solid var(--c-firm); box-sizing:border-box}
-  .ledger .k-project .mark::after{width:9px; height:9px; left:calc(50% - 4.5px); top:calc(50% - 4.5px); background:var(--ground); border:2px solid var(--c-mid); box-sizing:border-box; transform:rotate(45deg)}
-  .ledger .k-community .mark::after{border-radius:50%}
-  .ledger .k-education .mark::after{width:11px; height:10px; left:calc(50% - 5.5px); top:calc(50% - 5px); clip-path:polygon(50% 0, 100% 100%, 0 100%)}
+     the ring is one ring whatever the shape inside it.
+
+     A caption that names the shapes in words parts from them the first time a shape changes,
+     so `.glyph` puts the mark itself in the sentence: the same box turned inline, wearing the
+     kind's class directly, and every shape rule below names it beside the ledger's own. There
+     is one triangle in this file and both places draw it. A glyph has no text, so the page
+     labels each one with the shape's name; the ledger's mark is aria-hidden instead, because
+     the line under the name already says the kind. */
+  .ledger .mark, .glyph{position:relative; width:1.25rem; height:1rem}
+  .ledger .mark{align-self:center}
+  .glyph{display:inline-block; vertical-align:middle}
+  .ledger .mark::after, .glyph::after{content:""; position:absolute; left:calc(50% - 5px); top:calc(50% - 5px); width:10px; height:10px; background:var(--c-mid)}
+  .ledger .k-role .mark::after, .ledger .k-independent .mark::after, .glyph.k-role::after, .glyph.k-independent::after{width:14px; height:14px; left:calc(50% - 7px); top:calc(50% - 7px); background:var(--c-firm); border-radius:2px}
+  .ledger .k-independent .mark::after, .glyph.k-independent::after{background:var(--ground); border:2.5px solid var(--c-firm); box-sizing:border-box}
+  .ledger .k-project .mark::after, .glyph.k-project::after{width:9px; height:9px; left:calc(50% - 4.5px); top:calc(50% - 4.5px); background:var(--ground); border:2px solid var(--c-mid); box-sizing:border-box; transform:rotate(45deg)}
+  .ledger .k-community .mark::after, .glyph.k-community::after{border-radius:50%}
+  .ledger .k-education .mark::after, .glyph.k-education::after{width:11px; height:10px; left:calc(50% - 5.5px); top:calc(50% - 5px); clip-path:polygon(50% 0, 100% 100%, 0 100%)}
   .ledger details[open] > summary .mark::before{content:""; position:absolute; left:calc(50% - 10px); top:calc(50% - 10px); width:20px; height:20px; box-sizing:border-box; border:2px solid var(--ink); border-radius:3px}
   /* The track leads: a role or an independent period reads a size up in the title face with
      air above it, everything that began inside one reads a size down at a lighter weight,

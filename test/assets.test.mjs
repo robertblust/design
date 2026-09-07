@@ -88,7 +88,7 @@ test("stage.js no longer carries the card or the dates — it calls rbCard", () 
 
 test("stage.css carries the ledger and the pressed expand control", () => {
   const css = asset("assets/stage.css");
-  for (const sel of [".ledger{", ".ledger summary{", ".ledger .mark::after{", ".ledger .body .card{", '.expand[aria-pressed="true"]{'])
+  for (const sel of [".ledger{", ".ledger summary{", ".ledger .mark::after, .glyph::after{", ".ledger .body .card{", '.expand[aria-pressed="true"]{'])
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
 
@@ -159,15 +159,26 @@ test("stage.css carries the kind filter beside Open all", () => {
   assert.match(css, /\.stagehead \.right\{grid-column:3;/, "the right-hand group does not name its column, and a page with no transport centers it");
 });
 
-test("the ledger's mark is the kind, and the track leads", () => {
+test("the ledger's mark is the kind, and the caption carries the same marks", () => {
   const css = asset("assets/stage.css");
   const decls = (sel) => { const r = css.slice(css.indexOf(sel)); return r.slice(0, r.indexOf("}")); };
-  for (const sel of [".ledger .k-independent .mark::after{", ".ledger .k-project .mark::after{", ".ledger .k-community .mark::after{", ".ledger .k-education .mark::after{", ".ledger li.under::before{"])
+  for (const sel of [".ledger li.under::before{"])
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
-  assert.match(decls("\n  .ledger .k-independent .mark::after{"), /border:2\.5px solid var\(--c-firm\)/, "an independent period is not a hollow square in the track's color");
-  assert.match(decls(".ledger .k-project .mark::after{"), /rotate\(45deg\)/, "a project is not a diamond");
-  assert.match(decls(".ledger .k-community .mark::after{"), /border-radius:50%/, "community work is not a circle");
-  assert.match(decls(".ledger .k-education .mark::after{"), /clip-path:polygon/, "education is not a triangle");
+  // Every shape is drawn once, for the row's mark and for the caption's glyph in the same
+  // rule. A shape changed on one and left on the other is a caption that explains a mark the
+  // ledger no longer draws, which is the drift the pairing exists to prevent.
+  for (const kind of ["independent", "project", "community", "education"])
+    assert.ok(css.includes(`.ledger .k-${kind} .mark::after, .glyph.k-${kind}::after{`),
+      `the ${kind} mark and its glyph are not one rule`);
+  assert.ok(css.includes(".ledger .k-role .mark::after, .ledger .k-independent .mark::after, .glyph.k-role::after, .glyph.k-independent::after{"),
+    "the track's mark and its glyph are not one rule");
+  assert.ok(css.includes(".ledger .mark::after, .glyph::after{"), "the plain square and its glyph are not one rule");
+  assert.match(decls(".ledger .mark, .glyph{"), /width:1\.25rem; height:1rem/, "the glyph is not the mark's box");
+  assert.match(decls("\n  .glyph{"), /display:inline-block; vertical-align:middle/, "the glyph does not sit in a line of prose");
+  assert.match(decls(".ledger .k-independent .mark::after, .glyph.k-independent::after{"), /border:2\.5px solid var\(--c-firm\)/, "an independent period is not a hollow square in the track's color");
+  assert.match(decls(".ledger .k-project .mark::after, .glyph.k-project::after{"), /rotate\(45deg\)/, "a project is not a diamond");
+  assert.match(decls(".ledger .k-community .mark::after, .glyph.k-community::after{"), /border-radius:50%/, "community work is not a circle");
+  assert.match(decls(".ledger .k-education .mark::after, .glyph.k-education::after{"), /clip-path:polygon/, "education is not a triangle");
   assert.match(decls(".ledger details[open] > summary .mark::before{"), /border:2px solid var\(--ink\)/, "the open ring is not on the box");
   assert.match(decls(".ledger .k-role .name, .ledger .k-independent .name{"), /font-size:1\.3rem/, "the track's title did not step up");
   assert.match(decls(".ledger .what{"), /2\.2rem/, "the indent did not widen");
