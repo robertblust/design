@@ -356,12 +356,21 @@
     // translate to the middle of the frame and nothing more.
     var overflowX = k * (x1 - x0) > w, overflowY = k * (y1 - y0) > h;
     // Horizontally, hold the left edge: the path climbs in from the left and the focus sits
-    // after it, so reading order is what should survive the clip, and the focus is never the
-    // thing that falls off. Centering instead pushed the right-hand eyebrow past the edge —
-    // the canvas is only as wide as the card leaves it.
+    // after it, so reading order is what should survive the clip. Centering instead pushed
+    // the right-hand eyebrow past the edge — the canvas is only as wide as the card leaves it.
+    //
+    // But never past the middle. That rule was written believing the focus could not be the
+    // thing that falls off, and on a wide canvas it cannot. The focus is at x 0, so it lands
+    // on screen at tx exactly, and what tx measures is the left arm: the ancestors, the band
+    // of referrers and that band's own eyebrow, which is a sentence rather than a name. On a
+    // phone that arm alone is wider than the canvas, so holding its left edge put the focused
+    // node off the right — a deep link answered with an empty corner, which is the one thing
+    // a camera owes the link. Clamped, the focus is at worst centered, its own name and its
+    // children stay on, and the far end of the left arm becomes what the reader drags to
+    // rather than what the reader is left holding.
     // Vertically, hold the focus: a band overflows in both directions at once and there is no
     // edge worth preferring, only the node the band hangs from.
-    var tx = overflowX ? w * 0.04 - k * x0 : w / 2 - k * (x0 + x1) / 2;
+    var tx = overflowX ? Math.min(w * 0.04 - k * x0, w / 2) : w / 2 - k * (x0 + x1) / 2;
     var ty = overflowY ? h / 2 : h / 2 - k * (y0 + y1) / 2;
     return d3.zoomIdentity.translate(tx, ty).scale(k);
   }
