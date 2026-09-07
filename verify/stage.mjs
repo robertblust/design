@@ -72,6 +72,30 @@ export const STAGE_CHECKS = {
     await click(from.id); await page.waitForTimeout(500);
     const name = await page.evaluate(() => (document.querySelector("#card h3") || {}).textContent);
     if (name !== from.name) return `card shows ${JSON.stringify(name)}, expected ${JSON.stringify(from.name)}`;
+    // The focused node is the one thing the drawing must keep on the canvas. A visitor
+    // arrives on a deep link to it, and a camera that puts it past the edge answers the link
+    // with an empty corner. The camera holds the bounding box's left edge when the drawing
+    // is wider than the frame, and on a narrow canvas the left arm alone — the ancestors,
+    // the band of referrers and that band's own eyebrow — is wider than the whole canvas, so
+    // the focus, which sits at the right end of that arm, went off the right. Asserted at a
+    // phone's width because that is the only width where the arm grows long enough to do it,
+    // and the viewport is put back before anything below reads a geometry again.
+    const restore = page.viewportSize ? page.viewportSize() : null;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(500);
+    const framed = await page.evaluate(() => {
+      const fig = document.getElementById("fig").getBoundingClientRect();
+      const mark = document.querySelector("#fig .n.focus rect");
+      if (!mark) return { missing: true };
+      const r = mark.getBoundingClientRect();
+      return { out: Math.round(Math.max(0, r.right - fig.right, fig.left - r.left)),
+               at: Math.round(r.left - fig.left), w: Math.round(fig.width) };
+    });
+    if (restore) await page.setViewportSize(restore);
+    else await page.setViewportSize({ width: 1280, height: 720 });
+    await page.waitForTimeout(400);
+    if (framed.missing) return "after the walk no node carries .focus, so the drawing says nothing about where you are";
+    if (framed.out) return `at 390px the focused node sits ${framed.out}px outside the canvas — its mark starts at ${framed.at} of ${framed.w}`;
     // Where you are and how you got here, in the drawing rather than only in the breadcrumb.
     // `spine` was set on the ancestor chain and dropped before it reached the DOM, and the
     // focused node wore the same color as a hovered one, so the canvas said neither.
