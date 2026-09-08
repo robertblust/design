@@ -189,10 +189,24 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     // One of them published two descriptions of one person until someone counted the nodes.
     //
     // Compared on a canonical form rather than on the bytes, because two pages that order one
-    // node's keys differently describe the same thing and failing that would be noise. A node
-    // without an @type is a pointer rather than a description, and pages.mjs already requires
-    // every pointer to resolve inside its own document.
-    const canon = (v) => Array.isArray(v) ? v.map(canon)
+    // node's keys differently describe the same thing and failing that would be noise. Arrays
+    // are sorted for the same reason: a JSON-LD list of values is a set, so two hand-written
+    // pages listing one node's sameAs in a different order describe one node, and every
+    // repeated node on the two hand-maintained sites carries a sameAs. Sorting gives up nothing
+    // this check is for — an array that gained or lost an entry is a different node after both
+    // sides are sorted, which is the drift being looked for. A node without an @type is a
+    // pointer rather than a description, and pages.mjs already requires every pointer to
+    // resolve inside its own document.
+    //
+    // A node inlined in part counts as a second shape and is reported: an author block carrying
+    // @type, @id and a name, beside a fuller node under that @id on another page, is a split
+    // here even though every consumer merges the two. That is deliberate, because nothing in
+    // the documents distinguishes an abbreviation from a disagreement, and a comparison that
+    // guessed would stop catching what this exists to catch. The remedy is on the page: make
+    // the partial inline a bare { "@id": … } pointer at the one full description, rather than
+    // loosen the check.
+    const canon = (v) => Array.isArray(v)
+      ? v.map(canon).sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1))
       : v && typeof v === "object"
         ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])]))
         : v;
@@ -203,7 +217,10 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     // everywhere it appears rather than everywhere convenient to look. A parent whose inlined
     // child differs between two pages is then reported twice, once under its own @id and once
     // under the child's — that is accurate rather than noisy, because the child's line names
-    // exactly which one moved.
+    // exactly which one moved. The whole document is walked rather than its @graph, because a
+    // typed node can be written at the top level beside @graph and reading @graph alone would
+    // never see it; the walk descends through ordinary keys, so @graph is reached anyway, and
+    // @context holds a string, which the walk ignores.
     const typed = (o, out = []) => {
       if (Array.isArray(o)) { for (const v of o) typed(v, out); return out; }
       if (!o || typeof o !== "object") return out;
@@ -218,7 +235,7 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
         // A block that does not parse is the seo check's finding, not this one's. Reporting it
         // here too would name one fault twice in different words.
         try { doc = JSON.parse(raw); } catch { continue; }
-        for (const n of typed(doc["@graph"] || doc)) {
+        for (const n of typed(doc)) {
           const byShape = shapes.get(n["@id"]) || new Map();
           const key = JSON.stringify(canon(n));
           byShape.set(key, [...(byShape.get(key) || []), path]);
@@ -231,8 +248,20 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
       [...byShape.values()].reduce((n, paths) => n + paths.length, 0) > 1);
     if (split.length) {
       for (const [id, byShape] of split) {
-        console.log(`✗ shared nodes  ${id} is described ${byShape.size} ways: ` +
-          [...byShape.values()].map((paths) => paths.join(" ")).join(" | "));
+        // The keys that differ are named, because every other finding in this suite can be
+        // acted on from its own line and one that says only "two pages disagree" sends the
+        // reader off to diff two documents by hand. The values are left out: a sameAs or a
+        // description runs long enough to bury the line carrying it. Each shape is already
+        // canonical, so a key whose stringified value is the same in all of them is a key the
+        // pages agree on.
+        const forms = [...byShape.keys()].map((k) => JSON.parse(k));
+        const differing = [...new Set(forms.flatMap((f) => Object.keys(f)))]
+          .filter((k) => new Set(forms.map((f) => JSON.stringify(f[k]))).size > 1);
+        console.log(`✗ shared nodes  ${id} is described ${byShape.size} ways ` +
+          `(differing on: ${differing.join(", ")}): ` +
+          [...byShape.values()].map((paths) => paths.join(" ")).join(" | ") +
+          ` — a node inlined in part counts as a second shape, so make the inline a bare ` +
+          `{ "@id": … } pointer rather than loosen the check`);
         failures++;
       }
     } else if (repeated.length) {

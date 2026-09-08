@@ -21,7 +21,7 @@ function fakePage(ld) {
   };
 }
 // Pages are handed out in the order the runner asks for them, which is the order of PAGES, so
-// a test can give one page a different graph from its neighbour by position.
+// a test can give one page a different graph from its neighbor by position.
 function fakeBrowser(lds = []) {
   let i = 0;
   return { async newPage() { return fakePage(lds[i++]); }, async close() {} };
@@ -370,4 +370,28 @@ test("a node inlined under a property is still compared", async (t) => {
   assert.equal(await runSuite(o), 2,
     "with the walk both the container and the inlined node are reported; only the container " +
     "means the walk never reached inside");
+});
+
+test("a sameAs listed in a different order is not a disagreement", async (t) => {
+  // Arrays are canonicalized too, because a JSON-LD list of values is a set: two hand-written
+  // pages that list one node's addresses in a different order describe one node, and both of
+  // the sites that write these nodes by hand carry a sameAs on every repeated node.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const links = ["https://a.test/", "https://b.test/"];
+  const o = TWO_PAGES(graph(node({ sameAs: links })), graph(node({ sameAs: [...links].reverse() })));
+  assert.equal(await runSuite(o), 0, "an array reordered was reported as a split");
+});
+
+test("a sameAs that gained an entry is still a disagreement", async (t) => {
+  // What sorting must not cost: order stops being a difference, membership does not. This is
+  // the drift the check exists for, and it survives the sort.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const o = TWO_PAGES(
+    graph(node({ sameAs: ["https://a.test/"] })),
+    graph(node({ sameAs: ["https://a.test/", "https://b.test/"] })));
+  assert.ok(await runSuite(o) > 0, "an array that gained an entry passed");
 });
