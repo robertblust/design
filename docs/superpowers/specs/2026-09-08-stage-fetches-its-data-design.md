@@ -45,8 +45,14 @@ terminal.
 **The page names its data and the stage fetches it.**
 
 ```html
-<link rel="preload" as="fetch" href="../model.json" data-stage>
+<link rel="preload" as="fetch" href="../model.json" data-stage crossorigin>
 ```
+
+`crossorigin` is load-bearing rather than decoration: a preload is used only by a request whose
+credentials mode matches it, and without the attribute the stage's `fetch` does not match.
+Measured in Chromium on 2026-09-08, the file was then requested twice and the console carried
+"A preload for '…' is found, but is not used because the request credentials mode does not
+match." With the attribute, one request and a clean console.
 
 The marker stays an attribute rather than an id, which is the property `stage.js`'s own comment
 claims — one script serves both pages because it queries `data-stage`, not a name. And the tag
@@ -55,9 +61,10 @@ is one the card recipe already walks: `sources()` collects every `src` and `href
 reports its card stale. That was verified against the real `sources()` rather than assumed.
 
 **`stage.js` becomes asynchronous at its entry and nowhere else.** Its 922 lines run today
-against a parsed object available when the script evaluates. They become the body of `start(data)`,
-called once the fetch resolves. Nothing inside changes, because nothing inside depends on when it
-ran — only on having the data.
+against a parsed object available when the script evaluates. They become the body of
+`rbStage(data)`, called once the fetch resolves — a global, where the file declared none before,
+because the body used to sit inside an immediately invoked function. Nothing inside changes,
+because nothing inside depends on when it ran — only on having the data.
 
 **A page with no link fails loudly.** This release cannot be taken by re-pinning, and its version
 does not shout — see section 4. So the error is the safety net: a site that syncs the new stage
@@ -109,8 +116,11 @@ changed, what breaks, how to take it, in that order.
 The owner chose this over v1.0.0 deliberately. The cost is that the tag reads like the fifty-four
 routine bumps before it, so nothing about the number tells a reader they cannot simply re-pin.
 The mitigation is mechanical rather than editorial: a site that re-pins and syncs without moving
-its pages fails its own suite, because the stage finds no link and `STAGE_CHECKS.graph` reports
-it. The release notes say so, and the stage's own error says what to do.
+its pages fails its own suite, because the stage finds no link and throws. It has to throw rather
+than log, since `runSuite` skips a check whose key a page's spec leaves undefined — a page that
+never opted into `STAGE_CHECKS.graph` would otherwise pass with a blank figure, while an uncaught
+exception is reported on every page by the `pageerror` listener the suite already has. The release
+notes say so, and the message says what to do.
 
 `version` in `package.json` moves to `0.55.0` in the same commit as the change, because
 `design sync --check` compares the tag a site pins against the version it installed and goes red
@@ -133,9 +143,13 @@ design does not claim them.
 
 ## 6. How it is verified
 
-The stage's own suite covers the entry: a page whose link resolves draws, a page with no link
-fails with a message naming the remedy, and a page whose link 404s fails distinguishably from
-one with no link at all.
+This package asserts the entry's shape and proves its behavior nowhere: it tests with fakes, has
+no DOM harness, and no unit test here executes the bootstrap. What `test/assets.test.mjs` does is
+read `assets/stage.js` for the two things a site depends on — that a page naming no data throws
+rather than returns, so the failure reaches the `pageerror` listener every site's suite already
+has, and that the markup the message names carries `crossorigin` — beside the assertions it
+already makes there about `markH`, spine termination and `data-stage`. The behavior itself is
+proved in each site's own suite, where a real browser loads a real page.
 
 Each site proves the rest. `npm run verify` must pass with `STAGE_CHECKS.graph` reading the
 fetched file, `npm run og:check` must pass with no card re-rendered, and the pages must be

@@ -23,10 +23,17 @@ site's suite a few checks.
 { "groups": ["fonts", "stage"] }   // guestgraph.io takes ["fonts"] — it draws no graph
 ```
 
-A page that draws a stage loads three scripts in this order — `d3.v7.min.js`, `card.js`,
-`stage.js` — and `card.js` before `stage.js` is not a preference: the stage calls `rbCard` on
-the first click and throws without it. A page that only shows cards, blust.ch's timeline,
-loads `card.js` alone.
+A page that draws a stage names the file it draws and loads three scripts in this order —
+`d3.v7.min.js`, `card.js`, `stage.js`. The file is named by a link the stage looks for,
+`<link rel="preload" as="fetch" href="…" data-stage crossorigin>`, and a page that carries none
+throws a message naming that markup rather than drawing an empty figure. `card.js` before
+`stage.js` is not a preference either: the stage calls `rbCard` on the first click and throws
+without it. A page that only shows cards, blust.ch's timeline, loads `card.js` alone and names
+no data.
+
+Such a page has to be served over `http` rather than opened from disk, because `fetch` from a
+`file://` page is blocked and the stage draws nothing without its data. `npm run og` starts its
+own server for that reason; looking at a page by hand needs one too.
 
 ```jsonc
 // package.json
