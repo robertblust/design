@@ -154,22 +154,39 @@ function rbStage(data) {
     if (n.kind === "root") return data.entities.length;
     return data.entities.filter(function(e){ return e.id.indexOf(n.id + "/") === 0; }).length;
   }
-  function refsOut(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.from === n.id; })
-    .map(function(x){ return { node:nEntity(byId[x.to]), attrs:x.attrs, label:x.label, edge:x }; }); }
-  // A proficiency level has no "referred by" band and an experience kind does. That is the
-  // model, not a gap here, and it has been asked about: a kind is a field in an experience's
-  // frontmatter, so R4 makes a real edge experience → kind; a level is a cell in a row of the
-  // profile's Skills table, and R4 makes one edge per row from its FIRST resolving cell — the
-  // skill. The level is left in that edge's `attrs`, already resolved to an id, which is why
-  // `attrText` below can dereference it with `byId`.
+  // One neighbor, once. A table row draws an edge for every reference it names, so a profile
+  // claiming thirty-three skills at Proficient draws thirty-three edges to that one level.
+  // Counted per edge a band reads "referred by · 33 profiles" where the instance holds one
+  // profile, and drawn per edge the canvas puts thirty-three copies of it around the level.
+  // Both want distinct neighbors, so the first edge of a pair stands for the rest and the
+  // others are not drawn. Its `attrs` are one row of several, so a merged neighbor prints the
+  // first row's values beside it and the card carries the rest.
+  function once(list){
+    var seen = {}, out = [];
+    list.forEach(function(r){
+      var id = r.node && r.node.id;
+      if (!id) { out.push(r); return; }
+      if (seen[id]) return;
+      seen[id] = true;
+      out.push(r);
+    });
+    return out;
+  }
+  function refsOut(n){ return n.kind !== "entity" ? [] : once(data.edges.filter(function(x){ return x.from === n.id; })
+    .map(function(x){ return { node:nEntity(byId[x.to]), attrs:x.attrs, label:x.label, edge:x }; })); }
+  // A proficiency level carries a "referred by" band naming the profiles that claim a skill at
+  // it, because a table row draws an edge for every reference the row names — the skill and
+  // the level alike. That is newer than it looks: the rule used to draw one edge per row from
+  // its first resolving cell, so a level was reachable only as a string in the skill edge's
+  // `attrs`, and this band was empty on every level.
   //
-  // So a level qualifies a claim, where a kind is a property of a thing, and matching `attrs`
-  // here would not fix the asymmetry so much as hide it: every row that names a level comes
-  // from the one profile, so the band would read "referred by · 1 profile" on every level.
-  // What a reader actually wants — the skills claimed at that level — is the OTHER end of
-  // those rows, and no skill refers to a level. Left absent deliberately.
-  function refsIn(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.to === n.id; })
-    .map(function(x){ return { node:nEntity(byId[x.from]), attrs:x.attrs, label:x.label, edge:x }; }); }
+  // The level is still in that edge's `attrs` too, already resolved to an id, which is why
+  // `attrText` below can dereference it with `byId`. So the band answers "who claims
+  // something at this level" and the skill's own edge answers "at what level is this claimed";
+  // what neither answers is which skills sit at a level, because no skill refers to one. A
+  // reader after that reads the profile's card, where the rows are.
+  function refsIn(n){ return n.kind !== "entity" ? [] : once(data.edges.filter(function(x){ return x.to === n.id; })
+    .map(function(x){ return { node:nEntity(byId[x.from]), attrs:x.attrs, label:x.label, edge:x }; })); }
 
   // An attribute value is worth putting on the canvas only if it is short enough to read
   // beside a label — a Level is, a paragraph of evidence is not. The card carries the rest.
