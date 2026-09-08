@@ -180,6 +180,13 @@ export async function exportCards({ chromium, recipe, log = console.log }) {
       await browser.close();
     }
   } finally {
-    await new Promise((resolveClose) => srv.close(resolveClose));
+    // `close` stops the server accepting and then waits for every open connection to end, so a
+    // socket Playwright leaves behind would hang the run after the last card is printed, with
+    // nothing on screen to say why. `browser.close()` above makes that unlikely rather than
+    // impossible, and the cost of ruling it out is one line.
+    await new Promise((resolveClose) => {
+      srv.close(resolveClose);
+      srv.closeAllConnections?.();
+    });
   }
 }

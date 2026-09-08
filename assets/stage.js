@@ -18,11 +18,11 @@
 function rbStage(data) {
   if (!data.entities) return;             // the artifact is empty until the site's build has written it
 
-  // Which folder of the model repository this page's block was generated from. The page says
-  // so on #srclink, because the page is the thing that knows: the example page reads
+  // Which folder of the model repository the data this page named was generated from. The page
+  // says so on #srclink, because the page is the thing that knows: the example page reads
   // `example/`, the model page `core/`, and the script only pins the commit.
   var src = document.getElementById("srclink");
-  // Which repository the block came from is the data's business, not this file's: the same
+  // Which repository the data came from is the data's business, not this file's: the same
   // stage draws companygraph.io's example and vocabulary and blust.ch's own model, and they
   // are different repositories. The fallback is the one page whose builder does not emit
   // `repo` yet; remove it when it does.
@@ -693,7 +693,7 @@ function rbStage(data) {
     if (n.kind !== "entity" && !n.entity) {
       // Not empty, and the same shape as an entity's card so the panel never jumps: the
       // path in mono where the entity puts its type and path, then one line of what is
-      // focused and how many pages are filed under it. Both come out of the block.
+      // focused and how many pages are filed under it. Both come out of the fetched data.
       if (n.kind === "folder") {
         bodyEl.appendChild(h("div", n.id, "eyebrow"));
         bodyEl.appendChild(h("p", pagesUnder(n) + " " + t("pages"), "empty"));
@@ -930,20 +930,38 @@ function rbStage(data) {
 // <a>, so the artifact enters each card's hash by being named and a model that changes still
 // reports its card stale.
 //
+// `crossorigin` is what makes the first of those true. A preload is used only by a request whose
+// credentials mode matches it, and without the attribute the fetch below does not match:
+// measured in Chromium, the file was then requested twice and the console carried "A preload for
+// '…' is found, but is not used because the request credentials mode does not match." With the
+// attribute, one request and a clean console. So the markup is
+// <link rel="preload" as="fetch" href="…" data-stage crossorigin>.
+//
 // The failure is loud on purpose. A site takes this release by re-pinning, syncing and changing
 // its pages in one commit; one that does the first two and not the third has a page naming no
 // data, and the message is where that mistake is found.
 (function(){
   var link = document.querySelector("link[data-stage]");
+  // Thrown rather than logged, because nothing in this family reads console output: a site's
+  // suite listens for pageerror and requestfailed, and the card exporter listens for neither. An
+  // uncaught exception is reported on every page of every site, whether or not that page's spec
+  // opted into the graph check — a logged line is reported nowhere. No legitimate page reaches
+  // here without naming data: README.md forbids a deck from loading this file, and the one page
+  // that shows cards alone loads card.js alone.
   if (!link) {
-    console.error('stage.js: this page names no data. Add <link rel="preload" as="fetch" ' +
-      'href="…" data-stage> and rebuild the page.');
-    return;
+    throw new Error('stage.js: this page names no data. Add <link rel="preload" as="fetch" ' +
+      'href="…" data-stage crossorigin> and rebuild the page.');
   }
   fetch(link.href).then(function (res) {
     if (!res.ok) throw new Error("HTTP " + res.status);
     return res.json();
-  }).then(rbStage).catch(function (err) {
+  }).then(function (data) {
+    // Called from a timeout rather than from the chain, so a throw inside the drawing stays an
+    // uncaught exception. It was one before this file fetched anything, and every site's suite
+    // reports those through page.on("pageerror") — inside a promise chain it would become an
+    // unhandled rejection instead, which nothing here listens for.
+    setTimeout(function () { rbStage(data); }, 0);
+  }, function (err) {
     console.error("stage.js: could not read " + link.href + " — " + err.message);
   });
 })();
