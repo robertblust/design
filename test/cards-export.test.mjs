@@ -9,9 +9,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import os from "node:os";
+import fsp from "node:fs/promises";
+import http from "node:http";
 
-import { exportCards, validate } from "../cards/export.mjs";
+import { exportCards, validate, serve } from "../cards/export.mjs";
 
 const ROOT = "/tmp/a-site-that-is-never-read";
 
@@ -124,21 +126,26 @@ test("wait:<ms> is read from the card, not hardcoded to 900", async () => {
   assert.deepEqual(only(calls, "wait").map(([, ms]) => ms), [1500]);
 });
 
-test("a card's hash is appended to the file URL it opens", async () => {
+test("a card's hash is appended to the served URL it opens", async () => {
   // companygraph's. Its model page's stage reads a hash and focuses what it names, so the card
-  // renders that view rather than the page's opening one.
+  // renders that view rather than the page's opening one. The page is served rather than opened
+  // from disk now, because a page that fetches its own data cannot do it from file://.
   const h = harness();
   const calls = await h.run([{ dir: "model", ...FRAME, hash: "#core" }]);
   const [, url, opts] = first(calls, "goto");
-  assert.equal(url, pathToFileURL(path.join(ROOT, "model", "index.html")).href + "#core");
+  assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\//, "must be served, not opened from disk");
+  assert.ok(!url.startsWith("file:"), "must not be a file: URL");
+  assert.ok(url.endsWith("/model/#core"), `expected .../model/#core, got ${url}`);
   assert.equal(opts.waitUntil, "networkidle");
 });
 
 test("a card with no hash opens the page's own URL with nothing appended", async () => {
   const h = harness();
   const calls = await h.run([{ dir: "talks", ...FRAME }]);
-  assert.equal(first(calls, "goto")[1],
-    pathToFileURL(path.join(ROOT, "talks", "index.html")).href);
+  const url = first(calls, "goto")[1];
+  assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\//, "must be served, not opened from disk");
+  assert.ok(!url.startsWith("file:"), "must not be a file: URL");
+  assert.ok(url.endsWith("/talks/"), `expected .../talks/, got ${url}`);
 });
 
 test("a card's own deviceScaleFactor reaches newPage", async () => {
@@ -252,6 +259,21 @@ test("browser.close() runs even when a card throws mid-render, and the error sti
     "browser.close() must still run after a card throws mid-render");
 });
 
+test("the http server is closed after the run, even when a card throws", async () => {
+  // A page cannot fetch its own data from file://, so the exporter now serves the site itself.
+  // A run that throws mid-card must still close that server — otherwise a failed run leaves a
+  // listening socket behind.
+  const h = harness();
+  const boom = new Error("card exploded mid-render");
+  h.page.screenshot = () => Promise.reject(boom);
+  await assert.rejects(h.run([{ dir: ".", ...FRAME }]), (err) => err === boom);
+  const url = first(h.calls, "goto")[1];
+  assert.match(url, /^http:\/\/127\.0\.0\.1:\d+\//, "must be served, not opened from disk");
+  const port = new URL(url).port;
+  await assert.rejects(fetch(`http://127.0.0.1:${port}/`),
+    "the server must not still be listening after a card throws");
+});
+
 test("validate rejects an unknown key", () => {
   assert.throws(() => validate([{ dir: ".", ...FRAME, wat: 1 }]), /unknown key "wat"/);
 });
@@ -278,8 +300,8 @@ test("validate rejects wait: with no number, and a fractional one", () => {
 
 test("validate rejects from: \"file\", so guestgraph cannot keep a key nothing reads", () => {
   // Guestgraph's exporter threw unless every card said `from: "file"`. Nothing in this renderer
-  // reads that key — every page in the family renders from file:// — so a card carrying it
-  // hashes a distinction no render makes. Task 8 drops it; this is what says so if it does not.
+  // reads that key — no card in any of the three sites' recipes sets it — so a card carrying it
+  // hashes a distinction nothing acts on. Task 8 drops it; this is what says so if it does not.
   assert.throws(() => validate([{ dir: ".", ...FRAME, from: "file" }]), /unknown key "from"/);
 });
 
@@ -299,4 +321,122 @@ test("each card is logged with the path written and the size it was written at",
   const h = harness();
   await h.run([{ dir: "talks/intro", ...FRAME }]);
   assert.deepEqual(h.logs, ["  ✓ talks/intro/og.png 1200×630"]);
+});
+
+// `serve` is what a card's browser actually talks to, and the failure it exists to prevent —
+// a script served as the wrong type — errors nowhere: the page just never runs it. Nothing but
+// hitting a real listening server with a real HTTP request tells the two apart, so these tests
+// build a small fixture on disk, start `serve` on it, and make requests with `fetch` rather than
+// re-deriving what the handler is supposed to do.
+//
+// The fixture sits inside a directory whose name is a literal string prefix of a sibling
+// directory's name (`root` / `rootsibling`) — that pairing is what the trailing-separator check
+// in `serve` exists for: a naive `startsWith(rootResolved)` would let a request that escapes
+// into `rootsibling` pass as still being inside `root`.
+async function withServedSite(fn) {
+  const parent = await fsp.mkdtemp(path.join(os.tmpdir(), "design-export-serve-"));
+  const root = path.join(parent, "root");
+  const files = {
+    "index.html": "<!doctype html><title>root</title>",
+    "script.js": "// a card's page script",
+    "data.json": JSON.stringify({ ok: true }),
+    "model/index.html": "<!doctype html><title>model</title>",
+  };
+  for (const [rel, content] of Object.entries(files)) {
+    const full = path.join(root, rel);
+    await fsp.mkdir(path.dirname(full), { recursive: true });
+    await fsp.writeFile(full, content);
+  }
+  const secret = path.join(parent, "secret.txt");
+  await fsp.writeFile(secret, "not part of the site");
+  const siblingSecret = path.join(parent, "rootsibling", "secret.txt");
+  await fsp.mkdir(path.dirname(siblingSecret), { recursive: true });
+  await fsp.writeFile(siblingSecret, "not part of the site either");
+
+  const srv = await serve(root);
+  const base = `http://127.0.0.1:${srv.address().port}`;
+  try {
+    await fn(base);
+  } finally {
+    await new Promise((resolve) => srv.close(resolve));
+  }
+}
+
+// `fetch` parses its URL first and quietly collapses a `..` segment before the request ever
+// leaves the process — so a traversal path handed to `fetch` never reaches `serve` as written.
+// A raw request, the kind a client under no obligation to normalize anything can send (and the
+// kind used to probe this server the first time), is what actually exercises the containment
+// check.
+function rawGet(base, rawPath) {
+  const { hostname, port } = new URL(base);
+  return new Promise((resolve, reject) => {
+    http.get({ hostname, port, path: rawPath }, (res) => {
+      let body = "";
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => resolve({ status: res.statusCode, body }));
+    }).on("error", reject);
+  });
+}
+
+test("a .js file is served as text/javascript and a .json file as application/json", async () => {
+  // Task 1 and 2's fetch and JSON module import both depend on exactly this: a script served as
+  // anything else silently does not run, and a JSON module import fails outright on the wrong
+  // type.
+  await withServedSite(async (base) => {
+    const js = await fetch(`${base}/script.js`);
+    assert.equal(js.headers.get("content-type"), "text/javascript");
+    const json = await fetch(`${base}/data.json`);
+    assert.equal(json.headers.get("content-type"), "application/json");
+  });
+});
+
+test("a request ending in / serves that directory's index.html, with a charset", async () => {
+  // Every page in the family declares its own <meta charset>, so nothing renders wrong today —
+  // but a future page that forgets it would fall back to whatever Chromium guesses, silently,
+  // which is the same failure class the type table exists to prevent. text/html and text/css
+  // are the two rows this covers.
+  await withServedSite(async (base) => {
+    const res = await fetch(`${base}/model/`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("content-type"), "text/html; charset=utf-8");
+    assert.match(await res.text(), /<title>model<\/title>/);
+  });
+});
+
+test("a file that does not exist is a 404, not a thrown exception", async () => {
+  await withServedSite(async (base) => {
+    const res = await fetch(`${base}/nope.html`);
+    assert.equal(res.status, 404);
+  });
+});
+
+test("a traversal attempt is refused, however it is spelled", async () => {
+  // Each of these resolves, once path.join collapses the `..` segments, to a real file outside
+  // root — the file exists and readFileSync would happily return it. Refusing them is the
+  // containment check in `serve`, not `fs` ever failing to find the file. Sent raw: see rawGet.
+  await withServedSite(async (base) => {
+    for (const p of ["/../secret.txt", "/%2e%2e/secret.txt", "/..%2fsecret.txt",
+                      "/model/../../secret.txt"]) {
+      const { status, body } = await rawGet(base, p);
+      assert.equal(status, 404, `expected 404 for ${p}, got ${status}`);
+      assert.ok(!body.includes("not part of the site"), `${p} leaked secret.txt's content`);
+    }
+  });
+});
+
+test("a traversal into a same-prefixed sibling directory is refused", async () => {
+  // root's directory name ("root") is a literal string prefix of the sibling's ("rootsibling"),
+  // so a containment check with no trailing separator on the prefix would let this one through.
+  await withServedSite(async (base) => {
+    const { status, body } = await rawGet(base, "/../rootsibling/secret.txt");
+    assert.equal(status, 404);
+    assert.ok(!body.includes("not part of the site either"));
+  });
+});
+
+test("a malformed escape is a 404, not an uncaught exception that kills the run", async () => {
+  await withServedSite(async (base) => {
+    const { status } = await rawGet(base, "/%zz.html");
+    assert.equal(status, 404);
+  });
 });

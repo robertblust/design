@@ -34,6 +34,34 @@ test("stage.js reads its data from a data-stage element, so it stays generic", (
   assert.match(asset("assets/stage.js"), /data-stage/);
 });
 
+test("a page that names no data throws, and the markup the message names carries crossorigin", () => {
+  // Read rather than run: this package has no DOM harness and nothing here executes the
+  // bootstrap, so its shape is what can be guarded and each site's suite proves the behavior.
+  // Both halves matter to a site. A throw reaches page.on("pageerror") on every page, where a
+  // console line reaches nothing — runSuite skips a check whose key is undefined, so a stage
+  // page that never opted into `graph` would otherwise go green with a blank figure. And a
+  // preload without `crossorigin` is not used: the file is requested twice.
+  const js = asset("assets/stage.js");
+  const boot = js.slice(js.indexOf('document.querySelector("link[data-stage]")'));
+  assert.match(boot, /throw new Error\('stage\.js: this page names no data/,
+    "a page naming no data is only logged about, so no suite reports it");
+  assert.match(boot, /data-stage crossorigin>/,
+    "the markup the message names preloads in a mode the fetch does not use");
+});
+
+test("the drawing runs outside the fetch's promise chain, so its own throws stay uncaught", () => {
+  // The body used to run in a synchronous IIFE, and anything it threw was an uncaught exception
+  // every site's suite reported. Handed to .then it would become an unhandled rejection instead,
+  // which nothing in this family listens for — and a catch after it would blame the file for a
+  // bug in the code. So the fetch's rejection gets its own handler and the drawing gets a task.
+  const js = asset("assets/stage.js");
+  const boot = js.slice(js.indexOf('document.querySelector("link[data-stage]")'));
+  assert.match(boot, /setTimeout\(function \(\) \{ rbStage\(data\); \}, 0\)/,
+    "the drawing is called from inside the promise chain");
+  assert.ok(!/\.then\(rbStage\)/.test(boot), "the drawing is still the chain's fulfillment handler");
+  assert.ok(!/\.catch\(/.test(boot), "a trailing catch swallows whatever the drawing throws");
+});
+
 test("every asset is non-empty", () => {
   for (const name of GROUP_NAMES)
     for (const [from] of GROUPS[name]) {

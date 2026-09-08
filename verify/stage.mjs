@@ -6,14 +6,31 @@
 // repository still rendering the bug it catches. Both halves of that fix, the repair in
 // stage.js and the assertion here, now travel together or not at all.
 //
-// Neither check knows which site it is running against: `graph` takes the id of the page's
-// data element from `spec.graph`, and `divider` needs nothing. That is why they could move
-// unchanged.
+// Neither check knows which site it is running against: `graph` finds the page's data through
+// the `link[data-stage]` every page carries, and `divider` needs nothing. That is why they
+// could move unchanged.
 
 export const STAGE_CHECKS = {
   async graph(page, spec) {
-    const data = await page.evaluate((id) => JSON.parse(document.getElementById(id).textContent), spec.graph);
-    if (!data.entities) return "the data block is empty — the site's build has not written it";
+    // The same file the stage reads, found the same way, so the check and the page cannot
+    // disagree about where the data is. It used to parse an element the build had inlined; a
+    // page now names its data and both of us fetch it.
+    //
+    // Two failures, two messages, because their remedies are opposite. A page naming no data is
+    // a build that has not been changed to emit the link, so it is the markup that is named
+    // here — running the build again is exactly what will not fix it. A link that answers
+    // anything but 200 is a build that ran and wrote the page but not the artifact it names, or
+    // named the wrong path, so the message carries the URL and the status.
+    const found = await page.evaluate(async () => {
+      const link = document.querySelector("link[data-stage]");
+      if (!link) return { error: 'the page names no data — add <link rel="preload" as="fetch" href="…" data-stage crossorigin> to it and rebuild' };
+      const res = await fetch(link.href);
+      if (!res.ok) return { error: `the page names ${link.href}, and it answers HTTP ${res.status}` };
+      return { data: await res.json() };
+    });
+    if (found.error) return found.error;
+    const data = found.data;
+    if (!data.entities) return "the data the page names is empty — the site's build has not written it";
     // The source link and its short commit are rewritten by the script from the block's own
     // commit, so a stale generator that leaves the markup's placeholder in place would pass
     // every other check here while pointing at the wrong tree.

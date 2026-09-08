@@ -38,3 +38,17 @@ test("neither check hardcodes a site or a base URL", () => {
     "a site origin leaked into a shared check");
   assert.ok(!/localhost:8000/.test(src), "a base URL leaked into a shared check");
 });
+
+test("graph reads the file the page names, not an inlined element", () => {
+  const src = fs.readFileSync(new URL("../verify/stage.mjs", import.meta.url), "utf8");
+  assert.ok(!/getElementById\(id\)/.test(src),
+    "the graph check still reads an inlined element by id");
+  assert.match(src, /link\[data-stage\]/,
+    "the graph check does not look for the link the page names its data with");
+});
+
+test("graph distinguishes a page that names no data from one whose data is missing", () => {
+  const src = fs.readFileSync(new URL("../verify/stage.mjs", import.meta.url), "utf8");
+  assert.match(src, /names no data/, "no message for a page that names no data");
+  assert.match(src, /HTTP/, "no message for a named file that does not load");
+});
