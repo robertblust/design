@@ -1,4 +1,4 @@
-// The stage: one drawing and one card, shared by every page that carries a data block —
+// The stage: one drawing and one card, shared by every page that names its data —
 // the example page's instance and the model page's vocabulary are the same shapes with
 // different files behind them, so this is a file both link rather than a copy in each.
 //
@@ -9,16 +9,14 @@
 // when the focus changes; under prefers-reduced-motion every transition is 0 ms, which is also
 // the state the share card renders.
 //
-// Nothing in this script knows a name from either page. It reads types, entities and edges
-// out of the page's data block — the one <script type="application/json"> the page marks
-// data-stage, whatever its id — and derives every label, path and count from them; the only
-// strings it carries are the two band eyebrows and the root/folder card's word for "pages",
-// which the site's language toggle swaps through t(). The entity card and every date are
-// rbCard's, from card.js, which a page loads before this file — or the first click throws.
-(function(){
-  var block = document.querySelector('script[type="application/json"][data-stage]');
-  var data = JSON.parse(block.textContent);
-  if (!data.entities) return;             // the page's data block is empty until the site's build has written it
+// Nothing in this script knows a name from either page. It takes types, entities and edges as
+// data the page named and the bootstrap fetched, and derives every label, path and count from
+// them; the only strings it carries are the two band eyebrows and the root/folder card's word
+// for "pages", which the site's language toggle swaps through t(). The entity card and every
+// date are rbCard's, from card.js, which a page loads before this file — or the first click
+// throws.
+function rbStage(data) {
+  if (!data.entities) return;             // the artifact is empty until the site's build has written it
 
   // Which folder of the model repository this page's block was generated from. The page says
   // so on #srclink, because the page is the thing that knows: the example page reads
@@ -919,4 +917,33 @@
     modal.tabIndex = -1;
     modal.focus({ preventScroll: true });
   }
+}
+
+// The page names the file this stage draws, and the stage fetches it. It used to read a
+// <script type="application/json"> the build had inlined, which meant a page carried the whole
+// model in order to draw it — three hundred kilobytes on blust.ch, in each of two pages, of a
+// file that site already commits and serves at a stable URL. The marker is still an attribute
+// rather than an id, so one script still serves every page that names one.
+//
+// A preload link rather than a bare href, for two reasons that happen to agree: the browser
+// starts the request before this script runs, and `cards/recipe.mjs` walks every href outside an
+// <a>, so the artifact enters each card's hash by being named and a model that changes still
+// reports its card stale.
+//
+// The failure is loud on purpose. A site takes this release by re-pinning, syncing and changing
+// its pages in one commit; one that does the first two and not the third has a page naming no
+// data, and the message is where that mistake is found.
+(function(){
+  var link = document.querySelector("link[data-stage]");
+  if (!link) {
+    console.error('stage.js: this page names no data. Add <link rel="preload" as="fetch" ' +
+      'href="…" data-stage> and rebuild the page.');
+    return;
+  }
+  fetch(link.href).then(function (res) {
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  }).then(rbStage).catch(function (err) {
+    console.error("stage.js: could not read " + link.href + " — " + err.message);
+  });
 })();
