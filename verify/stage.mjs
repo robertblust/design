@@ -6,14 +6,25 @@
 // repository still rendering the bug it catches. Both halves of that fix, the repair in
 // stage.js and the assertion here, now travel together or not at all.
 //
-// Neither check knows which site it is running against: `graph` takes the id of the page's
-// data element from `spec.graph`, and `divider` needs nothing. That is why they could move
-// unchanged.
+// Neither check knows which site it is running against: `graph` finds the page's data through
+// the `link[data-stage]` every page carries, and `divider` needs nothing. That is why they
+// could move unchanged.
 
 export const STAGE_CHECKS = {
   async graph(page, spec) {
-    const data = await page.evaluate((id) => JSON.parse(document.getElementById(id).textContent), spec.graph);
-    if (!data.entities) return "the data block is empty — the site's build has not written it";
+    // The same file the stage reads, found the same way, so the check and the page cannot
+    // disagree about where the data is. It used to parse an element the build had inlined; a
+    // page now names its data and both of us fetch it.
+    const found = await page.evaluate(async () => {
+      const link = document.querySelector("link[data-stage]");
+      if (!link) return { error: "names no data" };
+      const res = await fetch(link.href);
+      if (!res.ok) return { error: "HTTP " + res.status + " for " + link.href };
+      return { data: await res.json() };
+    });
+    if (found.error) return `the page ${found.error} — run the site's build`;
+    const data = found.data;
+    if (!data.entities) return "the data the page names is empty — the site's build has not written it";
     // The source link and its short commit are rewritten by the script from the block's own
     // commit, so a stale generator that leaves the markup's placeholder in place would pass
     // every other check here while pointing at the wrong tree.
