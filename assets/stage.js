@@ -18,7 +18,7 @@
 (function(){
   var block = document.querySelector('script[type="application/json"][data-stage]');
   var data = JSON.parse(block.textContent);
-  if (!data.entities) return;             // the page's data block is empty until npm run example
+  if (!data.entities) return;             // the page's data block is empty until the site's build has written it
 
   // Which folder of the model repository this page's block was generated from. The page says
   // so on #srclink, because the page is the thing that knows: the example page reads

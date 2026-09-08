@@ -13,7 +13,7 @@
 export const STAGE_CHECKS = {
   async graph(page, spec) {
     const data = await page.evaluate((id) => JSON.parse(document.getElementById(id).textContent), spec.graph);
-    if (!data.entities) return "the data block is empty — run: npm run example";
+    if (!data.entities) return "the data block is empty — the site's build has not written it";
     // The source link and its short commit are rewritten by the script from the block's own
     // commit, so a stale generator that leaves the markup's placeholder in place would pass
     // every other check here while pointing at the wrong tree.
