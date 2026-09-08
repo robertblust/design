@@ -219,13 +219,20 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     // under the child's — that is accurate rather than noisy, because the child's line names
     // exactly which one moved. The whole document is walked rather than its @graph, because a
     // typed node can be written at the top level beside @graph and reading @graph alone would
-    // never see it; the walk descends through ordinary keys, so @graph is reached anyway, and
-    // @context holds a string, which the walk ignores.
+    // never see it; the walk descends through ordinary keys, so @graph is reached anyway.
+    //
+    // @context is skipped rather than trusted to be a string. It usually is one here, but the
+    // object form is legal and its term definitions carry both @id and @type — a coercion like
+    // { "foo": { "@id": "…", "@type": "@id" } } is indistinguishable from a node by the test
+    // below, and would be compared as one. Skipping the key is what makes the sentence above
+    // true of the walk rather than of today's pages.
     const typed = (o, out = []) => {
       if (Array.isArray(o)) { for (const v of o) typed(v, out); return out; }
       if (!o || typeof o !== "object") return out;
       if (o["@id"] && o["@type"]) out.push(o);
-      for (const [k, v] of Object.entries(o)) if (k !== "@id" && k !== "@type") typed(v, out);
+      for (const [k, v] of Object.entries(o)) {
+        if (k !== "@id" && k !== "@type" && k !== "@context") typed(v, out);
+      }
       return out;
     };
     const shapes = new Map();

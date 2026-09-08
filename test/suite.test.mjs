@@ -395,3 +395,21 @@ test("a sameAs that gained an entry is still a disagreement", async (t) => {
     graph(node({ sameAs: ["https://a.test/", "https://b.test/"] })));
   assert.ok(await runSuite(o) > 0, "an array that gained an entry passed");
 });
+
+test("a term definition inside an object @context is not a node", async (t) => {
+  // @context may legally be an object, and its term definitions carry both @id and @type — a
+  // coercion is shaped exactly like a node to any test that asks for those two keys. These two
+  // pages agree about every node they describe and differ only in how one term is coerced,
+  // which is a difference about vocabulary rather than about the thing described, so the walk
+  // skips the key rather than trusting @context to be a string.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const withContext = (coercion) => [JSON.stringify({
+    "@context": { schema: "https://schema.org/", foo: { "@id": "https://x.test/#foo", "@type": coercion } },
+    "@graph": [node()],
+  })];
+  const o = TWO_PAGES(withContext("@id"), withContext("@vocab"));
+  assert.equal(await runSuite(o), 0,
+    "a term definition in @context was compared as though it were a node");
+});
