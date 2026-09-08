@@ -5,18 +5,26 @@ import { runSuite } from "@robertblust/design/verify/suite";
 // A page that answers the handful of calls the runner makes of it, and records nothing else.
 // Checks themselves are supplied by the test, so this only has to be good enough to get the
 // loop running.
-function fakePage() {
+//
+// `ld` is what this page's `evaluate` answers. The runner calls evaluate twice per page — once
+// to await document.fonts, once to collect the page's JSON-LD — and discards the first result,
+// so one answer serves both. A page given no `ld` answers null, which is what a page carrying
+// no JSON-LD looks like to the collector.
+function fakePage(ld) {
   return {
     // The runner's own gate is `if (!res || !res.ok())`, so the stub's response must satisfy
     // it — an empty goto() answers "no response" on every single run, which is not the clean
     // pass the "clean site" test needs.
     async goto() { return { ok: () => true, status: () => 200 }; },
-    async close() {}, async evaluate() { return null; },
+    async close() {}, async evaluate() { return ld ?? null; },
     async $() { return null; }, on() {}, context: () => ({ browser: () => fakeBrowser() }),
   };
 }
-function fakeBrowser() {
-  return { async newPage() { return fakePage(); }, async close() {} };
+// Pages are handed out in the order the runner asks for them, which is the order of PAGES, so
+// a test can give one page a different graph from its neighbour by position.
+function fakeBrowser(lds = []) {
+  let i = 0;
+  return { async newPage() { return fakePage(lds[i++]); }, async close() {} };
 }
 
 // Every site-wide fetch the runner makes, answered well enough to pass. Individual tests
@@ -227,10 +235,17 @@ test("the fonts wait happens after the page loads and before checks run", async 
   t.after(() => { globalThis.fetch = real; });
 
   const order = [];
+  // The runner calls evaluate() twice — once for the fonts wait, once (added by the shared-node
+  // check) to collect the page's JSON-LD after CHECKS closes — so this fake counts calls and
+  // labels each by position, rather than recording every evaluate() as the same word. That
+  // keeps the assertion below able to prove both that the fonts wait runs where it should and
+  // that graph collection runs exactly once, exactly after the checks — the full call sequence
+  // the runner makes of a page, not just a subsequence of it.
+  let evalCalls = 0;
   const page = {
     async goto() { order.push("goto"); return { ok: () => true, status: () => 200 }; },
     async close() {},
-    async evaluate() { order.push("fonts"); return null; },
+    async evaluate() { order.push(++evalCalls === 1 ? "fonts" : "graph"); return null; },
     async $() { return null; }, on() {}, context: () => ({ browser: () => browser }),
   };
   const browser = { async newPage() { return page; }, async close() {} };
@@ -241,8 +256,8 @@ test("the fonts wait happens after the page loads and before checks run", async 
   o.PAGES[0].ordering = true;
 
   await runSuite(o);
-  assert.deepEqual(order, ["goto", "fonts", "check"],
-    "the fonts wait did not run between the page loading and its checks");
+  assert.deepEqual(order, ["goto", "fonts", "check", "graph"],
+    "the runner's call sequence to a page no longer matches goto, fonts, checks, graph");
 });
 
 test("runSuite returns rather than exiting", async (t) => {
@@ -265,4 +280,94 @@ test("runSuite returns rather than exiting", async (t) => {
   await runSuite(bad);
 
   assert.deepEqual(exitCalls, [], "process.exit was called during this file's runSuite calls");
+});
+
+// One node, described the same way twice. `node()` builds the JSON-LD text a page would carry.
+const node = (over = {}) => ({
+  "@type": "WebSite", "@id": "https://x.test/#website", name: "X", ...over,
+});
+const graph = (...nodes) => [JSON.stringify({ "@context": "https://schema.org", "@graph": nodes })];
+
+const TWO_PAGES = (a, b) => {
+  const o = OPTS();
+  o.PAGES = [
+    { path: "/", seo: true, tokenVersion: true, fences: ["design tokens"], typography: true },
+    { path: "/two/", seo: true, tokenVersion: true, fences: ["design tokens"], typography: true },
+  ];
+  o.browser = fakeBrowser([a, b]);
+  return o;
+};
+
+const TWO_PAGE_FETCH = () => fakeFetch({
+  "/two/": "<html></html>",
+  "/sitemap.xml": `<urlset><loc>https://x.test/</loc><loc>https://x.test/two/</loc></urlset>`,
+});
+
+test("two pages describing one id the same way pass", async (t) => {
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  assert.equal(await runSuite(TWO_PAGES(graph(node()), graph(node()))), 0);
+});
+
+test("two pages describing one id differently is a failure", async (t) => {
+  // The drift this exists to catch: one page's copy of a shared node gained a field and the
+  // other's did not, which no per-page check can see because neither page is wrong alone.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const o = TWO_PAGES(graph(node()), graph(node({ sameAs: ["https://elsewhere.test/"] })));
+  assert.ok(await runSuite(o) > 0, "a split node passed");
+});
+
+test("key order alone is not a disagreement", async (t) => {
+  // Compared on a canonical form, because two pages that order one node's keys differently
+  // describe the same thing and failing that would be noise rather than a finding.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const a = [JSON.stringify({ "@context": "https://schema.org", "@graph": [
+    { "@type": "WebSite", "@id": "https://x.test/#website", name: "X" }] })];
+  const b = [JSON.stringify({ "@context": "https://schema.org", "@graph": [
+    { name: "X", "@id": "https://x.test/#website", "@type": "WebSite" }] })];
+  assert.equal(await runSuite(TWO_PAGES(a, b)), 0);
+});
+
+test("a pointer is not compared against the node it points at", async (t) => {
+  // A bare { "@id": … } describes nothing, and pages.mjs already requires every pointer to
+  // resolve inside its own document. Comparing them here would report that twice.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const withPointer = [JSON.stringify({ "@context": "https://schema.org", "@graph": [
+    node(),
+    { "@type": "WebPage", "@id": "https://x.test/two/#webpage", isPartOf: { "@id": "https://x.test/#website" } },
+  ] })];
+  assert.equal(await runSuite(TWO_PAGES(graph(node()), withPointer)), 0);
+});
+
+test("a node inlined under a property is still compared", async (t) => {
+  // companygraph.io's DefinedTerms hang off hasDefinedTerm rather than sitting at the top of
+  // @graph, and pages.mjs already treats a node inlined that way as a definition in its own
+  // right. A rule that says "wherever its @id appears" has to reach there too, or the same
+  // drift this check exists to catch could hide one property deep.
+  const real = globalThis.fetch;
+  globalThis.fetch = TWO_PAGE_FETCH();
+  t.after(() => { globalThis.fetch = real; });
+  const term = (over = {}) => ({
+    "@type": "DefinedTerm", "@id": "https://x.test/#glossary-x", name: "X", ...over,
+  });
+  const withTerm = (d) => [JSON.stringify({ "@context": "https://schema.org", "@graph": [
+    { ...node(), hasDefinedTerm: d },
+  ] })];
+  const o = TWO_PAGES(withTerm(term()), withTerm(term({ description: "changed" })));
+  // An exact count, not merely > 0: the inlined term sits inside the outer WebSite node's own
+  // object, so changing the term also changes the container's canonical form. A looser
+  // assertion would pass on the container's own split alone, whether or not the walk ever
+  // reached inside it — which is exactly the gap this test exists to close. Two failures means
+  // both the container and the inlined node were reported; one would mean the walk never
+  // looked inside.
+  assert.equal(await runSuite(o), 2,
+    "with the walk both the container and the inlined node are reported; only the container " +
+    "means the walk never reached inside");
 });

@@ -66,6 +66,11 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
   // alongside it would mean teaching a weaker check about every variant the stronger one
   // already handles for free — so it is deleted, not adjusted.
 
+  // Filled by the loop, read by the site-wide check below: a page cannot see another page, and
+  // two pages describing one @id differently is a disagreement neither of them is wrong about
+  // alone.
+  const graphs = new Map();
+
   for (const spec of PAGES) {
     const page = await browser.newPage();
     const jsErrors = [];
@@ -96,6 +101,9 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
         const problem = await fn(page, spec);
         if (problem) problems.push(`${name}: ${problem}`);
       }
+      graphs.set(spec.path, (await page.evaluate(() =>
+        [...document.querySelectorAll('script[type="application/ld+json"]')]
+          .map((s) => s.textContent))) || []);
     } catch (e) {
       problems.push(String(e));
     }
@@ -164,6 +172,73 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
         if (dead.length) { console.log("✗ /robots.txt  names sitemap(s) that do not exist: " + dead.join(", ")); failures++; }
         else console.log(`✓ /robots.txt  ${named.length} sitemap(s), all reachable`);
       }
+    }
+
+    // A node is identical wherever its @id appears. Nothing configures which nodes those are,
+    // because the sites already say it themselves: a node belonging to one page carries a
+    // page-specific id — /model/#webpage — while a node describing the person, the site or the
+    // organization carries one id on every page. So the id is the key, and a second shape under
+    // one key is a contradiction rather than a variant.
+    //
+    // This is the weaker half of a pair, and the note at the top of this file is why that has
+    // to be said out loud: the token block's page-against-page check was deleted because
+    // design:check compares each page against what this package ships, which is stronger than
+    // pages agreeing with each other. That reasoning holds and it locates this check rather than
+    // forbidding it — a site that generates its graph from a source has the stronger check and
+    // this one is redundant there, while a site that writes these nodes by hand has neither.
+    // One of them published two descriptions of one person until someone counted the nodes.
+    //
+    // Compared on a canonical form rather than on the bytes, because two pages that order one
+    // node's keys differently describe the same thing and failing that would be noise. A node
+    // without an @type is a pointer rather than a description, and pages.mjs already requires
+    // every pointer to resolve inside its own document.
+    const canon = (v) => Array.isArray(v) ? v.map(canon)
+      : v && typeof v === "object"
+        ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])]))
+        : v;
+    // Reached by walking the document rather than by reading @graph, because a node inlined
+    // under a property still describes something — companygraph.io's nine DefinedTerms hang off
+    // hasDefinedTerm and carry ids of their own. pages.mjs already counts those as definitions
+    // for its pointer check, and a rule that says "wherever its @id appears" has to mean
+    // everywhere it appears rather than everywhere convenient to look. A parent whose inlined
+    // child differs between two pages is then reported twice, once under its own @id and once
+    // under the child's — that is accurate rather than noisy, because the child's line names
+    // exactly which one moved.
+    const typed = (o, out = []) => {
+      if (Array.isArray(o)) { for (const v of o) typed(v, out); return out; }
+      if (!o || typeof o !== "object") return out;
+      if (o["@id"] && o["@type"]) out.push(o);
+      for (const [k, v] of Object.entries(o)) if (k !== "@id" && k !== "@type") typed(v, out);
+      return out;
+    };
+    const shapes = new Map();
+    for (const [path, blocks] of graphs) {
+      for (const raw of blocks) {
+        let doc;
+        // A block that does not parse is the seo check's finding, not this one's. Reporting it
+        // here too would name one fault twice in different words.
+        try { doc = JSON.parse(raw); } catch { continue; }
+        for (const n of typed(doc["@graph"] || doc)) {
+          const byShape = shapes.get(n["@id"]) || new Map();
+          const key = JSON.stringify(canon(n));
+          byShape.set(key, [...(byShape.get(key) || []), path]);
+          shapes.set(n["@id"], byShape);
+        }
+      }
+    }
+    const split = [...shapes].filter(([, byShape]) => byShape.size > 1);
+    const repeated = [...shapes].filter(([, byShape]) =>
+      [...byShape.values()].reduce((n, paths) => n + paths.length, 0) > 1);
+    if (split.length) {
+      for (const [id, byShape] of split) {
+        console.log(`✗ shared nodes  ${id} is described ${byShape.size} ways: ` +
+          [...byShape.values()].map((paths) => paths.join(" ")).join(" | "));
+        failures++;
+      }
+    } else if (repeated.length) {
+      console.log(`✓ shared nodes  ${repeated.length} id(s) identical across ${graphs.size} pages`);
+    } else {
+      console.log("✓ shared nodes  no node appears on more than one page");
     }
   }
 
