@@ -1,8 +1,9 @@
 # A node is identical wherever its @id appears — design
 
 > One site-wide check in the shared suite: two pages of a site may not describe the same
-> `@id` differently. Plus a comment in `assets/stage.js` that names one site's build command
-> in a file three sites carry. One minor release, three re-pins.
+> `@id` differently. Plus two places in the stage, a comment in `assets/stage.js` and a failure
+> message in `verify/stage.mjs`, that name one site's build command in files three sites take.
+> One minor release, three re-pins.
 
 Status: proposed. Decided on 2026-09-08 against the three sites in production and this
 repository at `main`. Every number below was counted, not estimated.
@@ -42,22 +43,36 @@ configuration, because the sites already encode the distinction themselves: a no
 one page carries a page-specific id — `https://companygraph.io/model/#webpage` — while a node
 describing the person, the site or the organization carries one id on every page. So the id is
 the key, and a second shape under one key is a contradiction rather than a variant. The rule was
-measured rather than reasoned: every `@id` appearing on more than one page of any of the three
-sites carries one shape today, so the check lands green everywhere and with no false positive.
+measured rather than reasoned, and measured twice, because the first count read only the
+top-level `@graph` and the walk that shipped registers strictly more nodes than that: it was
+re-run against the three sites under the shipped walk. Under that walk, every `@id` appearing on
+more than one page of any of the three sites carries one shape today, so the check lands green
+everywhere and with no false positive.
 
 **It lives in `verify/suite.mjs`, in the block that runs after the page loop.** That block
 already holds the checks which are not about any one page — the sitemap, the favicon, the
 `robots.txt` sitemap references — and the file's own header names it as such. The page loop
 gains one line, collecting each page's `ld+json` text; nothing else about the loop changes.
 
-**Comparison is on a canonical form**, keys sorted recursively, so what is compared is the node
-rather than its formatting. A node reached by two pages that differ only in key order is the
-same node and this is not the check to fail it; a node whose `sameAs` gained an address on one
-page is a different node and is what this exists to catch.
+**Comparison is on a canonical form**, keys sorted recursively and arrays sorted by their own
+canonical form, so what is compared is the node rather than its formatting. A JSON-LD list of
+values is a set, so order is formatting too, and both hand-maintained sites carry a `sameAs` on
+every repeated node. A node reached by two pages that differ only in key order or in list order
+is the same node and this is not the check to fail it; a node whose `sameAs` gained an address
+on one page is a different node after both sides are sorted and is what this exists to catch.
 
 **A node without both `@id` and `@type` is skipped.** A bare `{ "@id": … }` is a pointer, not
 a description, and `verify/pages.mjs` already requires every pointer to resolve within its own
 document. Comparing pointers here would report the same thing twice in different words.
+
+**A node inlined in part counts as a second shape, and that is deliberate.** An `author` block
+carrying `@type`, `@id` and a name, beside a fuller node under that `@id` on another page, is
+ordinary JSON-LD that every consumer merges — and it is reported here as a split, because
+nothing in the documents tells an abbreviation from a disagreement and a comparison that
+guessed would stop catching the drift this exists for. No page on the three sites does it today:
+their cross-references are bare pointers, which are skipped. The remedy when it happens is on
+the page, where the partial inline becomes a bare `{ "@id": … }` pointer at the one full
+description, and the check's comment and its failure line both say so.
 
 **The comment in `suite.mjs` says why this is the weaker half.** Eight lines above it sits the
 note explaining why the token block's page-against-page check was deleted, and a reader who
@@ -65,11 +80,13 @@ finds that note and not this one will reasonably delete this check for the same 
 new block states its own scope: where a site generates its graph from a source, that check is
 stronger and this one is redundant; it earns its place where the nodes are written by hand.
 
-**`assets/stage.js` stops naming a build command.** Its comment reads "the page's data block is
-empty until npm run example", which is companygraph.io's command from before that site renamed
-it, and was never blust.ch's. The bug is not the stale name: it is that a file three sites copy
-names any one site's command. It becomes "the page's data block is empty until the site's build
-has written it", which is true everywhere and cannot go stale again.
+**The stage stops naming a build command, in two files.** `assets/stage.js`'s comment reads
+"the page's data block is empty until npm run example", which is companygraph.io's command from
+before that site renamed it, and was never blust.ch's; `verify/stage.mjs`'s `graph` check hands
+the same words to whoever meets an empty data block, in a failure message rather than a comment.
+The bug is not the stale name: it is that a file three sites take names any one site's command.
+Both become "the site's build has not written it", which is true everywhere and cannot go stale
+again.
 
 ## 3. What each consumer has to do
 
@@ -81,12 +98,14 @@ than copied into a site, and `runSuite`'s signature does not change — it still
 `{ browser, SITE, BASE, PAGES, CHECKS, systemFaces }` and collects what it needs from the pages
 it already loads. No site edits a check file, a spec or a page.
 
-**The comment costs `npm run design` and four share cards.** `assets/stage.js` is a whole file
-this package copies, listed in `lib/groups.mjs`, so a site takes it by syncing. That changes the
-file's bytes, and this family's card recipe hashes every local file a page names, so every page
-loading the stage reports its card stale. Four pages do: blust.ch's `/model/` and `/timeline/`,
-companygraph.io's `/model/` and `/example/`. guestgraph.io loads the stage on no page and takes
-only the check.
+**The two comments cost `npm run design` and four share cards, the same as one would.**
+`verify/stage.mjs` is imported from `node_modules` like the rest of `verify/`, so the second
+file costs a re-pin and no card re-render: no page names it and no card hash reads it. The whole
+cost is `assets/stage.js`, a file this package copies, listed in `lib/groups.mjs`, so a site
+takes it by syncing. That changes the file's bytes, and this family's card recipe hashes every
+local file a page names, so every page loading the stage reports its card stale. Four pages do:
+blust.ch's `/model/` and `/timeline/`, companygraph.io's `/model/` and `/example/`.
+guestgraph.io loads the stage on no page and takes only the check.
 
 The cards re-render to the same picture — nothing visible changes — so what moves is each
 `og.sha` stamp beside an unchanged `og.png`.
@@ -128,9 +147,12 @@ that harness has to change — `fakePage().evaluate()` returns `null` today, so 
 to tolerate a page that answers nothing, and the fake needs a way to answer with a graph so the
 comparison can be exercised.
 
-Four cases: a site whose repeated nodes agree passes; a site where one page's copy of a node
-differs fails and names the `@id` and the disagreeing pages; a node appearing on one page only
-is ignored; and a bare pointer is not compared against the node it points at.
+Seven cases: a site whose repeated nodes agree passes; a site where one page's copy of a node
+differs fails and names the `@id`, the keys they differ on and the disagreeing pages; a node
+appearing on one page only is ignored; a bare pointer is not compared against the node it points
+at; a node inlined under a property is compared like any other, which is the case that proves
+the walk reaches inside a property; a `sameAs` listed in a different order passes; and a
+`sameAs` that gained an entry still fails.
 
 Then the check is run against all three sites as they stand, where it must report no failure —
 if it fails on a site today, either the rule is wrong or a site has drift nobody knew about, and
