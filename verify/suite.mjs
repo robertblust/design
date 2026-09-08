@@ -66,6 +66,11 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
   // alongside it would mean teaching a weaker check about every variant the stronger one
   // already handles for free — so it is deleted, not adjusted.
 
+  // Filled by the loop, read by the site-wide check below: a page cannot see another page, and
+  // two pages describing one @id differently is a disagreement neither of them is wrong about
+  // alone.
+  const graphs = new Map();
+
   for (const spec of PAGES) {
     const page = await browser.newPage();
     const jsErrors = [];
@@ -96,6 +101,9 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
         const problem = await fn(page, spec);
         if (problem) problems.push(`${name}: ${problem}`);
       }
+      graphs.set(spec.path, (await page.evaluate(() =>
+        [...document.querySelectorAll('script[type="application/ld+json"]')]
+          .map((s) => s.textContent))) || []);
     } catch (e) {
       problems.push(String(e));
     }
@@ -164,6 +172,109 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
         if (dead.length) { console.log("✗ /robots.txt  names sitemap(s) that do not exist: " + dead.join(", ")); failures++; }
         else console.log(`✓ /robots.txt  ${named.length} sitemap(s), all reachable`);
       }
+    }
+
+    // A node is identical wherever its @id appears. Nothing configures which nodes those are,
+    // because the sites already say it themselves: a node belonging to one page carries a
+    // page-specific id — /model/#webpage — while a node describing the person, the site or the
+    // organization carries one id on every page. So the id is the key, and a second shape under
+    // one key is a contradiction rather than a variant.
+    //
+    // This is the weaker half of a pair, and the note at the top of this file is why that has
+    // to be said out loud: the token block's page-against-page check was deleted because
+    // design:check compares each page against what this package ships, which is stronger than
+    // pages agreeing with each other. That reasoning holds and it locates this check rather than
+    // forbidding it — a site that generates its graph from a source has the stronger check and
+    // this one is redundant there, while a site that writes these nodes by hand has neither.
+    // One of them published two descriptions of one person until someone counted the nodes.
+    //
+    // Compared on a canonical form rather than on the bytes, because two pages that order one
+    // node's keys differently describe the same thing and failing that would be noise. Arrays
+    // are sorted for the same reason: a JSON-LD list of values is a set, so two hand-written
+    // pages listing one node's sameAs in a different order describe one node, and every
+    // repeated node on the two hand-maintained sites carries a sameAs. Sorting gives up nothing
+    // this check is for — an array that gained or lost an entry is a different node after both
+    // sides are sorted, which is the drift being looked for. A node without an @type is a
+    // pointer rather than a description, and pages.mjs already requires every pointer to
+    // resolve inside its own document.
+    //
+    // A node inlined in part counts as a second shape and is reported: an author block carrying
+    // @type, @id and a name, beside a fuller node under that @id on another page, is a split
+    // here even though every consumer merges the two. That is deliberate, because nothing in
+    // the documents distinguishes an abbreviation from a disagreement, and a comparison that
+    // guessed would stop catching what this exists to catch. The remedy is on the page: make
+    // the partial inline a bare { "@id": … } pointer at the one full description, rather than
+    // loosen the check.
+    const canon = (v) => Array.isArray(v)
+      ? v.map(canon).sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1))
+      : v && typeof v === "object"
+        ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])]))
+        : v;
+    // Reached by walking the document rather than by reading @graph, because a node inlined
+    // under a property still describes something — companygraph.io's nine DefinedTerms hang off
+    // hasDefinedTerm and carry ids of their own. pages.mjs already counts those as definitions
+    // for its pointer check, and a rule that says "wherever its @id appears" has to mean
+    // everywhere it appears rather than everywhere convenient to look. A parent whose inlined
+    // child differs between two pages is then reported twice, once under its own @id and once
+    // under the child's — that is accurate rather than noisy, because the child's line names
+    // exactly which one moved. The whole document is walked rather than its @graph, because a
+    // typed node can be written at the top level beside @graph and reading @graph alone would
+    // never see it; the walk descends through ordinary keys, so @graph is reached anyway.
+    //
+    // @context is skipped rather than trusted to be a string. It usually is one here, but the
+    // object form is legal and its term definitions carry both @id and @type — a coercion like
+    // { "foo": { "@id": "…", "@type": "@id" } } is indistinguishable from a node by the test
+    // below, and would be compared as one. Skipping the key is what makes the sentence above
+    // true of the walk rather than of today's pages.
+    const typed = (o, out = []) => {
+      if (Array.isArray(o)) { for (const v of o) typed(v, out); return out; }
+      if (!o || typeof o !== "object") return out;
+      if (o["@id"] && o["@type"]) out.push(o);
+      for (const [k, v] of Object.entries(o)) {
+        if (k !== "@id" && k !== "@type" && k !== "@context") typed(v, out);
+      }
+      return out;
+    };
+    const shapes = new Map();
+    for (const [path, blocks] of graphs) {
+      for (const raw of blocks) {
+        let doc;
+        // A block that does not parse is the seo check's finding, not this one's. Reporting it
+        // here too would name one fault twice in different words.
+        try { doc = JSON.parse(raw); } catch { continue; }
+        for (const n of typed(doc)) {
+          const byShape = shapes.get(n["@id"]) || new Map();
+          const key = JSON.stringify(canon(n));
+          byShape.set(key, [...(byShape.get(key) || []), path]);
+          shapes.set(n["@id"], byShape);
+        }
+      }
+    }
+    const split = [...shapes].filter(([, byShape]) => byShape.size > 1);
+    const repeated = [...shapes].filter(([, byShape]) =>
+      [...byShape.values()].reduce((n, paths) => n + paths.length, 0) > 1);
+    if (split.length) {
+      for (const [id, byShape] of split) {
+        // The keys that differ are named, because every other finding in this suite can be
+        // acted on from its own line and one that says only "two pages disagree" sends the
+        // reader off to diff two documents by hand. The values are left out: a sameAs or a
+        // description runs long enough to bury the line carrying it. Each shape is already
+        // canonical, so a key whose stringified value is the same in all of them is a key the
+        // pages agree on.
+        const forms = [...byShape.keys()].map((k) => JSON.parse(k));
+        const differing = [...new Set(forms.flatMap((f) => Object.keys(f)))]
+          .filter((k) => new Set(forms.map((f) => JSON.stringify(f[k]))).size > 1);
+        console.log(`✗ shared nodes  ${id} is described ${byShape.size} ways ` +
+          `(differing on: ${differing.join(", ")}): ` +
+          [...byShape.values()].map((paths) => paths.join(" ")).join(" | ") +
+          ` — a node inlined in part counts as a second shape, so make the inline a bare ` +
+          `{ "@id": … } pointer rather than loosen the check`);
+        failures++;
+      }
+    } else if (repeated.length) {
+      console.log(`✓ shared nodes  ${repeated.length} id(s) identical across ${graphs.size} pages`);
+    } else {
+      console.log("✓ shared nodes  no node appears on more than one page");
     }
   }
 
