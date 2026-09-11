@@ -1,4 +1,4 @@
-# @robertblust/design
+# Robert Blust — Design
 
 The design system shared by [blust.ch](https://blust.ch),
 [companygraph.io](https://companygraph.io) and [guestgraph.io](https://guestgraph.io).
