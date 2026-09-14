@@ -10,14 +10,18 @@
 // to ignore it by the second week.
 //
 // It reads nothing from disk but `source.json`, and takes its `fetch` so the tests can drive
-// it without a network.
+// it without a network. A site that pins more than one thing — guestgraph.io's API page is
+// built from two services' documents — passes its pins in `pin` instead and reads its own file,
+// because the shape of a file with several pins in it is that site's business and not this
+// helper's.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const API = "https://api.github.com";
 
-export async function pinDrift({ root, fetchImpl = fetch, env = process.env }) {
-  const { repo, commit } = JSON.parse(readFileSync(path.join(root, "source.json"), "utf8"));
+export async function pinDrift({ root, pin, fetchImpl = fetch, env = process.env }) {
+  const { repo, commit } =
+    pin ?? JSON.parse(readFileSync(path.join(root, "source.json"), "utf8"));
   const headers = { "user-agent": "pin drift check", accept: "application/vnd.github+json" };
   if (env.GITHUB_TOKEN) headers.authorization = `Bearer ${env.GITHUB_TOKEN}`;
 
@@ -36,19 +40,20 @@ export async function pinDrift({ root, fetchImpl = fetch, env = process.env }) {
 
 // GitHub renders `::notice::` on the run and in the pull request's checks. Everything this
 // prints is one line, because a check nobody reads is a check that does not exist.
-export function pinReport(d, log = console.log) {
+export function pinReport(d, log = console.log, what = "model") {
   const at = d.commit.slice(0, 7);
+  const Name = what[0].toUpperCase() + what.slice(1);
   if (d.unreachable) {
-    log(`::notice title=Model pin::could not be checked — ${d.unreachable}`);
+    log(`::notice title=${Name} pin::could not be checked — ${d.unreachable}`);
     return 0;
   }
   if (!d.behind) {
-    log(`  ✓ the model pin is current — ${d.repo}@${at}`);
+    log(`  ✓ the ${what} pin is current — ${d.repo}@${at}`);
     return 0;
   }
-  const what = d.behind === 1 ? "1 commit" : `${d.behind} commits`;
+  const distance = d.behind === 1 ? "1 commit" : `${d.behind} commits`;
   const subject = d.newest ? ` Newest: ${d.newest.commit.message.split("\n")[0]}` : "";
-  log(`::notice title=Model pin is ${what} behind::${d.repo}@${at} → ${d.branch}.${subject} ${d.compare}`);
-  log(`  ℹ the model pin is ${what} behind ${d.repo}@${d.branch} — ${d.compare}`);
+  log(`::notice title=${Name} pin is ${distance} behind::${d.repo}@${at} → ${d.branch}.${subject} ${d.compare}`);
+  log(`  ℹ the ${what} pin is ${distance} behind ${d.repo}@${d.branch} — ${d.compare}`);
   return d.behind;
 }
