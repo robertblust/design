@@ -941,27 +941,10 @@ function rbStage(data) {
 // its pages in one commit; one that does the first two and not the third has a page naming no
 // data, and the message is where that mistake is found.
 (function(){
-  var link = document.querySelector("link[data-stage]");
-  // Thrown rather than logged, because nothing in this family reads console output: a site's
-  // suite listens for pageerror and requestfailed, and the card exporter listens for neither. An
-  // uncaught exception is reported on every page of every site, whether or not that page's spec
-  // opted into the graph check — a logged line is reported nowhere. No legitimate page reaches
-  // here without naming data: README.md forbids a deck from loading this file, and the one page
-  // that shows cards alone loads card.js alone.
-  if (!link) {
-    throw new Error('stage.js: this page names no data. Add <link rel="preload" as="fetch" ' +
-      'href="…" data-stage crossorigin> and rebuild the page.');
-  }
-  fetch(link.href).then(function (res) {
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    return res.json();
-  }).then(function (data) {
-    // Called from a timeout rather than from the chain, so a throw inside the drawing stays an
-    // uncaught exception. It was one before this file fetched anything, and every site's suite
-    // reports those through page.on("pageerror") — inside a promise chain it would become an
-    // unhandled rejection instead, which nothing here listens for.
-    setTimeout(function () { rbStage(data); }, 0);
-  }, function (err) {
-    console.error("stage.js: could not read " + link.href + " — " + err.message);
-  });
+  // The reader is card.js's, and card.js is loaded before this file on every page that draws a
+  // stage: README.md states the order and the packaging test guards it. A page that loaded this
+  // file without it fails here on rbCard rather than further in, which is the same failure it
+  // had before, one line earlier. rbStage is passed rather than wrapped, because the timeout
+  // that kept a throw inside the drawing uncaught now belongs to the reader.
+  rbCard.data("stage.js", rbStage);
 })();
