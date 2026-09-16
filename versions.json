@@ -1,9 +1,9 @@
 {
   "tokens": "v11",
-  "header": "v10",
+  "header": "v11",
   "stage": "v2",
   "title": "v1",
-  "reset": "v1",
+  "reset": "v2",
   "lang": "v4",
   "footer": "v1",
   "transport": "v9",
@@ -11,5 +11,6 @@
   "fit": "v1",
   "runtime": "v7",
   "themeBoot": "v3",
-  "theme": "v4"
+  "theme": "v4",
+  "navFit": "v1"
 }

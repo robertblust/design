@@ -672,15 +672,31 @@ test("headerFits looks for a wrapped bar, at both languages and across the width
   for (const w of [641, 1000, 1001]) assert.ok(src.includes(String(w)), `it never measures ${w}px`);
 });
 
-test("the header contract collapses at the width the longest language needs", () => {
+test("the header contract collapses on a measurement, not on a width", () => {
   const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
-  // Measured on blust.ch: German needs 1000 with the row narrowed, English 920. One number
-  // for the family, set by whichever language needs most.
-  assert.match(css, /@media \(max-width:1000px\)\{/);
-  // And the rule that narrows the row before it collapses sits above the collapse, not below
-  // it, where `nav` is display:contents and a gap on it does nothing.
-  const narrow = /@media \(max-width:(\d+)px\)\{\s*\n\s*nav\{gap:1\.4rem\}/.exec(css);
-  assert.ok(narrow, "the contract no longer narrows the row before it collapses");
-  assert.ok(Number(narrow[1]) > 1000,
-    `the narrowing band is at ${narrow[1]}px, below the 1000px collapse, where it cannot apply`);
+  // A width cannot be right for three sites whose navs hold three, four and six items.
+  // Measured, the German row needed 720px on guestgraph.io, 900 on companygraph.io and 1000
+  // on blust.ch, so any single number gave two of them a button where a row would have read.
+  assert.ok(!/@media \(max-width:(640|1000)px\)\{/.test(css),
+    "the contract still collapses at a width");
+  assert.match(css, /:root\[data-nav="compact"\] \.bar\{/,
+    "the collapse is not keyed off the attribute the page sets");
+  assert.match(css, /:root\[data-nav="compact"\] \.burger\{display:inline-flex; order:-1\}/,
+    "the button no longer takes the left-hand corner");
+
+  // And exactly one thing may set that attribute.
+  const js = fs.readFileSync(path.join(PKG, "blocks/nav-fit.js"), "utf8");
+  assert.match(js, /removeAttribute\("data-nav"\)/, "it never measures in the wide state");
+  assert.match(js, /flexWrap = "nowrap"/,
+    "it measures a row that may wrap, where a wrapped child reports the width it was given");
+  assert.match(js, /scrollWidth > bar\.clientWidth/, "it does not compare need against room");
+  assert.match(js, /attributeFilter: \["lang"\]/,
+    "it never re-measures when the language changes, which is the case that started this");
+  assert.match(js, /document\.fonts/, "it never re-measures once the real face has arrived");
+  // A fence in the wrong place must fail loudly. Put beside `theme boot` in the head rather
+  // than beside `theme` at the end of the body — and `end theme` is a prefix of
+  // `end theme boot`, so it is one slip away — the row is not in the DOM and a block that
+  // returned would leave every page uncollapsed with nothing saying why.
+  assert.match(js, /throw new Error\("nav fit: this page has no \.bar/,
+    "a page without a row is handled quietly, so a misplaced fence says nothing");
 });

@@ -1,4 +1,4 @@
-  /* ─── prose reset · v1 · {{variant}} ────────────────────────────────────
+  /* ─── prose reset · v2 · {{variant}} ────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The first thing every prose page declares, after its tokens and before
@@ -27,5 +27,15 @@
   }
   .mono{font-family:"Plex Mono", ui-monospace, "SF Mono", Menlo, monospace}
   a{color:inherit}
-  .shell{width:100%; max-width:1180px; margin:0 auto; padding:0 7vw}
+  /* The gutter is proportional until it has enough, and then it stops. `box-sizing` is
+     border-box here, so the padding comes out of the max-width rather than sitting outside it:
+     with a bare `7vw` the column got narrower the wider the screen got — 1001px at 1280,
+     906 at 1960, 822 at 2560 — and never reached 1180 at any width at all. It peaked at
+     1015px on a 1180px viewport and shrank in both directions from there.
+     A page that narrows as its window widens is wrong on its own, and it broke the header a
+     second time on a large screen: measured, the German nav row needs 1000px, and above 2000
+     the column no longer had it. The cap is 80px because that is where `7vw` lands at 1143px,
+     so every width below the widest laptop is unchanged to the pixel and only the screens
+     where this was broken move. */
+  .shell{width:100%; max-width:1180px; margin:0 auto; padding:0 min(7vw, 80px)}
   /* ─── end prose reset ───────────────────────────────────────────────────*/
