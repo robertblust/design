@@ -513,6 +513,53 @@ export function pageChecks({ SITE, BASE }) {
 
       return null;
     },
+    // Does the header row survive every width, in every language the page carries?
+    //
+    // This exists because it did not. Between 641 and 1035px in English, and to 1099 in
+    // German, the bar wrapped on every page of blust.ch: the brand on one row, the nav
+    // orphaned under it with no rule and no alignment. It had been that way for as long as
+    // there were five nav items, and nothing here saw it — `mobileNav` reads page-level
+    // sideways scroll and the wordmark's height, and a wrapped bar causes neither, while
+    // `navOrder` reads the order and never the geometry.
+    //
+    // A wrapped header is the failure, so a wrapped header is what this looks for: at each
+    // width, the bar is either collapsed behind its button or it is one row, and never two.
+    // Both languages, because the rendered DOM is only ever one of them and the longer
+    // language is the one that breaks — which is the second half of why this went unseen.
+    //
+    // One page load. Resizing and toggling the language are both client-side, so this costs
+    // reloads it does not take.
+    async headerFits(page, spec) {
+      const problems = [];
+      const langs = await page.evaluate(() => (document.getElementById("lde") ? ["en", "de"] : ["en"]));
+      for (const lang of langs) {
+        if (lang === "de") { await page.click("#lde"); await page.waitForTimeout(120); }
+        for (const width of [360, 641, 800, 1000, 1001, 1100, 1280, 1600]) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.waitForTimeout(60);
+          const bad = await page.evaluate(() => {
+            const seen = (el) => el && el.getClientRects().length > 0;
+            const bar = document.querySelector(".bar");
+            if (!bar) return "there is no bar";
+            const rows = new Set([...bar.children].filter(seen)
+              .map((el) => Math.round(el.getBoundingClientRect().top))).size;
+            const burger = seen(document.querySelector(".burger"));
+            if (rows > 1) return `the bar is ${rows} rows`;
+            if (document.documentElement.scrollWidth > window.innerWidth) return "the page scrolls sideways";
+            // A row that has not collapsed must actually show its links; a burger beside a
+            // full set of links is a third state neither half of the contract describes.
+            const links = seen(document.querySelector("#navlinks"));
+            if (burger && links) return "the button and the links are both on the row";
+            if (!burger && !links) return "neither the button nor the links are on the row";
+            return null;
+          });
+          if (bad) problems.push(`${lang} at ${width}px: ${bad}`);
+        }
+      }
+      if (langs.includes("de")) { await page.click("#len"); await page.waitForTimeout(120); }
+      await page.setViewportSize({ width: spec.width || 1280, height: 800 });
+      return problems.length ? problems.join("; ") : null;
+    },
     async navOrder(page) {
       // One order for three sites, so a visitor who moves between them meets the same row in
       // the same sequence. A site constrains only the items it has: the rule compares what is

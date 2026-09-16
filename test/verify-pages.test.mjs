@@ -13,7 +13,7 @@ const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
-  "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
+  "headerFits", "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
   "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
   "translates", "transportBaseline", "transportFits", "typography", "wayOut"];
 
@@ -659,4 +659,28 @@ test("translates holds every -de attribute to the switch, not a sample", () => {
   assert.match(src, /\[data-de\]/, "translates never selects the data-de elements");
   assert.match(src, /\[data-de-aria\]/, "translates never selects the data-de-aria elements");
   assert.match(src, /data-en-aria/, "translates does not hold the English label on the way back");
+});
+
+test("headerFits looks for a wrapped bar, at both languages and across the widths", () => {
+  // The bug it exists for: the bar wrapped from 641px up, in both languages, on every page,
+  // for as long as there were five nav items. mobileNav reads sideways scroll and the
+  // wordmark's height; navOrder reads the order. A wrapped bar shows in neither.
+  const src = pageChecks(OPTS).headerFits.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /getBoundingClientRect\(\)\.top/, "it does not read where each child sits");
+  assert.match(src, /rows > 1/, "it does not fail on a bar that has wrapped");
+  assert.match(src, /"de"/, "it never toggles to the longer language, which is the one that breaks");
+  for (const w of [641, 1000, 1001]) assert.ok(src.includes(String(w)), `it never measures ${w}px`);
+});
+
+test("the header contract collapses at the width the longest language needs", () => {
+  const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
+  // Measured on blust.ch: German needs 1000 with the row narrowed, English 920. One number
+  // for the family, set by whichever language needs most.
+  assert.match(css, /@media \(max-width:1000px\)\{/);
+  // And the rule that narrows the row before it collapses sits above the collapse, not below
+  // it, where `nav` is display:contents and a gap on it does nothing.
+  const narrow = /@media \(max-width:(\d+)px\)\{\s*\n\s*nav\{gap:1\.4rem\}/.exec(css);
+  assert.ok(narrow, "the contract no longer narrows the row before it collapses");
+  assert.ok(Number(narrow[1]) > 1000,
+    `the narrowing band is at ${narrow[1]}px, below the 1000px collapse, where it cannot apply`);
 });
