@@ -519,7 +519,7 @@ export function pageChecks({ SITE, BASE }) {
       // there against this list filtered to it, so a name added here costs the other sites
       // nothing until they use it. `API` leads because a reader who wants the interface wants
       // it before the argument for it; the rest run from the ideas to the small print.
-      const ORDER = ["API", "Ideas", "Principles", "Model", "Timeline", "Example", "Talks", "Billing", "Privacy"];
+      const ORDER = ["Team", "API", "Ideas", "Principles", "Model", "Timeline", "Example", "Talks", "Billing", "Privacy"];
       return await page.evaluate(order => {
         const nav = document.querySelector("nav");
         if (!nav) return "there is no nav";

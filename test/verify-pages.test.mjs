@@ -621,6 +621,18 @@ test("navOrder's rule names Timeline after Model", () => {
 // contract is invisible to a regex built out of the names that are there. A contract that
 // disagrees with the check enforcing it is worse than no contract, and this is the test that
 // has to notice.
+// Team is first because the order is read right to left: the switcher sits at the edge and
+// each step left is more the site's own subject. Nothing is more the site's own subject than
+// who does the work, so nothing may be inserted before it.
+test("navOrder's rule puts Team first", () => {
+  const src = pageChecks(OPTS).navOrder.toString();
+  const m = /const ORDER = \[([^\]]+)\]/.exec(src);
+  assert.ok(m, "navOrder has no ORDER list");
+  const order = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
+  assert.equal(order[0], "Team");
+  assert.equal(order.indexOf("API"), 1);
+});
+
 test("the header contract's order comment names exactly what navOrder enforces", () => {
   const src = pageChecks(OPTS).navOrder.toString();
   const m = /const ORDER = \[([^\]]+)\]/.exec(src);
