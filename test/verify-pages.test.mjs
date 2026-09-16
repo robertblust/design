@@ -615,10 +615,38 @@ test("navOrder's rule names Timeline after Model", () => {
   assert.equal(order.indexOf("Example"), order.indexOf("Timeline") + 1);
 });
 
-test("the header contract's order comment agrees with navOrder", () => {
+// Both lists, parsed and compared — not two strings matched. The previous form asserted that
+// header.css contained the words "order Ideas, Principles, …" and that the file named a fence
+// version, and both held while API sat in one list and not the other: a name missing from the
+// contract is invisible to a regex built out of the names that are there. A contract that
+// disagrees with the check enforcing it is worse than no contract, and this is the test that
+// has to notice.
+// Team is first because the order is read right to left: the switcher sits at the edge and
+// each step left is more the site's own subject. Nothing is more the site's own subject than
+// who does the work, so nothing may be inserted before it.
+test("navOrder's rule puts Team first", () => {
+  const src = pageChecks(OPTS).navOrder.toString();
+  const m = /const ORDER = \[([^\]]+)\]/.exec(src);
+  assert.ok(m, "navOrder has no ORDER list");
+  const order = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
+  assert.equal(order[0], "Team");
+  assert.equal(order.indexOf("API"), 1);
+});
+
+test("the header contract's order comment names exactly what navOrder enforces", () => {
+  const src = pageChecks(OPTS).navOrder.toString();
+  const m = /const ORDER = \[([^\]]+)\]/.exec(src);
+  assert.ok(m, "navOrder has no ORDER list");
+  const enforced = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
+
   const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
-  assert.match(css, /order\s+Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy/);
-  assert.match(css, /header contract · v8 · shared/);
+  const c = /·\s*order\s+([\s\S]+?)\s*then the language control/.exec(css);
+  assert.ok(c, "the header contract states no order");
+  const stated = c[1].replace(/\s+/g, " ").replace(/,\s*$/, "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+
+  assert.deepEqual(stated, enforced,
+    `the contract states ${stated.join(", ")}; navOrder enforces ${enforced.join(", ")}`);
 });
 
 test("translates holds every -de attribute to the switch, not a sample", () => {

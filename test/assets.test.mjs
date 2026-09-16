@@ -41,9 +41,12 @@ test("a page that names no data throws, and the markup the message names carries
   // console line reaches nothing — runSuite skips a check whose key is undefined, so a stage
   // page that never opted into `graph` would otherwise go green with a blank figure. And a
   // preload without `crossorigin` is not used: the file is requested twice.
-  const js = asset("assets/stage.js");
+  // The reader moved to card.js when a third page wanted it, so this reads card.js. The
+  // invariant did not move: it is still the only thing standing between a page that forgot
+  // its link and a green suite over a blank figure.
+  const js = asset("assets/card.js");
   const boot = js.slice(js.indexOf('document.querySelector("link[data-stage]")'));
-  assert.match(boot, /throw new Error\('stage\.js: this page names no data/,
+  assert.match(boot, /throw new Error\(who \+ ": this page names no data/,
     "a page naming no data is only logged about, so no suite reports it");
   assert.match(boot, /data-stage crossorigin>/,
     "the markup the message names preloads in a mode the fetch does not use");
@@ -54,12 +57,17 @@ test("the drawing runs outside the fetch's promise chain, so its own throws stay
   // every site's suite reported. Handed to .then it would become an unhandled rejection instead,
   // which nothing in this family listens for — and a catch after it would blame the file for a
   // bug in the code. So the fetch's rejection gets its own handler and the drawing gets a task.
-  const js = asset("assets/stage.js");
+  // In card.js now, and generic: the caller is a callback rather than rbStage by name, which
+  // is what let a second and a third page share it. What is guarded is unchanged — the
+  // callback gets its own task and the rejection its own handler.
+  const js = asset("assets/card.js");
   const boot = js.slice(js.indexOf('document.querySelector("link[data-stage]")'));
-  assert.match(boot, /setTimeout\(function \(\) \{ rbStage\(data\); \}, 0\)/,
-    "the drawing is called from inside the promise chain");
-  assert.ok(!/\.then\(rbStage\)/.test(boot), "the drawing is still the chain's fulfillment handler");
-  assert.ok(!/\.catch\(/.test(boot), "a trailing catch swallows whatever the drawing throws");
+  assert.match(boot, /setTimeout\(function \(\) \{ cb\(parsed\); \}, 0\)/,
+    "the caller is called from inside the promise chain");
+  assert.ok(!/\.then\(cb\)/.test(boot), "the caller is still the chain's fulfillment handler");
+  assert.ok(!/\.catch\(/.test(boot), "a trailing catch swallows whatever the caller throws");
+  // And stage.js passes rbStage into it, so the drawing still runs on its own task.
+  assert.match(asset("assets/stage.js"), /rbCard\.data\("stage\.js", rbStage\)/);
 });
 
 test("every asset is non-empty", () => {
@@ -243,4 +251,23 @@ test("card.js abbreviates the German months the way WRITING.md does", () => {
   assert.deepEqual(de, ["Jan.", "Febr.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]);
   const e = /en:\s*\[([^\]]+)\]/.exec(js);
   assert.deepEqual(e[1].split(",").map(s => s.trim().replace(/"/g, "")), ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]);
+});
+
+// A source guard, not a unit test: this package has no DOM and nothing here executes the
+// bootstrap. The behavior is proved by each site's Playwright suite, which loads the page.
+test("card.js owns the data reader, and names the caller in what it throws", () => {
+  const js = asset("assets/card.js");
+  assert.match(js, /rbCard = \{[^}]*data: data/, "rbCard does not export data");
+  assert.match(js, /function data\(who, cb\)/, "card.js has no data(who, cb)");
+  assert.match(js, /querySelector\("link\[data-stage\]"\)/, "data() does not find the link");
+  assert.match(js, /who \+ ": this page names no data/,
+    "the throw does not name the caller, so the message cannot say which script wanted it");
+  assert.match(js, /crossorigin/, "the message does not spell the markup it wants");
+});
+
+test("stage.js calls the shared reader rather than carrying its own", () => {
+  const js = asset("assets/stage.js");
+  assert.match(js, /rbCard\.data\("stage\.js"/, "stage.js does not call the shared reader");
+  assert.ok(!/querySelector\("link\[data-stage\]"\)/.test(js),
+    "stage.js still finds the link itself — that is the second copy this release removed");
 });

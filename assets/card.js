@@ -320,5 +320,36 @@
   document.addEventListener("scroll", function(){ if (held && tip && tip.classList.contains("show")) placeTip(held); }, true);
   window.addEventListener("resize", function(){ if (held) placeTip(held); });
 
-  window.rbCard = { render: render, fmtPeriod: fmtPeriod, fmtDate: fmtDate, describe: describe };
+  // ── the data a page names ───────────────────────────────────────────────────────────
+  // One copy of "find the block this page names, fetch it, hand it over". It lived in
+  // stage.js and was copied into blust.ch's timeline, which is how the card itself drifted in
+  // seven places a week earlier; a third page wanting the model is what made one copy worth
+  // the release. Callers name themselves, so the message says which script wanted the data
+  // rather than leaving the reader to guess.
+  //
+  // The throw is deliberate and the log is deliberate, and they are not the same case. A page
+  // that names no data is a mistake in the page, found by whoever forgot the link, and an
+  // uncaught exception is what every site's suite reports through its pageerror listener. A
+  // fetch that fails is a network or a deploy, and a throw inside a promise chain would become
+  // an unhandled rejection, which nothing here listens for.
+  //
+  // The callback runs from a timeout rather than from the chain, so a throw inside the drawing
+  // stays an uncaught exception too.
+  function data(who, cb){
+    var link = document.querySelector("link[data-stage]");
+    if (!link) {
+      throw new Error(who + ": this page names no data. Add <link rel=\"preload\" as=\"fetch\" " +
+        "href=\"…\" data-stage crossorigin> and rebuild the page.");
+    }
+    fetch(link.href).then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    }).then(function (parsed) {
+      setTimeout(function () { cb(parsed); }, 0);
+    }, function (err) {
+      console.error(who + ": could not read " + link.href + " — " + err.message);
+    });
+  }
+
+  window.rbCard = { render: render, fmtPeriod: fmtPeriod, fmtDate: fmtDate, describe: describe, data: data };
 })();

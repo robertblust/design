@@ -27,8 +27,10 @@ A page that draws a stage names the file it draws and loads three scripts in thi
 `d3.v7.min.js`, `card.js`, `stage.js`. The file is named by a link the stage looks for,
 `<link rel="preload" as="fetch" href="…" data-stage crossorigin>`, and a page that carries none
 throws a message naming that markup rather than drawing an empty figure. `card.js` before
-`stage.js` is not a preference either: the stage calls `rbCard` on the first click and throws
-without it. A page that only shows cards, blust.ch's timeline, loads `card.js` alone and names
+`stage.js` is not a preference either: `card.js` owns the reader that finds that link and
+fetches it, `rbCard.data(who, cb)`, and `stage.js` calls it on load rather than only on the
+first click. A page that shows cards without drawing a graph reads the model with the same
+call and gets the same error message; that is why there is one reader and not one per page. A page that only shows cards, blust.ch's timeline, loads `card.js` alone and names
 no data.
 
 Such a page has to be served over `http` rather than opened from disk, because `fetch` from a
