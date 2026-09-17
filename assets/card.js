@@ -69,17 +69,24 @@
     return a;
   }
   function resolve(data, text){ for (var i = 0; i < data.entities.length; i++) if (data.entities[i].name === text) return data.entities[i].id; return null; }
-  // Markdown inline code — the one span-level mark the model's fixed shape uses — becomes
-  // code.mono; a URL inside a sentence becomes a link. Appended as nodes, never as innerHTML:
-  // these strings come out of the data block, and the day a name contains a "<" an innerHTML
-  // assignment would start parsing it as markup.
+  // Two span-level marks reach a card from the model's fixed shape. Inline code becomes
+  // code.mono, and bold becomes b, because a list such as a surface's What it shows writes every
+  // item as a bold name and a sentence. Code is split out first, so asterisks inside backticks
+  // stay characters. A URL inside a sentence becomes a link. Appended as nodes, never as
+  // innerHTML: these strings come out of the data block, and the day a name contains a "<" an
+  // innerHTML assignment would start parsing it as markup.
   function inline(el, text){
     String(text).split(/`([^`]+)`/).forEach(function(part, i){
       if (!part) return;
       if (i % 2) { el.appendChild(h("code", part, "mono")); return; }
-      part.split(/(https?:\/\/[^\s)\]]+)/).forEach(function(bit, j){
-        if (!bit) return;
-        el.appendChild(j % 2 ? extLink(bit.replace(/[.,;:]+$/, "")) : document.createTextNode(bit));
+      part.split(/\*\*([^*]+)\*\*/).forEach(function(run, k){
+        if (!run) return;
+        var into = el;
+        if (k % 2) { into = h("b", null); el.appendChild(into); }
+        run.split(/(https?:\/\/[^\s)\]]+)/).forEach(function(bit, j){
+          if (!bit) return;
+          into.appendChild(j % 2 ? extLink(bit.replace(/[.,;:]+$/, "")) : document.createTextNode(bit));
+        });
       });
     });
     return el;

@@ -104,6 +104,18 @@ test("a `- ` block becomes a list, and the marker is not printed as text", () =>
     "the list marker is left in the item text");
 });
 
+test("inline bold becomes b, so a `**Name** — sentence` item does not print its asterisks", () => {
+  // A shape guard, like the list guard above: card.js has no unit seam here and each site's
+  // Playwright suite is what renders it. The surface schema writes every item of What it shows
+  // as a bold name and a sentence, and the card printed the four asterisks around each name.
+  const js = asset("assets/card.js");
+  const fn = js.slice(js.indexOf("function inline(el, text)"), js.indexOf("function para("));
+  assert.match(fn, /\\\*\\\*/, "inline() never looks for a ** pair");
+  assert.ok(fn.includes('h("b", '), "inline() builds no b element");
+  assert.ok(fn.indexOf("`([^`]+)`") < fn.indexOf("\\*\\*"),
+    "code is not split out before bold, so a ** inside backticks would turn bold");
+});
+
 test("card.js is in the stage group and defines rbCard with render, fmtPeriod and fmtDate", () => {
   const dests = GROUPS.stage.map(([, to]) => to);
   assert.ok(dests.includes("card.js"), "card.js is not shipped with the stage");
