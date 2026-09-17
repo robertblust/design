@@ -69,16 +69,28 @@
     return a;
   }
   function resolve(data, text){ for (var i = 0; i < data.entities.length; i++) if (data.entities[i].name === text) return data.entities[i].id; return null; }
-  // Two span-level marks reach a card from the model's fixed shape. Inline code becomes
+  // Three span-level marks reach a card from the model's fixed shape. Inline code becomes
   // code.mono, and bold becomes b, because a list such as a surface's What it shows writes every
-  // item as a bold name and a sentence. Code is split out first, so asterisks inside backticks
-  // stay characters. A URL inside a sentence becomes a link. Appended as nodes, never as
-  // innerHTML: these strings come out of the data block, and the day a name contains a "<" an
-  // innerHTML assignment would start parsing it as markup.
-  function inline(el, text){
+  // item as a bold name and a sentence. A Markdown link becomes what it points at: an external
+  // link for a web address, and otherwise the entity its text names through `ref`, since a
+  // relative path such as phases/shape.md is a file in the model, which has no address here, and
+  // the node that file became does. Code is split out first, so asterisks and brackets inside
+  // backticks stay characters. A bare URL inside a sentence becomes a link. Appended as nodes,
+  // never as innerHTML: these strings come out of the data block, and the day a name contains a
+  // "<" an innerHTML assignment would start parsing it as markup.
+  var MD_LINK = /\[([^\]]+)\]\(([^)\s]+)\)/;
+  function inline(el, text, ref){
     String(text).split(/`([^`]+)`/).forEach(function(part, i){
       if (!part) return;
       if (i % 2) { el.appendChild(h("code", part, "mono")); return; }
+      var m;
+      while ((m = MD_LINK.exec(part))) {
+        if (m.index) inline(el, part.slice(0, m.index), ref);
+        if (/^https?:\/\//.test(m[2])) { var x = extLink(m[2]); x.textContent = m[1]; el.appendChild(x); }
+        else el.appendChild(ref ? ref(m[1]) : document.createTextNode(m[1]));
+        part = part.slice(m.index + m[0].length);
+      }
+      if (!part) return;
       part.split(/\*\*([^*]+)\*\*/).forEach(function(run, k){
         if (!run) return;
         var into = el;
@@ -91,7 +103,7 @@
     });
     return el;
   }
-  function para(text, cls){ return inline(h("p", null, cls), text); }
+  function para(text, cls, ref){ return inline(h("p", null, cls), text, ref); }
 
   function render(e, bodyEl, footEl, opts){
     var data = opts.data, lang = opts.lang === "de" ? "de" : "en", link = opts.link;
@@ -159,16 +171,30 @@
         });
         tbl.appendChild(tb); bodyEl.appendChild(tbl);
       });
-      // A block whose lines each open with "- " is a list in the file, and is drawn as one,
-      // with the marker stripped and a hanging indent.
-      if (s.text) s.text.split(/\n\n+/).forEach(function(par){
-        if (/^-\s/.test(par)) {
+      // A block is one of four things in the file, and is drawn as that. A line opening with
+      // "###" is a subheading inside the section — a phase's Activities splits into Code and
+      // Prose that way — and the rest of its block, if any, is read again as a block. A block
+      // whose lines each open with "- " is a list, and one whose lines open with a number and a
+      // period is a numbered list; either is drawn with the marker stripped and a hanging
+      // indent, a continuation line joined to its item. Anything else is a paragraph.
+      if (s.text) s.text.split(/\n\n+/).forEach(function block(par){
+        var sub = /^#{3,6}\s+(.+)(?:\n([\s\S]*))?$/.exec(par);
+        if (sub) {
+          bodyEl.appendChild(inline(h("h5", null, "sub"), sub[1], ref));
+          if (sub[2] && sub[2].trim()) block(sub[2]);
+        } else if (/^-\s/.test(par)) {
           var ul = h("ul", null, "prose");
           par.split(/\n(?=-\s)/).forEach(function(item){
-            ul.appendChild(inline(h("li"), item.replace(/^-\s+/, "").replace(/\n\s*/g, " ")));
+            ul.appendChild(inline(h("li"), item.replace(/^-\s+/, "").replace(/\n\s*/g, " "), ref));
           });
           bodyEl.appendChild(ul);
-        } else bodyEl.appendChild(para(par.replace(/\n/g, " ")));
+        } else if (/^\d+\.\s/.test(par)) {
+          var ol = h("ol", null, "prose");
+          par.split(/\n(?=\d+\.\s)/).forEach(function(item){
+            ol.appendChild(inline(h("li"), item.replace(/^\d+\.\s+/, "").replace(/\n\s*/g, " "), ref));
+          });
+          bodyEl.appendChild(ol);
+        } else bodyEl.appendChild(para(par.replace(/\n/g, " "), null, ref));
       });
     });
     // Skills last, and grouped. Each skill file names a `group`, and the card reads it off

@@ -109,7 +109,7 @@ test("inline bold becomes b, so a `**Name** — sentence` item does not print it
   // Playwright suite is what renders it. The surface schema writes every item of What it shows
   // as a bold name and a sentence, and the card printed the four asterisks around each name.
   const js = asset("assets/card.js");
-  const fn = js.slice(js.indexOf("function inline(el, text)"), js.indexOf("function para("));
+  const fn = js.slice(js.indexOf("function inline(el, text"), js.indexOf("function para("));
   assert.match(fn, /\\\*\\\*/, "inline() never looks for a ** pair");
   assert.ok(fn.includes('h("b", '), "inline() builds no b element");
   assert.ok(fn.indexOf("`([^`]+)`") < fn.indexOf("\\*\\*"),
@@ -157,7 +157,8 @@ test("the card's prose is dim and its section headings are headings, not labels"
   const decls = (sel) => { const r = css.slice(css.indexOf(sel)); return r.slice(0, r.indexOf("}")); };
   assert.match(decls(".cbody p{"), /color:var\(--dim\)/, "the card's paragraphs inherit ink");
   assert.match(decls(".cbody ul.prose{"), /color:var\(--dim\)/, "the card's lists inherit ink");
-  assert.ok(css.includes(".cbody p code, .cbody ul.prose code{color:var(--ink)}"), "inline code went dim with the prose");
+  assert.match(decls(".cbody ol.prose{"), /color:var\(--dim\)/, "the card's numbered lists inherit ink");
+  assert.ok(css.includes(".cbody p code, .cbody ul.prose code, .cbody ol.prose code{color:var(--ink)}"), "inline code went dim with the prose");
   const h4 = decls(".cbody h4{");
   assert.doesNotMatch(h4, /text-transform/, ".cbody h4 is still an uppercase label");
   assert.match(h4, /Bricolage Grotesque/, ".cbody h4 is not in the title's face");

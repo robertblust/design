@@ -113,7 +113,13 @@
   .cbody h4{margin-top:1.4rem; padding-top:1.1rem; border-top:1px solid var(--rule);
             font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
             font-size:1.02rem; font-weight:700; letter-spacing:-.015em; line-height:1.2}
-  .cbody h4 + p, .cbody h4 + ul.prose{margin-top:.45rem}
+  .cbody h4 + p, .cbody h4 + ul.prose, .cbody h4 + ol.prose{margin-top:.45rem}
+  /* A subheading inside a section, which the file writes as "###": a phase's Activities is Code
+     and then Prose. It belongs to the section above it, so it carries no rule; it is ink in the
+     prose's face at the prose's size and weight 600, which is all a reader needs to see the
+     section turn, and it keeps the h4's order of air, more above than below. */
+  .cbody h5.sub{margin-top:.9rem; font-size:.93rem; font-weight:600; line-height:1.3; color:var(--ink)}
+  .cbody h5.sub + p, .cbody h5.sub + ul.prose, .cbody h5.sub + ol.prose{margin-top:.3rem}
   /* Running text is prose, and prose on every page is dim: ink is for a title, a value and a
      control. A paragraph and a list share the rule, because an experience card is mostly a
      list. Inline code stays ink — it is quoted from the file, data rather than prose, and the
@@ -129,11 +135,17 @@
      `display:block` and not a flex or grid column for the same reason the page's rule was a
      problem: an element that is not laid out as a list item draws no marker. Rows are spaced
      by a margin between items. */
+  /* A numbered list is the same list with its numbers: the file numbered it because the items
+     are a sequence, and the numbers say that. The padding is wider than the disc's so a
+     two-digit number still hangs outside the text. */
   .cbody ul.prose{display:block; list-style:disc; margin:.4rem 0 0; padding-left:1.05rem;
                   font-size:.93rem; line-height:1.5; color:var(--dim)}
-  .cbody ul.prose li + li{margin-top:.4rem}
-  .cbody ul.prose li::marker{color:var(--c-weak)}
-  .cbody p code, .cbody ul.prose code{color:var(--ink)}
+  .cbody ol.prose{display:block; list-style:decimal; margin:.4rem 0 0; padding-left:1.45rem;
+                  font-size:.93rem; line-height:1.5; color:var(--dim)}
+  .cbody ul.prose li + li, .cbody ol.prose li + li{margin-top:.4rem}
+  .cbody ul.prose li::marker, .cbody ol.prose li::marker{color:var(--c-weak)}
+  .cbody ol.prose li::marker{font-variant-numeric:tabular-nums}
+  .cbody p code, .cbody ul.prose code, .cbody ol.prose code{color:var(--ink)}
   .cbody table{margin-top:.5rem; border-collapse:collapse; width:100%; font-size:.88rem}
   .cbody th{text-align:left; font-family:"Plex Mono",monospace; font-weight:600; font-size:.72rem; letter-spacing:.06em; color:var(--dim); padding:.3rem .6rem .3rem 0; border-bottom:1px solid var(--rule)}
   /* A cell is one of four things, and the renderer has already decided which: a reference is
