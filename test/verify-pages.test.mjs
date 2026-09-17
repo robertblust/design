@@ -623,14 +623,16 @@ test("navOrder's rule names Timeline after Model", () => {
 // has to notice.
 // Team is first because the order is read right to left: the switcher sits at the edge and
 // each step left is more the site's own subject. Nothing is more the site's own subject than
-// who does the work, so nothing may be inserted before it.
-test("navOrder's rule puts Team first", () => {
+// who does the work, so nothing may be inserted before it. Surfaces follows it: where the work
+// is published comes straight after who does it, and before any one thing published there.
+test("navOrder's rule puts Team first and Surfaces second", () => {
   const src = pageChecks(OPTS).navOrder.toString();
   const m = /const ORDER = \[([^\]]+)\]/.exec(src);
   assert.ok(m, "navOrder has no ORDER list");
   const order = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
   assert.equal(order[0], "Team");
-  assert.equal(order.indexOf("API"), 1);
+  assert.equal(order.indexOf("Surfaces"), 1);
+  assert.equal(order.indexOf("API"), 2);
 });
 
 test("the header contract's order comment names exactly what navOrder enforces", () => {
