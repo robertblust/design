@@ -177,6 +177,57 @@ labels are applied by the language block itself, which watches `<html lang>` and
 label for the language into every such element, the English captured on load as
 `data-en-aria`; a page adds nothing to its own switch to get it.
 
+## Crawlers
+
+A site tells crawlers about its own changes in two ways, and both come from here so they cannot
+disagree about which page changed. A page is the `index.html` its sitemap URL is served from, and
+it changed when that file did or when the data its `<link data-stage>` names did. The second half
+matters because a stage page's markup never varies: a new model reaches the visitor while the
+page's HTML stays the same, and companygraph.io's `/example/` draws `example.json`, not the model.
+
+`design sitemap` writes each URL's `<lastmod>` from git, the author date in UTC of the last commit
+that changed the page, and `design sitemap --check` fails when a date has moved. A crawler uses
+the date only while it stays accurate, and a date typed by hand is accurate on the day it is
+typed. A page edited and not yet committed is dated today, so the order is edit, `npm run
+sitemap`, commit both. The date is the commit's, not the merge's. The check refuses a shallow
+clone, where one commit would be every page's last change, so the site's `verify` job checks out
+with `fetch-depth: 0`, and it runs after `npm ci` because the command arrives from this package.
+
+`design indexnow <base> <head>` sends the pages changed between two commits to IndexNow, which
+reaches Bing, Yandex, Seznam, Naver and Yep; Google does not take part. Only changed pages are
+sent, because an engine told about unchanged pages on every deploy learns to ignore the site, and
+a range that changes no page sends nothing. `--dry-run` prints the list and sends nothing.
+
+What stays in the site is what differs per host: the key, a file at the root named for its own
+32 hex characters and containing them, public by design and committed; and a workflow that runs
+when `pages-build-deployment` succeeds, not on push, so the engines never fetch the page being
+replaced. Every change reaches `main` as a merge commit, so the range is the merge's first parent
+to the merge.
+
+```yaml
+# .github/workflows/indexnow.yml
+on:
+  workflow_run: { workflows: [pages-build-deployment], types: [completed] }
+  workflow_dispatch:
+    inputs: { base: { required: true }, head: { required: true, default: main } }
+permissions: { contents: read }
+jobs:
+  indexnow:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v7
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - env:
+          BASE: ${{ inputs.base || format('{0}^1', github.event.workflow_run.head_sha) }}
+          HEAD: ${{ inputs.head || github.event.workflow_run.head_sha }}
+        run: npx design indexnow "$BASE" "$HEAD"
+```
+
 ## A warning about `stage.js` and `card.js`
 
 `stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and has

@@ -16,10 +16,15 @@ import { findFence, FenceError } from "../lib/rewrite.mjs";
 import { FENCES } from "../lib/fences.mjs";
 
 const USAGE = `usage: design sync [--check] [--site <dir>]
+       design sitemap [--check]
+       design indexnow <base> <head> [--dry-run]
 
   sync            copy this package's files into the site
   sync --check    compare only, exit 1 if a copy has drifted (this is what CI runs)
-  --site <dir>    the site root (default: the current directory)`;
+  --site <dir>    the site root (default: the current directory)
+  sitemap         date each sitemap URL from its page's last commit
+  sitemap --check compare only, exit 1 if a date has moved
+  indexnow        send the pages changed between two commits to IndexNow`;
 
 function fail(message, code) {
   console.error(message);
@@ -27,6 +32,39 @@ function fail(message, code) {
 }
 
 const argv = process.argv.slice(2);
+
+// The two crawler commands share nothing with sync but the binary, so they are handled and exit
+// here, before anything reads design.config.json: a site's deploy workflow runs `indexnow` and
+// has no reason to care whether its fences are in step.
+if (argv[0] === "indexnow" || argv[0] === "sitemap") {
+  const { indexnow, sitemapDates } = await import("../lib/crawl.mjs");
+  const root = process.cwd();
+  const [base, head] = argv.slice(1).filter((a) => !a.startsWith("--"));
+  try {
+    if (argv[0] === "indexnow") {
+      if (!base || !head) fail(USAGE, 2);
+      await indexnow({ root, base, head, dryRun: argv.includes("--dry-run") });
+    } else {
+      const { xml, dates, next } = sitemapDates({ root });
+      const count = Object.keys(dates).length;
+      if (!argv.includes("--check")) {
+        if (next !== xml) fs.writeFileSync(path.join(root, "sitemap.xml"), next);
+        console.log(`  ✓ sitemap.xml dated, ${count} URL(s)`);
+      } else if (next === xml) {
+        console.log(`  ✓ sitemap.xml dates match git, ${count} URL(s)`);
+      } else {
+        for (const [loc, d] of Object.entries(dates))
+          if (!xml.includes(`<loc>${loc}</loc><lastmod>${d}</lastmod>`)) console.log(`  ✗ ${loc}  last changed ${d}`);
+        console.log(`\n  Run: npm run sitemap, and commit sitemap.xml with the page.`);
+        process.exit(1);
+      }
+    }
+  } catch (e) {
+    fail(`  ✗ ${e.message}`, 1);
+  }
+  process.exit(0);
+}
+
 if (argv[0] !== "sync") fail(USAGE, 2);
 
 const check = argv.includes("--check");
