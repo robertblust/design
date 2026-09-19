@@ -284,3 +284,9 @@ test("stage.js calls the shared reader rather than carrying its own", () => {
   assert.ok(!/querySelector\("link\[data-stage\]"\)/.test(js),
     "stage.js still finds the link itself — that is the second copy this release removed");
 });
+
+test("stage.js places an entity once, however many edges reach it", () => {
+  const js = asset("assets/stage.js");
+  assert.match(js, /var p = placed\[id\];/, "the neighbourhood no longer looks up what it has already placed");
+  assert.match(js, /else if \(p\.more\) p\.more\.push\(r\);/, "a further edge to a placed node no longer joins it");
+});
