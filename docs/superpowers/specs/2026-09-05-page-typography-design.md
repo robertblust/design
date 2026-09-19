@@ -19,7 +19,7 @@ Measured on 2026-09-05 across the 20 pages of the three sites, inside every `dat
 `data-notes-de` value:
 
 | | blust.ch | guestgraph.io | companygraph.io | family |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | German „…“ pairs, where the rule says «…» | 16 | 4 | 2 | 22 |
 | German em-dashes, where the rule says a spaced en-dash | 47 | 52 | 64 | 163 |
 | German speaker notes touched by either | 11 of 12 | 11 of 12 | 12 of 12 | 34 of 36 |

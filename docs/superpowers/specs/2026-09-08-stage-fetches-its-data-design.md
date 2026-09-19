@@ -12,7 +12,7 @@ all pinned to v0.54.0. Every number below was counted, not estimated.
 ## 1. What is true today, measured
 
 | Fact | Value |
-|---|---|
+| --- | --- |
 | `assets/stage.js` | 922 lines, **0** occurrences of `async` or `await` |
 | How it finds its data | `document.querySelector('script[type="application/json"][data-stage]')`, parsed at script-eval time |
 | blust.ch `/model/` | 359,790 bytes, **83%** of it the inlined block |

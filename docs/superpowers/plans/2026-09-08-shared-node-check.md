@@ -48,7 +48,7 @@ assets/stage.js       modify   one comment
 Counted on 2026-09-08.
 
 | Fact | Value |
-|---|---|
+| --- | --- |
 | `verify/suite.mjs` | 172 lines: opt-in guards at 19-58, the page loop at 69-108, the site-wide block after it |
 | The site-wide block already holds | the sitemap, the favicon and the `robots.txt` sitemap references |
 | Repeated nodes, live | blust.ch 27 (held by its own `pages:check`), companygraph.io 14, guestgraph.io 10 |
