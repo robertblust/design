@@ -16,7 +16,7 @@ Counted against the live sites on 2026-09-08, after blust.ch and companygraph.io
 generating their JSON-LD.
 
 | Site | Pages | Nodes appearing on more than one page | Held by |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | blust.ch | 9 | 27 — `#person`, `#model`, `#website`, nine each | `pages:check`, byte for byte, against one definition |
 | companygraph.io | 7 | 14 — `#organization`, `#website`, seven each | nothing |
 | guestgraph.io | 5 | 10 — `#organization`, `#website`, five each | nothing |

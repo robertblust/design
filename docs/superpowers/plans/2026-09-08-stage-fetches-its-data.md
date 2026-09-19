@@ -49,7 +49,7 @@ package.json               modify  version 0.55.0
 Counted on 2026-09-08.
 
 | Fact | Value |
-|---|---|
+| --- | --- |
 | `assets/stage.js` | 922 lines; the IIFE opens at 18 and closes at 922; 905 lines inside |
 | Its body's indentation | already two spaces, so `function rbStage(data) {` needs no reindent |
 | `fetch` from `file://` | blocked; a classic `<script src>` loads; over `http` both work |
