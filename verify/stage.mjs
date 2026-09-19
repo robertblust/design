@@ -234,6 +234,26 @@ export const STAGE_CHECKS = {
       const twice = [...seen].filter(([, n]) => n > 1).map(([nid, n]) => `${nid} ${n} times`);
       if (twice.length) return `focused ${id}, and the canvas draws ${twice.join(", ")}: an entity is one node however many edges reach it`;
     }
+    // A reference is a link on the card whether the field holds one name or a list of them. The
+    // card linked each entry of a list and wrote a single value as text, so a phase's owner and
+    // the phase it gates to read as plain words beside a list of linked roles, although the
+    // parser had drawn an edge for each. The data says where to look: the first entity with a
+    // single-valued field its own edge was drawn for, focused through the address.
+    const single = data.entities.map((en) => {
+      const k = Object.keys(en.fields || {}).find((f) => f !== "source" && typeof en.fields[f] === "string"
+        && data.edges.some((x) => x.from === en.id && x.via === f));
+      return k ? { id: en.id, field: k } : null;
+    }).find(Boolean);
+    if (single) {
+      await page.evaluate((id) => { location.hash = "#" + id; }, single.id);
+      await page.waitForTimeout(700);
+      const linked = await page.evaluate((field) => {
+        const dt = [...document.querySelectorAll("#card dt")].find((d) => d.textContent.trim() === field);
+        return dt ? !!(dt.nextElementSibling && dt.nextElementSibling.querySelector("a")) : null;
+      }, single.field);
+      if (linked === null) return `focused ${single.id}, and the card draws no ${single.field} field`;
+      if (!linked) return `focused ${single.id}, and the card writes its ${single.field} as text though the model draws an edge for it: a reference is a link whether the field holds one name or a list`;
+    }
     // A link may ask for the stage expanded: arriving with ?stage=expanded beside a hash opens
     // the dialog on that node and leaves the address clean, so a page that read the request
     // looks like one expanded by hand. Left as found afterwards, for whatever check runs next.

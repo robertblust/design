@@ -290,3 +290,10 @@ test("stage.js places an entity once, however many edges reach it", () => {
   assert.match(js, /var p = placed\[id\];/, "the neighbourhood no longer looks up what it has already placed");
   assert.match(js, /else if \(p\.more\) p\.more\.push\(r\);/, "a further edge to a placed node no longer joins it");
 });
+
+test("card.js links a single-valued field through the edge the parser drew for it", () => {
+  const js = asset("assets/card.js");
+  assert.match(js, /x\.from === e\.id && x\.via === k/, "the card no longer looks for a field's own edge");
+  assert.match(js, /dd\.appendChild\(refId\(edge\.to\)\)/, "a single-valued reference is no longer linked where its edge lands");
+});
+
