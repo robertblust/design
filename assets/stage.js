@@ -207,21 +207,48 @@ function rbStage(data) {
     return ks.map(function(k){ return counts[k] + " " + (counts[k] === 1 ? k : folderOf[k]); }).join(" · ");
   }
 
+  // One entity, one node. A focus can reach the same entity by several edges — a profile's
+  // claim on a skill and each evidence row under it, three fields of a phase naming one role,
+  // the process that owns a phase and also lists it — and what the canvas draws is entities,
+  // so each is placed once. Everything is keyed by id downstream: the positions a line is
+  // drawn between and the join that enters and exits nodes. A second node for one entity was
+  // not just drawn twice, it took the first one's position, so the process a phase hangs from
+  // pulled the spine up to its copy in the band.
+  //
+  // The first place an entity is found keeps it: on the path above the focus, among what the
+  // focus owns, then in a band. Every further edge to it is a line to that one node, and its
+  // short text joins the node's own, so nothing an edge said is lost and nothing is drawn
+  // twice. An entity already on the path stays there, and its reference is the dashed line
+  // from it to the focus. A band counts entities, since it counts its nodes.
   function neighbourhood(f){
-    var nodes = [], links = [];
+    var nodes = [], links = [], placed = {}, linked = {}, refs = [];
+    function place(p){ placed[p.node.id] = p; nodes.push(p); return p; }
+    function link(l){
+      var k = l.kind + ":" + l.from + "→" + l.to;
+      if (!linked[k]) { linked[k] = true; links.push(l); }
+    }
     var anc = ancestorsOf(f);
-    anc.forEach(function(a, i){ nodes.push({ node:a, role:"ancestor", i:i }); });
-    nodes.push({ node:f, role:"focus", i:0 });
-    childrenOf(f).forEach(function(c, i){ nodes.push({ node:c, role:"child", i:i }); });
-    refsOut(f).forEach(function(r, i){ nodes.push({ node:r.node, role:"out", i:i, attrs:r.attrs, label:r.label }); });
-    refsIn(f).forEach(function(r, i){ nodes.push({ node:r.node, role:"in", i:i, attrs:r.attrs, label:r.label }); });
-    anc.concat([f]).forEach(function(n, i, all){ if (i) links.push({ from:all[i-1].id, to:n.id, kind:"own", spine:true }); });
+    anc.forEach(function(a, i){ place({ node:a, role:"ancestor", i:i }); });
+    place({ node:f, role:"focus", i:0 });
+    childrenOf(f).forEach(function(c, i){ place({ node:c, role:"child", i:i }); });
+    function band(list, role){
+      var i = 0;
+      list.forEach(function(r){
+        var id = r.node.id;
+        if (id === f.id) return;
+        var p = placed[id];
+        if (!p) p = place({ node:r.node, role:role, i:i++, attrs:r.attrs, label:r.label, more:[] });
+        else if (p.more) p.more.push(r);
+        refs.push(role === "out" ? { from:f.id, to:id, kind:"ref", attrs:r.attrs }
+                                 : { from:id, to:f.id, kind:"ref", attrs:r.attrs });
+      });
+    }
+    band(refsOut(f), "out");
+    band(refsIn(f), "in");
+    anc.concat([f]).forEach(function(n, i, all){ if (i) link({ from:all[i-1].id, to:n.id, kind:"own", spine:true }); });
     nodes.filter(function(p){ return p.role === "child"; })
-         .forEach(function(p){ links.push({ from:f.id, to:p.node.id, kind:"own" }); });
-    nodes.filter(function(p){ return p.role === "out"; })
-         .forEach(function(p){ links.push({ from:f.id, to:p.node.id, kind:"ref", attrs:p.attrs }); });
-    nodes.filter(function(p){ return p.role === "in"; })
-         .forEach(function(p){ links.push({ from:p.node.id, to:f.id, kind:"ref", attrs:p.attrs }); });
+         .forEach(function(p){ link({ from:f.id, to:p.node.id, kind:"own" }); });
+    refs.forEach(link);
     return { nodes:nodes, links:links };
   }
 
@@ -258,10 +285,13 @@ function rbStage(data) {
   // its attributes stay in the card, where there is room to read them. An edge with no label
   // draws its short attributes, as an assessment's Level is drawn today, so a block whose
   // edges carry none draws exactly what it drew before.
+  // A node that several edges reach carries each one's text once, in the order the edges came.
   function attrOf(p){
     if (p.role !== "out" && p.role !== "in") return "";
-    if (typeof p.label === "string" && p.label) return p.label;
-    return attrText(p.attrs);
+    var texts = [p].concat(p.more || []).map(function(r){
+      return typeof r.label === "string" && r.label ? r.label : attrText(r.attrs);
+    });
+    return texts.filter(function(s, i){ return s && texts.indexOf(s) === i; }).join(" · ");
   }
   // The widest of the three stacked lines, not their sum. The type can be longer than the name
   // it labels — `experience-kind` over `Role` — so leaving it out of the fit clipped the band

@@ -52,3 +52,9 @@ test("graph distinguishes a page that names no data from one whose data is missi
   assert.match(src, /names no data/, "no message for a page that names no data");
   assert.match(src, /HTTP/, "no message for a named file that does not load");
 });
+
+test("graph carries the one-node-per-entity assertion, the check that travels with the fix", () => {
+  const src = fs.readFileSync(path.join(PKG, "verify/stage.mjs"), "utf8");
+  assert.match(src, /an entity is one node however many edges reach it/,
+    "graph no longer asserts that an entity is drawn once — stage.js's repair has lost its check");
+});

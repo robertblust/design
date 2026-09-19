@@ -206,6 +206,34 @@ export const STAGE_CHECKS = {
     for (const x of data.edges.filter(x => x.from === from.id)) if (!ns.find(n => n.id === x.to)) return `reference target ${x.to} is not on the canvas`;
     const hash = await page.evaluate(() => decodeURIComponent(location.hash.slice(1)));
     if (hash !== from.id) return `hash is ${JSON.stringify(hash)}, expected ${from.id}`;
+    // An entity is one node, however many edges reach it. `neighbourhood()` placed a node per
+    // edge, so a profile's skill came back once for the claim and once per evidence row, a
+    // phase's role once per field naming it, and a phase's own process twice: in the spine
+    // that owns it and again in the band of what refers to it, where the second copy also took
+    // the spine's position. The data says where to look, so nothing here names a page: a
+    // focus with two edges to one entity in either direction, and a focus its owner refers to
+    // or that refers to its owner. Up to two of each are focused through the address and the
+    // nodes counted.
+    const owns = (a, b) => b.startsWith(a + "/");
+    const perPair = new Map();
+    for (const x of data.edges) {
+      const k = [x.from, x.to].sort().join("→");
+      perPair.set(k, (perPair.get(k) || 0) + 1);
+    }
+    const repeated = [...perPair].filter(([, n]) => n > 1).map(([k]) => k.split("→")[0]);
+    const ownerRefers = data.edges.filter(x => owns(x.from, x.to) || owns(x.to, x.from))
+      .map(x => (owns(x.from, x.to) ? x.to : x.from));
+    const atRisk = [...new Set([...repeated.slice(0, 2), ...ownerRefers.slice(0, 2)])];
+    for (const id of atRisk) {
+      await page.evaluate((id) => { location.hash = "#" + id; }, id);
+      await page.waitForTimeout(700);
+      const drawn = await nodes();
+      if (!drawn.find(n => n.id === id && n.focus)) return `focusing ${id} through the address did not focus it`;
+      const seen = new Map();
+      for (const n of drawn) seen.set(n.id, (seen.get(n.id) || 0) + 1);
+      const twice = [...seen].filter(([, n]) => n > 1).map(([nid, n]) => `${nid} ${n} times`);
+      if (twice.length) return `focused ${id}, and the canvas draws ${twice.join(", ")}: an entity is one node however many edges reach it`;
+    }
     // A link may ask for the stage expanded: arriving with ?stage=expanded beside a hash opens
     // the dialog on that node and leaves the address clean, so a page that read the request
     // looks like one expanded by hand. Left as found afterwards, for whatever check runs next.
