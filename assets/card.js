@@ -68,7 +68,30 @@
     a.href = url;
     return a;
   }
-  function resolve(data, text){ for (var i = 0; i < data.entities.length; i++) if (data.entities[i].name === text) return data.entities[i].id; return null; }
+  // The entity a name on a card names. The parser resolved every declared reference by its type
+  // and, for an owned type, within its owner, and hands the result over as the edges from an
+  // entity and the ids in their attributes; those are followed first. A name no edge of the
+  // entity carries links only where exactly one entity holds it, so a card never picks one of
+  // several: two types may share a name, and two owners of an owned type may too.
+  function resolveFrom(data, e, text){
+    var edges = data.edges || [];
+    for (var i = 0; e && i < edges.length; i++) {
+      var x = edges[i];
+      if (x.from !== e.id) continue;
+      var to = entityOf(data, x.to);
+      if (to && to.name === text) return x.to;
+      for (var k in (x.attrs || {})) {
+        var v = x.attrs[k], ent = typeof v === "string" ? entityOf(data, v) : null;
+        if (ent && ent.name === text) return v;
+      }
+    }
+    return resolve(data, text);
+  }
+  function resolve(data, text){
+    var id = null;
+    for (var i = 0; i < data.entities.length; i++) if (data.entities[i].name === text) { if (id) return null; id = data.entities[i].id; }
+    return id;
+  }
   // Three span-level marks reach a card from the model's fixed shape. Inline code becomes
   // code.mono, and bold becomes b, because a list such as a surface's What it shows writes every
   // item as a bold name and a sentence. A Markdown link becomes what it points at: an external
@@ -113,7 +136,7 @@
       return a;
     }
     function ref(name){
-      var id = resolve(data, name);
+      var id = resolveFrom(data, e, name);
       if (!id || !link) return document.createTextNode(name);
       return refId(id);
     }
@@ -173,7 +196,7 @@
         tab.rows.forEach(function(row){
           var tr = h("tr");
           row.forEach(function(cell){
-            var td = h("td"), id = resolve(data, cell);
+            var td = h("td"), id = resolveFrom(data, e, cell);
             if (id && link) { var cellA = link(id), cellE = entityOf(data, id); if (cellE && cellA.setAttribute) describe(cellA, cellE.type, cellE.name, cellE.tagline || ""); td.appendChild(cellA); }
             else if (URL_RE.test(cell)) td.appendChild(extLink(cell));
             else inline(td, cell);
@@ -222,7 +245,7 @@
       bodyEl.appendChild(h("h4", STR.skills[lang]));
       var groups = [], byGroup = {}, any = false;
       skills.forEach(function(name){
-        var id = resolve(data, name), ent = id && data.entities.filter(function(x){ return x.id === id; })[0];
+        var id = resolveFrom(data, e, name), ent = id && data.entities.filter(function(x){ return x.id === id; })[0];
         var g = ent && ent.fields && ent.fields.group;
         if (g) any = true; else g = null;
         var key = g || "\u0000other";
@@ -281,7 +304,7 @@
   // resolve to nothing draws no marks anywhere.
   function levelsOf(data, owner){
     var tab = owner && levelTable(owner), li = tab ? tab.columns.indexOf("Level") : -1, type = null;
-    if (tab) for (var i = 0; i < tab.rows.length && !type; i++) { var id = resolve(data, tab.rows[i][li]), ent = id && entityOf(data, id); if (ent) type = ent.type; }
+    if (tab) for (var i = 0; i < tab.rows.length && !type; i++) { var id = resolveFrom(data, owner, tab.rows[i][li]), ent = id && entityOf(data, id); if (ent) type = ent.type; }
     if (!type) return [];
     return data.entities.filter(function(x){ return x.type === type; })
       .sort(function(x, y){ return (+(x.fields && x.fields.rank) || 0) - (+(y.fields && y.fields.rank) || 0); });
