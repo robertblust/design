@@ -107,12 +107,15 @@
 
   function render(e, bodyEl, footEl, opts){
     var data = opts.data, lang = opts.lang === "de" ? "de" : "en", link = opts.link;
-    function ref(name){
-      var id = resolve(data, name);
-      if (!id || !link) return document.createTextNode(name);
+    function refId(id){
       var a = link(id), ent = entityOf(data, id);
       if (ent && a.setAttribute) describe(a, ent.type, ent.name, ent.tagline || "");
       return a;
+    }
+    function ref(name){
+      var id = resolve(data, name);
+      if (!id || !link) return document.createTextNode(name);
+      return refId(id);
     }
     clear(bodyEl); clear(footEl);
     // Who claims this entity's skills at a level, and which levels there are — read once per
@@ -142,8 +145,17 @@
           v.forEach(function(name){ var li = h("li"); li.appendChild(ref(name)); ul.appendChild(li); });
           dd.appendChild(ul);
         }
-        else if (URL_RE.test(v)) dd.appendChild(extLink(v));
-        else dd.textContent = v;
+        else {
+          // A single value the parser drew an edge for is a reference, and links where the edge
+          // lands, as each entry of a list does; one it drew nothing for is a fact and stays
+          // text. Following the edge rather than looking the name up means the link lands on
+          // the entity the parser resolved, of the declared type, and a value such as a place
+          // never becomes a link because some entity happens to share its name.
+          var edge = link && (data.edges || []).find(function(x){ return x.from === e.id && x.via === k; });
+          if (edge && entityOf(data, edge.to)) dd.appendChild(refId(edge.to));
+          else if (URL_RE.test(v)) dd.appendChild(extLink(v));
+          else dd.textContent = v;
+        }
         dl.appendChild(dd);
       });
       bodyEl.appendChild(dl);

@@ -58,3 +58,9 @@ test("graph carries the one-node-per-entity assertion, the check that travels wi
   assert.match(src, /an entity is one node however many edges reach it/,
     "graph no longer asserts that an entity is drawn once — stage.js's repair has lost its check");
 });
+
+test("graph carries the single-reference link assertion, the check that travels with card.js's fix", () => {
+  const src = fs.readFileSync(path.join(PKG, "verify/stage.mjs"), "utf8");
+  assert.match(src, /a reference is a link whether the field holds one name or a list/,
+    "graph no longer asserts that a single-valued reference is a link — card.js's repair has lost its check");
+});
