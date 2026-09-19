@@ -68,7 +68,7 @@ decides that: a visitor never downloads any of them, only CI and a developer run
 ```
 
 | module | what it is |
-|---|---|
+| --- | --- |
 | `cards/recipe` | `sources`, `recipe`, `stampOf`, `state`, `stamp`, and `recipeFor(root)` which binds them |
 | `cards/check` | `checkCards(recipeModule)` — staleness and the dark-background check; returns a count |
 | `cards/export` | `exportCards({ chromium, recipe })` — the renderer; takes a `chromium`, never imports one |
