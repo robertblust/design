@@ -63,10 +63,12 @@ Counted on 2026-09-08.
 ### Task 1: The check
 
 **Files:**
+
 - Modify: `verify/suite.mjs`
 - Modify: `test/suite.test.mjs`
 
 **Interfaces:**
+
 - Consumes: nothing from earlier tasks.
 - Produces: no exported surface. `runSuite` gains behavior, not parameters.
 
@@ -310,6 +312,7 @@ for (const site of ["https://blust.ch", "https://companygraph.io", "https://gues
     (split.length ? `SPLIT: ${split.map(([id]) => id).join(", ")}` : "none split"));
 }'
 ```
+
 Expected: `none split` for all three, with 3, 2 and 2 repeated ids respectively.
 
 If any site reports a split, **stop and report it** rather than adjusting the check. It would be
@@ -348,6 +351,7 @@ MSG
 ### Task 2: The stage stops naming a build command
 
 **Files:**
+
 - Modify: `assets/stage.js:21`
 
 **Interfaces:** none.

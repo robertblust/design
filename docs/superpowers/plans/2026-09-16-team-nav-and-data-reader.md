@@ -51,9 +51,11 @@ strings. Repair it before changing either list, so that the repair is what expos
 rather than the drift being fixed silently under a green test.
 
 **Files:**
+
 - Modify: `test/verify-pages.test.mjs:618-622`
 
 **Interfaces:**
+
 - Consumes: `pageChecks(OPTS).navOrder`, already imported in this file.
 - Produces: nothing other tasks import. Task 2 makes this test pass again.
 
@@ -119,12 +121,14 @@ Verified: node --test test/verify-pages.test.mjs fails on one test, naming both 
 ### Task 2: Team at the head of both orders, and the header contract to v9
 
 **Files:**
+
 - Modify: `verify/pages.mjs:522`
 - Modify: `blocks/header.css:12-15`
 - Modify: `versions.json:3`
 - Modify: `test/verify-pages.test.mjs` (the Timeline-after-Model test, and the fence version it asserts)
 
 **Interfaces:**
+
 - Consumes: the failing test from Task 1.
 - Produces: `ORDER` = `["Team", "API", "Ideas", "Principles", "Model", "Timeline", "Example", "Talks", "Billing", "Privacy"]`, and header contract `v9`. The site plan's Task 1 asserts both.
 
@@ -240,12 +244,14 @@ would be the third. Move it into `card.js`, which every page that reads the mode
 loads, and which loads before `stage.js` by a rule `README.md` states.
 
 **Files:**
+
 - Modify: `assets/card.js` (add `rbCard.data`, export it beside `render`)
 - Modify: `assets/stage.js:938-965` (call it instead of repeating it)
 - Modify: `test/assets.test.mjs`
 - Modify: `README.md` (the paragraph describing what a stage page loads)
 
 **Interfaces:**
+
 - Consumes: nothing from Tasks 1 and 2.
 - Produces: `rbCard.data(who, cb)` — `who` is a string naming the caller for the error
   messages, `cb` is called with the parsed JSON. It throws synchronously when the page names
@@ -402,10 +408,12 @@ Verified: npm test, 57 tests, all pass.
 ### Task 4: Release v0.58.0
 
 **Files:**
+
 - Modify: `package.json` (version)
 - No other file.
 
 **Interfaces:**
+
 - Consumes: Tasks 1 to 3, merged.
 - Produces: the tag `v0.58.0`, which the site plan's Task 1 pins.
 

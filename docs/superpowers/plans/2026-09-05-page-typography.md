@@ -26,10 +26,12 @@
 ### Task 1: The `typography` check, test-first
 
 **Files:**
+
 - Modify: `test/verify-pages.test.mjs` (EXPECTED list; new tests)
 - Modify: `verify/pages.mjs` (new check before `translates`)
 
 **Interfaces:**
+
 - Produces: `typography(page, spec)` in the object `pageChecks({ SITE, BASE })` returns, keyed `typography`, positioned immediately before `translates`. Uses `spec.absolute` for the cold fetch, `BASE` for the stems file at `${BASE}/conventions/conventions-check`. Returns `null` when clean, otherwise one string: every hit as `[en] <what> in "<40 chars>…<40 chars>"` or `[de] <what> in "…"`, joined by `; `. Fails with `no vendored conventions-check at <url> — this site is not a member` when the stems file or its `STEMS=` line is missing.
 
 - [ ] **Step 1: Add the check to EXPECTED and write the tests**
@@ -104,6 +106,7 @@ test("typography passes a clean page and fails a site with no vendored stems", a
 ```bash
 node --test test/verify-pages.test.mjs 2>&1 | grep -E "^not ok|^# (pass|fail)"
 ```
+
 Expected: the EXPECTED test and the five new tests fail; the count of failures is 6.
 
 - [ ] **Step 3: Write the check**
@@ -180,6 +183,7 @@ In `verify/pages.mjs`, insert before `    async translates(page, spec) {` (keep 
 ```bash
 node --test test/verify-pages.test.mjs 2>&1 | grep -E "^not ok|^# (pass|fail)"; npm test 2>&1 | grep -E "^ℹ (pass|fail)"
 ```
+
 Expected: no `not ok`; the whole suite passes. If the stub tests fail on `page.evaluate`, the check called it with arguments the stub ignores; that is fine, the stub returns its string regardless.
 
 - [ ] **Step 5: Commit**
@@ -211,12 +215,14 @@ EOF
 ### Task 2: The runner requires it, and `fmtPeriod` sets the dash per language
 
 **Files:**
+
 - Modify: `verify/suite.mjs` (one guard beside the `seo` guard)
 - Modify: `test/suite.test.mjs` (one test)
 - Modify: `assets/stage.js` (`fmtPeriod`)
 - Modify: `package.json` (version)
 
 **Interfaces:**
+
 - Produces: `runSuite` fails naming pages whose spec lacks `typography: true`. `fmtPeriod` renders `May 2012–Oct 2016` in English and `Mai 2012 – Okt 2016` in German; the open range keeps its spaced dash before *now* in both, since *now* is a word, not a date.
 
 - [ ] **Step 1: The failing suite test**
@@ -229,6 +235,7 @@ test("a page that has not opted into typography is a failure", async (t) => {
   assert.ok(await runSuite(o) > 0, "a page without typography passed");
 });
 ```
+
 Look at how the tokenVersion test builds `OPTS()` and stubs its browser; mirror it exactly.
 
 - [ ] **Step 2: Run it, watch it fail, add the guard**
@@ -236,6 +243,7 @@ Look at how the tokenVersion test builds `OPTS()` and stubs its browser; mirror 
 ```bash
 node --test test/suite.test.mjs 2>&1 | grep -E "^not ok|^# (pass|fail)"
 ```
+
 Then in `verify/suite.mjs`, after the `fences` guard block, add:
 
 ```js
@@ -247,6 +255,7 @@ Then in `verify/suite.mjs`, after the `fences` guard block, add:
     if (off.length) { console.log("✗ PAGES  typography is not enabled on: " + off.join(", ")); failures++; }
   }
 ```
+
 Rerun: the new test passes. Then update every existing `PAGES` fixture in `test/suite.test.mjs` that is meant to pass so it carries `typography: true` (the ones asserting `=== 0` failures), and run the whole file again until green.
 
 - [ ] **Step 3: `fmtPeriod`**
@@ -263,18 +272,22 @@ In `assets/stage.js`, replace the function with:
     return fmtDate(st.start) + (lang() === "de" ? " – " : "–") + fmtDate(st.end);
   }
 ```
+
 Prove it the way `fmtDate` was proven for 0.26.0:
+
 ```bash
 node -e '
 const src = require("fs").readFileSync("assets/stage.js","utf8");
 const m = src.match(/var MONTHS = \{[\s\S]*?\};/)[0], d = src.match(/function fmtDate\(v\)\{[\s\S]*?\n  \}/)[0], p = src.match(/function fmtPeriod\(st\)\{[\s\S]*?\n  \}/)[0];
 for (const L of ["en","de"]) { const lang = () => L, t = () => (L==="de"?"heute":"now"); eval(m + d + p + "; console.log(L, fmtPeriod({start:\"2012-05\",end:\"2016-10\"}), \"|\", fmtPeriod({start:\"2012-05\"}))"); }'
 ```
+
 Expected: `en May 2012–Oct 2016 | May 2012 – now` and `de Mai 2012 – Okt 2016 | Mai 2012 – heute`.
 
 - [ ] **Step 4: Version, tests, commit**
 
 `package.json` version `0.27.0` → `0.28.0`. Then:
+
 ```bash
 npm test 2>&1 | grep -E "^ℹ (pass|fail)"; sh conventions/conventions-check; echo "exit $?"
 git add verify/suite.mjs test/suite.test.mjs assets/stage.js package.json
@@ -330,9 +343,11 @@ EOF
 ### Task 4: blust.ch takes the release and sweeps
 
 **Files (in `~/git/robertblust/robertblust.github.io`):**
+
 - Modify: `package.json`, `package-lock.json`, `verify/check.mjs`, `AGENTS.md`, every `index.html` the check names, `talks/*/audio/de/*.mp3`, `talks/*/*.pdf`, every `og.png` and `og.sha`, and the fenced copies `npm run design` writes.
 
 **Interfaces:**
+
 - Consumes: design v0.28.0 on the remote.
 - Produces: a green `verify` with `typography` on all eight pages.
 
@@ -353,6 +368,7 @@ EOF
 (python3 -m http.server 8000 >/dev/null 2>&1 & echo $! > /tmp/srv.pid); until curl -s -o /dev/null http://localhost:8000/; do python3 -c "import time; time.sleep(0.2)"; done
 npm run verify > /tmp/verify.txt 2>&1; echo "verify exit $?"; grep -E "typography|✗|checks pass" /tmp/verify.txt > /tmp/typo-before.txt; wc -l /tmp/typo-before.txt
 ```
+
 Expected: `pages opted in: 8`; verify fails with `typography` findings on most pages. Keep `/tmp/typo-before.txt`; it is the list the sweep must clear.
 
 - [ ] **Step 2: The mechanical sweep, German then English**
@@ -408,6 +424,7 @@ python3 /tmp/sweep.py
 grep -c "„" $(git ls-files '*.html'); grep -o -c "—" talks/mental-model/index.html
 npm run verify > /tmp/verify.txt 2>&1; echo "verify exit $?"; grep -E "typography|✗|checks pass" /tmp/verify.txt
 ```
+
 Expected: the German quote count is 0; `typography` hits drop to whatever the script could not decide — read each remaining one, fix it by hand, rerun until `all checks pass`. A `<title>` is a text node and is swept; a `content="…"` attribute is not, and English `data-notes` values are swept by the script's own pass, so the English clips whose notes moved will show up in the narration dry run; check `og:description` and `meta description` by hand for spaced en-dashes and fix them the same way. The German `<title>` and meta description live in each page's `UI.de` / `TALK.de` script strings, which neither the script nor the check reads; they are visitor-visible German, so sweep their em-dashes to spaced en-dashes by hand and change the matching `title:` / `desc:` strings in `verify/check.mjs`'s `translates` specs to match. A generated page (`principles/` here) takes the fix in its generator, then a rebuild and its check.
 
 - [ ] **Step 3: The serial comma, by reading**
@@ -424,6 +441,7 @@ for f in sorted(pathlib.Path(".").rglob("index.html")):
         print(f, "::", " ".join(m.group(0).split())[:160])
 EOF
 ```
+
 Each line is a candidate. Remove the comma before `and` only where the sentence lists three or more parallel items; leave it where `and` joins two independent clauses. Edit the source by hand. Report the count changed and the count left.
 
 - [ ] **Step 4: Narration**
@@ -431,7 +449,9 @@ Each line is a candidate. Remove the comma before `and` only where the sentence 
 ```bash
 ./tts/generate.py --dry-run
 ```
+
 Expected: it names one clip per note the sweep touched, German and English — on blust.ch the English notes carried 49 spaced en-dashes, so English clips are expected here. Read the list against the diff; if a clip is named whose note the diff does not show changed, stop and understand it before generating. Then, on the owner's word, since this bills:
+
 ```bash
 export ELEVENLABS_API_KEY="$(zsh -ic 'printf %s "$ELEVENLABS_API_KEY"' 2>/dev/null)"
 ./tts/generate.py
@@ -443,12 +463,15 @@ export ELEVENLABS_API_KEY="$(zsh -ic 'printf %s "$ELEVENLABS_API_KEY"' 2>/dev/nu
 ```bash
 npm run pdf && npm run og && npm run og:check && npm run design:check && npm run verify 2>&1 | tail -1
 ```
+
 In `AGENTS.md`, the bullet *German quotes must be typographic* becomes:
+
 ```
 - **German quotes are guillemets**, `«…»` with `‹…›` inside — the Swiss form WRITING.md sets. They
   also cannot end an attribute: one straight ASCII `"` inside a note ends it early and dumps the
   rest of the note onto the slide, which is what the old „…“ rule existed to prevent.
 ```
+
 Run `sh conventions/conventions-check` and `./tts/generate.py --dry-run` once more.
 
 - [ ] **Step 6: Commit, push, pull request; stop for the merge**
@@ -475,6 +498,7 @@ git push -u origin page-typography
 gh pr create --title "Design 0.28.0, and the pages set the way WRITING.md says" --body "<the commit body reread for a reviewer, plain paragraphs, with the real numbers>"
 gh pr checks --watch
 ```
+
 Fill `<N>` and `<M>` with the measured numbers before committing. Stop; the merge is the owner's.
 
 ---
