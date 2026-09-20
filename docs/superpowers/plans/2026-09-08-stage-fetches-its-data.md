@@ -63,9 +63,11 @@ Counted on 2026-09-08.
 ### Task 1: The stage fetches what the page names
 
 **Files:**
+
 - Modify: `assets/stage.js`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: a global `rbStage(data)`, matching `card.js`'s `rbCard`; and the contract that a page
   names its data with `<link rel="preload" as="fetch" href="…" data-stage>`.
@@ -181,10 +183,12 @@ MSG
 ### Task 2: The check reads the file the page names
 
 **Files:**
+
 - Modify: `verify/stage.mjs`
 - Modify: `test/stage-checks.test.mjs`
 
 **Interfaces:**
+
 - Consumes: Task 1's `link[data-stage]` contract.
 - Produces: `STAGE_CHECKS.graph` no longer reads `spec.graph`, so a site's spec entry becomes a
   plain flag rather than an element id. That is a site-side change and belongs to the sites' own
@@ -288,10 +292,12 @@ The task that makes the rest possible: `fetch` is blocked from `file://`, and ev
 rendered there today.
 
 **Files:**
+
 - Modify: `cards/export.mjs`
 - Modify: `test/cards-export.test.mjs`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: no exported surface. `exportCards`'s signature does not change.
 
@@ -451,6 +457,7 @@ MSG
 ### Task 4: The version, and the pull request
 
 **Files:**
+
 - Modify: `package.json`
 
 - [ ] **Step 1: Set the version**

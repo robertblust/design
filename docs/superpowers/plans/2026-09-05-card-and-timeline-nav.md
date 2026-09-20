@@ -38,6 +38,7 @@ package's own tests; a git tag and a GitHub Release.
 ### Task 1: `card.js`, the entity card and the dates, moved out of `stage.js`
 
 **Files:**
+
 - Create: `assets/card.js`
 - Modify: `assets/stage.js` (lines 39–83 the strings and dates; 578–727 `renderInto` and its helpers)
 - Modify: `lib/groups.mjs:22-26`
@@ -46,6 +47,7 @@ package's own tests; a git tag and a GitHub Release.
 - Modify: `test/spelling.test.mjs:15`
 
 **Interfaces:**
+
 - Produces: `window.rbCard.render(entity, bodyEl, footEl, opts)` where `opts` is
   `{ data, lang, link, note }`: `data` the parsed block (needs `data.entities`, `data.commit`,
   `data.repo`); `lang` `"en"` or `"de"`; `link(id)` a function returning an Element for a
@@ -349,10 +351,12 @@ EOF
 ### Task 2: The ledger's rules in `stage.css`
 
 **Files:**
+
 - Modify: `assets/stage.css` (append before the `#fig` figure tokens, after the `dialog.modal` rules)
 - Modify: `test/assets.test.mjs`
 
 **Interfaces:**
+
 - Produces: the classes the timeline page's markup uses: `ol.ledger`, `li.k-<kind>` with
   `--lvl`, `details > summary` holding `.when`, `.mark`, `.what > .name + .meta`, `.body >
   .card`, and `li.now`; `.expand[aria-pressed="true"]`.
@@ -449,12 +453,14 @@ EOF
 ### Task 3: Timeline after Model, in the header contract and the check
 
 **Files:**
+
 - Modify: `blocks/header.css:1` and `:12`
 - Modify: `versions.json` (`"header": "v7"` → `"v8"`)
 - Modify: `verify/pages.mjs:485`
 - Modify: `test/verify-pages.test.mjs`
 
 **Interfaces:**
+
 - Produces: `ORDER = ["Ideas", "Principles", "Model", "Timeline", "Example", "Talks", "Billing", "Privacy"]` in `navOrder`; the `header contract · v8` fence.
 - Consumes: nothing.
 
@@ -532,6 +538,7 @@ EOF
 ### Task 4: The README, the release
 
 **Files:**
+
 - Modify: `README.md` (the `stage` group paragraph near line 23; the warning at line 174)
 
 - [ ] **Step 1: Say what a stage page loads**
@@ -603,6 +610,7 @@ EOF
 ### Task 5: companygraph.io and guestgraph.io take the release
 
 **Files:**
+
 - `~/git/companygraph/companygraph.github.io`: `package.json:24`, `model/index.html:854`, `example/index.html:852`, every page's header fence, `og.png`/`og.sha` where the recipe moved
 - `~/git/guestgraph/guestgraph.github.io`: `package.json`, every page's header fence, cards where the recipe moved
 
