@@ -2,16 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The stage fetches the artifact a page names instead of reading one inlined into it, so
-a page that draws the model stops carrying it.
+**Goal:** The stage fetches the artifact a page names instead of reading one inlined into it, so a page that draws the model stops carrying it.
 
-**Architecture:** A page names its data with `<link rel="preload" as="fetch" href="…" data-stage>`.
-`assets/stage.js` keeps its 905-line body untouched and gains a bootstrap that fetches that href.
-`verify/stage.mjs`'s `graph` check reads the same file. `cards/export.mjs` starts its own static
-server, because `fetch` is blocked from `file://` and that is where cards render today.
+**Architecture:** A page names its data with `<link rel="preload" as="fetch" href="…" data-stage>`. `assets/stage.js` keeps its 905-line body untouched and gains a bootstrap that fetches that href. `verify/stage.mjs`'s `graph` check reads the same file. `cards/export.mjs` starts its own static server, because `fetch` is blocked from `file://` and that is where cards render today.
 
-**Tech Stack:** Node 22 ESM, **no dependencies** — `node:http` is built in, which is the only
-reason the exporter can serve at all. `node --test` for the package's suite.
+**Tech Stack:** Node 22 ESM, **no dependencies** — `node:http` is built in, which is the only reason the exporter can serve at all. `node --test` for the package's suite.
 
 **Spec:** `docs/superpowers/specs/2026-09-08-stage-fetches-its-data-design.md`
 
@@ -74,8 +69,7 @@ Counted on 2026-09-08.
 
 - [ ] **Step 1: Turn the IIFE into a named function without moving its body**
 
-The body is already indented two spaces inside `(function(){`, so replacing the opening line with
-a function declaration leaves all 905 lines exactly where they are. Replace lines 18 to 21:
+The body is already indented two spaces inside `(function(){`, so replacing the opening line with a function declaration leaves all 905 lines exactly where they are. Replace lines 18 to 21:
 
 ```js
 (function(){
@@ -95,13 +89,9 @@ and replace the file's last line, `})();`, with `}` alone.
 
 - [ ] **Step 2: Prove the body did not move**
 
-Run: `git diff --stat assets/stage.js`
-Expected: a small number of changed lines — the four replaced at the top and the one at the
-bottom, not hundreds.
+Run: `git diff --stat assets/stage.js` Expected: a small number of changed lines — the four replaced at the top and the one at the bottom, not hundreds.
 
-Run: `git diff -w --numstat assets/stage.js`
-Expected: the same small numbers. If ignoring whitespace collapses a large diff to a small one,
-the body was reindented and the task has failed. Stop and report BLOCKED.
+Run: `git diff -w --numstat assets/stage.js` Expected: the same small numbers. If ignoring whitespace collapses a large diff to a small one, the body was reindented and the task has failed. Stop and report BLOCKED.
 
 - [ ] **Step 3: Add the bootstrap at the end of the file**
 
@@ -139,17 +129,11 @@ Append after the closing `}`:
 })();
 ```
 
-`rbStage` is a function declaration, so it is hoisted and available to the bootstrap regardless of
-order. It is global, which matches `card.js`'s `rbCard` — the file already runs at global scope
-and the family already reads one such name.
+`rbStage` is a function declaration, so it is hoisted and available to the bootstrap regardless of order. It is global, which matches `card.js`'s `rbCard` — the file already runs at global scope and the family already reads one such name.
 
 - [ ] **Step 4: Confirm the package's own assertions about this file still hold**
 
-Run: `node --test test/assets.test.mjs`
-Expected: pass. Three tests hold this file — on `markH`, on spine termination, and on it reading
-its data from something marked `data-stage`. The third still passes because the bootstrap queries
-`link[data-stage]`; if it fails, read it before changing anything, because it is asserting the
-contract this task is changing and the review should hear about it.
+Run: `node --test test/assets.test.mjs` Expected: pass. Three tests hold this file — on `markH`, on spine termination, and on it reading its data from something marked `data-stage`. The third still passes because the bootstrap queries `link[data-stage]`; if it fails, read it before changing anything, because it is asserting the contract this task is changing and the review should hear about it.
 
 - [ ] **Step 5: Commit**
 
@@ -214,14 +198,11 @@ test("graph distinguishes a page that names no data from one whose data is missi
 });
 ```
 
-If `test/stage-checks.test.mjs` does not already import `fs`, add `import fs from "node:fs";` at
-the top with the other imports.
+If `test/stage-checks.test.mjs` does not already import `fs`, add `import fs from "node:fs";` at the top with the other imports.
 
 - [ ] **Step 2: Run it to make sure it fails**
 
-Run: `node --test test/stage-checks.test.mjs`
-Expected: FAIL — two new tests, on `getElementById(id)` still being present and on the messages
-being absent.
+Run: `node --test test/stage-checks.test.mjs` Expected: FAIL — two new tests, on `getElementById(id)` still being present and on the messages being absent.
 
 - [ ] **Step 3: Rewrite the check's first three lines**
 
@@ -250,16 +231,13 @@ with:
     if (!data.entities) return "the data the page names is empty — the site's build has not written it";
 ```
 
-`spec.graph` is no longer read. Leave the parameter in the signature: the runner passes it to
-every check and a site's spec still carries the key to opt in.
+`spec.graph` is no longer read. Leave the parameter in the signature: the runner passes it to every check and a site's spec still carries the key to opt in.
 
 - [ ] **Step 4: Run the tests and make sure they pass**
 
-Run: `node --test test/stage-checks.test.mjs`
-Expected: pass, all tests.
+Run: `node --test test/stage-checks.test.mjs` Expected: pass, all tests.
 
-Run: `node --test`
-Expected: the whole package passes.
+Run: `node --test` Expected: the whole package passes.
 
 - [ ] **Step 5: Commit**
 
@@ -288,8 +266,7 @@ MSG
 
 ### Task 3: The exporter serves the site
 
-The task that makes the rest possible: `fetch` is blocked from `file://`, and every card is
-rendered there today.
+The task that makes the rest possible: `fetch` is blocked from `file://`, and every card is rendered there today.
 
 **Files:**
 
@@ -303,20 +280,13 @@ rendered there today.
 
 - [ ] **Step 1: Write the failing tests**
 
-Two existing tests in `test/cards-export.test.mjs` assert the file URL — `"a card's hash is
-appended to the file URL it opens"` and `"a card with no hash opens the page's own URL with
-nothing appended"`. Find them and change what they expect: the URL is now
-`http://127.0.0.1:<port>/<dir>/` with the hash appended, and the port is whatever the server took.
-Assert the shape rather than a fixed port — that it starts with `http://127.0.0.1:`, that it ends
-with the card's directory and hash, and that it is not a `file:` URL.
+Two existing tests in `test/cards-export.test.mjs` assert the file URL — `"a card's hash is appended to the file URL it opens"` and `"a card with no hash opens the page's own URL with nothing appended"`. Find them and change what they expect: the URL is now `http://127.0.0.1:<port>/<dir>/` with the hash appended, and the port is whatever the server took. Assert the shape rather than a fixed port — that it starts with `http://127.0.0.1:`, that it ends with the card's directory and hash, and that it is not a `file:` URL.
 
-Add one test asserting the server is closed after the run, whatever happens: a card that throws
-must not leave a listening socket behind.
+Add one test asserting the server is closed after the run, whatever happens: a card that throws must not leave a listening socket behind.
 
 - [ ] **Step 2: Run them to make sure they fail**
 
-Run: `node --test test/cards-export.test.mjs`
-Expected: FAIL on the two rewritten tests, which still see a `file:` URL, and on the new one.
+Run: `node --test test/cards-export.test.mjs` Expected: FAIL on the two rewritten tests, which still see a `file:` URL, and on the new one.
 
 - [ ] **Step 3: Add the server**
 
@@ -367,36 +337,28 @@ If `fs` or `path` are not already imported in this file, add them.
 
 - [ ] **Step 4: Navigate to the served page**
 
-Start the server before the card loop and close it in a `finally`, so a card that throws does not
-leave a socket listening. Replace:
+Start the server before the card loop and close it in a `finally`, so a card that throws does not leave a socket listening. Replace:
 
 ```js
       await page.goto(pathToFileURL(path.join(REPO_ROOT, c.dir, "index.html")).href + (c.hash || ""),
         { waitUntil: "networkidle" });
 ```
 
-with a navigation to `` `${base}/${c.dir}/${c.hash || ""}` `` where `base` is
-`` `http://127.0.0.1:${srv.address().port}` ``, keeping `{ waitUntil: "networkidle" }`.
+with a navigation to `` `${base}/${c.dir}/${c.hash || ""}` `` where `base` is `` `http://127.0.0.1:${srv.address().port}` ``, keeping `{ waitUntil: "networkidle" }`.
 
-Remove the now-unused `pathToFileURL` import if nothing else in the file uses it — check before
-deleting.
+Remove the now-unused `pathToFileURL` import if nothing else in the file uses it — check before deleting.
 
 - [ ] **Step 5: Run the tests**
 
-Run: `node --test test/cards-export.test.mjs`
-Expected: pass, including the three from step 1.
+Run: `node --test test/cards-export.test.mjs` Expected: pass, including the three from step 1.
 
-Run: `node --test`
-Expected: the whole package passes.
+Run: `node --test` Expected: the whole package passes.
 
 - [ ] **Step 6: Prove no card moves**
 
-The design rests on this and it has been measured once against a replica. Measure it against the
-real exporter, in a site, without committing anything there:
+The design rests on this and it has been measured once against a replica. Measure it against the real exporter, in a site, without committing anything there:
 
-The site installs this package from GitHub, so running its `npm run og` unchanged would test the
-released version rather than this branch and prove nothing. Point it at this working copy first,
-and put it back afterwards:
+The site installs this package from GitHub, so running its `npm run og` unchanged would test the released version rather than this branch and prove nothing. Point it at this working copy first, and put it back afterwards:
 
 ```bash
 cd ../robertblust.github.io
@@ -404,8 +366,7 @@ npm install --no-save ../design            # take this working copy, not the pin
 node -p 'require("fs").readFileSync("node_modules/@robertblust/design/cards/export.mjs","utf8").includes("node:http")'
 ```
 
-That must print `true`. If it prints `false`, the working copy did not install and the rest of
-this step proves nothing — stop and report it.
+That must print `true`. If it prints `false`, the working copy did not install and the rest of this step proves nothing — stop and report it.
 
 ```bash
 cp model/og.png /tmp/og-before.png
@@ -419,13 +380,9 @@ cd ../design
 
 Expected: `card byte-identical`, and an empty `git status` in the site afterwards.
 
-`REPOSITORIES.md` scopes an agent to the repository it is working in. This step reaches into
-`robertblust/robertblust.github.io` deliberately and for one purpose: it is the only place a real
-card can be re-rendered through the changed exporter, and the design rests on that card not
-moving. Leave nothing behind there.
+`REPOSITORIES.md` scopes an agent to the repository it is working in. This step reaches into `robertblust/robertblust.github.io` deliberately and for one purpose: it is the only place a real card can be re-rendered through the changed exporter, and the design rests on that card not moving. Leave nothing behind there.
 
-If the card moved, **stop and report it**. Every committed card on three sites would need
-re-rendering, which is a decision rather than a step.
+If the card moved, **stop and report it**. Every committed card on three sites would need re-rendering, which is a decision rather than a step.
 
 - [ ] **Step 7: Commit**
 
@@ -462,20 +419,15 @@ MSG
 
 - [ ] **Step 1: Set the version**
 
-`package.json`'s `version` becomes `0.55.0`. `README.md` is explicit about why this belongs in
-the change rather than at tag time: `design sync --check` at every site compares the tag its pin
-names against the version it installed, and a tag made without moving the field turns three sites
-red on their next re-pin.
+`package.json`'s `version` becomes `0.55.0`. `README.md` is explicit about why this belongs in the change rather than at tag time: `design sync --check` at every site compares the tag its pin names against the version it installed, and a tag made without moving the field turns three sites red on their next re-pin.
 
 Do not tag. Do not touch `versions.json`.
 
 - [ ] **Step 2: Confirm the whole package**
 
-Run: `node --test`
-Expected: pass.
+Run: `node --test` Expected: pass.
 
-Run: `sh conventions/conventions-check`
-Expected: `✓ every Markdown file follows WRITING.md`
+Run: `sh conventions/conventions-check` Expected: `✓ every Markdown file follows WRITING.md`
 
 - [ ] **Step 3: Commit**
 
@@ -505,10 +457,7 @@ MSG
 git push -u origin stage-fetches-its-data
 ```
 
-Then open a pull request against `main` with the forge's CLI, describing the change in the git
-register — the commit body reread for a reviewer who has not seen the diff. It must say plainly
-that this is a major by the repository's own rule and that a site cannot take it by re-pinning
-alone.
+Then open a pull request against `main` with the forge's CLI, describing the change in the git register — the commit body reread for a reviewer who has not seen the diff. It must say plainly that this is a major by the repository's own rule and that a site cannot take it by re-pinning alone.
 
 **Do not tag, do not merge, and do not touch any site.** Those are the owner's.
 
@@ -518,30 +467,16 @@ alone.
 
 Not steps in this plan.
 
-**The release is v0.55.0**, and its notes must say what breaks and how to take it, because the
-number will not. A site adopts by re-pinning, running `npm run design`, and changing its own
-pages **in one commit** — splitting those is what leaves a suite red.
+**The release is v0.55.0**, and its notes must say what breaks and how to take it, because the number will not. A site adopts by re-pinning, running `npm run design`, and changing its own pages **in one commit** — splitting those is what leaves a suite red.
 
-**Then two site changes**, each its own work with its own spec. blust.ch's `build/pages.mjs`
-writes the preload link where it wrote the block, `/timeline/`'s own reader fetches the same way,
-and its `graph` and `ledger` spec entries stop naming an element id. companygraph.io does the
-same for `/example/` and `/model/`. guestgraph.io loads no stage and needs only a routine re-pin.
+**Then two site changes**, each its own work with its own spec. blust.ch's `build/pages.mjs` writes the preload link where it wrote the block, `/timeline/`'s own reader fetches the same way, and its `graph` and `ledger` spec entries stop naming an element id. companygraph.io does the same for `/example/` and `/model/`. guestgraph.io loads no stage and needs only a routine re-pin.
 
 ## Self-review
 
-**Spec coverage.** §2's link contract and the stage's fetch are Task 1; the loud failure is Task 1
-step 3 and its message is asserted in Task 2. §2's check is Task 2, its exporter is Task 3. §4's
-version is Task 4. §3's site work is deliberately not here. §6's card equivalence is Task 3
-step 6, run against the real exporter rather than the replica that measured it first.
+**Spec coverage.** §2's link contract and the stage's fetch are Task 1; the loud failure is Task 1 step 3 and its message is asserted in Task 2. §2's check is Task 2, its exporter is Task 3. §4's version is Task 4. §3's site work is deliberately not here. §6's card equivalence is Task 3 step 6, run against the real exporter rather than the replica that measured it first.
 
-**Placeholders.** None. Every code step carries the code; every check step carries the command and
-what it should print.
+**Placeholders.** None. Every code step carries the code; every check step carries the command and what it should print.
 
-**Type consistency.** `rbStage(data)` is the only new global and matches `rbCard`. `serve(root)`
-returns a promise of the server, so the caller reads `srv.address().port` and calls `srv.close()`.
-`STAGE_CHECKS.graph` keeps its `(page, spec)` signature and stops reading `spec.graph`.
+**Type consistency.** `rbStage(data)` is the only new global and matches `rbCard`. `serve(root)` returns a promise of the server, so the caller reads `srv.address().port` and calls `srv.close()`. `STAGE_CHECKS.graph` keeps its `(page, spec)` signature and stops reading `spec.graph`.
 
-**One risk worth naming.** Task 1 is the only task whose failure mode is invisible in a passing
-test run: if the 905 lines are reindented, everything still works and the diff becomes unreviewable.
-Step 2 exists solely to catch that, and it is the one step in this plan that should stop the task
-rather than be worked around.
+**One risk worth naming.** Task 1 is the only task whose failure mode is invisible in a passing test run: if the 905 lines are reindented, everything still works and the diff becomes unreviewable. Step 2 exists solely to catch that, and it is the one step in this plan that should stop the task rather than be worked around.

@@ -2,25 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** design v0.58.0 — `Team` at the head of the nav order, the header contract corrected
-to the order the check actually enforces, and the reader that turns `<link data-stage>` into a
-parsed model reduced from two copies to one, in `card.js`, called by `stage.js`.
+**Goal:** design v0.58.0 — `Team` at the head of the nav order, the header contract corrected to the order the check actually enforces, and the reader that turns `<link data-stage>` into a parsed model reduced from two copies to one, in `card.js`, called by `stage.js`.
 
-**Architecture:** Three independent changes in one minor release. `verify/pages.mjs` owns the
-order the suites enforce; `blocks/header.css` owns the order the contract states; they
-disagree today and the test meant to hold them together compares literal strings. The test is
-repaired first, which makes it fail, which is what proves it was not doing its job. `card.js`
-gains `rbCard.data(who, cb)` and `stage.js` calls it — safe because `card.js` already loads
-before `stage.js` on every page that draws a stage, a rule `README.md` states and
-`cards-packaging` guards.
+**Architecture:** Three independent changes in one minor release. `verify/pages.mjs` owns the order the suites enforce; `blocks/header.css` owns the order the contract states; they disagree today and the test meant to hold them together compares literal strings. The test is repaired first, which makes it fail, which is what proves it was not doing its job. `card.js` gains `rbCard.data(who, cb)` and `stage.js` calls it — safe because `card.js` already loads before `stage.js` on every page that draws a stage, a rule `README.md` states and `cards-packaging` guards.
 
-**Tech Stack:** plain ES5 browser files under `assets/`, ES modules under `lib/`, `verify/`
-and `test/`; `node --test` for everything, with no DOM harness — asset behavior is guarded by
-source shape here and proved by each site's Playwright suite.
+**Tech Stack:** plain ES5 browser files under `assets/`, ES modules under `lib/`, `verify/` and `test/`; `node --test` for everything, with no DOM harness — asset behavior is guarded by source shape here and proved by each site's Playwright suite.
 
-**Spec:** `robertblust.github.io`, `docs/superpowers/specs/2026-09-16-team-page-design.md`,
-§7. The consuming plan is `robertblust.github.io`,
-`docs/superpowers/plans/2026-09-16-team-page.md`, and it starts by taking this release.
+**Spec:** `robertblust.github.io`, `docs/superpowers/specs/2026-09-16-team-page-design.md`, §7. The consuming plan is `robertblust.github.io`, `docs/superpowers/plans/2026-09-16-team-page.md`, and it starts by taking this release.
 
 ## Global Constraints
 
@@ -45,10 +33,7 @@ source shape here and proved by each site's Playwright suite.
 
 ### Task 1: Make the order test compare the two lists
 
-The test named "the header contract's order comment agrees with navOrder" passes today while
-the two disagree: `ORDER` names API and the contract comment does not. It matches two literal
-strings. Repair it before changing either list, so that the repair is what exposes the drift
-rather than the drift being fixed silently under a green test.
+The test named "the header contract's order comment agrees with navOrder" passes today while the two disagree: `ORDER` names API and the contract comment does not. It matches two literal strings. Repair it before changing either list, so that the repair is what exposes the drift rather than the drift being fixed silently under a green test.
 
 **Files:**
 
@@ -61,8 +46,7 @@ rather than the drift being fixed silently under a green test.
 
 - [ ] **Step 1: Replace the string-matching test with one that parses both lists**
 
-Replace the whole `test("the header contract's order comment agrees with navOrder", …)` block
-with this:
+Replace the whole `test("the header contract's order comment agrees with navOrder", …)` block with this:
 
 ```js
 // Both lists, parsed and compared — not two strings matched. The previous form asserted that
@@ -89,12 +73,9 @@ test("the header contract's order comment names exactly what navOrder enforces",
 
 - [ ] **Step 2: Run it and watch it fail**
 
-Run: `node --test test/verify-pages.test.mjs`
-Expected: FAIL, one test, with a message of the form
-`the contract states Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy; navOrder enforces API, Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy`
+Run: `node --test test/verify-pages.test.mjs` Expected: FAIL, one test, with a message of the form `the contract states Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy; navOrder enforces API, Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy`
 
-That failure is the finding. Do not fix it in this task — Task 2 fixes it, and the two commits
-read as "the test was wrong" then "the contract was wrong", which is the order they happened in.
+That failure is the finding. Do not fix it in this task — Task 2 fixes it, and the two commits read as "the test was wrong" then "the contract was wrong", which is the order they happened in.
 
 - [ ] **Step 3: Commit the failing test**
 
@@ -134,8 +115,7 @@ Verified: node --test test/verify-pages.test.mjs fails on one test, naming both 
 
 - [ ] **Step 1: Write the failing test for Team's position**
 
-Add this beside the existing `navOrder's rule names Timeline after Model` test in
-`test/verify-pages.test.mjs`:
+Add this beside the existing `navOrder's rule names Timeline after Model` test in `test/verify-pages.test.mjs`:
 
 ```js
 // Team is first because the order is read right to left: the switcher sits at the edge and
@@ -153,9 +133,7 @@ test("navOrder's rule puts Team first", () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `node --test test/verify-pages.test.mjs`
-Expected: FAIL on two tests — the new one with `expected 'Team' to equal 'API'`, and Task 1's,
-still reporting the two lists disagree.
+Run: `node --test test/verify-pages.test.mjs` Expected: FAIL on two tests — the new one with `expected 'Team' to equal 'API'`, and Task 1's, still reporting the two lists disagree.
 
 - [ ] **Step 3: Put Team at the head of ORDER**
 
@@ -195,21 +173,17 @@ with:
 
 - [ ] **Step 5: Bump the fence version, because the fenced bytes changed**
 
-In `blocks/header.css`, line 1, change `header contract · v8 · shared` to
-`header contract · v9 · shared`.
+In `blocks/header.css`, line 1, change `header contract · v8 · shared` to `header contract · v9 · shared`.
 
 In `versions.json`, change `"header": "v8"` to `"header": "v9"`.
 
-In `test/verify-pages.test.mjs`, the assertion `assert.match(css, /header contract · v8 · shared/)`
-was removed with the old test in Task 1; confirm no other test names v8:
+In `test/verify-pages.test.mjs`, the assertion `assert.match(css, /header contract · v8 · shared/)` was removed with the old test in Task 1; confirm no other test names v8:
 
-Run: `grep -rn "header contract · v8\|\"header\": \"v8\"" test/ lib/ blocks/ versions.json`
-Expected: no output.
+Run: `grep -rn "header contract · v8\|\"header\": \"v8\"" test/ lib/ blocks/ versions.json` Expected: no output.
 
 - [ ] **Step 6: Run the whole suite**
 
-Run: `npm test`
-Expected: PASS, all tests, including Task 1's comparison and the new Team test.
+Run: `npm test` Expected: PASS, all tests, including Task 1's comparison and the new Team test.
 
 - [ ] **Step 7: Commit**
 
@@ -238,10 +212,7 @@ Verified: npm test, 55 tests, all pass.
 
 ### Task 3: One reader, in card.js
 
-`assets/stage.js` and blust.ch's `timeline/index.html` each carry a near-identical copy of
-"find `link[data-stage]`, fetch it, hand the parsed block over from a timeout". The team page
-would be the third. Move it into `card.js`, which every page that reads the model already
-loads, and which loads before `stage.js` by a rule `README.md` states.
+`assets/stage.js` and blust.ch's `timeline/index.html` each carry a near-identical copy of "find `link[data-stage]`, fetch it, hand the parsed block over from a timeout". The team page would be the third. Move it into `card.js`, which every page that reads the model already loads, and which loads before `stage.js` by a rule `README.md` states.
 
 **Files:**
 
@@ -285,9 +256,7 @@ test("stage.js calls the shared reader rather than carrying its own", () => {
 
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `node --test test/assets.test.mjs`
-Expected: FAIL on both new tests — `card.js has no data(who, cb)` and
-`stage.js does not call the shared reader`.
+Run: `node --test test/assets.test.mjs` Expected: FAIL on both new tests — `card.js has no data(who, cb)` and `stage.js does not call the shared reader`.
 
 - [ ] **Step 3: Add the reader to card.js**
 
@@ -340,9 +309,7 @@ to:
 
 - [ ] **Step 4: Make stage.js call it**
 
-In `assets/stage.js`, replace the whole bootstrap IIFE that begins `(function(){` at line 943
-and ends with its closing `})();` — the block containing `querySelector("link[data-stage]")`,
-the throw, and the `fetch(...)` chain — with:
+In `assets/stage.js`, replace the whole bootstrap IIFE that begins `(function(){` at line 943 and ends with its closing `})();` — the block containing `querySelector("link[data-stage]")`, the throw, and the `fetch(...)` chain — with:
 
 ```js
 (function(){
@@ -354,23 +321,17 @@ the throw, and the `fetch(...)` chain — with:
 })();
 ```
 
-`rbStage` is what the old chain called on success, from inside its own timeout; `rbCard.data`
-now owns that timeout, so the function is passed rather than wrapped. Keep the comment block
-above the IIFE that explains the `data-stage` markup and the loud failure — only the
-implementation moves.
+`rbStage` is what the old chain called on success, from inside its own timeout; `rbCard.data` now owns that timeout, so the function is passed rather than wrapped. Keep the comment block above the IIFE that explains the `data-stage` markup and the loud failure — only the implementation moves.
 
-Run: `grep -n "setTimeout(function" assets/stage.js`
-Expected: the old bootstrap's timeout is gone; any remaining match belongs to the drawing.
+Run: `grep -n "setTimeout(function" assets/stage.js` Expected: the old bootstrap's timeout is gone; any remaining match belongs to the drawing.
 
 - [ ] **Step 5: Run the tests**
 
-Run: `npm test`
-Expected: PASS, all tests.
+Run: `npm test` Expected: PASS, all tests.
 
 - [ ] **Step 6: Update README.md**
 
-In the paragraph that begins "A page that draws a stage names the file it draws and loads
-three scripts in this order", add after the sentence about `card.js` before `stage.js`:
+In the paragraph that begins "A page that draws a stage names the file it draws and loads three scripts in this order", add after the sentence about `card.js` before `stage.js`:
 
 ```
 `card.js` also owns the reader that finds that link and fetches it, `rbCard.data(who, cb)`, so
@@ -442,24 +403,16 @@ BODY
 )"
 ```
 
-Do not merge. Rob merges, tags and publishes; the branch is deleted as its own step, never
-chained after the merge.
+Do not merge. Rob merges, tags and publishes; the branch is deleted as its own step, never chained after the merge.
 
 - [ ] **Step 2: After Rob merges, tag and publish**
 
-This step is Rob's. The release notes are the pull request body reread for a consumer: what
-changed for them, what breaks and how to take it. Nothing breaks. A site takes the whole
-release with a re-pin and `npm run design`, and gets `card.js`, `stage.js` and the header
-fence on every page that carries it.
+This step is Rob's. The release notes are the pull request body reread for a consumer: what changed for them, what breaks and how to take it. Nothing breaks. A site takes the whole release with a re-pin and `npm run design`, and gets `card.js`, `stage.js` and the header fence on every page that carries it.
 
 ---
 
 ## Self-review
 
-Spec §7 names three things: Team at the head of `ORDER`, the header contract corrected and
-bumped, and `rbCard.data`. Tasks 2 and 3 cover all three; Task 1 covers the finding §1 records
-and §7 refers to. Nothing in §7 is unassigned.
+Spec §7 names three things: Team at the head of `ORDER`, the header contract corrected and bumped, and `rbCard.data`. Tasks 2 and 3 cover all three; Task 1 covers the finding §1 records and §7 refers to. Nothing in §7 is unassigned.
 
-No task says "similar to" another, every code step carries the code, and the one place a name
-could drift — `rbCard.data(who, cb)` — is written identically in Task 3's interface block, its
-test, its implementation and `stage.js`'s call.
+No task says "similar to" another, every code step carries the code, and the one place a name could drift — `rbCard.data(who, cb)` — is written identically in Task 3's interface block, its test, its implementation and `stage.js`'s call.

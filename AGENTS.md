@@ -12,24 +12,12 @@ Everything below this block is this repository's own. `sh conventions/convention
 
 # robertblust/design — working conventions
 
-The design system shared by the three sites: tokens, chrome, page checks, cards and deck
-export, taken by each site as a pinned tag and written into its pages by `npm run design`.
-Everything about what ships, how a fence is changed and how a release is made is in
-`README.md`, which is the manual; this file is only what an agent needs before touching
-anything here.
+The design system shared by the three sites: tokens, chrome, page checks, cards and deck export, taken by each site as a pinned tag and written into its pages by `npm run design`. Everything about what ships, how a fence is changed and how a release is made is in `README.md`, which is the manual; this file is only what an agent needs before touching anything here.
 
 ## Checks
 
-Two jobs, both required by the ruleset on `main`: `test`, this repository's own suite, and
-`conventions`, called from robertblust/conventions at the pinned tag and shown by GitHub as
-`conventions / conventions`. The suite includes `test/spelling.test.mjs`, which holds what the
-package ships — blocks, scripts, comments — to American English; the shared prose check reads
-Markdown only, so the two do not overlap and both stay. The prose check leaves out
-`.superpowers`, tooling scratch, and `docs/superpowers`, whose specs and plans quote the very
-words it scans for. Everything about how to write and how to work with git is in
-`conventions/`.
+Two jobs, both required by the ruleset on `main`: `test`, this repository's own suite, and `conventions`, called from robertblust/conventions at the pinned tag and shown by GitHub as `conventions / conventions`. The suite includes `test/spelling.test.mjs`, which holds what the package ships — blocks, scripts, comments — to American English; the shared prose check reads Markdown only, so the two do not overlap and both stay. The prose check leaves out `.superpowers`, tooling scratch, and `docs/superpowers`, whose specs and plans quote the very words it scans for. Everything about how to write and how to work with git is in `conventions/`.
 
 ## What every change here costs downstream
 
-A change to any synced file is at least a minor release, and three sites re-sync from it. Read
-*Releasing* in the README before editing a block, and never edit a fence in a site.
+A change to any synced file is at least a minor release, and three sites re-sync from it. Read *Releasing* in the README before editing a block, and never edit a fence in a site.
