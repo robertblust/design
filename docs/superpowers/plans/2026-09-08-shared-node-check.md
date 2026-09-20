@@ -2,17 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** One site-wide check in the shared suite — two pages of a site may not describe the
-same `@id` differently — and a comment in `assets/stage.js` that stops naming one site's build
-command in a file three sites copy.
+**Goal:** One site-wide check in the shared suite — two pages of a site may not describe the same `@id` differently — and a comment in `assets/stage.js` that stops naming one site's build command in a file three sites copy.
 
-**Architecture:** The page loop in `verify/suite.mjs` gains one line collecting each page's
-`ld+json` text into a map. The block after the loop, which already holds the checks that are not
-about any one page, gains a comparison keyed on `@id`. `runSuite`'s signature does not change,
-so a site adopts the check by re-pinning and doing nothing else.
+**Architecture:** The page loop in `verify/suite.mjs` gains one line collecting each page's `ld+json` text into a map. The block after the loop, which already holds the checks that are not about any one page, gains a comparison keyed on `@id`. `runSuite`'s signature does not change, so a site adopts the check by re-pinning and doing nothing else.
 
-**Tech Stack:** Node 22 ESM, no dependencies — this package cannot import Playwright and takes a
-browser from its caller. `node --test` against `test/suite.test.mjs`'s existing fake browser.
+**Tech Stack:** Node 22 ESM, no dependencies — this package cannot import Playwright and takes a browser from its caller. `node --test` against `test/suite.test.mjs`'s existing fake browser.
 
 **Spec:** `docs/superpowers/specs/2026-09-08-shared-node-check-design.md`
 
@@ -74,9 +68,7 @@ Counted on 2026-09-08.
 
 - [ ] **Step 1: Teach the fake page to answer with a graph**
 
-In `test/suite.test.mjs`, `fakePage()` currently answers `evaluate` with `null` and
-`fakeBrowser()` hands out identical pages. The runner calls `newPage()` once per entry in
-`PAGES`, in order, so the fake can hand out a different payload per page by counting.
+In `test/suite.test.mjs`, `fakePage()` currently answers `evaluate` with `null` and `fakeBrowser()` hands out identical pages. The runner calls `newPage()` once per entry in `PAGES`, in order, so the fake can hand out a different payload per page by counting.
 
 Replace both helpers:
 
@@ -179,12 +171,9 @@ test("a pointer is not compared against the node it points at", async (t) => {
 
 - [ ] **Step 3: Run them to make sure they fail**
 
-Run: `node --test test/suite.test.mjs`
-Expected: the "described differently" test FAILS with `a split node passed` — the other three
-pass, because nothing compares anything yet and a suite that checks nothing reports zero.
+Run: `node --test test/suite.test.mjs` Expected: the "described differently" test FAILS with `a split node passed` — the other three pass, because nothing compares anything yet and a suite that checks nothing reports zero.
 
-That one failing test is the whole red signal here; a check that does not exist cannot fail the
-tests that assert it stays quiet.
+That one failing test is the whole red signal here; a check that does not exist cannot fail the tests that assert it stays quiet.
 
 - [ ] **Step 4: Collect the graphs in the page loop**
 
@@ -197,8 +186,7 @@ In `verify/suite.mjs`, declare the map immediately before `for (const spec of PA
   const graphs = new Map();
 ```
 
-Inside the loop's `try`, immediately after the `for (const [name, fn] of Object.entries(CHECKS))`
-loop closes:
+Inside the loop's `try`, immediately after the `for (const [name, fn] of Object.entries(CHECKS))` loop closes:
 
 ```js
       graphs.set(spec.path, (await page.evaluate(() =>
@@ -206,13 +194,11 @@ loop closes:
           .map((s) => s.textContent))) || []);
 ```
 
-A page whose `goto` threw never reaches this line and contributes nothing, which is right: it
-has already been counted as a failure and its graph is unknown rather than empty.
+A page whose `goto` threw never reaches this line and contributes nothing, which is right: it has already been counted as a failure and its graph is unknown rather than empty.
 
 - [ ] **Step 5: Write the check**
 
-In `verify/suite.mjs`, inside the site-wide block, after the `robots.txt` check and before the
-block's closing brace:
+In `verify/suite.mjs`, inside the site-wide block, after the `robots.txt` check and before the block's closing brace:
 
 ```js
     // A node is identical wherever its @id appears. Nothing configures which nodes those are,
@@ -271,19 +257,13 @@ block's closing brace:
 
 - [ ] **Step 6: Run the tests and make sure they pass**
 
-Run: `node --test test/suite.test.mjs`
-Expected: every test passes, including the three that were already green — they assert the check
-stays quiet, and a check that fires on key order or on a pointer would break them.
+Run: `node --test test/suite.test.mjs` Expected: every test passes, including the three that were already green — they assert the check stays quiet, and a check that fires on key order or on a pointer would break them.
 
-Run: `node --test`
-Expected: the whole suite passes. Other test files exercise `runSuite` indirectly and a page
-whose fake answers `null` must still work.
+Run: `node --test` Expected: the whole suite passes. Other test files exercise `runSuite` indirectly and a page whose fake answers `null` must still work.
 
 - [ ] **Step 7: Run it against the three real sites**
 
-The check has never run against real pages, and the spec claims it lands green on all three. Prove
-that before committing, because a failure here means either the rule is wrong or a site has drift
-nobody knew about — and both are worth knowing now.
+The check has never run against real pages, and the spec claims it lands green on all three. Prove that before committing, because a failure here means either the rule is wrong or a site has drift nobody knew about — and both are worth knowing now.
 
 ```bash
 node --input-type=module -e '
@@ -315,8 +295,7 @@ for (const site of ["https://blust.ch", "https://companygraph.io", "https://gues
 
 Expected: `none split` for all three, with 3, 2 and 2 repeated ids respectively.
 
-If any site reports a split, **stop and report it** rather than adjusting the check. It would be
-a real finding about that site.
+If any site reports a split, **stop and report it** rather than adjusting the check. It would be a real finding about that site.
 
 - [ ] **Step 8: Commit**
 
@@ -364,29 +343,21 @@ MSG
   if (!data.entities) return;             // the page's data block is empty until npm run example
 ```
 
-`npm run example` is companygraph.io's command from before that site renamed it, and was never
-blust.ch's. The bug is not the stale name — it is that a file three sites copy names any one
-site's command at all. Replace it with:
+`npm run example` is companygraph.io's command from before that site renamed it, and was never blust.ch's. The bug is not the stale name — it is that a file three sites copy names any one site's command at all. Replace it with:
 
 ```js
   if (!data.entities) return;             // the page's data block is empty until the site's build has written it
 ```
 
-Change nothing else in the file. In particular do not reflow the alignment of neighbouring
-comments to match the new length.
+Change nothing else in the file. In particular do not reflow the alignment of neighbouring comments to match the new length.
 
 - [ ] **Step 2: Confirm nothing else in the package names a site's command**
 
-Run: `grep -rn "npm run" assets/ blocks/ | grep -v node_modules`
-Expected: no line naming a command that belongs to one site. If another turns up, report it
-rather than fixing it — it is a finding for the review, not a step of this task.
+Run: `grep -rn "npm run" assets/ blocks/ | grep -v node_modules` Expected: no line naming a command that belongs to one site. If another turns up, report it rather than fixing it — it is a finding for the review, not a step of this task.
 
 - [ ] **Step 3: Confirm the package still tests clean**
 
-Run: `node --test`
-Expected: every test passes. `test/assets.test.mjs` holds this file against what the package
-ships, so a change here must not break it — and if it does, that test is asserting a comment's
-text and the review should hear about it.
+Run: `node --test` Expected: every test passes. `test/assets.test.mjs` holds this file against what the package ships, so a change here must not break it — and if it does, that test is asserting a comment's text and the review should hear about it.
 
 - [ ] **Step 4: Commit**
 
@@ -415,12 +386,9 @@ MSG
 git push -u origin shared-node-check
 ```
 
-Then open a pull request against `main` with the forge's CLI, describing both commits in the git
-register — the commit body reread for a reviewer who has not seen the diff. Report the check and
-stop.
+Then open a pull request against `main` with the forge's CLI, describing both commits in the git register — the commit body reread for a reviewer who has not seen the diff. Report the check and stop.
 
-**Do not tag a release, do not merge, and do not open the re-sync pull requests.** Those are the
-owner's, and what they involve is below.
+**Do not tag a release, do not merge, and do not open the re-sync pull requests.** Those are the owner's, and what they involve is below.
 
 ---
 
@@ -428,41 +396,22 @@ owner's, and what they involve is below.
 
 Not steps in this plan. Recorded so the work is not half-described.
 
-**The release is v0.54.0**, a minor: `WORKING.md` makes any change another repository builds from
-at least a minor, and nothing here asks a site to do more than re-pin and re-sync. The tag is the
-release; there is no publish step anywhere in this family.
+**The release is v0.54.0**, a minor: `WORKING.md` makes any change another repository builds from at least a minor, and nothing here asks a site to do more than re-pin and re-sync. The tag is the release; there is no publish step anywhere in this family.
 
-**Then three re-sync pull requests**, in the order `REPOSITORIES.md` gives — the three sites after
-design. What each contains differs, and the difference is the point:
+**Then three re-sync pull requests**, in the order `REPOSITORIES.md` gives — the three sites after design. What each contains differs, and the difference is the point:
 
-`verify/` is imported from `node_modules`, so **the check costs a re-pin and nothing else**. No
-site edits a check file, a page or a spec.
+`verify/` is imported from `node_modules`, so **the check costs a re-pin and nothing else**. No site edits a check file, a page or a spec.
 
-`assets/stage.js` is a copied file, so the comment costs `npm run design` — and that changes the
-file's bytes, which stales the card of every page naming it. **Four pages do**: blust.ch's
-`/model/` and `/timeline/`, companygraph.io's `/model/` and `/example/`. Each needs `npm run og`
-and the `og.sha` committed beside its unchanged `og.png`. guestgraph.io loads the stage on no
-page and takes only the re-pin.
+`assets/stage.js` is a copied file, so the comment costs `npm run design` — and that changes the file's bytes, which stales the card of every page naming it. **Four pages do**: blust.ch's `/model/` and `/timeline/`, companygraph.io's `/model/` and `/example/`. Each needs `npm run og` and the `og.sha` committed beside its unchanged `og.png`. guestgraph.io loads the stage on no page and takes only the re-pin.
 
-A site that re-pins without running `npm run design` will pass `pages:check` and fail
-`design:check`, which is the check doing its job.
+A site that re-pins without running `npm run design` will pass `pages:check` and fail `design:check`, which is the check doing its job.
 
 ## Self-review
 
-**Spec coverage.** §2's rule, its canonical form, the pointer exemption and the comment about
-being the weaker half are Task 1 steps 4 and 5. §2's stage comment is Task 2. §3's adoption costs
-and §4's release are the owner's section, deliberately not tasks. §6's four cases are Task 1
-step 2, and its note that the fake page answers `null` is step 1.
+**Spec coverage.** §2's rule, its canonical form, the pointer exemption and the comment about being the weaker half are Task 1 steps 4 and 5. §2's stage comment is Task 2. §3's adoption costs and §4's release are the owner's section, deliberately not tasks. §6's four cases are Task 1 step 2, and its note that the fake page answers `null` is step 1.
 
-**Placeholders.** None. Every code step carries the code; every check step carries the command and
-its expected output.
+**Placeholders.** None. Every code step carries the code; every check step carries the command and its expected output.
 
-**Type consistency.** `graphs` is `Map(path → string[])`, filled in the loop and read once.
-`shapes` is `Map(@id → Map(canonical → path[]))`. `canon` is recursive over arrays, objects and
-scalars. `fakePage(ld)` and `fakeBrowser(lds)` change signature together, and every existing call
-site passes nothing, which is why both arguments are optional.
+**Type consistency.** `graphs` is `Map(path → string[])`, filled in the loop and read once. `shapes` is `Map(@id → Map(canonical → path[]))`. `canon` is recursive over arrays, objects and scalars. `fakePage(ld)` and `fakeBrowser(lds)` change signature together, and every existing call site passes nothing, which is why both arguments are optional.
 
-**One risk worth naming.** Step 1 changes a helper six existing tests already use. They pass no
-argument, so `ld` is `undefined` and `evaluate` answers `null` — which is what it answered before.
-If any existing test starts failing after step 1 and before step 4, the helper change is wrong and
-the task should stop rather than proceed.
+**One risk worth naming.** Step 1 changes a helper six existing tests already use. They pass no argument, so `ld` is `undefined` and `evaluate` answers `null` — which is what it answered before. If any existing test starts failing after step 1 and before step 4, the helper change is wrong and the task should stop rather than proceed.

@@ -2,22 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Release v0.30.0 of `@robertblust/design`: the entity card and the date formatting move
-out of `stage.js` into a `card.js` every stage page loads, `stage.css` gains the ledger's
-rules, and the header contract names Timeline after Model.
+**Goal:** Release v0.30.0 of `@robertblust/design`: the entity card and the date formatting move out of `stage.js` into a `card.js` every stage page loads, `stage.css` gains the ledger's rules, and the header contract names Timeline after Model.
 
-**Architecture:** `card.js` is a whole-file asset in the `stage` group, like `stage.js`, and
-defines one global, `rbCard`, with `render`, `fmtPeriod` and `fmtDate`. `stage.js` keeps the
-drawing and the root and folder cards and calls `rbCard` for an entity. The header block and the
-shared `navOrder` check change one word each. Nothing is fenced; every changed file is synced
-whole.
+**Architecture:** `card.js` is a whole-file asset in the `stage` group, like `stage.js`, and defines one global, `rbCard`, with `render`, `fmtPeriod` and `fmtDate`. `stage.js` keeps the drawing and the root and folder cards and calls `rbCard` for an entity. The header block and the shared `navOrder` check change one word each. Nothing is fenced; every changed file is synced whole.
 
-**Tech Stack:** plain browser JavaScript in an IIFE, no modules, no build; `node --test` for the
-package's own tests; a git tag and a GitHub Release.
+**Tech Stack:** plain browser JavaScript in an IIFE, no modules, no build; `node --test` for the package's own tests; a git tag and a GitHub Release.
 
-**Spec:** `robertblust/robertblust.github.io`, `docs/superpowers/specs/2026-09-05-timeline-page-design.md`,
-§5 (the card) and §6 (this release). The site's plan, which takes this release, is
-`docs/superpowers/plans/2026-09-05-timeline-page.md` in that repository.
+**Spec:** `robertblust/robertblust.github.io`, `docs/superpowers/specs/2026-09-05-timeline-page-design.md`, §5 (the card) and §6 (this release). The site's plan, which takes this release, is `docs/superpowers/plans/2026-09-05-timeline-page.md` in that repository.
 
 ## Global Constraints
 
@@ -80,9 +71,7 @@ test("stage.js no longer carries the card or the dates — it calls rbCard", () 
 });
 ```
 
-Change the existing test `a \`- \` block becomes a list, and the marker is not printed as text`
-so that it reads `asset("assets/card.js")` instead of `asset("assets/stage.js")` — the branch
-it guards moves.
+Change the existing test `a \`- \` block becomes a list, and the marker is not printed as text` so that it reads `asset("assets/card.js")` instead of `asset("assets/stage.js")` — the branch it guards moves.
 
 In `test/groups.test.mjs`, change the stage group test:
 
@@ -95,14 +84,11 @@ test("the stage group carries the card, the script, the stylesheet and the vendo
 
 - [ ] **Step 2: Run the tests to see them fail**
 
-Run: `npm test 2>&1 | grep -E "^not ok|# fail"`
-Expected: three failures — the card test, the stage-no-longer test, the group test.
+Run: `npm test 2>&1 | grep -E "^not ok|# fail"` Expected: three failures — the card test, the stage-no-longer test, the group test.
 
 - [ ] **Step 3: Create `assets/card.js`**
 
-The body of `renderInto`'s entity branch and the date functions, moved without change of
-behavior. Copy the functions out of `assets/stage.js` as they stand, then apply the edits
-below; the file must read exactly like this in structure:
+The body of `renderInto`'s entity branch and the date functions, moved without change of behavior. Copy the functions out of `assets/stage.js` as they stand, then apply the edits below; the file must read exactly like this in structure:
 
 ```js
 // The card: one entity of a data block, rendered into a body and a foot. Two pages draw it —
@@ -263,9 +249,7 @@ below; the file must read exactly like this in structure:
 })();
 ```
 
-The `"- "` list branch must keep the exact characters `if (/^-\s/.test(par))`,
-`h("ul", null, "prose")` and `replace(/^-\s+/, "")`: `test/assets.test.mjs` finds the branch by
-those strings.
+The `"- "` list branch must keep the exact characters `if (/^-\s/.test(par))`, `h("ul", null, "prose")` and `replace(/^-\s+/, "")`: `test/assets.test.mjs` finds the branch by those strings.
 
 - [ ] **Step 4: Take the moved code out of `assets/stage.js` and call `rbCard`**
 
@@ -311,19 +295,11 @@ In `test/spelling.test.mjs` line 15, `SCAN` gains `"assets/card.js"` after `"ass
 
 - [ ] **Step 6: Run the tests**
 
-Run: `npm test 2>&1 | grep -E "^not ok|# (pass|fail)"`
-Expected: `# fail 0`.
+Run: `npm test 2>&1 | grep -E "^not ok|# (pass|fail)"` Expected: `# fail 0`.
 
 - [ ] **Step 7: Check it in a browser, once**
 
-From `~/git/robertblust/robertblust.github.io`, with this package linked
-(`npm install ../design` writes it into `node_modules`): run `npm run design`, add
-`<script src="../card.js"></script>` above `<script src="../stage.js"></script>` at the foot of
-`model/index.html`, `npm run serve`, open `http://localhost:8000/model/`, click into
-`profiles` → `robert-blust` → `experiences` → an entry, and read its card: eyebrow, name,
-tagline, fields with skills as links, Achievements as a list, the foot link `… @ a535e43`.
-Press DE and read the period line change to `Feb 2015 – Mär 2022`. Then `git checkout -- .`
-there; the site takes the release by its own plan.
+From `~/git/robertblust/robertblust.github.io`, with this package linked (`npm install ../design` writes it into `node_modules`): run `npm run design`, add `<script src="../card.js"></script>` above `<script src="../stage.js"></script>` at the foot of `model/index.html`, `npm run serve`, open `http://localhost:8000/model/`, click into `profiles` → `robert-blust` → `experiences` → an entry, and read its card: eyebrow, name, tagline, fields with skills as links, Achievements as a list, the foot link `… @ a535e43`. Press DE and read the period line change to `Feb 2015 – Mär 2022`. Then `git checkout -- .` there; the site takes the release by its own plan.
 
 - [ ] **Step 8: Commit**
 
@@ -376,8 +352,7 @@ test("stage.css carries the ledger and the pressed expand control", () => {
 
 - [ ] **Step 2: Run it to see it fail**
 
-Run: `npm test 2>&1 | grep -E "^not ok"`
-Expected: `not ok … stage.css carries the ledger`.
+Run: `npm test 2>&1 | grep -E "^not ok"` Expected: `not ok … stage.css carries the ledger`.
 
 - [ ] **Step 3: Append the rules**
 
@@ -427,8 +402,7 @@ Insert into `assets/stage.css` directly before the comment `/* figure tokens.`:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `npm test 2>&1 | grep -E "^not ok|# fail"`
-Expected: `# fail 0`.
+Run: `npm test 2>&1 | grep -E "^not ok|# fail"` Expected: `# fail 0`.
 
 - [ ] **Step 5: Commit**
 
@@ -485,22 +459,15 @@ test("the header contract's order comment agrees with navOrder", () => {
 });
 ```
 
-If `fs`, `path` or `PKG` are not already imported at the top of that test file, add
-`import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";`
-and `const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));` the way
-`test/assets.test.mjs` does.
+If `fs`, `path` or `PKG` are not already imported at the top of that test file, add `import fs from "node:fs"; import path from "node:path"; import { fileURLToPath } from "node:url";` and `const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));` the way `test/assets.test.mjs` does.
 
 - [ ] **Step 2: Run it to see it fail**
 
-Run: `npm test 2>&1 | grep -E "^not ok"`
-Expected: both new tests fail.
+Run: `npm test 2>&1 | grep -E "^not ok"` Expected: both new tests fail.
 
 - [ ] **Step 3: Change the two words and the version**
 
-In `blocks/header.css` line 1, `header contract · v7 · shared` → `header contract · v8 · shared`.
-Line 12, `· order      Ideas, Principles, Model, Example, Talks, Billing, Privacy, then the` →
-`· order      Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy, then the`.
-Re-wrap the following line if the column moved.
+In `blocks/header.css` line 1, `header contract · v7 · shared` → `header contract · v8 · shared`. Line 12, `· order      Ideas, Principles, Model, Example, Talks, Billing, Privacy, then the` → `· order      Ideas, Principles, Model, Timeline, Example, Talks, Billing, Privacy, then the`. Re-wrap the following line if the column moved.
 
 In `versions.json`, `"header": "v7"` → `"header": "v8"`.
 
@@ -512,8 +479,7 @@ In `verify/pages.mjs` line 485:
 
 - [ ] **Step 4: Run the tests**
 
-Run: `npm test 2>&1 | grep -E "^not ok|# fail"`
-Expected: `# fail 0` — `test/fences.test.mjs` holds the version against `versions.json`.
+Run: `npm test 2>&1 | grep -E "^not ok|# fail"` Expected: `# fail 0` — `test/fences.test.mjs` holds the version against `versions.json`.
 
 - [ ] **Step 5: Commit**
 
@@ -565,8 +531,7 @@ to open from `file://` with no network. **Never link a deck to `stage.js`, `card
 
 - [ ] **Step 2: Run the prose and spelling checks**
 
-Run: `npm test 2>&1 | grep -E "^not ok|# fail"; sh conventions/conventions-check`
-Expected: `# fail 0` and `✓ every Markdown file follows WRITING.md`.
+Run: `npm test 2>&1 | grep -E "^not ok|# fail"; sh conventions/conventions-check` Expected: `# fail 0` and `✓ every Markdown file follows WRITING.md`.
 
 - [ ] **Step 3: Commit and open the pull request**
 
@@ -624,8 +589,7 @@ sed -i '' 's|design#v0.29.0|design#v0.30.0|' package.json
 npm install @robertblust/design@github:robertblust/design#v0.30.0 && npm run design
 ```
 
-In `model/index.html` and `example/index.html`, directly above the line
-`<script src="../stage.js"></script>`, insert `<script src="../card.js"></script>`.
+In `model/index.html` and `example/index.html`, directly above the line `<script src="../stage.js"></script>`, insert `<script src="../card.js"></script>`.
 
 ```bash
 npm run og && npm run verify; echo "exit $?"
