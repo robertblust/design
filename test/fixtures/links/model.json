@@ -1,0 +1,8 @@
+{
+  "rootId": "root",
+  "entities": [
+    { "id": "root", "see": [] },
+    { "id": "things/a", "see": ["things/b"], "url": "https://example.org/reference" },
+    { "id": "things/b", "see": ["things/void"], "home": "https://fixture.test/gone/" }
+  ]
+}
