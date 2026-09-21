@@ -33,6 +33,7 @@
     ".": "./lib/sync.mjs",
     "./groups": "./lib/groups.mjs",
     "./verify/stage": "./verify/stage.mjs",
+    "./verify/model-pages": "./verify/model-pages.mjs",
     "./verify/design": "./verify/design.mjs",
     "./verify/http": "./verify/http.mjs",
     "./verify/pages": "./verify/pages.mjs",
