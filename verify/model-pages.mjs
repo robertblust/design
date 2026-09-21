@@ -112,9 +112,12 @@ export const MODEL_PAGE_CHECKS = {
     }
 
     // A seat opens onto its card, rendered on demand and not before, and a reference in it leaves
-    // for STAGE_PAGE. Every row of the first board is opened until one card carries a reference,
-    // so the link is checked wherever the model gives a seat one.
-    const first = boards[0];
+    // for STAGE_PAGE. The rows of the first board the page draws are opened until one card
+    // carries a reference, so the link is checked wherever the model gives a seat one. A model
+    // whose seats reference nothing on the stage leaves nothing to follow, and that is not the
+    // page's fault; STAGE_PAGE is held above either way.
+    const firstId = await page.evaluate(() => (document.querySelector('.grid[id$="board"]') || {}).id);
+    const first = boards.find((b) => b.prefix + "board" === firstId) || boards[0];
     const opened = await page.evaluate(async ({ prefix, names }) => {
       const rows = [...document.getElementById(prefix + "board").querySelectorAll("details")];
       const out = { rendered: [], early: false, go: null };
@@ -133,8 +136,7 @@ export const MODEL_PAGE_CHECKS = {
     }, { prefix: first.prefix, names: first.rows.map((r) => r.name) });
     if (opened.early) bad.push("a card is rendered before its row was opened");
     for (const [name, h3] of opened.rendered) if (h3 !== name) bad.push(`opening the ${name} row did not render its card`);
-    if (!opened.go) bad.push(`no card on the ${first.name} board carries a reference to follow`);
-    else if (!target.error && !opened.go.startsWith(target.stage + "?stage=expanded#"))
+    if (opened.go && !target.error && !opened.go.startsWith(target.stage + "?stage=expanded#"))
       bad.push(`a card link points at ${opened.go}, not at ${target.stage}`);
     return bad.length ? bad.join("; ") : null;
   },

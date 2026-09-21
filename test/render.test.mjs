@@ -109,13 +109,13 @@ export const TEAM_FIXTURE = {
   ],
 };
 
-export function renderTeamInto(fixture) {
+export function renderTeamInto(fixture, opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-team-"));
   fs.mkdirSync(path.join(dir, "team"));
   fs.writeFileSync(path.join(dir, "team/index.html"),
     "<html><body><p class=\"tagline\">t</p>\n<!-- team-note:start -->\n<!-- team-note:end -->\n" +
     "<div class=\"lbl\">The team</div>\n<!-- team:start -->\n<!-- team:end --></body></html>");
-  writeTeam(fixture, { root: dir });
+  writeTeam(fixture, { ...opts, root: dir });
   return fs.readFileSync(path.join(dir, "team/index.html"), "utf8");
 }
 
@@ -186,6 +186,26 @@ test("a person's seats come first, then the seats no profile holds, then an agen
   const elseBoard = html.slice(html.indexOf('id="else"'));
   const order = [...elseBoard.matchAll(/<details[^>]* id="else-([a-z-]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order, ["boss", "helper"]);
+});
+
+test("the seat that owns the process leads its board, before a person's seats", () => {
+  // Else names Boss, whom a person holds, and Helper, whom nobody holds; by holder alone Boss
+  // comes first. Made Else's owner, Helper leads instead.
+  const f = structuredClone(TWO_PROCESS_FIXTURE);
+  f.entities.find((e) => e.id === "processes/e").fields.owner = "Helper";
+  const elseBoard = regionOf(renderTeamInto(f)).slice(regionOf(renderTeamInto(f)).indexOf('id="else"'));
+  const order = [...elseBoard.matchAll(/<details[^>]* id="else-([a-z-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["helper", "boss"]);
+});
+
+test("a site's order draws the processes it names first, in that order", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE, { order: ["Else"] }));
+  const boards = [...html.matchAll(/<div class="grid" id="([a-z-]*)board">/g)].map((m) => m[1]);
+  assert.deepEqual(boards, ["else-", "doing-"]);
+});
+
+test("an order naming a process the model does not hold is an error", () => {
+  assert.throws(() => renderTeamInto(TWO_PROCESS_FIXTURE, { order: ["Elsewhere"] }), /does not hold: Elsewhere/);
 });
 
 test("the board no longer needs a profile to hold a seat", () => {
