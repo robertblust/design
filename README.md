@@ -87,18 +87,18 @@ Taking a block out of the package works the same way in reverse: delete its fenc
 
 ## The model pages
 
-Principles, Team and Surfaces are pages generated from an instance's model rather than written by hand, wherever a site carries them. Four exports do the writing and five fences carry the result into the page; a page opts into any of them the same way it opts into any fence, by carrying its markers, and a page carrying none of the five is untouched.
+Principles, Team and Surfaces are pages generated from an instance's model rather than written by hand, wherever a site carries them. The exports below do the writing and the fences below carry the result into the page; a page opts into any of them the same way it opts into any fence, by carrying its markers, and a page carrying none of them is untouched.
 
 | export | what it writes |
 | --- | --- |
-| `render/note` | `NOTE_EN` and `NOTE_DE` — the one sentence, shared by the three writers below, saying why the region it sits in does not translate |
+| `render/note` | `NOTE_EN` and `NOTE_DE` — the one sentence, shared by the writers below it, saying why the region it sits in does not translate |
 | `render/principles` | `writePrinciples` — the vision and the values into `principles/index.html` |
 | `render/team` | `writeTeam` — the head rail, the board and its legend into `team/index.html` |
 | `render/surfaces` | `writeSurfaces` — the model, its makers and their surfaces into `surfaces/index.html` |
 
 Each writer takes `(data, { check, root })`. `root` is the site's own root, required rather than guessed from where the package sits, and a writer called without it throws the reason why; `check` reports the files it would change without writing them, as `design sync --check` does for the whole page.
 
-Three of the five fences are one page's own CSS and nothing else: `team`, `surfaces` and `principles`. The other two are behavior. `surfaces lineage` draws the lineage and holds Surfaces's card glue together, because the two share state: the card in the panel is whichever surface is chosen, and choosing one redraws the wires too. `model card` is Team's card glue — the rows behind a board and the one Open-all over them. Both need a value the page declares above them in the same script, `STAGE_PAGE`, where a seat links, ending in `/`; `model card` also needs `MODEL_CARD`, the name `card.js` reports a failed read under, declared the same way.
+`team`, `surfaces` and `principles` are each one page's own CSS and nothing else. `surfaces lineage` and `model card` are behavior instead. `surfaces lineage` draws the lineage and holds Surfaces's card glue together, because the two share state: the card in the panel is whichever surface is chosen, and choosing one redraws the wires too. `model card` is Team's card glue — the rows behind a board and the one Open-all over them. Both need a value the page declares above them in the same script, `STAGE_PAGE`, where a seat links, ending in `/`; `model card` also needs `MODEL_CARD`, the name `card.js` reports a failed read under, declared the same way.
 
 ## No parameters
 
