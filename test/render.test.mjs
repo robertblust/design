@@ -3,8 +3,9 @@
 // day the model changes.
 //
 // Principles and Team move here with the tests that cover them. The jsonld renderer is not
-// moving and its tests stay in blust.ch. Surfaces moves as source in this task; its tests do
-// not move with it.
+// moving and its tests stay in blust.ch. Surfaces moves as source in this task; its own tests
+// do not move with it, apart from the one test below that reads all three renderers together:
+// left in blust.ch it would fail with ENOENT the day a later task deletes blust.ch's copies.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -176,6 +177,17 @@ test("the board carries one details per seat, with its slug as an address", () =
   assert.equal((html.match(/<details/g) || []).length, 3);
   assert.match(html, /<details class="human" id="boss" data-role="roles\/boss">/);
   assert.match(html, /<details id="checker" data-role="roles\/checker">/);
+});
+
+test("the note that says why a region does not translate has one home", () => {
+  const princ = fs.readFileSync(new URL("../lib/render/principles.mjs", import.meta.url), "utf8");
+  const team = fs.readFileSync(new URL("../lib/render/team.mjs", import.meta.url), "utf8");
+  const surf = fs.readFileSync(new URL("../lib/render/surfaces.mjs", import.meta.url), "utf8");
+  for (const [name, src] of [["principles.mjs", princ], ["team.mjs", team], ["surfaces.mjs", surf]]) {
+    assert.match(src, /from "\.\/note\.mjs"/, `${name} does not import the note`);
+    assert.ok(!/Generated from the model, so the words below/.test(src),
+      `${name} carries its own copy of the note`);
+  }
 });
 
 test("the note lands in the title block, above the section label and the board", () => {
