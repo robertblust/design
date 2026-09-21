@@ -1042,6 +1042,10 @@ export function pageChecks({ SITE, BASE }) {
       const desc = () => page.evaluate(() => (document.getElementById("metadesc") || {}).content);
       const href = () => page.evaluate(() =>
         (document.querySelector("[data-de-href]") || {}).getAttribute?.("href"));
+      // The nav re-fits itself in the frame after <html lang> changes, and a German row that no
+      // longer fits collapses to the menu. Read before that frame and the page is caught
+      // between the two languages' layouts, so every switch waits two frames before reading.
+      const settle = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       const english = await body();
       const englishTitle = await page.title();
       const englishDesc = await desc();
@@ -1049,6 +1053,7 @@ export function pageChecks({ SITE, BASE }) {
       const toggle = "#" + (spec.translates.id || "lde");
       const back = "#" + (spec.translates.backId || "len");
       await page.click(toggle);
+      await settle();
       const swapped = await htmlLang();
       if (swapped !== spec.translates.lang)
         return `after the toggle lang=${swapped}, expected ${spec.translates.lang}`;
@@ -1107,6 +1112,7 @@ export function pageChecks({ SITE, BASE }) {
       }
 
       await page.click(back);
+      await settle();
       const returned = await htmlLang();
       if (returned !== "en") return `toggling back left lang=${returned}, expected en`;
       if (await body() !== english) return "toggling back did not restore the English text";
