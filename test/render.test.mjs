@@ -78,6 +78,7 @@ test("writePrinciples writes a $& in a section's text as itself", () => {
 
 // ── the team board ────────────────────────────────────────────────────────────────────
 import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
+import { writeSurfaces } from "../lib/render/surfaces.mjs";
 
 // Two phases, three roles, and every relation the board draws. Deliberately not the real
 // model: this asserts the derivation, and the real model's shape is asserted by pages:check.
@@ -273,8 +274,8 @@ test("the note lands in the title block, above the section label and the board",
   const label = html.indexOf('class="lbl">The team');
   const board = html.indexOf('<div class="grid"');
   assert.ok(note > 0, "the note was not written");
-  assert.ok(note < label, "the note reads after the section label");
-  assert.ok(label < board, "the section label reads after the board");
+  assert.ok(note < label, "the note must read before the section label");
+  assert.ok(label < board, "the section label must read before the board");
 });
 
 test("a page missing either marker is an error, not a page half-generated", () => {
@@ -303,4 +304,5 @@ test("a writer refuses to run without the site's root", () => {
   const data = { entities: [], commit: "0".repeat(40), repo: "x/y" };
   assert.throws(() => writeTeam(data, {}), /needs the site's root/);
   assert.throws(() => writePrinciples(data, {}), /needs the site's root/);
+  assert.throws(() => writeSurfaces(data, {}), /needs the site's root/);
 });
