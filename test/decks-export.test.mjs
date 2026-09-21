@@ -1,5 +1,5 @@
 // exportDecks against a fake browser and a fake PDFDocument, never Playwright and never pdf-lib.
-// The package has no dependencies and must not gain one for its own tests.
+// The package has no dependencies; what these tests assert is the calls made, which a fake records.
 //
 // Unlike cards/export.mjs, this module is not a union of three drifted copies: the three
 // exporters it replaces were behaviorally identical. So these tests assert the contract the

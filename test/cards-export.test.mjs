@@ -1,6 +1,6 @@
-// exportCards against a fake browser, never Playwright. The package has no dependencies and
-// must not gain one for its own tests — so the browser is an object that records the calls made
-// to it, and every assertion below is about that record.
+// exportCards against a fake browser, never Playwright. The package has no dependencies, and
+// the one devDependency it has, Playwright, is for the link checker's fixture site; these tests stay on
+// a fake because what they assert is the record of calls made to the browser, not what it drew.
 //
 // Each test here names a capability that one of the three exporters this module replaces had and
 // the other two had lost. That is the whole point of the file: a renderer consolidated onto any

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fixture</title>
+<link rel="stylesheet" href="style.css">
+<link rel="canonical" href="https://fixture.test/">
+<meta property="og:url" content="https://fixture.test/">
+<meta property="og:image" content="https://fixture.test/og.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Person","url":"https://fixture.test/about/","sameAs":["https://example.org/elsewhere"]}</script>
+</head>
+<body>
+<a href="about/">a page that is there</a>
+<a href="missing/">a page that is not</a>
+<a href="about/#team">an element that is there</a>
+<a href="about/#nobody">an element that is not</a>
+<a href="about/#late">an element a script makes</a>
+<a href="model/?stage=expanded#things/a">an entity in the data</a>
+<a href="model/?stage=expanded#things/ghost">an entity not in the data</a>
+<a href="model/#things">a folder in the data</a>
+<a href="model/#things/nope">a bare hash naming no entity</a>
+<a href="nodata/#things/a">a stage that names no data</a>
+<a href="ledger/#row-1">a row on a page that reads the model without a stage</a>
+<a href="noopener/">a page that reads the model and opens no card</a>
+<a href="https://fixture.test/about/">an own link written absolute</a>
+<a href="https://example.org/page">an external link</a>
+<a href="mailto:someone@example.org">mail</a>
+<a href="talks/deck/">a deck the sitemap does not name</a>
+</body>
+</html>

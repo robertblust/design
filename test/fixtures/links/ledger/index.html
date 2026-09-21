@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><title>Ledger</title>
+<link rel="preload" as="fetch" href="../model.json" data-stage crossorigin>
+</head>
+<body>
+<button type="button" id="openall">Open all</button>
+<details id="row-1"><summary>One</summary><div class="cbody"></div></details>
+<details id="row-2"><summary>Two</summary><div class="cbody"></div></details>
+<script>
+  var targets = { "row-1": "things/b", "row-2": "things/lost" };
+  document.getElementById("openall").addEventListener("click", function () {
+    [].forEach.call(document.querySelectorAll("details"), function (d) {
+      d.open = true;
+      var a = document.createElement("a");
+      a.href = "../model/?stage=expanded#" + targets[d.id];
+      a.textContent = targets[d.id];
+      d.querySelector(".cbody").appendChild(a);
+    });
+  });
+</script>
+</body>
+</html>

@@ -16,14 +16,19 @@ jobs:
   # it runs unit tests rather than a rendered-page suite, and that is the only reason.
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
-      # No `npm ci`: this package has no dependencies, and having none is a property worth
-      # keeping. Three sites install it, and every transitive dependency it took would land
-      # in all three.
+          cache: npm
+      # This package has no dependencies, and having none is a property worth keeping: three
+      # sites install it, and every transitive dependency it took would land in all three. Its
+      # one devDependency, Playwright, loads the link checker's fixture site in a real browser,
+      # and never reaches a site, because npm installs a dependency's dependencies and not its
+      # devDependencies.
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - name: The sync tool still does what it says
         run: npm test
