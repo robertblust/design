@@ -1,4 +1,4 @@
-  /* ─── header contract · v13 · shared ──────────────────────────────────
+  /* ─── header contract · v14 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -9,10 +9,12 @@
      not that every site declares it the same way, and `mobileNav` asserts the outcome.
 
      The contract:
-       · order      Team, Principles, Surfaces, API, Ideas, Model, Timeline, Example, Talks,
-                    Billing, Privacy, then the language control. A site skips what it does
-                    not have and reorders nothing. Read right to left, the switcher is at the
-                    edge and each step left is more the site's own subject. Principles is
+       · order      CLI, Team, Principles, Surfaces, API, Ideas, Model, Timeline, Example,
+                    Talks, Billing, Privacy, then the language control. A site skips what it
+                    does not have and reorders nothing. Read right to left, the switcher is at
+                    the edge and each step left is more the site's own subject. CLI is the
+                    one exception and leads, because a reader who came to set the thing up
+                    wants the command before anything the site says about it. Principles is
                     second because what the work is held to belongs to a site as closely as
                     who does it, and comes before where any of it is published. API was
                     missing from this list for one release while the check enforced it; the
