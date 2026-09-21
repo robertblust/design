@@ -6,13 +6,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 
-function El(tag) { this.tag = tag; this.kids = []; this.className = ""; this.attrs = {}; this.style = {}; }
-El.prototype.appendChild = function (c) { this.kids.push(c); return c; };
-El.prototype.removeChild = function (c) { this.kids = this.kids.filter((k) => k !== c); };
+function El(tag) { this.tag = tag; this.kids = []; this.className = ""; this.attrs = {}; this.style = {}; this.listeners = {}; this.parentNode = null; }
+El.prototype.appendChild = function (c) { this.kids.push(c); if (c && typeof c === "object") c.parentNode = this; return c; };
+El.prototype.removeChild = function (c) { this.kids = this.kids.filter((k) => k !== c); if (c && typeof c === "object") c.parentNode = null; };
 El.prototype.setAttribute = function (k, v) { this.attrs[k] = v; };
 El.prototype.getAttribute = function (k) { return k in this.attrs ? this.attrs[k] : null; };
 El.prototype.removeAttribute = function (k) { delete this.attrs[k]; };
-El.prototype.addEventListener = function () {};
+El.prototype.addEventListener = function (type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); };
 Object.defineProperty(El.prototype, "firstChild", { get() { return this.kids[0]; } });
 Object.defineProperty(El.prototype, "textContent", {
   set(v) { this.kids = [{ text: String(v) }]; },
@@ -75,4 +75,24 @@ test("the file name is never listed as a field, with a picture or without", () =
     assert.ok(!terms.includes("image"), terms.join(", "));
     assert.ok(terms.includes("nature"), terms.join(", "));
   }
+});
+
+test("a picture that does not load removes itself, and the row keeps the name where it was", () => {
+  const body = draw(mira("mira.jpg"), { dataImages: "../images/" });
+  const [img] = find(body, (n) => n.tag === "img");
+  assert.ok(img, "no img drawn");
+  const fns = img.listeners.error;
+  assert.ok(fns && fns.length === 1, "no error listener recorded on the img");
+  fns[0]();
+  const [head] = find(body, (n) => n.className === "chead");
+  assert.deepEqual(head.kids.map((k) => k.tag), ["h3"]);
+  assert.equal(head.kids[0].textContent, "Mira Halvorsen");
+});
+
+test("each segment of the id is encoded in the address, and a plain id reads as it did", () => {
+  const odd = mira("mira.jpg");
+  odd.id = "profiles/mi ra#x";
+  const [img] = find(draw(odd, { dataImages: "../images/" }), (n) => n.tag === "img");
+  assert.equal(img.attrs.src, "../images/profiles/mi%20ra%23x.jpg");
+  assert.equal(find(draw(mira("mira.jpg"), { dataImages: "../images/" }), (n) => n.tag === "img")[0].attrs.src, "../images/profiles/mira.jpg");
 });

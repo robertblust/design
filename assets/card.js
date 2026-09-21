@@ -3,6 +3,9 @@
 // inside stage.js a second page could only copy it, which it did, and drifted in seven places
 // within a day. So it is a file of its own, synced whole, loaded before whichever script
 // calls it, and it knows no page: what it cannot read off the entity it takes from `opts`.
+// The one exception is where a page serves the model's images, read off the page's own data
+// link, since four callers — two of them fences inlined in three sites — would otherwise each
+// have to learn where a site keeps its images.
 //
 //   rbCard.render(entity, bodyEl, footEl, { data, lang, link, note, images })
 //     data   the parsed block: entities for resolving a reference, commit and repo for the foot
@@ -133,21 +136,28 @@
   // Where the page serves the model's images, or null where it serves none. A site copies each
   // image beside its model.json as `<entity id>.<extension>` and says so on the link that names
   // its data — `data-images="../images/"` — so a page that has not taken the copy step draws no
-  // broken picture: it draws the card it always drew.
+  // broken picture: it draws the card it always drew. With more than one `link[data-stage]` the
+  // first is read, as `data()` reads it.
   function imagesBase(){
     var link = document.querySelector("link[data-stage]");
     return link && link.getAttribute ? link.getAttribute("data-images") : null;
   }
   // The size is set on the element so nothing shifts when the file arrives, and the name is
   // the text a reader without the picture gets.
+  function encId(id){ return id.split("/").map(encodeURIComponent).join("/"); }
   function avatar(e, base){
     var name = e.fields && e.fields.image;
     if (!base || typeof name !== "string" || !/\.(jpe?g|png)$/.test(name)) return null;
     var img = h("img", null, "avatar");
-    img.setAttribute("src", base.replace(/\/?$/, "/") + e.id + "." + name.split(".").pop());
+    img.setAttribute("src", base.replace(/\/?$/, "/") + encId(e.id) + "." + name.split(".").pop());
     img.setAttribute("alt", e.name);
     img.setAttribute("width", "64"); img.setAttribute("height", "64");
     img.setAttribute("loading", "lazy"); img.setAttribute("decoding", "async");
+    // A picture that never arrives — a 404 — would otherwise sit as a broken-image glyph with
+    // its alt text spilling out of the circle, beside the same name in the h3, and no check in
+    // this package sees it. The name already stands beside it, so a picture that did not arrive
+    // says nothing and is taken away; the row keeps the name where it was.
+    img.addEventListener("error", function(){ if (img.parentNode) img.parentNode.removeChild(img); });
     return img;
   }
 
