@@ -18,13 +18,18 @@ import { FENCES } from "../lib/fences.mjs";
 const USAGE = `usage: design sync [--check] [--site <dir>]
        design sitemap [--check]
        design indexnow <base> <head> [--dry-run]
+       design links [--external] [--base <url>]
 
   sync            copy this package's files into the site
   sync --check    compare only, exit 1 if a copy has drifted (this is what CI runs)
   --site <dir>    the site root (default: the current directory)
   sitemap         date each sitemap URL from its page's last commit
   sitemap --check compare only, exit 1 if a date has moved
-  indexnow        send the pages changed between two commits to IndexNow`;
+  indexnow        send the pages changed between two commits to IndexNow
+  links           resolve every link the site owns, exit 1 if one does not land
+  links --external
+                  check every link to another site and report it, exit 1 only if the check could not run
+  --base <url>    where the site is served (default: http://127.0.0.1:8000)`;
 
 function fail(message, code) {
   console.error(message);
@@ -63,6 +68,31 @@ if (argv[0] === "indexnow" || argv[0] === "sitemap") {
     fail(`  ✗ ${e.message}`, 1);
   }
   process.exit(0);
+}
+
+// The link checker drives a browser, and the browser is the site's: every site already installs
+// Playwright for its own suite, and this package ships no dependency to bring a second copy.
+if (argv[0] === "links") {
+  const at = argv.indexOf("--base");
+  if (at !== -1 && (!argv[at + 1] || argv[at + 1].startsWith("--"))) fail(USAGE, 2);
+  const { BASE, checkOwn, checkExternal } = await import("../verify/links.mjs");
+  const base = at === -1 ? BASE : argv[at + 1];
+  let chromium;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    fail("  ✗ design links drives a browser and needs Playwright in the site: npm install --save-dev playwright", 1);
+  }
+  try {
+    if (argv.includes("--external")) {
+      await checkExternal({ root: process.cwd(), base, chromium });
+      process.exit(0);
+    }
+    const { failures } = await checkOwn({ root: process.cwd(), base, chromium });
+    process.exit(failures.length ? 1 : 0);
+  } catch (e) {
+    fail(`  ✗ ${e.message}`, 1);
+  }
 }
 
 if (argv[0] !== "sync") fail(USAGE, 2);

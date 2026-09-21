@@ -46,6 +46,7 @@
     "./cards/recipe-tests": "./cards/recipe-tests.mjs",
     "./decks/export": "./decks/export.mjs",
     "./verify/pin": "./verify/pin.mjs",
+    "./verify/links": "./verify/links.mjs",
     "./crawl": "./lib/crawl.mjs",
     "./render/note": "./lib/render/note.mjs",
     "./render/principles": "./lib/render/principles.mjs",

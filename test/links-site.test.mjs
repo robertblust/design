@@ -9,9 +9,12 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { chromium } from "playwright";
 
 import { collect } from "../verify/links/collect.mjs";
+import { checkOwn } from "@robertblust/design/verify/links";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.join(HERE, "fixtures", "links");
@@ -104,4 +107,90 @@ test("a site that is not served, or whose sitemap names nothing here, is an erro
   await assert.rejects(collect({ root: empty, base: s.base, chromium }), /no page named by sitemap\.xml is in this checkout/);
   await s.close();
   await assert.rejects(collect({ root: FIXTURE + "-nowhere", base: served.base, chromium }), /CNAME and sitemap\.xml/);
+});
+
+const CLI = path.join(path.dirname(HERE), "bin", "design.mjs");
+
+// Async, so the server in this process keeps answering while the CLI runs.
+async function cli(args, cwd, env = {}) {
+  try {
+    const { stdout, stderr } = await promisify(execFile)(process.execPath, [CLI, ...args], { cwd, env: { ...process.env, ...env } });
+    return { code: 0, stdout, stderr };
+  } catch (e) {
+    return { code: e.code, stdout: e.stdout, stderr: e.stderr };
+  }
+}
+
+function copyFixture() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "design-links-site-"));
+  fs.cpSync(FIXTURE, dir, { recursive: true });
+  return dir;
+}
+
+test("every own link that does not land is named once, with where it was found", async () => {
+  const lines = [];
+  const { failures } = await checkOwn({ root: FIXTURE, base: served.base, chromium, log: (l) => lines.push(l) });
+  assert.deepEqual(failures.map((f) => [f.link, f.reason, f.from]), [
+    ["/fonts/missing.woff2", "no file here", ["/"]],
+    ["/gone/", "no page here", ["model.json · things/b"]],
+    ["/missing/", "no page here", ["/"]],
+    ["/model/#things/nope", "no node things/nope in model.json", ["/"]],
+    ["/model/#things/void", "no node things/void in model.json", ["/model/ (card)"]],
+    ["/model/?stage=expanded#things/ghost", "no node things/ghost in model.json", ["/"]],
+    ["/model/?stage=expanded#things/lost", "no node things/lost in model.json", ["/ledger/ (card)"]],
+    ["/nodata/#things/a", "/nodata/ draws a stage and names no data, so #things/a cannot be drawn", ["/"]],
+    ["/noopener/", "carries a <link data-stage> and none of #openall, .openall, .ln-s or #stage, so its cards cannot be opened", ["/noopener/"]],
+    ["/og.png", "no file here", ["/"]],
+    ["/slides.pdf", "no file here", ["/talks/deck/"]],
+    ["/about/#nobody", "no element with id nobody on /about/", ["/"]],
+  ].sort((a, b) => a[0].localeCompare(b[0])));
+  assert.match(lines.join("\n"), /12 own link\(s\) do not resolve/);
+});
+
+test("the CLI fails on a wrong STAGE_PAGE and passes once it is set back", async () => {
+  // The spec's positive control, on the fixture: Surfaces's card links are the gap v0.68.0 left.
+  const dir = copyFixture();
+  for (const drop of ["missing", "nodata", "noopener", "talks"]) fs.rmSync(path.join(dir, drop), { recursive: true, force: true });
+  fs.writeFileSync(path.join(dir, "og.png"), "");
+  fs.writeFileSync(path.join(dir, "fonts", "missing.woff2"), "");
+  fs.mkdirSync(path.join(dir, "gone")); fs.writeFileSync(path.join(dir, "gone", "index.html"), "<!doctype html><title>Gone</title>");
+  const html = (rel) => path.join(dir, rel);
+  fs.writeFileSync(html("index.html"), `<!doctype html><title>Clean</title><link rel="stylesheet" href="style.css"><a href="about/#team">about</a><a href="lineage/">lineage</a><a href="model/#things">model</a><a href="og.png">card</a><a href="gone/">gone</a>`);
+  fs.writeFileSync(html("model.json"), JSON.stringify({ rootId: "root", entities: [{ id: "root", see: [] }, { id: "things/a", see: ["things/b"] }, { id: "things/b", see: [] }] }));
+  fs.writeFileSync(html("ledger/index.html"), fs.readFileSync(html("ledger/index.html"), "utf8").replace("things/lost", "things/a"));
+  const s = await serve(dir);
+  try {
+    const clean = await cli(["links", "--base", s.base], dir);
+    assert.equal(clean.code, 0, clean.stdout + clean.stderr);
+    assert.match(clean.stdout, /✓ every own link resolves/);
+
+    const lineage = html("lineage/index.html");
+    fs.writeFileSync(lineage, fs.readFileSync(lineage, "utf8").replace('var STAGE_PAGE = "../model/";', 'var STAGE_PAGE = "../nowhere/";'));
+    const wrong = await cli(["links", "--base", s.base], dir);
+    assert.equal(wrong.code, 1);
+    assert.match(wrong.stdout, /✗ \/nowhere\/\?stage=expanded#things\/a {2}no page here\n {6}from \/lineage\/ \(card\)/);
+
+    fs.writeFileSync(lineage, fs.readFileSync(lineage, "utf8").replace('"../nowhere/"', '"../model/"'));
+    assert.equal((await cli(["links", "--base", s.base], dir)).code, 0);
+  } finally {
+    await s.close();
+  }
+});
+
+test("the CLI fails when it checked nothing, and names why", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "design-links-bare-"));
+  fs.writeFileSync(path.join(dir, "CNAME"), "fixture.test\n");
+  fs.writeFileSync(path.join(dir, "sitemap.xml"), "<urlset></urlset>");
+  const s = await serve(dir);
+  try {
+    const none = await cli(["links", "--base", s.base], dir);
+    assert.equal(none.code, 1);
+    assert.match(none.stderr, /no page named by sitemap\.xml is in this checkout/);
+  } finally {
+    await s.close();
+  }
+  const down = await cli(["links", "--base", "http://127.0.0.1:9"], FIXTURE);
+  assert.equal(down.code, 1);
+  assert.match(down.stderr, /nothing answers at http:\/\/127\.0\.0\.1:9/);
+  assert.equal((await cli(["links", "--base"], FIXTURE)).code, 2);
 });
