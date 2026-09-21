@@ -500,9 +500,9 @@ Name the four exports and the five fences where the README lists the others, eac
 
 - [ ] **Step 3: Draft the release notes, in the pull request body**
 
-In the prose register, for a consumer: what is added; that nothing reaches a site until one of its pages carries the markers; and what blust.ch does to adopt it, which is Task 6. The owner copies them into the GitHub Release when tagging.
+In the prose register, for a consumer: what is added; that nothing reaches a site until one of its pages carries the markers; and what blust.ch does to adopt it, which is Task 6, including moving the two CI steps that run `test:build` and `pages:check` below `npm ci`, since once `pages.mjs` imports the renderers from the package they need it installed. The owner copies them into the GitHub Release when tagging.
 
-It is a **minor**, and the notes say why, because the README's rule reads the other way at first glance: *"A change needing a site edit beyond `npm run design` is a major."* Adopting these pages takes site edits, but **no site needs to adopt them.** A site that re-pins and runs `npm run design` receives nothing new and nothing breaks, so the release needs no site edit, and adoption is a separate change each site chooses.
+It is a **minor**, and the notes say why, because the README's rule reads the other way at first glance: *"A change needing a site edit beyond `npm run design` is a major."* Adopting these pages takes site edits, but **no site needs to adopt them.** A site that re-pins and runs `npm run design` receives nothing new and nothing breaks, so the release needs no site edit, and adoption is a separate change each site chooses. The CI move is one of those adoption edits: a site that keeps its own renderers keeps its CI as it is.
 
 - [ ] **Step 4: Verify everything and open the pull request**
 
@@ -520,7 +520,7 @@ All three must exit 0. Open the pull request, with the spec's pull request linke
 
 **Files:**
 
-- Modify, in `robertblust/robertblust.github.io`: `package.json`, `build/pages.mjs`, `build/renderers.test.mjs`, `team/index.html`, `surfaces/index.html`, `principles/index.html`
+- Modify, in `robertblust/robertblust.github.io`: `package.json`, `.github/workflows/ci.yml`, `build/pages.mjs`, `build/renderers.test.mjs`, `team/index.html`, `surfaces/index.html`, `principles/index.html`
 - Delete: `build/principles.mjs`, `build/team.mjs`, `build/surfaces.mjs`, `build/note.mjs`
 
 **Interfaces:**
@@ -582,7 +582,11 @@ const stale = RENDERERS.flatMap((write) => write(data, { check, root: ROOT }));
 git rm build/principles.mjs build/team.mjs build/surfaces.mjs build/note.mjs
 ```
 
-Remove the Team and Principles tests from `build/renderers.test.mjs`. They live in the package now. Keep the `jsonld` tests.
+Remove the Team and Principles tests from `build/renderers.test.mjs`. They live in the package now. Remove also the test "the note that says why a region does not translate has one home": it moved into the package with them, and it reads `build/note.mjs` and the three renderers by path, so left here it fails with ENOENT once they are deleted. Keep the `jsonld` tests. Keep the Surfaces tests too, which did not move, and change their import from `./surfaces.mjs` to `@robertblust/design/render/surfaces`, since the file they imported is deleted above.
+
+- [ ] **Step 4a: Run the renderer tests and the page check after `npm ci` in CI**
+
+In `.github/workflows/ci.yml`, move the two steps "The renderers still say what the model says" (`npm run test:build`) and "The derived pages still match the model" (`npm run pages:check`) from above `- run: npm ci` to below it, and rewrite their comments to match. Both sit above it today on the ground that `pages.mjs`, its renderers and their tests import nothing outside `node:`. After Step 4 that is no longer true: `pages.mjs` and the Surfaces tests import `@robertblust/design/render/*`, which exists only once `npm ci` has installed the package, so left where they are both fail every push with ERR_MODULE_NOT_FOUND. The same move was made once already in that file, for the card harness, and its comment says so. Leave "The duplication sweep still knows what the package owns" (`npm run test:dupes`) where it is; nothing in this task changes what it imports.
 
 - [ ] **Step 5: The generated regions are byte-identical — the spec's first proof**
 
@@ -596,13 +600,22 @@ Expected: `0`, meaning every region the shared renderers would write is byte for
 
 - [ ] **Step 6: Put the markers round the page code, and declare what the card glue needs**
 
-On each of the three pages, wrap the code Task 4 moved in its fence's markers, in place, so `design sync` writes it. Above the `model card` fence on Team and Surfaces, declare:
+On each of the three pages, wrap the code Task 4 moved in its fence's markers, in place, so `design sync` writes it. Team carries `team` and `model card`; Surfaces carries `surfaces` and `surfaces lineage`, and never `model card`, because its card glue is inside `surfaces lineage` beside the drawing it shares state with; Principles carries `principles`.
 
-```html
-<script>var STAGE_PAGE = "../model/"; var MODEL_CARD = "team";</script>
+Each behavior fence reads what it needs from values the page declares, and its block header says where: above the fence, in the same script. So on Team, in the `<script>` that holds the `model card` fence and above its opening marker:
+
+```js
+var STAGE_PAGE = "../model/";   // the page that draws this model on the stage
+var MODEL_CARD = "team";        // the name card.js reports a failed read under
 ```
 
-Use `"surfaces"` for `MODEL_CARD` on the Surfaces page. Then run:
+On Surfaces, in the `<script>` that holds the `surfaces lineage` fence and above its opening marker, `STAGE_PAGE` alone:
+
+```js
+var STAGE_PAGE = "../model/";   // the page that draws this model on the stage
+```
+
+Then run:
 
 ```bash
 npm run design

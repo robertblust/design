@@ -54,7 +54,7 @@ Each keeps the signature it has: `(data, { check })`, returning the files it wou
 
 ## 3. What each consumer has to do
 
-**blust.ch** re-pins to the release, puts the new fences' markers around the inline code its three pages carry today, deletes `build/principles.mjs`, `build/team.mjs`, `build/surfaces.mjs` and `build/note.mjs`, imports the three writers from the package in `build/pages.mjs`, and runs `npm run design` and `npm run pages`. It declares where a seat links, `STAGE_PAGE = "../model/"`, above both `model card` on Team and `surfaces lineage` on Surfaces, and Team's fence also needs `MODEL_CARD` declared above it. Its generated regions must then come out byte-identical to what is committed today, and its page suite must pass unchanged — see §6.
+**blust.ch** re-pins to the release, puts the new fences' markers around the inline code its three pages carry today, deletes `build/principles.mjs`, `build/team.mjs`, `build/surfaces.mjs` and `build/note.mjs`, imports the three writers from the package in `build/pages.mjs`, and runs `npm run design` and `npm run pages`. It declares where a card's links go, `STAGE_PAGE = "../model/"`, above both `model card` on Team and `surfaces lineage` on Surfaces, and Team's fence also needs `MODEL_CARD` declared above it. It moves the two CI steps that run the renderer tests and `pages:check` from above `npm ci` to below it: they sit above it today because `pages.mjs`, its renderers and their tests import nothing outside `node:`, and once `pages.mjs` and the Surfaces tests import `@robertblust/design/render/*` both fail with ERR_MODULE_NOT_FOUND until the package is installed. Its generated regions must then come out byte-identical to what is committed today, and its page suite must pass unchanged — see §6.
 
 **companygraph.io** does nothing until it chooses to carry the pages. Adopting them is its own plan, which needs this release and its own instance artifact first.
 
@@ -64,13 +64,13 @@ Each keeps the signature it has: `(data, { check })`, returning the files it wou
 
 A minor release, v0.68.0. Everything here is added: three exports and the fences, none of which a site receives until one of its pages carries the markers. A site that re-syncs without them gets nothing new, and blust.ch's switch to the shared code is a change it makes in its own repository after taking the release, not one the release makes for it.
 
-The notes say what blust.ch has to do to adopt it and that nothing else needs to move.
+The move of two CI steps below `npm ci`, in §3, is part of that switch and not of the release: it arises only for a site that chooses to import the renderers from the package, so a site that only re-pins is asked for nothing and the release stays minor. The notes say what blust.ch has to do to adopt it, the CI move included, and that nothing else needs to move.
 
 ## 5. What this does not change
 
 - The stage. Team and Surfaces go on including its contract for the card, as they do now.
 - `/model/` and `/timeline/` on blust.ch, and `/model/` and `/example/` on companygraph.io, which draw the stage and none of these three pages.
-- How a page is checked. `pages:check` goes on comparing the generated regions against the committed HTML, and nothing in the page suites changes.
+- How a page is checked. `pages:check` goes on comparing the generated regions against the committed HTML, and what the page suites assert does not change. Where blust.ch's CI runs two of them does: `test:build` and `pages:check` run before `npm ci` today, on the ground that they need nothing installed, and once a site imports the renderers from this package they need the package, so a site that adopts them runs both after `npm ci`. A site that does not adopt them keeps its own renderers and its CI as it is.
 - What any page says. The titles, taglines and German stay each site's own and are not generated.
 
 ## 6. How it is verified
