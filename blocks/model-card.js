@@ -1,4 +1,4 @@
-  /* ─── model card · v1 · {{variant}} ─────────────────────────────────────
+  /* ─── model card · v2 · {{variant}} ─────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The card glue for a board of seats: a seat's card is rendered by card.js the first time
@@ -43,13 +43,15 @@
         a.href = STAGE_PAGE + "?stage=expanded#" + id;
         return a;
       }
+      // Rendered once per row, not per seat: a seat on two boards is two rows, and each row's
+      // card is its own element, so remembering the seat left the second row's card empty.
       var seen = {};
       function ensure(d){
         var id = d.getAttribute("data-role"), L = lang();
-        if (seen[id] === L) return;
+        if (seen[d.id] === L) return;
         rbCard.render(byId[id], d.querySelector(".cbody"), d.querySelector(".cfoot span"),
           { data: data, lang: L, link: goLink });
-        seen[id] = L;
+        seen[d.id] = L;
       }
       // Every board's rows. One process draws one board and a model with several draws one per
       // process, each a .grid; a card opens the same way on any of them.

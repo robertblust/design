@@ -138,6 +138,19 @@ export const MODEL_PAGE_CHECKS = {
     for (const [name, h3] of opened.rendered) if (h3 !== name) bad.push(`opening the ${name} row did not render its card`);
     if (opened.go && !target.error && !opened.go.startsWith(target.stage + "?stage=expanded#"))
       bad.push(`a card link points at ${opened.go}, not at ${target.stage}`);
+    // A seat on two boards is two rows, and each row's card is its own. So the first row of every
+    // other board is opened too, after the first board's rows: a card remembered by seat rather
+    // than by row stays empty there, and did.
+    for (const b of boards.filter((x) => x !== first)) {
+      const got = await page.evaluate(async (prefix) => {
+        const d = document.getElementById(prefix + "board").querySelector("details");
+        d.open = true;
+        await new Promise((r) => setTimeout(r, 300));
+        const h3 = d.querySelector(".cbody h3");
+        return { name: d.querySelector(".tw").textContent.trim(), h3: h3 && h3.textContent.trim() };
+      }, b.prefix);
+      if (got.h3 !== got.name) bad.push(`${b.name}: opening the ${got.name} row did not render its card`);
+    }
     return bad.length ? bad.join("; ") : null;
   },
 
