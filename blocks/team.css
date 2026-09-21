@@ -1,0 +1,127 @@
+  /* ─── team · v1 · {{variant}} ─────────────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The board /team/ draws: the head rail with its Open-all button, the grid of seats and
+     phases, the drawer a seat's card opens into, the legend, and the phases block under it.
+     These are the rules for the markup lib/render/team.mjs writes, so they belong with the
+     renderer: a page that takes the board from this package and its styling from its own
+     copy is a page whose two halves can drift, and the renderer's next class would land on
+     every site unstyled. The page keeps its shell and the classes other pages share
+     (`.lbl`, `.nm`, `.note`), and the card's own prose measure (`.cbody`), which card.js
+     draws and this block does not.
+  */
+  /* The board. --cols (the seat column) and --phase (the width of each phase column) are
+     declared once and used by the head row and every summary, which is what lines the columns
+     up across rows without a table. Only the seat column is a template track: each cell after
+     it opens a column of its own at --phase, so the board has as many phase columns as the
+     process has phases and never an empty one or a wrapped one. */
+  /* blocks/surfaces.css declares this same base rule for its own .mk. */
+  .mk{width:1.05em; height:1.05em; flex:none; vertical-align:-.16em}
+  .mk.human{color:var(--c-firm)}
+  .mk.agent{color:var(--c-mid)}
+  .hw .mk{width:2.3rem; height:2.3rem}
+
+  .hdrail{display:flex; gap:2rem; align-items:center; justify-content:space-between;
+          padding-bottom:1.1rem; border-bottom:1px solid var(--rule); margin-top:.9rem}
+  .whos{display:flex; gap:2.6rem}
+  .hw{display:flex; gap:.7rem; align-items:center}
+  .hw .nm{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+          font-weight:700; font-size:1.05rem}
+  .openall{background:none; border:1px solid var(--rule); border-radius:5px; color:var(--dim);
+           font:inherit; font-size:.76rem; padding:.28rem .7rem; cursor:pointer}
+  .openall:hover, .openall:focus-visible{color:var(--c-mid); border-color:var(--c-mid)}
+
+  /* Three cell marks, one hue. tokens.css allows one hue at four brightnesses and refuses a
+     second, so what a color would have carried is carried by shape. */
+  .g{display:inline-block; width:10px; height:10px; margin:0 1px}
+  .g.ex{background:var(--c-mid); border-radius:50%}
+  .g.su{border:1.4px solid var(--c-weak); border-radius:50%}
+  .g.ga{width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent;
+        border-bottom:10px solid var(--c-firm); vertical-align:-1px}
+  .legend{display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:1.1rem; color:var(--dim);
+          font-size:.76rem}
+  .legend span{display:flex; align-items:center; gap:.45rem}
+
+  .grid{--cols:30%; --phase:1fr; margin-top:0}
+  .ghead{display:grid; grid-template-columns:var(--cols); grid-auto-flow:column;
+         grid-auto-columns:var(--phase); border-bottom:1px solid var(--rule);
+         padding:.9rem 0 .8rem}
+  .ghead > span{text-align:center}
+  .ghead > span:first-child{text-align:left}
+  .phnum{color:var(--c-weak); font-size:.66rem; letter-spacing:.12em; display:block;
+         font-family:"Plex Mono", ui-monospace, Menlo, monospace}
+  .phname{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+          font-weight:700; font-size:.9rem; color:var(--ink)}
+  .grid details{border-bottom:1px solid var(--rule)}
+  .grid summary{display:grid; grid-template-columns:var(--cols); grid-auto-flow:column;
+                grid-auto-columns:var(--phase); align-items:center;
+                list-style:none; cursor:pointer; padding:.62rem 0}
+  .grid summary::-webkit-details-marker{display:none}
+  .grid summary:hover{background:var(--press)}
+  .grid summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
+  .grid summary > span{text-align:center}
+  .grid .sname{display:flex; align-items:center; gap:.6rem; text-align:left}
+  .grid .sname .tw{font-weight:600; font-size:.9rem}
+  /* The disclosure triangle is this page's only affordance that a row opens, since the page
+     carries no tooltip: the card is the seat's detail, and a hover showing a shorter version
+     of what a click shows in full is a second answer to one question. */
+  .grid .sname::before{content:""; width:0; height:0; border-style:solid; border-width:4px 0 4px 6px;
+                       border-color:transparent transparent transparent var(--c-weak);
+                       transition:transform .12s ease; flex:none}
+  .grid details[open] .sname::before{transform:rotate(90deg); border-left-color:var(--c-mid)}
+  .grid details[open] .sname .tw{color:var(--c-firm)}
+  .grid details.human summary{background:var(--press)}
+  /* Full width, not an indent: the References table under a role wrapped its URLs at anything
+     narrower. The card's own prose keeps a measure inside it. */
+  .grid .drawer{padding:.3rem 0 1.5rem}
+  .grid .drawer .card{width:100%}
+  @media (prefers-reduced-motion: reduce){ .grid .sname::before{transition:none} }
+  /* The phases in words, under the board that only names them. A grid rather than a
+     table: two columns, the phase and its one line, and the phase column sized to the longest
+     name so the sentences start on one edge. */
+  .phases{margin-top:1.9rem; padding-top:1.5rem; border-top:1px solid var(--rule);
+          display:grid; grid-template-columns:max-content 1fr; gap:.55rem 1.4rem}
+  .phases dt{display:flex; align-items:baseline; gap:.5rem; white-space:nowrap}
+  .phases dd{margin:0; color:var(--dim); font-size:.93rem; line-height:1.5; max-width:72ch}
+  @media (max-width:640px){
+    .phases{grid-template-columns:1fr; gap:.2rem 0}
+    .phases dd{margin-bottom:.9rem}
+  }
+  @media (max-width:900px){
+    /* The board stays a board. Its argument is a column — which seats carry a phase's gate,
+       say, is read off the shape of the column rather than off any one row — so a form with
+       no columns has no argument left to make. The phase names give way to their numbers
+       and the columns narrow; the block under the board is what says which number is which
+       phase, and it earns its place twice over here. */
+    .grid{--cols:minmax(0,1fr); --phase:2.1rem}
+    .ghead .phname{display:none}
+    .ghead .phnum{font-size:.74rem; color:var(--dim); letter-spacing:.08em}
+    .grid summary{padding:.72rem 0}
+    .grid .sname .tw{font-size:.86rem}
+    .g{width:9px; height:9px; margin:0}
+    .g.ga{border-left-width:5px; border-right-width:5px; border-bottom-width:9px}
+    .hdrail{flex-wrap:wrap; gap:1rem}
+    .whos{gap:1.4rem}
+  }
+  @media (max-width:640px){
+    /* Side by side, the head rail's profiles wrap their "holds … of …" line onto a second line
+       and put the last one hard against the edge. One under the other, each reads on one line. */
+    .whos{flex-direction:column; gap:.9rem}
+    .hdrail{align-items:flex-start}
+    .grid{--cols:minmax(0,1fr); --phase:1.8rem}
+    .grid .sname{gap:.42rem}
+    .grid .sname .tw{font-size:.8rem}
+  }
+  /* One board per process when a model holds more than one: the process's name and tagline
+     head its board, one step below the section's h2 and in the title block's own terms: the
+     name in the display face at the weight the phase names use, the tagline in --dim as the
+     title block's is. `section.proc` is a <section>, so the page's own `section` rule would
+     put a section's full gap between the label and the first board; the first sits where
+     the head rail would, and each one after takes the figure section's gap. */
+  .proc{margin-top:.9rem}
+  .proc + .proc{margin-top:clamp(2rem,5vh,3.5rem)}
+  .procname{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+            font-weight:700; letter-spacing:-.02em; font-size:clamp(1.15rem,2.1vw,1.5rem);
+            color:var(--ink)}
+  .proctag{margin-top:.4rem; color:var(--dim); max-width:62ch}
+  /* ─── end team ──────────────────────────────────────────────────────────── */

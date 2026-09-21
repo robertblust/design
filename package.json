@@ -1,6 +1,6 @@
 {
   "name": "@robertblust/design",
-  "version": "0.67.0",
+  "version": "0.68.0",
   "description": "The design system shared by blust.ch, companygraph.io and guestgraph.io.",
   "license": "Apache-2.0",
   "type": "module",
@@ -46,7 +46,11 @@
     "./cards/recipe-tests": "./cards/recipe-tests.mjs",
     "./decks/export": "./decks/export.mjs",
     "./verify/pin": "./verify/pin.mjs",
-    "./crawl": "./lib/crawl.mjs"
+    "./crawl": "./lib/crawl.mjs",
+    "./render/note": "./lib/render/note.mjs",
+    "./render/principles": "./lib/render/principles.mjs",
+    "./render/team": "./lib/render/team.mjs",
+    "./render/surfaces": "./lib/render/surfaces.mjs"
   },
   "scripts": {
     "test": "node --test"

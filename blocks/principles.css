@@ -1,0 +1,14 @@
+  /* ─── principles · v1 · {{variant}} ───────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The values /principles/ lists, one `article.value` each, as lib/render/principles.mjs
+     writes them. The rest of what that renderer writes is styled elsewhere on purpose: the
+     title, tagline and headline marks by the `title contract` fence, and `.lede`, `.derived`,
+     `.note` and `.mono` by rules several pages share, which a page's own fence must not copy.
+  */
+  .value{border-top:2px solid var(--rule); padding-top:1.1rem; margin-top:1.9rem}
+  .value h3{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+            font-weight:700; letter-spacing:-.02em; font-size:clamp(1.15rem,2.1vw,1.5rem)}
+  .value .tagline{margin-top:.5rem; color:var(--c-firm); max-width:62ch}
+  .value p{margin-top:.9rem; color:var(--dim); max-width:70ch; line-height:1.6}
+  /* ─── end principles ───────────────────────────────────────────────────── */
