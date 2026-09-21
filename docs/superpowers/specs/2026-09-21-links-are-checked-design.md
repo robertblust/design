@@ -15,8 +15,8 @@ Status: proposed. Decided on 2026-09-21 against this repository at `cedd728` (v0
 | A check of the links a card writes | none. The stage suite clicks cards and reads what they show, not where their links go |
 | Where the family's generated links are written | `blocks/model-card.js` and `blocks/surfaces.js`, as `STAGE_PAGE + "?stage=expanded#" + id`, with `STAGE_PAGE` declared by the page |
 | What the `#id` of such a link names | an entity in the data the target page draws, not an element of that page |
-| How a page names the data it draws | a `<link data-stage>` whose `href` is the data file; blust.ch's timeline carries one with no `href`, and guestgraph.io carries none |
-| How a stage page reads a hash | as a node id, with or without `?stage=`; a hash that names no node focuses the root, so a wrong id still draws a page ([`assets/stage.js`](../../../assets/stage.js)) |
+| How a page names the data it draws | a `<link data-stage>` whose `href` is the data file, on every page that reads the model: the stage pages, Team, Surfaces and blust.ch's timeline; guestgraph.io carries none |
+| How a stage page reads a hash | as a node id, with or without `?stage=`; a hash that names no node focuses the root, so a wrong id still draws a page ([`assets/stage.js`](../../../assets/stage.js)). Only a page that loads `stage.js` reads it so: Team, Surfaces and the timeline read theirs as an element id, a row or a surface |
 | Who else writes stage links | blust.ch's timeline, from its own script, as `../model/?stage=expanded#` + id; it carries neither card fence |
 | Model files a site publishes | blust.ch `model.json`; companygraph.io `model.json` and `example.json`; guestgraph.io none |
 | How every site's CI verifies | `python3 -m http.server 8000`, then `npm run verify`, a Playwright suite, as the job's last step |
@@ -37,17 +37,17 @@ Three rows decide the work.
 **What is collected, from where.**
 
 - Each page the site's `sitemap.xml` names, loaded in a browser: every `href` and `src` in the document, every `url()` in a stylesheet the page can read, every absolute URL in a `<meta content>` (`og:image`, `og:url`) and every absolute URL string in its JSON-LD, and every own page those links reach, followed until no new page appears. A deck is reached this way from the talks index without the sitemap naming it. The head is read because it is what crawlers and link previews follow, and none of it is an `href` a visitor clicks.
-- On every page that carries a `<link data-stage>`, the links its cards write: the page's `#openall` pressed where it has one, which opens every card on Team and on the timeline, and otherwise each item that opens a card clicked in turn, as on Surfaces. Every card is read, not one of each type, because a page with an Open all makes every card one click.
+- On every page that carries a `<link data-stage>`, the links its cards write: the page's `#openall` pressed where it has one, which opens every card on Team and on the timeline, each item that opens a card clicked in turn where it has none, as on Surfaces, and on a page that draws a stage each entity focused in turn by its hash. Every card is read, not one of each type, because a page with an Open all makes every card one click.
 - Every string that is an absolute `http` or `https` URL in each model file, where a model file is any file a `<link data-stage href>` on a crawled page names. That needs no list: blust.ch's crawl finds `model.json`, companygraph.io's finds `model.json` and `example.json`, and guestgraph.io's finds none.
 
 **How an own link resolves.** The engine answers from the checkout and the served copy, never from the internet.
 
 - A path must name a file in the served copy; a path ending in `/` must name a folder with an `index.html`.
-- A `#fragment` on a page that carries a `<link data-stage>` must be the id of an entity in the file its `href` names, whether or not the link carries `?stage=`, because the stage reads any hash as a node. A target page whose `<link data-stage>` names no file fails, because nothing could draw the entity.
+- A `#fragment` on a page that loads `stage.js` must name a node in the file its `<link data-stage>` names, whether or not the link carries `?stage=`, because the stage reads any hash as a node. A node is an entity, the root, or a folder, which is any leading part of an entity's id, since the stage draws every prefix of an id as the folder holding it. A stage page whose `<link data-stage>` names no file fails, because nothing could draw the node.
 - A `#fragment` on any other page must name an element `id` on the target page after its scripts have run.
 - A query string, `?stage=` among them, is ignored; the path and fragment are what resolve.
 
-The command takes `--base`, the address of the served copy, which defaults to `http://localhost:8000`, the server every site's CI already starts.
+The command takes `--base`, the address of the served copy, which defaults to `http://127.0.0.1:8000`, the server every site's CI already starts and waits for at that address.
 
 **How an external link is judged.** A `HEAD` request, with a `GET` whenever the host answers `HEAD` with anything but a 2xx or 3xx, because some hosts answer `HEAD` with 403 or 404 for a page a `GET` serves; the `GET`'s answer is the one judged. A timeout of ten seconds, at most four requests in flight and at most one per host at a time, and one retry after a failure. The answer is one of three:
 
@@ -67,7 +67,7 @@ The command takes `--base`, the address of the served copy, which defaults to `h
 ## 4. How it is known to work
 
 - The engine has two parts, tested apart. The part that needs no browser, sorting links, resolving them against a folder and a data file, and judging answers, runs under `node --test` alone. The part that loads pages takes a `chromium` as a parameter, as `cards/export` does, and the bin imports `playwright` from the site, which already has it. This package takes `playwright` as a devDependency and installs Chromium in its own CI, so the fixture site below is loaded in a real browser rather than a fake, because a fragment made by a script and a link written by a card exist only after scripts have run.
-- The engine's tests hold a fixture site with one of each: a good and a missing relative page, a good and a missing fragment, a stage link to an entity that is and one that is not in the data, a stage link to a page with no stage, a bare `#id` on a stage page naming an entity that is not in its data, a card behind an Open all whose link names a missing entity, an `og:image` naming a missing file, a CSS `url()` to a missing font, and an absolute link on the site's own domain.
+- The engine's tests hold a fixture site with one of each: a good and a missing relative page, a good and a missing fragment, a stage link to an entity that is and one that is not in the data, a stage link to a stage page that names no data, a bare `#id` on a stage page naming an entity that is not in its data and one naming a folder that is, a row's `#id` on a page that reads the model without drawing a stage, a card behind an Open all whose link names a missing entity, an `og:image` naming a missing file, a CSS `url()` to a missing font, and an absolute link on the site's own domain.
 - A positive control on a real site before its PR merges: `STAGE_PAGE` on Surfaces set to a page that does not exist makes `design links` fail, and set back makes it pass. This is the gap v0.68.0 left open.
 - The external mode against a local server that answers 200, 404, 403, 405 to `HEAD` and never, and one that answers `HEAD` with 404 and `GET` with 200, each sorted into its kind.
 - Both modes against a site whose crawl finds no page, which fails.
