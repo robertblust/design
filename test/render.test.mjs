@@ -77,7 +77,7 @@ test("writePrinciples writes a $& in a section's text as itself", () => {
 });
 
 // ── the team board ────────────────────────────────────────────────────────────────────
-import { writeTeam, marksOf, phasesOf, seatsOf } from "../lib/render/team.mjs";
+import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
 
 // Two phases, three roles, and every relation the board draws. Deliberately not the real
 // model: this asserts the derivation, and the real model's shape is asserted by pages:check.
@@ -118,14 +118,60 @@ export function renderTeamInto(fixture) {
   return fs.readFileSync(path.join(dir, "team/index.html"), "utf8");
 }
 
+// A second process beside TEAM_FIXTURE's "Doing": one phase, naming Boss, whom Doing names too,
+// and Helper, whom Doing does not and no profile holds. So a seat on two boards and a seat no
+// profile holds both occur.
+const TWO_PROCESS_FIXTURE = {
+  ...TEAM_FIXTURE,
+  entities: [
+    ...TEAM_FIXTURE.entities,
+    { id: "roles/helper", type: "role", name: "Helper", tagline: "Helps.",
+      path: "model/roles/helper.md", fields: {}, sections: [] },
+    { id: "processes/e", type: "process", name: "Else", tagline: "Another way.",
+      path: "model/processes/e/e.md", fields: { owner: "Boss" },
+      sections: [{ heading: "Phases", text: "", tables: [{ caption: null, columns: ["Phase"], rows: [["Three"]] }] }] },
+    { id: "processes/e/phases/three", type: "phase", name: "Three", tagline: "Third.",
+      path: "model/processes/e/phases/three.md", owner: "processes/e",
+      fields: { owner: "Boss", "executed-by": ["Helper"], "gate-approvers": ["Boss"] }, sections: [] },
+  ],
+};
+export const regionOf = (page) => page.slice(page.indexOf("<!-- team:start -->"), page.indexOf("<!-- team:end -->"));
+
+// What the renderer drew for TEAM_FIXTURE at c365772, before it could draw more than one
+// process: captured from that commit's code, not written by hand.
+const BEFORE_ONE_PROCESS = "<!-- team:start -->\n      <div class=\"hdrail\"><div class=\"whos\">\n        <div class=\"hw\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><div><div class=\"nm\">A Person</div><div class=\"lbl\">human · holds 1 of 3</div></div></div>\n        <div class=\"hw\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><div><div class=\"nm\">An Agent</div><div class=\"lbl\">agent · holds 2 of 3</div></div></div>\n      </div><button class=\"openall\" id=\"openall\" type=\"button\" data-de=\"Alle öffnen\">Open all</button></div>\n      <div class=\"grid\" id=\"board\">\n        <div class=\"ghead\"><span class=\"lbl\">Seat</span><span><span class=\"phnum\">01</span><span class=\"phname\">One</span></span><span><span class=\"phnum\">02</span><span class=\"phname\">Two</span></span></div>\n        <details class=\"human\" id=\"boss\" data-role=\"roles/boss\">\n          <summary aria-label=\"Boss, human. executes Two. approves the gate of One, Two.\"><span class=\"sname\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><span class=\"tw\">Boss</span></span><span><i class=\"g ga\"></i></span><span><i class=\"g ex\"></i><i class=\"g ga\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"maker\" data-role=\"roles/maker\">\n          <summary aria-label=\"Maker, agent. executes One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Maker</span></span><span><i class=\"g ex\"></i></span><span></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"checker\" data-role=\"roles/checker\">\n          <summary aria-label=\"Checker, agent. executes Two. supports One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Checker</span></span><span><i class=\"g su\"></i></span><span><i class=\"g ex\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n      </div>\n      <div class=\"legend\"><span><i class=\"g ex\"></i> <span data-de=\"führt die Phase aus\">executes the phase</span></span><span><i class=\"g su\"></i> <span data-de=\"unterstützt sie\">supports it</span></span><span><i class=\"g ga\"></i> <span data-de=\"gibt ihr Gate frei\">approves its gate</span></span><span><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg> <span data-de=\"Mensch\">human</span></span><span><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg> <span data-de=\"Agent\">agent</span></span></div>\n      <dl class=\"phases\">\n        <dt><span class=\"phnum\">01</span><span class=\"phname\">One</span></dt>\n        <dd>First.</dd>\n        <dt><span class=\"phnum\">02</span><span class=\"phname\">Two</span></dt>\n        <dd>Second.</dd>\n      </dl>\n      ";
+
+test("a model with two processes draws two boards, in the order the artifact lists them", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const boards = [...html.matchAll(/<div class="grid" id="([a-z-]*)board">/g)].map((m) => m[1]);
+  assert.deepEqual(boards, ["doing-", "else-"]);
+});
+
+test("each board carries only the phases of its own process", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const elseBoard = html.slice(html.indexOf('id="else"'));
+  assert.match(elseBoard, /Three/);
+  assert.doesNotMatch(elseBoard, /<span class="phname">One<\/span>/);
+});
+
+test("no two elements share an id when a seat sits on two boards", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length, `duplicate ids: ${ids}`);
+});
+
+test("a model with one process draws exactly the board it drew before this change", () => {
+  assert.equal(regionOf(renderTeamInto(TEAM_FIXTURE)), BEFORE_ONE_PROCESS);
+});
+
 test("phasesOf follows the rows of the process's Phases table, not the folder listing", () => {
-  assert.deepEqual(phasesOf(TEAM_FIXTURE).map((p) => p.name), ["One", "Two"]);
+  assert.deepEqual(phasesOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).map((p) => p.name), ["One", "Two"]);
 });
 
 test("a Phases section with no table of phases is an error, not an empty board", () => {
   const f = structuredClone(TEAM_FIXTURE);
   f.entities.find((e) => e.type === "process").sections = [{ heading: "Phases", text: "", tables: [] }];
-  assert.throws(() => phasesOf(f), /lists no phase/);
+  assert.throws(() => phasesOf(f, processesOf(f)[0]), /lists no phase/);
 });
 
 test("phasesOf reads a phase's name within its own process", () => {
@@ -134,7 +180,7 @@ test("phasesOf reads a phase's name within its own process", () => {
   const f = structuredClone(TEAM_FIXTURE);
   f.entities.unshift({ id: "processes/x/phases/one", type: "phase", name: "One", tagline: "Elsewhere.",
     path: "model/processes/x/phases/one.md", owner: "processes/x", fields: {}, sections: [] });
-  assert.deepEqual(phasesOf(f).map((p) => p.id), ["processes/d/phases/one", "processes/d/phases/two"]);
+  assert.deepEqual(phasesOf(f, processesOf(f)[0]).map((p) => p.id), ["processes/d/phases/one", "processes/d/phases/two"]);
 });
 
 test("seatsOf puts the human profile's seats first", () => {
@@ -142,7 +188,7 @@ test("seatsOf puts the human profile's seats first", () => {
 });
 
 test("marksOf reads executes, supports and approves off each phase", () => {
-  const m = marksOf(TEAM_FIXTURE);
+  const m = marksOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]);
   assert.deepEqual(m.Maker, [["ex"], []]);
   assert.deepEqual(m.Checker, [["su"], ["ex"]]);
   assert.deepEqual(m.Boss, [["ga"], ["ex", "ga"]]);
@@ -152,17 +198,17 @@ test("marksOf falls back to owner when a phase names no executed-by", () => {
   const f = structuredClone(TEAM_FIXTURE);
   const two = f.entities.find((e) => e.id === "processes/d/phases/two");
   delete two.fields["executed-by"];
-  assert.deepEqual(marksOf(f).Boss, [["ga"], ["ex", "ga"]]);
+  assert.deepEqual(marksOf(f, processesOf(f)[0]).Boss, [["ga"], ["ex", "ga"]]);
 });
 
 test("marksOf orders a cell executes, supports, approves — never file order", () => {
-  assert.deepEqual(marksOf(TEAM_FIXTURE).Boss[1], ["ex", "ga"]);
+  assert.deepEqual(marksOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).Boss[1], ["ex", "ga"]);
 });
 
 test("a phase the model does not hold is an error, not a missing column", () => {
   const f = structuredClone(TEAM_FIXTURE);
   f.entities = f.entities.filter((e) => e.id !== "processes/d/phases/two");
-  assert.throws(() => phasesOf(f), /names a phase the model does not hold: Two/);
+  assert.throws(() => phasesOf(f, processesOf(f)[0]), /names a phase the model does not hold: Two/);
 });
 
 test("every row says itself in words, because the grid is not a table", () => {
