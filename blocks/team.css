@@ -10,8 +10,11 @@
      (`.lbl`, `.nm`, `.note`), and the card's own prose measure (`.cbody`), which card.js
      draws and this block does not.
   */
-  /* The board. --cols is declared once and used by the head row and every summary, which is
-     what lines the columns up across rows without a table. */
+  /* The board. --cols (the seat column) and --phase (the width of each phase column) are
+     declared once and used by the head row and every summary, which is what lines the columns
+     up across rows without a table. Only the seat column is a template track: each cell after
+     it opens a column of its own at --phase, so the board has as many phase columns as the
+     process has phases and never an empty one or a wrapped one. */
   /* blocks/surfaces.css declares this same base rule for its own .mk. */
   .mk{width:1.05em; height:1.05em; flex:none; vertical-align:-.16em}
   .mk.human{color:var(--c-firm)}
@@ -39,8 +42,9 @@
           font-size:.76rem}
   .legend span{display:flex; align-items:center; gap:.45rem}
 
-  .grid{--cols:30% repeat(5,1fr); margin-top:0}
-  .ghead{display:grid; grid-template-columns:var(--cols); border-bottom:1px solid var(--rule);
+  .grid{--cols:30%; --phase:1fr; margin-top:0}
+  .ghead{display:grid; grid-template-columns:var(--cols); grid-auto-flow:column;
+         grid-auto-columns:var(--phase); border-bottom:1px solid var(--rule);
          padding:.9rem 0 .8rem}
   .ghead > span{text-align:center}
   .ghead > span:first-child{text-align:left}
@@ -49,7 +53,8 @@
   .phname{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
           font-weight:700; font-size:.9rem; color:var(--ink)}
   .grid details{border-bottom:1px solid var(--rule)}
-  .grid summary{display:grid; grid-template-columns:var(--cols); align-items:center;
+  .grid summary{display:grid; grid-template-columns:var(--cols); grid-auto-flow:column;
+                grid-auto-columns:var(--phase); align-items:center;
                 list-style:none; cursor:pointer; padding:.62rem 0}
   .grid summary::-webkit-details-marker{display:none}
   .grid summary:hover{background:var(--press)}
@@ -71,7 +76,7 @@
   .grid .drawer{padding:.3rem 0 1.5rem}
   .grid .drawer .card{width:100%}
   @media (prefers-reduced-motion: reduce){ .grid .sname::before{transition:none} }
-  /* The five phases in words, under the board that only names them. A grid rather than a
+  /* The phases in words, under the board that only names them. A grid rather than a
      table: two columns, the phase and its one line, and the phase column sized to the longest
      name so the sentences start on one edge. */
   .phases{margin-top:1.9rem; padding-top:1.5rem; border-top:1px solid var(--rule);
@@ -83,12 +88,12 @@
     .phases dd{margin-bottom:.9rem}
   }
   @media (max-width:900px){
-    /* The board stays a board. Its argument is a column — only the Owner's row carries a
-       triangle, and you read that off the shape of the column rather than off any one row —
-       so a form with no columns has no argument left to make. The phase names give way to
-       their numbers and the columns narrow; the block under the board is what says which
-       number is which phase, and it earns its place twice over here. */
-    .grid{--cols:minmax(0,1fr) repeat(5,2.1rem)}
+    /* The board stays a board. Its argument is a column — which seats carry a phase's gate,
+       say, is read off the shape of the column rather than off any one row — so a form with
+       no columns has no argument left to make. The phase names give way to their numbers
+       and the columns narrow; the block under the board is what says which number is which
+       phase, and it earns its place twice over here. */
+    .grid{--cols:minmax(0,1fr); --phase:2.1rem}
     .ghead .phname{display:none}
     .ghead .phnum{font-size:.74rem; color:var(--dim); letter-spacing:.08em}
     .grid summary{padding:.72rem 0}
@@ -99,11 +104,11 @@
     .whos{gap:1.4rem}
   }
   @media (max-width:640px){
-    /* Side by side, the two profiles wrapped "HUMAN · HOLDS 1 OF 8" onto a second line and put
-       the agent hard against the edge. One under the other, each reads on one line. */
+    /* Side by side, the head rail's profiles wrap their "holds … of …" line onto a second line
+       and put the last one hard against the edge. One under the other, each reads on one line. */
     .whos{flex-direction:column; gap:.9rem}
     .hdrail{align-items:flex-start}
-    .grid{--cols:minmax(0,1fr) repeat(5,1.8rem)}
+    .grid{--cols:minmax(0,1fr); --phase:1.8rem}
     .grid .sname{gap:.42rem}
     .grid .sname .tw{font-size:.8rem}
   }
