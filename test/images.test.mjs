@@ -44,3 +44,21 @@ test("an ArrayBuffer is written as the bytes it holds", () => {
   syncImages({ root, images: [{ to: "profiles/mira.png", bytes: new Uint8Array([1, 2, 3]).buffer }] });
   assert.deepEqual([...fs.readFileSync(path.join(root, "images/profiles/mira.png"))], [1, 2, 3]);
 });
+
+test("an entry that would land outside the folder is refused, and nothing is written", () => {
+  const tempRoot = temp();
+  const root = path.join(tempRoot, "site");
+  fs.mkdirSync(root);
+  const outside = path.join(root, "..", "outside.txt");
+  fs.writeFileSync(outside, "kept");
+  assert.throws(() => syncImages({ root, images: [image("../outside.txt", "x")] }), /outside images\//);
+  assert.equal(fs.readFileSync(outside, "utf8"), "kept");
+  assert.ok(!fs.existsSync(path.join(root, "images")));
+  fs.writeFileSync(outside, "kept");
+  assert.throws(() => syncImages({ root, images: [{ to: path.join(root, "abs.png"), bytes: new TextEncoder().encode("y") }] }), /outside images\//);
+  assert.equal(fs.readFileSync(outside, "utf8"), "kept");
+  assert.ok(!fs.existsSync(path.join(root, "images")));
+  assert.throws(() => syncImages({ root, check: true, images: [image("../outside.txt", "z")] }), /outside images\//);
+  assert.equal(fs.readFileSync(outside, "utf8"), "kept");
+  assert.ok(!fs.existsSync(path.join(root, "images")));
+});
