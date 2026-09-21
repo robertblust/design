@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { syncImages } from "../lib/images.mjs";
+import { syncImages } from "@robertblust/design/images";
 
 const temp = () => fs.mkdtempSync(path.join(os.tmpdir(), "design-images-"));
 const image = (to, text) => ({ to, bytes: new TextEncoder().encode(text) });
@@ -61,4 +61,34 @@ test("an entry that would land outside the folder is refused, and nothing is wri
   assert.throws(() => syncImages({ root, check: true, images: [image("../outside.txt", "z")] }), /outside images\//);
   assert.equal(fs.readFileSync(outside, "utf8"), "kept");
   assert.ok(!fs.existsSync(path.join(root, "images")));
+});
+
+test("a dir that resolves to the site root is refused, in write and in check mode, and the site is untouched", () => {
+  const root = temp();
+  const sentinel = path.join(root, "sentinel.txt");
+  fs.writeFileSync(sentinel, "kept");
+  for (const dir of ["", ".", ".."]) {
+    assert.throws(() => syncImages({ root, dir, images: [image("mira.jpg", "mira")] }), /is not inside the site/);
+    assert.throws(() => syncImages({ root, dir, check: true, images: [image("mira.jpg", "mira")] }), /is not inside the site/);
+  }
+  assert.equal(fs.readFileSync(sentinel, "utf8"), "kept");
+});
+
+test("a to that is not its own normal form is refused, and a legitimate leading-dot name is written", () => {
+  const root = temp();
+  assert.throws(() => syncImages({ root, images: [image("a/../b.png", "b")] }), /is not a plain path under images\//);
+  assert.throws(() => syncImages({ root, images: [image("./b.png", "b")] }), /is not a plain path under images\//);
+  assert.throws(() => syncImages({ root, images: [image("a\\b.png", "b")] }), /is not a plain path under images\//);
+  assert.ok(!fs.existsSync(path.join(root, "images")));
+  syncImages({ root, images: [image("..a.png", "dotdot")] });
+  assert.equal(fs.readFileSync(path.join(root, "images/..a.png"), "utf8"), "dotdot");
+});
+
+test("a dotfile beside a named image is not the step's: no problem in check mode, and it survives a write run", () => {
+  const root = temp();
+  syncImages({ root, images: [image("profiles/mira.jpg", "mira")] });
+  fs.writeFileSync(path.join(root, "images/.DS_Store"), "finder");
+  assert.deepEqual(syncImages({ root, check: true, images: [image("profiles/mira.jpg", "mira")] }).problems, []);
+  syncImages({ root, images: [image("profiles/mira.jpg", "mira")] });
+  assert.equal(fs.readFileSync(path.join(root, "images/.DS_Store"), "utf8"), "finder");
 });
