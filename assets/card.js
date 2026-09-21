@@ -4,13 +4,15 @@
 // within a day. So it is a file of its own, synced whole, loaded before whichever script
 // calls it, and it knows no page: what it cannot read off the entity it takes from `opts`.
 //
-//   rbCard.render(entity, bodyEl, footEl, { data, lang, link, note })
+//   rbCard.render(entity, bodyEl, footEl, { data, lang, link, note, images })
 //     data   the parsed block: entities for resolving a reference, commit and repo for the foot
 //     lang   "en" or "de" — the caller reads <html lang>; this file never does
 //     link   (id) → Element: what a resolved reference becomes. The stage hands back a link
 //            that focuses the node; the timeline hands back one that opens the model page on it.
 //     note   optional; one line appended after the tagline as p.empty — the stage's page count
 //            on the root
+//     images optional; the base the page serves the model's images at. Left out, it is what
+//            the page's data link declares in `data-images`, and no picture where it declares none
 //   rbCard.fmtPeriod(stamp, lang), rbCard.fmtDate(value, lang)
 //     how a date reads, in which language. Moved here because a ledger's stamps and a stage's
 //     have to read the same, and one copy is the only way that stays true.
@@ -128,6 +130,27 @@
   }
   function para(text, cls, ref){ return inline(h("p", null, cls), text, ref); }
 
+  // Where the page serves the model's images, or null where it serves none. A site copies each
+  // image beside its model.json as `<entity id>.<extension>` and says so on the link that names
+  // its data — `data-images="../images/"` — so a page that has not taken the copy step draws no
+  // broken picture: it draws the card it always drew.
+  function imagesBase(){
+    var link = document.querySelector("link[data-stage]");
+    return link && link.getAttribute ? link.getAttribute("data-images") : null;
+  }
+  // The size is set on the element so nothing shifts when the file arrives, and the name is
+  // the text a reader without the picture gets.
+  function avatar(e, base){
+    var name = e.fields && e.fields.image;
+    if (!base || typeof name !== "string" || !/\.(jpe?g|png)$/.test(name)) return null;
+    var img = h("img", null, "avatar");
+    img.setAttribute("src", base.replace(/\/?$/, "/") + e.id + "." + name.split(".").pop());
+    img.setAttribute("alt", e.name);
+    img.setAttribute("width", "64"); img.setAttribute("height", "64");
+    img.setAttribute("loading", "lazy"); img.setAttribute("decoding", "async");
+    return img;
+  }
+
   function render(e, bodyEl, footEl, opts){
     var data = opts.data, lang = opts.lang === "de" ? "de" : "en", link = opts.link;
     function refId(id){
@@ -148,14 +171,22 @@
     // for the least information: the foot names the file, and on the model page the path
     // line above the drawing already says where you are.
     bodyEl.appendChild(h("div", e.type, "eyebrow"));
-    bodyEl.appendChild(h("h3", e.name));
+    // A picture of what the card names, where the entity carries one and the page serves it:
+    // the name sits beside it in one row, and without it the name stands alone as it always did.
+    var pic = avatar(e, opts.images != null ? opts.images : imagesBase());
+    if (pic) {
+      var head = h("div", null, "chead");
+      head.appendChild(pic); head.appendChild(h("h3", e.name));
+      bodyEl.appendChild(head);
+    } else bodyEl.appendChild(h("h3", e.name));
     if (e.tagline) bodyEl.appendChild(h("p", e.tagline, "tag"));
     if (opts.note) bodyEl.appendChild(h("p", opts.note, "empty"));
     // Two fields are not drawn in the list. `source` says where the page is mastered, and
     // in an instance that masters itself it reads the same on every page — machinery, not a
     // fact a reader came for. `skills` is a list of references out of the file, and it is
     // the card's last section, grouped, rather than a field row: see below.
-    var keys = Object.keys(e.fields).filter(function(k){ return k !== "source" && k !== "skills"; });
+    // `image` is a third: a file name under the picture it names says nothing.
+    var keys = Object.keys(e.fields).filter(function(k){ return k !== "source" && k !== "skills" && k !== "image"; });
     if (keys.length) {
       var dl = h("dl");
       keys.forEach(function(k){
