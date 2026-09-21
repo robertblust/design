@@ -75,7 +75,7 @@ export const { sources, recipe, stampOf, state, stamp } = recipeFor(REPO_ROOT);
 
 ## Fences
 
-Beside the whole files this package copies into a site, some of its blocks live *inside* a page: a fence is a pair of comment markers the page already carries — `design tokens`, `header contract`, `title contract`, `stage contract`, `prose reset`, `language`, `prose footer`, `deck transport`, `deck lockup`, `deck fit`, `deck runtime`, `team`, `surfaces`, `surfaces lineage`, `principles` and `model card` — and the package owns everything between and including them, prose, version and CSS alike. That is the whole reason a fence is not just another synced file: a synced file is copied whole, but a fenced block sits in the middle of a page the tool never fully owns, so the markers are what tell it exactly where its part starts and stops.
+Beside the whole files this package copies into a site, some of its blocks live *inside* a page: a fence is a pair of comment markers the page already carries — `design tokens`, `header contract`, `title contract`, `stage contract`, `prose reset`, `language`, `theme boot`, `theme`, `nav fit`, `prose footer`, `deck transport`, `deck lockup`, `deck fit`, `deck runtime`, `team`, `surfaces`, `surfaces lineage`, `principles` and `model card` — and the package owns everything between and including them, prose, version and CSS alike. That is the whole reason a fence is not just another synced file: a synced file is copied whole, but a fenced block sits in the middle of a page the tool never fully owns, so the markers are what tell it exactly where its part starts and stops.
 
 Editing a fenced block by hand does nothing that lasts. The next `npm run design` reads the markers, finds the package's own version underneath, and overwrites whatever is between them — the block is generated, not maintained in place. The block to change is the one in `blocks/` in this repository; a page only ever carries a copy of it.
 
@@ -93,12 +93,12 @@ Principles, Team and Surfaces are pages generated from an instance's model rathe
 | --- | --- |
 | `render/note` | `NOTE_EN` and `NOTE_DE` — the one sentence, shared by the writers below it, saying why the region it sits in does not translate |
 | `render/principles` | `writePrinciples` — the vision and the values into `principles/index.html` |
-| `render/team` | `writeTeam` — the head rail, the board and its legend into `team/index.html` |
+| `render/team` | `writeTeam` — the note, the head rail, one board per process with its legend, and the phases in words into `team/index.html` |
 | `render/surfaces` | `writeSurfaces` — the model, its makers and their surfaces into `surfaces/index.html` |
 
 Each writer takes `(data, { check, root })`. `root` is the site's own root, required rather than guessed from where the package sits, and a writer called without it throws the reason why; `check` reports the files it would change without writing them, as `design sync --check` does for the whole page.
 
-`team`, `surfaces` and `principles` are each one page's own CSS and nothing else. `surfaces lineage` and `model card` are behavior instead. `surfaces lineage` draws the lineage and holds Surfaces's card glue together, because the two share state: the card in the panel is whichever surface is chosen, and choosing one redraws the wires too. `model card` is Team's card glue — the rows behind a board and the one Open-all over them. Both need a value the page declares above them in the same script, `STAGE_PAGE`, where a seat links, ending in `/`; `model card` also needs `MODEL_CARD`, the name `card.js` reports a failed read under, declared the same way.
+`team`, `surfaces` and `principles` are each one page's own CSS and nothing else. `surfaces lineage` and `model card` are behavior instead. `surfaces lineage` draws the lineage and holds Surfaces's card glue together, because the two share state: the card in the panel is whichever surface is chosen, and choosing one redraws the wires too. `model card` is Team's card glue — the rows behind a board and the one Open-all over them. Both need a value the page declares above them in the same script, `STAGE_PAGE`, ending in `/`: the page that draws the model on the stage, where the links in a card go, a seat's on Team and a surface's on Surfaces; `model card` also needs `MODEL_CARD`, the name `card.js` reports a failed read under, declared the same way.
 
 ## No parameters
 
