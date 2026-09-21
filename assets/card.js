@@ -340,9 +340,19 @@
   // and a screen reader get what a pointer gets. No element keeps a title beside it: a
   // browser box under a designed one is two answers to one question. Anything on any page
   // may use it — the stage's transport does — by setting the three data-tip attributes.
+  //
+  // A target can change what it describes while the pointer rests on it: a click on Next
+  // moves the trail, and the button under the pointer now leads somewhere else. No mouseover
+  // follows, because the pointer never left, so describe repaints a tooltip that is showing
+  // for its element, and undescribe hides one whose element has nothing left to say.
   function describe(el, kind, name, text){
     el.setAttribute("data-tip-kind", kind || ""); el.setAttribute("data-tip-name", name || ""); el.setAttribute("data-tip", text || "");
     el.removeAttribute("title");
+    if (held === el) { fillTip(el); if (tip.classList.contains("show")) placeTip(el); }
+  }
+  function undescribe(el){
+    el.removeAttribute("data-tip-kind"); el.removeAttribute("data-tip-name"); el.removeAttribute("data-tip");
+    if (held === el) hideTip();
   }
   var tip = null, tipK, tipN, tipD, held = null, tipTimer = 0;
   function tipEl(){
@@ -364,12 +374,15 @@
   // z-index climbs into it; a tooltip left in the body sits under the expanded stage. So the
   // tooltip moves into whichever dialog holds its target and back out to the body when the
   // target is on the page — position:fixed reads the same from either parent.
+  function fillTip(el){
+    tipK.textContent = el.getAttribute("data-tip-kind") || ""; tipN.textContent = el.getAttribute("data-tip-name") || ""; tipD.textContent = el.getAttribute("data-tip") || "";
+  }
   function showTip(el){
     if (held === el) return;
     hideTip(); held = el; tipEl();
     var home = (el.closest && el.closest("dialog[open]")) || document.body;
     if (tip.parentNode !== home) home.appendChild(tip);
-    tipK.textContent = el.getAttribute("data-tip-kind") || ""; tipN.textContent = el.getAttribute("data-tip-name") || ""; tipD.textContent = el.getAttribute("data-tip") || "";
+    fillTip(el);
     el.setAttribute("aria-describedby", "tip");
     tipTimer = setTimeout(function(){ tip.setAttribute("aria-hidden", "false"); placeTip(el); tip.classList.add("show"); }, 120);
   }
@@ -419,5 +432,5 @@
     });
   }
 
-  window.rbCard = { render: render, fmtPeriod: fmtPeriod, fmtDate: fmtDate, describe: describe, data: data };
+  window.rbCard = { render: render, fmtPeriod: fmtPeriod, fmtDate: fmtDate, describe: describe, undescribe: undescribe, data: data };
 })();

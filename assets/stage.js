@@ -476,7 +476,7 @@ function rbStage(data) {
     return n.entity ? n.entity.type : "";
   }
   function tipFor(el, i){
-    if (i < 0) { el.removeAttribute("data-tip-kind"); el.removeAttribute("data-tip-name"); el.removeAttribute("data-tip"); return; }
+    if (i < 0) { rbCard.undescribe(el); return; }
     var n = trailNode(i);
     rbCard.describe(el, trailType(i), trailName(i), n.entity && n.entity.tagline ? n.entity.tagline : "");
   }
