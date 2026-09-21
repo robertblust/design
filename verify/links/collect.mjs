@@ -32,7 +32,11 @@ function readPage() {
     let parsed;
     try { parsed = JSON.parse(s.textContent); } catch { continue; }
     (function walk(v) {
-      if (typeof v === "string") { if (isUrl(v)) add(v, document.baseURI); }
+      // A JSON-LD URL string is sometimes an "@id" such as "https://blust.ch/#person": an
+      // identifier for the node, not an anchor a visitor's browser would follow. Its fragment is
+      // dropped so the resolver is asked about the page the path names, not an element on it; the
+      // path itself still has to land.
+      if (typeof v === "string") { if (isUrl(v)) add(v.replace(/#.*$/, ""), document.baseURI); }
       else if (v && typeof v === "object") Object.values(v).forEach(walk);
     })(parsed);
   }

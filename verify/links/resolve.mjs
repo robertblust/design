@@ -15,14 +15,24 @@ function decoded(s) {
   try { return decodeURIComponent(s); } catch { return s; }
 }
 
+// Hostnames RFC 2606 and RFC 6761 reserve for documentation and never delegate: a link onto one
+// of these is never a claim about a real site, so it is skipped rather than judged.
+const RESERVED = ["example", "invalid", "test", "localhost", "example.com", "example.net", "example.org"];
+
+function isReserved(hostname) {
+  return RESERVED.some((r) => hostname === r || hostname.endsWith(`.${r}`));
+}
+
 // Own: on the origin the site is served from, which is where the browser resolved every relative
 // link, or on the host its CNAME names. External: any other http(s) URL. Skip: mailto:, tel:,
-// javascript:, data: and anything else that is not a page on the web.
+// javascript:, data:, a host reserved for documentation, and anything else that is not a page on
+// the web.
 export function classify(href, { host, origin }) {
   let url;
   try { url = new URL(href); } catch { return { kind: "skip" }; }
   if (url.protocol !== "http:" && url.protocol !== "https:") return { kind: "skip" };
   if (url.origin === origin || url.hostname === host) return { kind: "own", url };
+  if (isReserved(url.hostname)) return { kind: "skip" };
   return { kind: "external", url };
 }
 

@@ -28,7 +28,11 @@ export async function checkOwn({ root, base = BASE, chromium, log = console.log 
     const reason = resolveOwn(c.url, { root, pages: site.pages, idsOf: site.idsOf });
     if (reason) fail(shown(c), reason, from);
   }
-  // A check that resolved nothing has not passed, it has not run.
+  // A check that resolved nothing has not passed, it has not run. collect() throws its own "no
+  // page named by sitemap.xml" first today, since a page is only queued by an own link and an
+  // empty sitemap queues none — so this guard is not reached by any fixture yet. It stays: the
+  // floor holds on its own terms, not on collect's, so a future collect that queues a page some
+  // other way still cannot pass a run that resolved no own link.
   if (!resolved) throw new Error(`no own link was found on ${site.origin}, so nothing was checked`);
   const list = [...failures.values()]
     .map((f) => ({ link: f.link, reason: f.reason, from: [...f.from].sort() }))

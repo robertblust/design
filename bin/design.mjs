@@ -75,6 +75,13 @@ if (argv[0] === "indexnow" || argv[0] === "sitemap") {
 if (argv[0] === "links") {
   const at = argv.indexOf("--base");
   if (at !== -1 && (!argv[at + 1] || argv[at + 1].startsWith("--"))) fail(USAGE, 2);
+  // Only --external, --base and the value that follows it are accepted; anything else, a typo
+  // among them, is the usage and exit 2 rather than a check that silently ran without it.
+  for (let i = 1; i < argv.length; i++) {
+    if (argv[i] === "--external") continue;
+    if (argv[i] === "--base") { i++; continue; }
+    fail(USAGE, 2);
+  }
   const { BASE, checkOwn, checkExternal } = await import("../verify/links.mjs");
   const base = at === -1 ? BASE : argv[at + 1];
   let chromium;

@@ -27,16 +27,26 @@ test("a link is own on the served origin or the CNAME's host, external elsewhere
   assert.equal(classify("https://fixture.test/about/", SITE).kind, "own");
   assert.equal(classify("http://fixture.test/", SITE).kind, "own");
   assert.equal(classify("http://127.0.0.1:9000/x", SITE).kind, "external", "another port is another site");
-  assert.equal(classify("https://example.org/x", SITE).kind, "external");
-  assert.equal(classify("https://www.fixture.test/", SITE).kind, "external", "only the CNAME's own host");
+  assert.equal(classify("https://elsewhere.org/x", SITE).kind, "external");
+  assert.equal(classify("https://www.fixture.test/", SITE).kind, "skip", "not the CNAME's own host, and .test is reserved besides");
   for (const href of ["mailto:a@example.org", "tel:+41", "javascript:void(0)", "data:font/woff2;base64,AA", "not a url"])
     assert.equal(classify(href, SITE).kind, "skip", href);
+});
+
+test("a host reserved for documentation is skipped, never a claim about a real site", () => {
+  for (const href of [
+    "https://example.org/x", "https://beacon.example/", "https://a.example.invalid/x",
+    "https://docs.example.com/", "https://example.com/", "https://example.net/x",
+    "https://sub.example.net/", "https://localhost/x", "https://a.localhost/x",
+    "https://example/", "https://a.invalid/", "https://a.test/",
+  ]) assert.equal(classify(href, SITE).kind, "skip", href);
+  assert.equal(classify("https://fixture.test/", SITE).kind, "own", "own is checked first");
 });
 
 test("an own link is shown by its path, an external one in full", () => {
   assert.equal(shown(classify("https://fixture.test/model/?stage=expanded#a/b", SITE)), "/model/?stage=expanded#a/b");
   assert.equal(shown(classify("http://127.0.0.1:8000/model/?stage=expanded#a/b", SITE)), "/model/?stage=expanded#a/b");
-  assert.equal(shown(classify("https://example.org/x?y=1", SITE)), "https://example.org/x?y=1");
+  assert.equal(shown(classify("https://elsewhere.org/x?y=1", SITE)), "https://elsewhere.org/x?y=1");
 });
 
 test("a path is keyed as the page it is, or not a page at all", () => {

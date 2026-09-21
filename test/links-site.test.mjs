@@ -76,6 +76,14 @@ test("links are read from the markup, the head, JSON-LD and the stylesheets", ()
   assert.ok(site.found.has("mailto:someone@example.org"), "found, and left to the resolver to skip");
 });
 
+test("a JSON-LD @id is collected without its fragment, since it identifies a node and is not an anchor", () => {
+  assert.deepEqual(where("https://fixture.test/model/"), ["/model/", "sitemap.xml"], "the @id's path lands, its fragment does not");
+  for (const href of site.found.keys()) {
+    assert.ok(!href.includes("#person"), href);
+    assert.ok(!href.includes("#webpage"), href);
+  }
+});
+
 test("every card is opened, by Open all, by each item, and by each node of a stage", () => {
   const o = served.base;
   assert.deepEqual(where(`${o}/model/?stage=expanded#things/b`), ["/ledger/ (card)", "/lineage/ (card)"]);
@@ -242,4 +250,10 @@ test("the external CLI exits 0 on what it finds and 1 when it could not run", as
   }
   const down = await cli(["links", "--external", "--base", "http://127.0.0.1:9"], FIXTURE, { GITHUB_TOKEN: "" });
   assert.equal(down.code, 1);
+});
+
+test("an argument links does not accept exits 2 with the usage", async () => {
+  const run = await cli(["links", "--extrenal"], FIXTURE);
+  assert.equal(run.code, 2);
+  assert.match(run.stderr, /usage: design sync/);
 });
