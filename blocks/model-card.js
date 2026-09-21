@@ -17,11 +17,11 @@
      and carry what lib/render/team.mjs writes, plus the provenance line
      (`#srclink` with its `data-src`, and `#srccommit`) that every model page has.
   */
-  // The seats are in the markup; the cards are not. Eight cards at rest would be eight copies of
-  // the model's own words in a page that already serves the model as a file, and this site's
-  // checks read the body at rest. So a card is rendered the first time its row opens, and again
-  // when the language has changed since — the way the timeline renders an experience and the
-  // stage renders a card on focus.
+  // The seats are in the markup; the cards are not. A card per seat at rest would be a copy of
+  // the model's own words for every seat, in a page whose site already serves the model as a
+  // file, and a page check that reads the body at rest would read them all. So a card is rendered
+  // the first time its row opens, and again when the language has changed since — the way the
+  // timeline renders an experience and the stage renders a card on focus.
   (function(){
     function lang(){ return document.documentElement.lang === "de" ? "de" : "en"; }
     rbCard.data(MODEL_CARD, function (data) {
