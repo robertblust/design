@@ -621,21 +621,25 @@ test("navOrder's rule names Timeline after Model", () => {
 // contract is invisible to a regex built out of the names that are there. A contract that
 // disagrees with the check enforcing it is worse than no contract, and this is the test that
 // has to notice.
-// Team is first because the order is read right to left: the switcher sits at the edge and
-// each step left is more the site's own subject. Nothing is more the site's own subject than
-// who does the work, so nothing may be inserted before it. Principles follows it, because what
+// CLI is first, by the owner's decision: a reader who came to set the thing up wants the
+// command before anything a site says about it, and a site without a CLI page loses nothing, since
+// the rule is filtered to the items a site has. After it the order is read right to left: the
+// switcher sits at the edge and each step left is more the site's own subject, and nothing is
+// more the site's own subject than who does the work, so Team comes next and nothing else may
+// be inserted before it. Principles follows it, because what
 // the work is held to belongs to a site as closely as who does it; Surfaces comes after both,
 // since where the work is published is a consequence of them and precedes any one thing
 // published there.
-test("navOrder's rule puts Team first and Principles second", () => {
+test("navOrder's rule puts CLI first, then Team and Principles", () => {
   const src = pageChecks(OPTS).navOrder.toString();
   const m = /const ORDER = \[([^\]]+)\]/.exec(src);
   assert.ok(m, "navOrder has no ORDER list");
   const order = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
-  assert.equal(order[0], "Team");
-  assert.equal(order.indexOf("Principles"), 1);
-  assert.equal(order.indexOf("Surfaces"), 2);
-  assert.equal(order.indexOf("API"), 3);
+  assert.equal(order[0], "CLI");
+  assert.equal(order.indexOf("Team"), 1);
+  assert.equal(order.indexOf("Principles"), 2);
+  assert.equal(order.indexOf("Surfaces"), 3);
+  assert.equal(order.indexOf("API"), 4);
 });
 
 test("the header contract's order comment names exactly what navOrder enforces", () => {
