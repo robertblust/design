@@ -49,6 +49,7 @@
     "./verify/pin": "./verify/pin.mjs",
     "./verify/links": "./verify/links.mjs",
     "./crawl": "./lib/crawl.mjs",
+    "./images": "./lib/images.mjs",
     "./render/note": "./lib/render/note.mjs",
     "./render/principles": "./lib/render/principles.mjs",
     "./render/team": "./lib/render/team.mjs",
