@@ -737,8 +737,8 @@ test("nothing that flips with the theme is painted inside .lcd", () => {
   // `s` flag. Four rounds of patching that one regex produced four more ways around it, which
   // is what a class of bug looks like rather than a series of them — so this is a from-
   // scratch, brace-aware reader (`leafBlocks`/`targetsLcd`/`declarations`/`varTokens` above),
-  // not a bigger pattern. No dependency: this package ships zero, including devDependencies,
-  // and that is a hard constraint the standard fix here (a CSS parser) would violate.
+  // not a bigger pattern. No dependency: this package ships none, and its one devDependency is
+  // Playwright for the link checker's tests; a CSS parser here would be a second, for one check.
   //
   // "Which tokens flip" is derived from tokens.css itself, not a hardcoded list: a token whose
   // light and dark values are equal is invariant, by construction. rawPalette(), not

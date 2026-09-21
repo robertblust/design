@@ -1,0 +1,3 @@
+@font-face { font-family: Present; src: url(fonts/present.woff2) format("woff2"); }
+@font-face { font-family: Absent; src: url(fonts/missing.woff2) format("woff2"); }
+body { font-family: Present, Absent, sans-serif; }

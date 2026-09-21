@@ -150,6 +150,49 @@ jobs:
         run: npx design indexnow "$BASE" "$HEAD"
 ```
 
+## Links
+
+A link either lands or it does not, and the checks above never ask: they forbid a shape of link or require a named one to be present. `design links` asks it of every link the site owns and fails the build when one does not land. `design links --external` asks it of every other link once a week and reports what it finds, because a dead page elsewhere is news and not a reason to stop a deploy.
+
+What is read is what a visitor meets. The command crawls from `sitemap.xml` in a browser and follows every own page it reaches, so a deck linked from a talks index is read without the sitemap naming it. It reads every `href` and `src`, every `url()` in a stylesheet, and every absolute URL in a `<meta content>` and in JSON-LD — a JSON-LD `@id` such as `https://blust.ch/#person` identifies a node rather than an anchor, so its fragment is dropped and only its path is collected. On every page carrying a `<link data-stage>` it opens the cards: each Open all is pressed, each surface on Surfaces is clicked, each node of a stage is focused by its hash. The data files those pages name are read for every absolute URL string in them.
+
+A link is own when it is relative or on the host the site's `CNAME` names, and it lands when the checkout holds its file, or a folder's `index.html` for a path naming a folder, with or without the closing `/`, since GitHub Pages redirects the one to the other. A link onto a host reserved for documentation — `.example`, `.invalid`, `.test`, `.localhost`, `example.com`, `example.net`, `example.org` — is skipped, like `mailto:`, since none of those names is ever a claim about a real site. **A fragment on a page that loads `stage.js` must name a node in that page's data** — an entity, the root, or a folder holding one — because a stage shown an id it does not hold draws its root and looks fine. A fragment anywhere else must name an element on the page after its scripts ran, or be `#top`, which a browser always finds. A run that loads no page or finds no own link fails too, since a check that read nothing has not passed.
+
+An external link is asked with `HEAD`, then with `GET` whenever `HEAD` does not say yes, ten seconds each, one request per host at a time and four at once, with one retry. It is broken on a 404 or 410 to the `GET` or a host name that does not resolve, and unverifiable on anything else, a 401, 403, 429, 999, a 5xx, a timeout or a refused connection, which is how some hosts answer every script. The run keeps one issue titled “Broken external links”: opened when something is broken, rewritten by every run, closed with a comment by the first run that finds nothing broken. It fails only when the check itself could not run.
+
+Both modes drive the site's own Playwright, which the bin imports, and read the site served at `--base`, by default `http://127.0.0.1:8000`, where the site's CI already serves it. In `ci.yml`, after the step that runs `npm run verify`:
+
+```yaml
+      - name: Every own link resolves
+        run: npx design links
+```
+
+And a workflow of its own, written by hand as `indexnow.yml` is, since a group only copies page assets:
+
+```yaml
+# .github/workflows/links.yml
+name: links
+on:
+  schedule: [{ cron: "0 6 * * 1" }]
+  workflow_dispatch:
+permissions: { contents: read, issues: write }
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: python3 -m http.server 8000 > /dev/null 2>&1 &
+      - env: { GITHUB_TOKEN: "${{ github.token }}" }
+        run: npx design links --external
+```
+
+The last step needs no wait before it: the command waits for the server itself.
+
 ## A warning about `stage.js` and `card.js`
 
 `stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and has to open from `file://` with no network. **Never link a deck to `stage.js`, `card.js` or `stage.css`.** They are reached only by served prose pages, through a plain `<link>` and `<script src>`.

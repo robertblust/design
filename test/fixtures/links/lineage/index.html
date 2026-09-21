@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><title>Lineage</title>
+<link rel="preload" as="fetch" href="../model.json" data-stage crossorigin>
+</head>
+<body>
+<button type="button" class="ln-s" data-id="things/a">A</button>
+<button type="button" class="ln-s" data-id="things/b">B</button>
+<div id="lnpanel"></div>
+<script>
+  var STAGE_PAGE = "../model/";
+  [].forEach.call(document.querySelectorAll(".ln-s"), function (b) {
+    b.addEventListener("click", function () {
+      var panel = document.getElementById("lnpanel"), a = document.createElement("a");
+      a.href = STAGE_PAGE + "?stage=expanded#" + b.getAttribute("data-id");
+      a.textContent = b.getAttribute("data-id");
+      panel.innerHTML = ""; panel.appendChild(a);
+    });
+  });
+</script>
+</body>
+</html>
