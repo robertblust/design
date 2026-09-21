@@ -164,6 +164,34 @@ test("a model with one process draws exactly the board it drew before this chang
   assert.equal(regionOf(renderTeamInto(TEAM_FIXTURE)), BEFORE_ONE_PROCESS);
 });
 
+test("a seat the process names and no profile holds is drawn as human, with no name", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const at = html.indexOf('id="else-helper"');
+  assert.ok(at > 0, "the seat no profile holds is on its board");
+  const row = html.slice(html.lastIndexOf("<details", at), html.indexOf("</details>", at));
+  assert.match(row, /<details class="human"/);
+  assert.match(row, /aria-label="Helper, human\./);
+});
+
+test("a board shows only the seats its own process names", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const elseBoard = html.slice(html.indexOf('id="else"'));
+  assert.doesNotMatch(elseBoard, /id="else-maker"/);
+  assert.match(elseBoard, /id="else-helper"/);
+});
+
+test("a person's seats come first, then the seats no profile holds, then an agent's", () => {
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const elseBoard = html.slice(html.indexOf('id="else"'));
+  const order = [...elseBoard.matchAll(/<details[^>]* id="else-([a-z-]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["boss", "helper"]);
+});
+
+test("the board no longer needs a profile to hold a seat", () => {
+  const noProfiles = { ...TEAM_FIXTURE, entities: TEAM_FIXTURE.entities.filter((e) => e.type !== "profile") };
+  assert.doesNotThrow(() => renderTeamInto(noProfiles));
+});
+
 test("phasesOf follows the rows of the process's Phases table, not the folder listing", () => {
   assert.deepEqual(phasesOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).map((p) => p.name), ["One", "Two"]);
 });
@@ -184,7 +212,7 @@ test("phasesOf reads a phase's name within its own process", () => {
 });
 
 test("seatsOf puts the human profile's seats first", () => {
-  assert.deepEqual(seatsOf(TEAM_FIXTURE).map((s) => s.role.name), ["Boss", "Maker", "Checker"]);
+  assert.deepEqual(seatsOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).map((s) => s.role.name), ["Boss", "Maker", "Checker"]);
 });
 
 test("marksOf reads executes, supports and approves off each phase", () => {
