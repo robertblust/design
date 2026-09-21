@@ -1,6 +1,6 @@
 # The model pages are shared — design
 
-> Principles, Team and Surfaces are three pages generated from a model, and they exist only on blust.ch. A second instance now wants the same three pages. They move into this package the way the stage did: the renderers become exports, the page code becomes sync groups, and each site keeps the page shell — its title, its tagline, its German — around a region the package writes.
+> Principles, Team and Surfaces are three pages generated from a model, and they exist only on blust.ch. A second instance now wants the same three pages. They move into this package the way the stage did: the renderers become exports, the page code becomes fences, and each site keeps the page shell — its title, its tagline, its German — around a region the package writes.
 
 Status: proposed. Decided on 2026-09-21 against this repository at v0.67.0 and blust.ch at `b97bd1d`. Every number below was counted, not estimated.
 
@@ -40,7 +40,7 @@ import { writeSurfaces } from "@robertblust/design/render/surfaces";
 
 Each keeps the signature it has: `(data, { check })`, returning the files it would change. The artifact is whatever the site passes, so blust.ch goes on passing its `model.json` and companygraph.io passes `company.json`, because on that site `model.json` is the vocabulary rather than an instance. The one error message that names `model.json` names the artifact instead. The sentence saying why a generated region is not translated moves with them, as `@robertblust/design/render/note`, since it is already the same sentence on every page that carries it and one home is the point of it.
 
-**The page code becomes three sync groups, and the card logic is written once.** `principles`, `team` and `surfaces` join `fonts` and `stage` as groups a site opts into in `design.config.json`. The card fetched on demand, which Team and Surfaces each carry today, becomes one fence both groups include, so the duplicate ends in the move rather than being copied into the package. A group's fences are written by `design sync` and held by `design sync --check` exactly as the stage's are.
+**The page code becomes fences, and the card logic is written once.** The code each page carries beyond the existing fences is inline today, in its own `<style>` and `<script>`, so it moves the way inline code already moves in this package: as fences, which `design sync` writes between markers a page carries and `design sync --check` holds to the package. Groups are the other mechanism — whole files copied to a site's root and linked from the page — and they would take code that is inline today out of the page into a request of its own, changing every page's shell to do it. A page opts into a fence by carrying its markers, so no site's `design.config.json` changes. The behavior lives in the fence and the model's data stays the page's, which is the boundary the stage and the deck runtime already keep. The card glue Team and Surfaces each carry today — the entity read from the address, and the link that focuses it — becomes one fence both pages carry, so the duplicate ends in the move rather than being copied into the package.
 
 **Each site keeps its page shell.** The title, the tagline, the German, the nav and the region markers stay in the site's own page. The package writes between `<!-- principles:start -->` and its end marker, as blust.ch's renderers do today, and never outside it. What a page argues is the site's to write; how a model becomes that page is this package's.
 
@@ -52,15 +52,15 @@ Each keeps the signature it has: `(data, { check })`, returning the files it wou
 
 ## 3. What each consumer has to do
 
-**blust.ch** re-pins to the release, adds `principles`, `team` and `surfaces` to its `design.config.json`, deletes `build/principles.mjs`, `build/team.mjs`, `build/surfaces.mjs` and `build/note.mjs`, imports the three writers from the package in `build/pages.mjs`, and runs `npm run design` and `npm run pages`. Its three pages must then come out byte-identical to what is committed today — see §6.
+**blust.ch** re-pins to the release, puts the new fences' markers around the inline code its three pages carry today, deletes `build/principles.mjs`, `build/team.mjs`, `build/surfaces.mjs` and `build/note.mjs`, imports the three writers from the package in `build/pages.mjs`, and runs `npm run design` and `npm run pages`. Its generated regions must then come out byte-identical to what is committed today, and the code inside the new fences must be the code that was there before the markers went round it — see §6.
 
 **companygraph.io** does nothing until it chooses to carry the pages. Adopting them is its own plan, which needs this release and its own instance artifact first.
 
-**guestgraph.io** does nothing. It draws no model and opts into neither group.
+**guestgraph.io** does nothing. It draws no model, so none of its pages carries these markers.
 
 ## 4. The release
 
-A minor release, v0.68.0. Everything here is added: three exports, three groups and a fence, none of which a site receives until it names the group. A site that re-syncs without naming them gets nothing new, and blust.ch's switch to the shared code is a change it makes in its own repository after taking the release, not one the release makes for it.
+A minor release, v0.68.0. Everything here is added: three exports and the fences, none of which a site receives until one of its pages carries the markers. A site that re-syncs without them gets nothing new, and blust.ch's switch to the shared code is a change it makes in its own repository after taking the release, not one the release makes for it.
 
 The notes say what blust.ch has to do to adopt it and that nothing else needs to move.
 
@@ -73,8 +73,8 @@ The notes say what blust.ch has to do to adopt it and that nothing else needs to
 
 ## 6. How it is verified
 
-**The extraction is proven by blust.ch not changing.** After blust.ch adopts the release, `npm run pages:check` must pass against the pages committed today, before any of them is rebuilt. That compares every generated region byte for byte, so a renderer that moved and behaves differently fails there, without anyone reading a diff.
+**The extraction is proven by blust.ch not changing.** After blust.ch adopts the release, `npm run pages:check` must pass against the pages committed today, before any of them is rebuilt. That compares every generated region byte for byte, so a renderer that moved and behaves differently fails there, without anyone reading a diff. It covers the renderers and nothing else; the page code is proven separately, below.
 
 **The two new behaviors are proven by tests in this package, against fixtures.** A fixture model with two processes renders two boards, in model order, each holding only the seats its process names. A fixture with a seat no profile lists renders that seat as `human` with no name. A fixture with one process and every seat named renders exactly what blust.ch's board renders today, which is the same claim the byte-identical check makes from the other side.
 
-**The groups are proven the way the stage's are.** `design sync --check` holds each fence to the package, and the spelling test that holds this package's shipped files to American English covers the new ones.
+**The fences are proven the way every fence is.** `test/fences.test.mjs` holds each new block to the version `versions.json` declares for it, `design sync --check` holds every copy to the package, and the spelling test that holds this package's shipped files to American English covers the new ones. That the move changed no behavior on the page is proven twice: the code inside each new fence on blust.ch is byte for byte the code that was inline there before the markers went round it, and blust.ch's own page suite, which clicks through the board, the lineage and the cards, passes unchanged.
