@@ -14,7 +14,7 @@ import { promisify } from "node:util";
 import { chromium } from "playwright";
 
 import { collect } from "../verify/links/collect.mjs";
-import { checkOwn } from "@robertblust/design/verify/links";
+import { checkOwn, checkExternal } from "@robertblust/design/verify/links";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.join(HERE, "fixtures", "links");
@@ -193,4 +193,53 @@ test("the CLI fails when it checked nothing, and names why", async () => {
   assert.equal(down.code, 1);
   assert.match(down.stderr, /nothing answers at http:\/\/127\.0\.0\.1:9/);
   assert.equal((await cli(["links", "--base"], FIXTURE)).code, 2);
+});
+
+// A site whose external links point at a second local server, so the external mode is run from
+// crawl to issue without the network.
+async function externalSite() {
+  const web = http.createServer((req, res) => { res.writeHead(req.url === "/gone" ? 404 : 200); res.end(); });
+  await new Promise((r) => web.listen(0, "127.0.0.1", r));
+  const other = `http://127.0.0.1:${web.address().port}`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "design-links-ext-"));
+  fs.writeFileSync(path.join(dir, "CNAME"), "fixture.test\n");
+  fs.writeFileSync(path.join(dir, "sitemap.xml"), "<urlset><url><loc>https://fixture.test/</loc></url></urlset>");
+  fs.writeFileSync(path.join(dir, "index.html"), `<!doctype html><title>Ext</title><a href="${other}/fine">fine</a><a href="${other}/gone">gone</a>`);
+  const s = await serve(dir);
+  return { dir, other, s, close: async () => { await s.close(); await new Promise((r) => { web.closeAllConnections(); web.close(r); }); } };
+}
+
+test("the external mode reports what it found and keeps the issue", async () => {
+  const x = await externalSite();
+  try {
+    const calls = [];
+    const apiFetch = async (url, init = {}) => {
+      calls.push(init.method ?? "GET");
+      return new Response(JSON.stringify((init.method ?? "GET") === "GET" ? [] : { number: 1 }), { status: 200 });
+    };
+    const report = await checkExternal({
+      root: x.dir, base: x.s.base, chromium, apiFetch, log: () => {}, today: "2026-09-28",
+      env: { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "o/r", GITHUB_SERVER_URL: "https://github.com", GITHUB_RUN_ID: "1" },
+    });
+    assert.deepEqual(report.broken.map((v) => [v.url, v.answer, v.from]), [[`${x.other}/gone`, "404", ["/"]]]);
+    assert.deepEqual(report.ok.map((v) => v.url), [`${x.other}/fine`]);
+    assert.deepEqual(report.issue, { action: "opened", number: 1 });
+    assert.deepEqual(calls, ["GET", "POST"]);
+  } finally {
+    await x.close();
+  }
+});
+
+test("the external CLI exits 0 on what it finds and 1 when it could not run", async () => {
+  const x = await externalSite();
+  try {
+    const run = await cli(["links", "--external", "--base", x.s.base], x.dir, { GITHUB_TOKEN: "", GITHUB_REPOSITORY: "" });
+    assert.equal(run.code, 0, run.stderr);
+    assert.match(run.stdout, new RegExp(`✗ ${x.other}/gone {2}404`));
+    assert.match(run.stdout, /no issue was touched/);
+  } finally {
+    await x.close();
+  }
+  const down = await cli(["links", "--external", "--base", "http://127.0.0.1:9"], FIXTURE, { GITHUB_TOKEN: "" });
+  assert.equal(down.code, 1);
 });
