@@ -196,6 +196,9 @@ test("a chip carries the claimed level as marks, and a hover is a note on the th
   assert.match(js, /describe: describe/, "describe is not exported for the stage");
   assert.ok(!/\.title = /.test(stage), "stage.js still sets a browser title");
   assert.match(stage, /rbCard\.describe\(/, "the transport does not use the tooltip");
+  assert.match(js, /if \(held === el\) \{ fillTip\(el\);/, "a tooltip showing for its element keeps the text it had before the element changed");
+  assert.match(js, /undescribe: undescribe/, "undescribe is not exported for the stage");
+  assert.match(stage, /rbCard\.undescribe\(el\)/, "a transport button with nowhere to go keeps showing the tooltip it had");
   for (const sel of [".cbody .chips .lv{", ".cbody .chips .lv i.on{", ".tip{position:fixed", "background:var(--raise); border:1px solid var(--rule)", ".tip .k{display:none}", ".tip .n{color:var(--ink)"])
     assert.ok(css.includes(sel), `stage.css lacks ${sel}`);
 });
