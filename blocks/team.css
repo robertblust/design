@@ -12,6 +12,7 @@
   */
   /* The board. --cols is declared once and used by the head row and every summary, which is
      what lines the columns up across rows without a table. */
+  /* blocks/surfaces.css declares this same base rule for its own .mk. */
   .mk{width:1.05em; height:1.05em; flex:none; vertical-align:-.16em}
   .mk.human{color:var(--c-firm)}
   .mk.agent{color:var(--c-mid)}

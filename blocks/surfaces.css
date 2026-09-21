@@ -7,6 +7,7 @@
      its shell, the classes other pages share (`.lbl`, `.nm`, `.mono`), and the parts it writes
      itself around the lineage: the legend, the hint and the card panel.
   */
+  /* blocks/team.css declares this same base rule for its own .mk. */
   .mk{width:1.05em; height:1.05em; flex:none; vertical-align:-.16em}
   .mk.hand{color:var(--c-firm)}
   .mk.build{color:var(--c-mid)}
