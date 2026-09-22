@@ -18,6 +18,7 @@
 //   rbChat.readEvents(response, fn)    the stream, one fn(name, data) per event
 //   rbChat.strings(lang)               the sentences
 //   rbChat.link(model, id)             where a cite points
+//   rbChat.nameLinks(root, names, …)   the model's names, linked in a rendered answer
 //   rbChat.refocus(window)             whether the cursor goes back after an answer
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
@@ -103,6 +104,46 @@
       if (cut) { tail = cut[0]; u = u.slice(0, -tail.length); }
       return '<a href="' + u + '">' + u + "</a>" + tail;
     });
+  }
+
+  // The names a tool answered with, linked where the answer writes them. The model is told to
+  // name the entity a claim rests on, so an answer reads "Skills drawn on: Integration
+  // architecture, Solution architecture, …" and every one of those is an entity the visitor may
+  // want to open. The server sends what it showed the model, so nothing here guesses: a name is
+  // linked only if it arrived, and it is matched whole, longest first, so that "Data
+  // engineering" wins over a shorter name inside it. The walk is over text nodes of the rendered
+  // answer, so a name inside a link, a code span or an attribute is left alone.
+  function nameLinks(root, names, model, doc){
+    if (!names.length) return;
+    var byLength = names.slice().sort(function(a, b){ return b.title.length - a.title.length; });
+    var nodes = [], walk = doc.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */, null);
+    for (var n = walk.nextNode(); n; n = walk.nextNode()) if (!n.parentNode.closest("a, code")) nodes.push(n);
+    nodes.forEach(function(node){
+      var text = node.nodeValue, out = null, at = 0, piece = doc.createDocumentFragment();
+      while (at < text.length) {
+        var hit = null, where = -1;
+        for (var i = 0; i < byLength.length; i++) {
+          var idx = text.indexOf(byLength[i].title, at);
+          // A name is a word, not a string inside one: what sits on either side has to be
+          // something other than a letter or a digit.
+          while (idx >= 0 && !edged(text, idx, byLength[i].title.length)) idx = text.indexOf(byLength[i].title, idx + 1);
+          if (idx >= 0 && (where < 0 || idx < where)) { where = idx; hit = byLength[i]; }
+        }
+        if (!hit) break;
+        out = true;
+        piece.appendChild(doc.createTextNode(text.slice(at, where)));
+        var a = doc.createElement("a"); a.href = link(model, hit.id); a.textContent = hit.title;
+        piece.appendChild(a);
+        at = where + hit.title.length;
+      }
+      if (!out) return;
+      piece.appendChild(doc.createTextNode(text.slice(at)));
+      node.parentNode.replaceChild(piece, node);
+    });
+  }
+  function edged(text, at, len){
+    var before = at > 0 ? text.charAt(at - 1) : " ", after = at + len < text.length ? text.charAt(at + len) : " ";
+    return !/[0-9A-Za-z]/.test(before) && !/[0-9A-Za-z]/.test(after);
   }
 
   function inline(s){
@@ -227,7 +268,7 @@
     } catch (e) {}
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -375,7 +416,7 @@
     // Streaming, from the moment the request goes out until finish() has the whole answer.
     ans.setAttribute("aria-busy", "true");
     ans.appendChild(wait); ans.appendChild(body);
-    var acc = "", cites = [], cut = false;
+    var acc = "", cites = [], names = [], cut = false;
     function render(){ body.innerHTML = md(acc); log.scrollTop = log.scrollHeight; }
     // A stream that never ends — a dropped connection the browser does not notice — would
     // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
@@ -401,9 +442,13 @@
       ans.removeAttribute("aria-busy");
       ans.setAttribute("aria-live", "polite");
       render();
+      // Once, on the finished answer: the names are linked in the text the visitor reads, not
+      // in the Markdown, so nothing about the answer itself changes and the next render — a
+      // language switch, a redraw — would simply do it again.
+      nameLinks(body, names, MODEL, document);
       if (cites.length) ans.appendChild(citeLine(cites));
       messages.push({ role: "assistant", content: acc });
-      turns.push({ role: "assistant", content: acc, cites: cites });
+      turns.push({ role: "assistant", content: acc, cites: cites, names: names });
       keep();
       busy = false;
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
@@ -424,6 +469,7 @@
         return readEvents(r, function(name, data){
           if (name === "text") { if (wait.parentNode) wait.parentNode.removeChild(wait); acc += data.text || ""; render(); }
           else if (name === "cite") cites.push(data);
+          else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
           else if (name === "done") cut = !!data.cut;
           else if (name === "error") {
             var code = data && data.error && data.error.code;
@@ -460,10 +506,11 @@
       if (t.role === "user") { bubble("user").textContent = t.content; messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
       body.innerHTML = md(t.content); ans.appendChild(body);
+      nameLinks(body, t.names || [], MODEL, document);
       var cites = t.cites || [];
       if (cites.length) ans.appendChild(citeLine(cites));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [] });
     });
     // A conversation read back at its length is as full as one that reached it here.
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
