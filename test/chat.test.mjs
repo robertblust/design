@@ -24,7 +24,9 @@ test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("| a | b |\n| --- | --- |\n| 1 | 2 |"), "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>");
   assert.equal(md("<script>x</script>"), "<p>&lt;script&gt;x&lt;/script&gt;</p>");
   assert.equal(md("# not a heading"), "<p># not a heading</p>");
-  assert.equal(md("[a link](https://x)"), "<p>[a link](https://x)</p>");
+  // Markdown link syntax is still no syntax here: the brackets stay text. The address inside
+  // is a bare URL like any other, so it is clickable and the visitor sees where it goes.
+  assert.equal(md("[a link](https://x)"), '<p>[a link](<a href="https://x">https://x</a>)</p>');
   assert.equal(md("a * b * c"), "<p>a * b * c</p>", "a lone star is a star");
   assert.equal(md(""), "");
 });
@@ -66,9 +68,11 @@ test("every code has a sentence in both languages, and the language falls back t
   assert.notEqual(strings("de").send, strings("en").send);
 });
 
-test("a cite points at the model page with the id's slash as it is, since the stage reads the hash raw", () => {
-  assert.equal(link("/model/", "products/companygraph-core"), "/model/#products/companygraph-core");
-  assert.equal(link("../model/", "skills/data-modeling"), "../model/#skills/data-modeling");
+test("a cite opens the entity expanded, with the id's slash as it is, since the stage reads the hash raw", () => {
+  assert.equal(link("/model/", "products/companygraph-core"), "/model/?stage=expanded#products/companygraph-core");
+  assert.equal(link("../model/", "skills/data-modeling"), "../model/?stage=expanded#skills/data-modeling");
+  assert.equal(link("/model/?lang=de", "a/b"), "/model/?lang=de&stage=expanded#a/b");
+  assert.equal(link("/model/#old", "a/b"), "/model/?stage=expanded#a/b");
   assert.ok(!link("/model/", "a/b").includes("%2F"));
 });
 
@@ -77,4 +81,15 @@ test("the cursor goes back after an answer only where there is a fine pointer, s
   assert.equal(refocus(win(true)), true);
   assert.equal(refocus(win(false)), false);
   assert.equal(refocus({}), true, "a browser without matchMedia keeps the old behavior");
+});
+
+test("a bare URL in an answer is a link, its trailing punctuation is not, and one in a code span is left alone", () => {
+  assert.equal(md("See https://blust.ch/model/ for more."),
+    '<p>See <a href="https://blust.ch/model/">https://blust.ch/model/</a> for more.</p>');
+  assert.equal(md("At https://mcp.blust.ch/mcp, ask."),
+    '<p>At <a href="https://mcp.blust.ch/mcp">https://mcp.blust.ch/mcp</a>, ask.</p>');
+  assert.match(md("**https://blust.ch**"), /<strong><a href="https:\/\/blust\.ch">https:\/\/blust\.ch<\/a><\/strong>/);
+  assert.equal(md("`https://blust.ch`"), "<p><code>https://blust.ch</code></p>");
+  assert.ok(!md('https://blust.ch/?a=1&b=2').includes('&b=2"'), "the escaped ampersand stays escaped inside the href");
+  assert.ok(!md('<script>https://x.example</script>').includes("<script>"), "markup is still escaped first");
 });
