@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings } = globalThis.rbChat;
+const { md, readEvents, strings, link } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -64,4 +64,10 @@ test("every code has a sentence in both languages, and the language falls back t
   for (const lang of ["en", "de"]) for (const c of codes) assert.equal(typeof strings(lang).refusal[c], "string", `${lang} ${c}`);
   assert.equal(strings("fr").send, strings("en").send);
   assert.notEqual(strings("de").send, strings("en").send);
+});
+
+test("a cite points at the model page with the id's slash as it is, since the stage reads the hash raw", () => {
+  assert.equal(link("/model/", "products/companygraph-core"), "/model/#products/companygraph-core");
+  assert.equal(link("../model/", "skills/data-modeling"), "../model/#skills/data-modeling");
+  assert.ok(!link("/model/", "a/b").includes("%2F"));
 });
