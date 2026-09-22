@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -70,4 +70,11 @@ test("a cite points at the model page with the id's slash as it is, since the st
   assert.equal(link("/model/", "products/companygraph-core"), "/model/#products/companygraph-core");
   assert.equal(link("../model/", "skills/data-modeling"), "../model/#skills/data-modeling");
   assert.ok(!link("/model/", "a/b").includes("%2F"));
+});
+
+test("the cursor goes back after an answer only where there is a fine pointer, so a phone's keyboard stays closed", () => {
+  const win = (fine) => ({ matchMedia: (q) => ({ matches: q === "(pointer: fine)" && fine }) });
+  assert.equal(refocus(win(true)), true);
+  assert.equal(refocus(win(false)), false);
+  assert.equal(refocus({}), true, "a browser without matchMedia keeps the old behavior");
 });

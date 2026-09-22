@@ -15,6 +15,7 @@
 //   rbChat.readEvents(response, fn)    the stream, one fn(name, data) per event
 //   rbChat.strings(lang)               the sentences
 //   rbChat.link(model, id)             where a cite points
+//   rbChat.refocus(window)             whether the cursor goes back after an answer
 (function(){
   var LIMIT = 1000, TURNS = 20, TIMEOUT = 90000;
 
@@ -156,7 +157,15 @@
   // root. So nothing here is encoded.
   function link(model, id){ return model + "#" + id; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link };
+  // Whether the cursor goes back to the input after an answer or a refusal. On a touch screen
+  // focusing the input opens the keyboard over the answer the visitor is about to read, a
+  // change nobody asked for, so the cursor goes back only where there is a fine pointer, a mouse
+  // or a trackpad, and no keyboard to open. A screen reader hears the answer either way: the
+  // finished answer is a polite live region. Opening the panel and starting a new conversation
+  // still focus the input everywhere, because the visitor asked for those.
+  function refocus(win){ var mm = win && win.matchMedia; return !mm || mm.call(win, "(pointer: fine)").matches; }
+
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -217,7 +226,7 @@
   // keys, never a bare lookup, and focus goes back to the box once the panel is still open —
   // every call site re-enables the form before calling this, so the box is never focused
   // while disabled.
-  function refuse(code){ bubble("refusal").textContent = sentence(code); if (panel && !panel.hidden) input.focus(); }
+  function refuse(code){ bubble("refusal").textContent = sentence(code); if (panel && !panel.hidden && refocus(window)) input.focus(); }
 
   function send(){
     if (busy) return;
@@ -266,7 +275,7 @@
       messages.push({ role: "assistant", content: acc });
       busy = false;
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
-      else { input.disabled = false; sendBtn.disabled = false; input.focus(); }
+      else { input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); }
     }
     fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages, lang: langNow() }) })
       .then(function(r){
