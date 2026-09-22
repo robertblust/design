@@ -12,8 +12,13 @@ import { GROUPS, GROUP_NAMES } from "../lib/groups.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-test("names exactly the two groups this release ships", () => {
-  assert.deepEqual([...GROUP_NAMES].sort(), ["fonts", "stage"]);
+test("names exactly the groups this release ships", () => {
+  assert.deepEqual([...GROUP_NAMES].sort(), ["chat", "fonts", "stage"]);
+});
+
+test("the chat group carries the widget's script and stylesheet", () => {
+  const dests = GROUPS.chat.map(([, to]) => to).sort();
+  assert.deepEqual(dests, ["chat.css", "chat.js"]);
 });
 
 test("every listed source file exists in the package", () => {

@@ -10,18 +10,20 @@ The design system shared by [blust.ch](https://blust.ch), [companygraph.io](http
 > If a visitor downloads it but every copy legitimately differs, only its *shape* is
 > shared — as an assertion, not as bytes.
 
-The three sites are static, ship no external assets, and are served straight from their repository trees by GitHub Pages. So this package is **never a runtime dependency of a published page**. It is a `devDependency` that copies files into a site and lends that site's suite a few checks.
+The three sites are static, ship no external assets, and are served straight from their repository trees by GitHub Pages. So this package is **never a runtime dependency of a published page**. It is a `devDependency` that copies files into a site and lends that site's suite a few checks. A page may call a service, and one does: the chat's script posts to the chat host the site names on the tag, and only after a visitor has opened the panel and pressed send. It is the one runtime call a page of this family makes, it goes to a host the family runs, and it is written down here so that it stays the one.
 
 ## In a site
 
 ```jsonc
 // design.config.json
-{ "groups": ["fonts", "stage"] }   // guestgraph.io takes ["fonts"] — it draws no graph
+{ "groups": ["fonts", "stage"] }   // blust.ch and companygraph.io add "chat"; guestgraph.io takes ["fonts"] — it draws no graph and runs no chat
 ```
 
 A page that draws a stage names the file it draws and loads three scripts in this order — `d3.v7.min.js`, `card.js`, `stage.js`. The file is named by a link the stage looks for, `<link rel="preload" as="fetch" href="…" data-stage crossorigin>`, and a page that carries none throws a message naming that markup rather than drawing an empty figure. `card.js` before `stage.js` is not a preference either: `card.js` owns the reader that finds that link and fetches it, `rbCard.data(who, cb)`, and `stage.js` calls it on load rather than only on the first click. A page that shows cards without drawing a graph reads the model with the same call and gets the same error message; that is why there is one reader and not one per page. A page that only shows cards, blust.ch's timeline, loads `card.js` alone and reads the same link itself. A page whose site serves the model's images says so on the same link, `data-images="../images/"`, the folder `syncImages` from `@robertblust/design/images` writes beside `model.json` — the step owns that folder whole, removing what no entry names, and `dir` names another folder for a site that keeps an `images/` of its own; a card then draws the picture of an entity that carries an `image`, addressed by the entity's id, and a page that declares nothing draws the card without one.
 
 Such a page has to be served over `http` rather than opened from disk, because `fetch` from a `file://` page is blocked and the stage draws nothing without its data. `npm run og` starts its own server for that reason; looking at a page by hand needs one too.
+
+A site takes the chat by naming `chat` in `design.config.json`'s groups, as it does `stage`; `npm run design` then copies the two files, `chat.js` and `chat.css`, into the site. A page that offers the chat loads one more script, `chat.js`, with the endpoint and the model page on its own tag, `<script src="chat.js" data-chat="https://chat.blust.ch/chat" data-model="/model/" defer>`, and links `chat.css` beside its stylesheet; a tag without `data-chat` shows nothing. The button, the panel and every sentence the widget writes are the package's, in both languages; a site adds nothing but the tag.
 
 ```jsonc
 // package.json
