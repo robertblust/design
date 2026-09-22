@@ -10,7 +10,8 @@
 // reaches no server but the one the tag names. The answer
 // arrives as server-sent events and is rendered as it comes, through a Markdown subset the
 // model is told to write and nothing outside it — paragraphs, emphasis, code spans, lists,
-// tables — after every character has been escaped, so text that looks like markup stays text.
+// tables, with a bare URL made clickable — after every character has been escaped, so text that
+// looks like markup stays text.
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
 //
 //   rbChat.md(text)                    the subset, rendered
@@ -85,17 +86,34 @@
   // A lone star or a lone underscore stays what it is, and an underscore inside a word (a
   // variable name, `snake_case`) is a letter, not a mark: `_` only opens and closes at a
   // boundary no word character sits against.
+  // A URL in an answer is a place the visitor wants to go, and one they would otherwise have to
+  // select and copy, so a bare http or https address becomes a link. Bare is the only form the
+  // model may write — the subset has no link syntax — which is what keeps the text and the
+  // target the same string: a reader sees where a link goes before following it, and nothing
+  // can point one word at another address. Trailing punctuation belongs to the sentence, not to
+  // the address, and a link stays in this tab, as every link of this family does.
+  var URL_RE = /https?:\/\/[^\s<>"']+/g;
+  function links(s){
+    return s.replace(URL_RE, function(u){
+      var tail = "";
+      var cut = /[.,;:!?)\]]+$/.exec(u);
+      if (cut) { tail = cut[0]; u = u.slice(0, -tail.length); }
+      return '<a href="' + u + '">' + u + "</a>" + tail;
+    });
+  }
+
   function inline(s){
     var out = "", i = 0, m;
     var re = /`([^`]+)`|\*\*(\S(?:[^*]*?\S)?)\*\*|\*(\S(?:[^*]*?\S)?)\*|(?<!\w)_(\S(?:[^_]*?\S)?)_(?!\w)/g;
     while ((m = re.exec(s))) {
-      out += s.slice(i, m.index);
+      out += links(s.slice(i, m.index));
+      // A URL inside a code span is being shown, not offered: it stays as it is.
       if (m[1] !== undefined) out += "<code>" + m[1] + "</code>";
       else if (m[2] !== undefined) out += "<strong>" + inline(m[2]) + "</strong>";
       else out += "<em>" + inline(m[3] !== undefined ? m[3] : m[4]) + "</em>";
       i = m.index + m[0].length;
     }
-    return out + s.slice(i);
+    return out + links(s.slice(i));
   }
   var ROW = /^\s*\|(.+)\|\s*$/, DELIM = /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/, BULLET = /^\s*[-*]\s+(.*)$/, NUMBER = /^\s*\d+\.\s+(.*)$/;
   function cells(line){ return line.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(function(c){ return inline(c.trim()); }); }
