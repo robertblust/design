@@ -19,12 +19,15 @@
 //   rbChat.strings(lang)               the sentences
 //   rbChat.link(model, id)             where a cite points
 //   rbChat.refocus(window)             whether the cursor goes back after an answer
+//
+// On a desk the panel is sized by its top left corner and the size is kept in the tab beside
+// the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
 (function(){
   var LIMIT = 1000, TURNS = 20, TIMEOUT = 90000;
 
   var STRINGS = {
     en: {
-      open: "Ask the model", close: "Close", send: "Send", title: "Ask the model",
+      open: "Ask the model", close: "Close", send: "Send", title: "Ask the model", size: "Resize the chat",
       placeholder: "Ask about the model…", waiting: "Asking…",
       notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
@@ -47,7 +50,7 @@
     // German: drafts for the translator of conventions/TRANSLATOR.md, to be made from the
     // reviewed English.
     de: {
-      open: "Das Modell fragen", close: "Schliessen", send: "Senden", title: "Das Modell fragen",
+      open: "Das Modell fragen", close: "Schliessen", send: "Senden", title: "Das Modell fragen", size: "Grösse des Chats ändern",
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
       notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
@@ -201,10 +204,22 @@
   // rendered, each answer with the entities it cited. Every access is wrapped, because a
   // browser with site data blocked throws on the first read and the chat still has to work.
   var STORE_KEY = "chat";
+  // How big the panel is, kept beside the conversation and for the same lifetime: a size is a
+  // choice about this tab's reading, not a preference to carry to the next visit, and the
+  // conversation it frames goes when the tab goes. Its own key, because it outlives any one
+  // conversation: a visitor who sizes the panel, empties it and asks again keeps the size.
+  var SIZE_KEY = "chat-size";
+  var MIN_W = 320, MIN_H = 260, STEP = 24;
   function stored(){
     try { var raw = sessionStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : null; }
     catch (e) { return null; }
   }
+  function storedSize(){
+    try { var raw = sessionStorage.getItem(SIZE_KEY); var v = raw ? JSON.parse(raw) : null; return v && v.w && v.h ? v : null; }
+    catch (e) { return null; }
+  }
+  function keepSize(w, h){ try { sessionStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
+
   function keep(){
     try {
       if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
@@ -222,7 +237,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null, grip = null;
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
 
@@ -238,6 +253,7 @@
     if (!panel) return;
     title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.textContent = "×";
     input.placeholder = s.placeholder; sendBtn.textContent = s.send;
+    if (grip) grip.setAttribute("aria-label", s.size);
     notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
     fullNote.querySelector("span").textContent = s.full; fullNote.querySelector("button").textContent = s.fresh;
   }
@@ -261,11 +277,71 @@
     sendBtn = el("button", "rbchat-send"); sendBtn.type = "submit";
     form.appendChild(input); form.appendChild(sendBtn);
     form.addEventListener("submit", function(e){ e.preventDefault(); send(); });
+    // The corner that sizes the panel. The panel is pinned to the bottom right, so the top left
+    // corner is the one that can move without moving the panel: dragging it out makes the panel
+    // bigger. It is a handle like the stage's gutter and behaves like one — drag, arrow keys
+    // when focused, double-click back to the default — and it is not there on a phone, where
+    // the panel is the whole screen and there is nothing to size.
+    grip = el("div", "rbchat-grip"); grip.tabIndex = 0; grip.setAttribute("role", "separator"); grip.setAttribute("aria-orientation", "vertical");
+    panel.appendChild(grip);
     panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(fullNote); panel.appendChild(form);
     document.body.appendChild(panel);
     document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !panel.hidden) close(); });
+    sizing();
+    applyStoredSize();
     relabel();
   }
+  // What the panel may be: never smaller than a readable column, never wider or taller than the
+  // window it sits in, whatever a visitor dragged on a bigger screen or a window resized since.
+  function sizeLimit(){
+    return { w: Math.max(MIN_W, window.innerWidth - 32), h: Math.max(MIN_H, window.innerHeight - 32) };
+  }
+  function setSize(w, h, remember){
+    var lim = sizeLimit();
+    var W = Math.round(Math.min(lim.w, Math.max(MIN_W, w))), H = Math.round(Math.min(lim.h, Math.max(MIN_H, h)));
+    panel.style.width = W + "px"; panel.style.height = H + "px";
+    if (remember) keepSize(W, H);
+    return { w: W, h: H };
+  }
+  // The default is the stylesheet's, which is where a size that has never been dragged belongs.
+  function unsize(){ panel.style.width = ""; panel.style.height = ""; }
+  function panelBox(){ var r = panel.getBoundingClientRect(); return { w: r.width, h: r.height }; }
+  function applyStoredSize(){
+    var was = storedSize();
+    if (was) setSize(was.w, was.h, false);
+  }
+  function sizing(){
+    var from = null;
+    grip.addEventListener("pointerdown", function(ev){
+      from = { x: ev.clientX, y: ev.clientY, box: panelBox() };
+      grip.setPointerCapture(ev.pointerId); grip.classList.add("dragging"); ev.preventDefault();
+    });
+    grip.addEventListener("pointermove", function(ev){
+      if (!from) return;
+      // The panel grows towards the top left, so moving the corner left and up makes it bigger.
+      setSize(from.box.w - (ev.clientX - from.x), from.box.h - (ev.clientY - from.y), false);
+    });
+    function end(){ if (!from) return; from = null; grip.classList.remove("dragging"); var b = panelBox(); setSize(b.w, b.h, true); }
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+    // Double-click gives the stylesheet's size back and forgets the stored one, as the stage's
+    // gutter does: otherwise the only way back is to drag until it looks right again.
+    grip.addEventListener("dblclick", function(){
+      try { sessionStorage.removeItem(SIZE_KEY); } catch (e) {}
+      unsize();
+    });
+    grip.addEventListener("keydown", function(ev){
+      var b = panelBox(), dw = 0, dh = 0;
+      if (ev.key === "ArrowLeft") dw = STEP; else if (ev.key === "ArrowRight") dw = -STEP;
+      else if (ev.key === "ArrowUp") dh = STEP; else if (ev.key === "ArrowDown") dh = -STEP;
+      else return;
+      ev.preventDefault(); setSize(b.w + dw, b.h + dh, true);
+    });
+    // A window made smaller than the panel leaves it hanging off the screen, so the clamp runs
+    // again on resize, and a panel that was never sized stays the stylesheet's.
+    window.addEventListener("resize", function(){ if (panel.style.width) { var b = panelBox(); setSize(b.w, b.h, false); } });
+  }
+
   function open(){ if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); }
   function close(){ panel.hidden = true; button.hidden = false; button.focus(); keep(); }
   function reset(){ messages = []; turns = []; log.innerHTML = ""; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); }
