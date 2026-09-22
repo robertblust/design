@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -92,4 +92,47 @@ test("a bare URL in an answer is a link, its trailing punctuation is not, and on
   assert.equal(md("`https://blust.ch`"), "<p><code>https://blust.ch</code></p>");
   assert.ok(!md('https://blust.ch/?a=1&b=2').includes('&b=2"'), "the escaped ampersand stays escaped inside the href");
   assert.ok(!md('<script>https://x.example</script>').includes("<script>"), "markup is still escaped first");
+});
+
+// The linker walks a real DOM, so this test builds one with jsdom-free primitives: a tiny
+// document standing in for the browser's, with the four calls nameLinks makes.
+function fakeDoc(html) {
+  const text = (v) => ({ nodeType: 3, nodeValue: v, parentNode: null });
+  const root = { children: [], nodeType: 1 };
+  const nodes = [];
+  for (const part of html) nodes.push(typeof part === "string" ? text(part) : part);
+  for (const n of nodes) n.parentNode = { closest: (sel) => (n.inA && sel.includes("a") ? {} : n.inCode && sel.includes("code") ? {} : null), replaceChild(frag, old) { root.children.push(frag); } };
+  const doc = {
+    createTreeWalker: () => { let i = -1; return { nextNode: () => (++i < nodes.length ? nodes[i] : null) }; },
+    createDocumentFragment: () => ({ parts: [], appendChild(x) { this.parts.push(x); } }),
+    createTextNode: (v) => ({ text: v }),
+    createElement: () => ({ href: "", textContent: "", tag: "a" }),
+  };
+  return { doc, root };
+}
+const rendered = (root) => root.children.flatMap((f) => f.parts).map((p) => (p.tag === "a" ? `[${p.textContent}](${p.href})` : p.text)).join("");
+
+test("a name a tool answered with is linked where the answer writes it, longest first and whole words only", () => {
+  const names = [{ id: "skills/data-engineering", title: "Data engineering" }, { id: "skills/java", title: "Java" }, { id: "skills/e", title: "Engineering" }];
+  const { doc, root } = fakeDoc(["Skills drawn on: Data engineering, Java."]);
+  nameLinks({}, names, "/model/", doc);
+  assert.equal(rendered(root),
+    "Skills drawn on: [Data engineering](/model/?stage=expanded#skills/data-engineering), [Java](/model/?stage=expanded#skills/java).");
+});
+
+test("a name inside a word is not a name, and a name inside a link or a code span is left alone", () => {
+  const { doc, root } = fakeDoc(["Javascript is not Java."]);
+  nameLinks({}, [{ id: "skills/java", title: "Java" }], "/model/", doc);
+  assert.equal(rendered(root), "Javascript is not [Java](/model/?stage=expanded#skills/java).");
+  const inA = { nodeType: 3, nodeValue: "Java", inA: true };
+  const inCode = { nodeType: 3, nodeValue: "Java", inCode: true };
+  const two = fakeDoc([inA, inCode]);
+  nameLinks({}, [{ id: "skills/java", title: "Java" }], "/model/", two.doc);
+  assert.equal(two.root.children.length, 0, "neither node was touched");
+});
+
+test("no names means no walk at all", () => {
+  const { doc, root } = fakeDoc(["Nothing to link."]);
+  nameLinks({}, [], "/model/", doc);
+  assert.equal(root.children.length, 0);
 });
