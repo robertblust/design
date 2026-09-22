@@ -14,6 +14,7 @@
 //   rbChat.md(text)                    the subset, rendered
 //   rbChat.readEvents(response, fn)    the stream, one fn(name, data) per event
 //   rbChat.strings(lang)               the sentences
+//   rbChat.link(model, id)             where a cite points
 (function(){
   var LIMIT = 1000, TURNS = 20, TIMEOUT = 90000;
 
@@ -149,7 +150,13 @@
     });
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings };
+  // Where a cite points: the model page with the entity's id as the hash. An id is `type/slug`,
+  // and the stage writes its own hashes with that slash as it is and reads them the same way;
+  // encoded, the slash is a hash the page does not hold, and the page drops it and shows the
+  // root. So nothing here is encoded.
+  function link(model, id){ return model + "#" + id; }
+
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -238,8 +245,9 @@
       if (wait.parentNode) wait.parentNode.removeChild(wait);
       // An answer with no text is not a turn: pushing an empty assistant message would break
       // the server's alternating-turns rule on the visitor's next message, so this is a
-      // refusal instead, and the exchange leaves no trace in the conversation.
-      if (!acc) {
+      // refusal instead, and the exchange leaves no trace in the conversation. Whitespace
+      // alone is no text either; rendered, it is an empty bubble.
+      if (!acc.trim()) {
         if (ans.parentNode) ans.parentNode.removeChild(ans);
         messages.pop();
         busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -252,7 +260,7 @@
       render();
       if (cites.length) {
         var c = el("p", "rbchat-cites"); c.appendChild(el("span", null, strings(langNow()).from + ": "));
-        cites.forEach(function(x, i){ var a = el("a", null, x.title || x.id); a.href = MODEL + "#" + encodeURIComponent(x.id); c.appendChild(a); if (i < cites.length - 1) c.appendChild(document.createTextNode(", ")); });
+        cites.forEach(function(x, i){ var a = el("a", null, x.title || x.id); a.href = link(MODEL, x.id); c.appendChild(a); if (i < cites.length - 1) c.appendChild(document.createTextNode(", ")); });
         ans.appendChild(c);
       }
       messages.push({ role: "assistant", content: acc });
@@ -278,7 +286,7 @@
           else if (name === "done") cut = !!data.cut;
           else if (name === "error") {
             var code = data && data.error && data.error.code;
-            if (!acc) {
+            if (!acc.trim()) {
               clearTimeout(timer);
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               messages.pop();
