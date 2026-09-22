@@ -15,7 +15,7 @@
 //   rbChat.readEvents(response, fn)    the stream, one fn(name, data) per event
 //   rbChat.strings(lang)               the sentences
 (function(){
-  var LIMIT = 1000, TURNS = 20;
+  var LIMIT = 1000, TURNS = 20, TIMEOUT = 90000;
 
   var STRINGS = {
     en: {
@@ -25,9 +25,9 @@
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
-      tooLong: "A message is at most 1,000 characters.",
       refusal: {
         too_long: "That message is over 1,000 characters.",
+        too_much: "The conversation has grown too long to send; start a new one.",
         busy: "Too many messages for the moment; try again in a minute.",
         over_day: "Today's share of answers is spent; there is more tomorrow.",
         over_month: "This month's share of answers is spent.",
@@ -39,6 +39,8 @@
         network: "The chat could not be reached; check the connection and try again."
       }
     },
+    // German: drafts for the translator of conventions/TRANSLATOR.md, to be made from the
+    // reviewed English.
     de: {
       open: "Das Modell fragen", close: "Schliessen", send: "Senden", title: "Das Modell fragen",
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
@@ -46,9 +48,9 @@
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
-      tooLong: "Eine Nachricht hat höchstens 1000 Zeichen.",
       refusal: {
-        too_long: "Diese Nachricht ist länger als 1000 Zeichen.",
+        too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
+        too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
         busy: "Im Moment zu viele Nachrichten; versuchen Sie es in einer Minute wieder.",
         over_day: "Der heutige Anteil an Antworten ist aufgebraucht; morgen gibt es mehr.",
         over_month: "Der Anteil dieses Monats an Antworten ist aufgebraucht.",
@@ -63,14 +65,25 @@
   };
   function strings(lang){ return STRINGS[lang] || STRINGS.en; }
   function langNow(){ return document.documentElement && document.documentElement.lang === "de" ? "de" : "en"; }
+  // A code the table does not carry — or one that only exists on Object.prototype, `toString`
+  // and the like, walked by a bare `[code]` lookup — falls back to `internal` rather than
+  // printing whatever the prototype chain hands back.
+  function sentence(code){
+    var r = strings(langNow()).refusal;
+    return Object.prototype.hasOwnProperty.call(r, code) ? r[code] : r.internal;
+  }
 
   // ─── The subset ───────────────────────────────────────────────────────────────────────────
   function esc(s){ return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
   // Inline marks on escaped text: code first, so nothing inside a span is read as emphasis;
-  // bold before italic, so ** is not two stars; a lone star or underscore stays what it is.
+  // bold before italic, so ** is not two stars. Bold's own content excludes `*` outright, so a
+  // single star never nests inside it — the price of reading `**` as one token rather than two.
+  // A lone star or a lone underscore stays what it is, and an underscore inside a word (a
+  // variable name, `snake_case`) is a letter, not a mark: `_` only opens and closes at a
+  // boundary no word character sits against.
   function inline(s){
     var out = "", i = 0, m;
-    var re = /`([^`]+)`|\*\*(\S(?:[^*]*?\S)?)\*\*|\*(\S(?:[^*]*?\S)?)\*|_(\S(?:[^_]*?\S)?)_/g;
+    var re = /`([^`]+)`|\*\*(\S(?:[^*]*?\S)?)\*\*|\*(\S(?:[^*]*?\S)?)\*|(?<!\w)_(\S(?:[^_]*?\S)?)_(?!\w)/g;
     while ((m = re.exec(s))) {
       out += s.slice(i, m.index);
       if (m[1] !== undefined) out += "<code>" + m[1] + "</code>";
@@ -113,7 +126,9 @@
 
   // ─── The stream ───────────────────────────────────────────────────────────────────────────
   // Server-sent events off a fetch body: an event is an `event:` line, a `data:` line of JSON
-  // and a blank line, and a chunk may end anywhere, so the buffer keeps the tail.
+  // and a blank line, and a chunk may end anywhere, so the buffer keeps the tail. The buffer is
+  // normalized to `\n` after every append, not per chunk, so a CRLF split across two chunks —
+  // a trailing `\r` in one, the `\n` in the next — still collapses to one line ending.
   function readEvents(response, onEvent){
     var reader = response.body.getReader(), dec = new TextDecoder(), buf = "";
     function emit(block){
@@ -127,6 +142,7 @@
     return reader.read().then(function step(r){
       if (r.done) { if (buf.trim()) emit(buf); return; }
       buf += dec.decode(r.value, { stream: true });
+      buf = buf.replace(/\r\n/g, "\n");
       var at;
       while ((at = buf.indexOf("\n\n")) >= 0) { emit(buf.slice(0, at)); buf = buf.slice(at + 2); }
       return reader.read().then(step);
@@ -165,15 +181,17 @@
   if (window.MutationObserver) new MutationObserver(relabel).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
   function build(){
-    panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.hidden = true;
+    panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.setAttribute("aria-labelledby", "rbchat-title"); panel.hidden = true;
     var head = el("header", "rbchat-head");
-    title = el("h2"); closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
+    title = el("h2"); title.id = "rbchat-title"; closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
     head.appendChild(title); head.appendChild(closeBtn);
     notice = el("p", "rbchat-notice");
-    log = el("div", "rbchat-log"); log.setAttribute("aria-live", "polite");
+    // No aria-live here: the log used to re-announce the growing answer on every token. The
+    // finished answer gets its own aria-live, set once in finish(), after it stops changing.
+    log = el("div", "rbchat-log");
     fullNote = el("p", "rbchat-full"); fullNote.hidden = true; fullNote.appendChild(el("span")); var fresh = el("button", "rbchat-fresh"); fresh.type = "button"; fresh.addEventListener("click", reset); fullNote.appendChild(fresh);
     var form = el("form", "rbchat-form");
-    input = el("textarea"); input.rows = 2; input.maxLength = LIMIT; input.required = true;
+    input = el("textarea"); input.rows = 2; input.maxLength = LIMIT;
     input.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); } });
     sendBtn = el("button", "rbchat-send"); sendBtn.type = "submit";
     form.appendChild(input); form.appendChild(sendBtn);
@@ -185,26 +203,52 @@
   }
   function open(){ if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); }
   function close(){ panel.hidden = true; button.hidden = false; button.focus(); }
-  function reset(){ messages = []; log.innerHTML = ""; fullNote.hidden = true; input.disabled = false; sendBtn.disabled = false; input.focus(); }
+  function reset(){ messages = []; log.innerHTML = ""; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
-  function refuse(code){ var s = strings(langNow()); var b = bubble("refusal"); b.textContent = s.refusal[code] || s.refusal.internal; }
+  // A refusal always leaves the visitor able to try again: the sentence is on the table's own
+  // keys, never a bare lookup, and focus goes back to the box once the panel is still open —
+  // every call site re-enables the form before calling this, so the box is never focused
+  // while disabled.
+  function refuse(code){ bubble("refusal").textContent = sentence(code); if (panel && !panel.hidden) input.focus(); }
 
   function send(){
     if (busy) return;
-    var text = input.value.trim(), s = strings(langNow());
+    var text = input.value.trim();
     if (!text) return;
     if (text.length > LIMIT) { refuse("too_long"); return; }
+    var s = strings(langNow());
     messages.push({ role: "user", content: text });
     bubble("user").textContent = text;
     input.value = ""; busy = true; input.disabled = true; sendBtn.disabled = true;
     var ans = bubble("assistant"), body = el("div", "rbchat-body"), wait = el("p", "rbchat-wait", s.waiting);
+    // Streaming, from the moment the request goes out until finish() has the whole answer.
+    ans.setAttribute("aria-busy", "true");
     ans.appendChild(wait); ans.appendChild(body);
-    var acc = "", cites = [], cut = false, ended = false;
+    var acc = "", cites = [], cut = false;
     function render(){ body.innerHTML = md(acc); log.scrollTop = log.scrollHeight; }
+    // A stream that never ends — a dropped connection the browser does not notice — would
+    // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
+    // the request goes out, the controller aborts it, and the abort reaches the existing
+    // .catch below exactly as a network failure does.
+    var ac = new AbortController();
+    var timer = setTimeout(function(){ ac.abort(); }, TIMEOUT);
     function finish(){
+      clearTimeout(timer);
       if (wait.parentNode) wait.parentNode.removeChild(wait);
+      // An answer with no text is not a turn: pushing an empty assistant message would break
+      // the server's alternating-turns rule on the visitor's next message, so this is a
+      // refusal instead, and the exchange leaves no trace in the conversation.
+      if (!acc) {
+        if (ans.parentNode) ans.parentNode.removeChild(ans);
+        messages.pop();
+        busy = false; input.disabled = false; sendBtn.disabled = false;
+        refuse("internal");
+        return;
+      }
       if (cut) acc += "\n\n" + strings(langNow()).cut;
+      ans.removeAttribute("aria-busy");
+      ans.setAttribute("aria-live", "polite");
       render();
       if (cites.length) {
         var c = el("p", "rbchat-cites"); c.appendChild(el("span", null, strings(langNow()).from + ": "));
@@ -216,19 +260,42 @@
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
       else { input.disabled = false; sendBtn.disabled = false; input.focus(); }
     }
-    fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, body: JSON.stringify({ messages: messages, lang: langNow() }) })
+    fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages, lang: langNow() }) })
       .then(function(r){
         if (r.status !== 200) {
-          return r.json().then(function(j){ return (j && j.error && j.error.code) || "internal"; }, function(){ return r.status === 413 ? "too_long" : "internal"; })
-            .then(function(code){ ans.parentNode.removeChild(ans); messages.pop(); refuse(code); busy = false; input.disabled = false; sendBtn.disabled = false; });
+          return r.json().then(function(j){ return (j && j.error && j.error.code) || "internal"; }, function(){ return r.status === 413 ? "too_much" : "internal"; })
+            .then(function(code){
+              clearTimeout(timer);
+              if (ans.parentNode) ans.parentNode.removeChild(ans);
+              messages.pop();
+              busy = false; input.disabled = false; sendBtn.disabled = false;
+              refuse(code);
+            });
         }
         return readEvents(r, function(name, data){
           if (name === "text") { if (wait.parentNode) wait.parentNode.removeChild(wait); acc += data.text || ""; render(); }
           else if (name === "cite") cites.push(data);
-          else if (name === "done") { cut = !!data.cut; ended = true; }
-          else if (name === "error") { ended = true; var code = data && data.error && data.error.code; if (!acc) { ans.parentNode.removeChild(ans); messages.pop(); refuse(code || "internal"); busy = false; input.disabled = false; sendBtn.disabled = false; return; } acc += "\n\n" + (strings(langNow()).refusal[code] || strings(langNow()).refusal.internal); }
+          else if (name === "done") cut = !!data.cut;
+          else if (name === "error") {
+            var code = data && data.error && data.error.code;
+            if (!acc) {
+              clearTimeout(timer);
+              if (ans.parentNode) ans.parentNode.removeChild(ans);
+              messages.pop();
+              busy = false; input.disabled = false; sendBtn.disabled = false;
+              refuse(code || "internal");
+              return;
+            }
+            acc += "\n\n" + sentence(code);
+          }
         }).then(function(){ if (busy) finish(); });
       })
-      .catch(function(){ if (ans.parentNode) ans.parentNode.removeChild(ans); if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") messages.pop(); refuse("network"); busy = false; input.disabled = false; sendBtn.disabled = false; });
+      .catch(function(){
+        clearTimeout(timer);
+        if (ans.parentNode) ans.parentNode.removeChild(ans);
+        if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") messages.pop();
+        busy = false; input.disabled = false; sendBtn.disabled = false;
+        refuse("network");
+      });
   }
 })();

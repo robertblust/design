@@ -34,6 +34,11 @@ test("a table with no delimiter row is prose, and a half-typed table is prose un
   assert.equal(md("| a | b |\n| ---"), "<p>| a | b | | ---</p>");
 });
 
+test("an underscore inside a word is a letter, not a mark, and a lone one still is", () => {
+  assert.equal(md("snake_case_name"), "<p>snake_case_name</p>");
+  assert.equal(md("a _b_ c"), "<p>a <em>b</em> c</p>");
+});
+
 test("the stream is read event by event, across chunk boundaries", async () => {
   const chunks = ['event: text\ndata: {"text":"Hel', 'lo"}\n\nevent: cite\ndata: {"id":"i","title":"T","type":"skill","url":"u"}\n\nevent: do', 'ne\ndata: {"spent":1}\n\n'];
   const enc = new TextEncoder();
@@ -42,6 +47,16 @@ test("the stream is read event by event, across chunk boundaries", async () => {
   const got = [];
   await readEvents({ body }, (name, data) => got.push([name, data]));
   assert.deepEqual(got, [["text", { text: "Hello" }], ["cite", { id: "i", title: "T", type: "skill", url: "u" }], ["done", { spent: 1 }]]);
+});
+
+test("a stream that uses CRLF line endings is read the same as LF, even when a \\r\\n splits across chunks", async () => {
+  const chunks = ['event: text\r\ndata: {"text":"Hello"}\r', '\n\r\n'];
+  const enc = new TextEncoder();
+  let i = 0;
+  const body = { getReader: () => ({ read: async () => (i < chunks.length ? { value: enc.encode(chunks[i++]), done: false } : { value: undefined, done: true }) }) };
+  const got = [];
+  await readEvents({ body }, (name, data) => got.push([name, data]));
+  assert.deepEqual(got, [["text", { text: "Hello" }]]);
 });
 
 test("every code has a sentence in both languages, and the language falls back to English", () => {

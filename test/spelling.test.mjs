@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 // dictionary: only the forms that have actually appeared or are likely to, so a false positive
 // costs a line here rather than a workaround in prose.
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const SCAN = ["blocks", "lib", "verify", "cards", "decks", "bin", "assets/stage.js", "assets/card.js", "README.md", "NOTICE"];
+const SCAN = ["blocks", "lib", "verify", "cards", "decks", "bin", "assets/stage.js", "assets/card.js", "assets/chat.js", "assets/chat.css", "README.md", "NOTICE"];
 const BRITISH = new RegExp("\\b(" + [
   // -ise / -yse
   "\\w*is(?:e|ed|es|ing|ation|ations|er|ers)", "\\w*ys(?:e|ed|es|ing)",
@@ -76,7 +76,7 @@ const ALLOW = new Set([
   "killing", "rolled", "rolling", "scrolled", "scrolling", "polled", "polling", "pulled", "pulling",
   "stalled", "stalling", "installed", "installing", "spilled", "spilling", "selling", "seller",
   "telling", "teller", "dwelling", "swelling", "spelling", "speller", "smelling", "yelling",
-  "falling", "controlled", "controlling", "controller", "controllers", "compelled", "compelling",
+  "falling", "controlled", "controlling", "controller", "controllers", "abortcontroller", "compelled", "compelling",
   "expelled", "propelled", "dispelled", "repelled", "excelled", "rebelled", "fulfilled", "distilled",
   "instilled", "enrolled", "patrolled", "trolled", "tolled", "lulled", "dulled", "culled", "mulled",
   "chilled", "grilled", "drilled", "thrilled", "willed", "stilled", "tilled", "walled", "balled",

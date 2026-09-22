@@ -12,7 +12,7 @@ import { GROUPS, GROUP_NAMES } from "../lib/groups.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-test("names exactly the two groups this release ships", () => {
+test("names exactly the groups this release ships", () => {
   assert.deepEqual([...GROUP_NAMES].sort(), ["chat", "fonts", "stage"]);
 });
 
