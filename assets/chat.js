@@ -4,8 +4,10 @@
 //
 //   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/" defer>
 //
-// Nothing loads and nothing is sent until a visitor opens the panel and presses send, and
-// nothing is stored: the conversation lives in this closure and goes with the page. The answer
+// Nothing loads and nothing is sent until a visitor opens the panel and presses send. The
+// conversation lives in this closure and in the tab's own `sessionStorage`, under the key
+// `chat`, so that following a link does not throw it away; it goes when the tab goes, and it
+// reaches no server but the one the tag names. The answer
 // arrives as server-sent events and is rendered as it comes, through a Markdown subset the
 // model is told to write and nothing outside it — paragraphs, emphasis, code spans, lists,
 // tables — after every character has been escaped, so text that looks like markup stays text.
@@ -23,7 +25,7 @@
     en: {
       open: "Ask the model", close: "Close", send: "Send", title: "Ask the model",
       placeholder: "Ask about the model…", waiting: "Asking…",
-      notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send, and nothing is kept.",
+      notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
@@ -46,7 +48,7 @@
     de: {
       open: "Das Modell fragen", close: "Schliessen", send: "Senden", title: "Das Modell fragen",
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
-      notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken, und gespeichert wird nichts.",
+      notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
@@ -151,11 +153,18 @@
     });
   }
 
-  // Where a cite points: the model page with the entity's id as the hash. An id is `type/slug`,
-  // and the stage writes its own hashes with that slash as it is and reads them the same way;
-  // encoded, the slash is a hash the page does not hold, and the page drops it and shows the
-  // root. So nothing here is encoded.
-  function link(model, id){ return model + "#" + id; }
+  // Where a cite points: the model page with the entity's id as the hash, asking for the stage
+  // expanded. An id is `type/slug`, and the stage writes its own hashes with that slash as it
+  // is and reads them the same way; encoded, the slash is a hash the page does not hold, and
+  // the page drops it and shows the root. So nothing here is encoded. `?stage=expanded` is the
+  // request the stage already answers, the one blust.ch's timeline makes for a skill: a reader
+  // following a cite came for that entity's card, not for the graph around it, and the page
+  // takes the parameter back out of the address once it has read it.
+  function link(model, id){
+    var base = model, cut = base.indexOf("#");
+    if (cut >= 0) base = base.slice(0, cut);
+    return base + (base.indexOf("?") >= 0 ? "&" : "?") + "stage=expanded#" + id;
+  }
 
   // Whether the cursor goes back to the input after an answer or a refusal. On a touch screen
   // focusing the input opens the keyboard over the answer the visitor is about to read, a
@@ -165,6 +174,26 @@
   // still focus the input everywhere, because the visitor asked for those.
   function refocus(win){ var mm = win && win.matchMedia; return !mm || mm.call(win, "(pointer: fine)").matches; }
 
+  // Where an open conversation lives while the visitor reads on. A page is a document, so
+  // following a link throws the panel and everything in it away, and a visitor who asked a
+  // question and clicked the answer's link lost the conversation. `sessionStorage` is the tab:
+  // it survives a page and dies with the tab, which is the lifetime the chat already claims.
+  // The key is `chat`, the family's, made once by the package as `lang` and `theme` are, and
+  // the value is this widget's shape: whether the panel was open, and the turns as they were
+  // rendered, each answer with the entities it cited. Every access is wrapped, because a
+  // browser with site data blocked throws on the first read and the chat still has to work.
+  var STORE_KEY = "chat";
+  function stored(){
+    try { var raw = sessionStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : null; }
+    catch (e) { return null; }
+  }
+  function keep(){
+    try {
+      if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns }));
+    } catch (e) {}
+  }
+
   window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
@@ -173,7 +202,9 @@
   var ENDPOINT = tag.dataset.chat, MODEL = tag.dataset.model || "/model/";
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
 
-  var messages = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null;
+  // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
+  // answer's cites are the widget's to draw and are no part of a message.
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null;
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
 
@@ -217,9 +248,17 @@
     document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !panel.hidden) close(); });
     relabel();
   }
-  function open(){ if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); }
-  function close(){ panel.hidden = true; button.hidden = false; button.focus(); }
-  function reset(){ messages = []; log.innerHTML = ""; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); }
+  function open(){ if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); }
+  function close(){ panel.hidden = true; button.hidden = false; button.focus(); keep(); }
+  function reset(){ messages = []; turns = []; log.innerHTML = ""; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); }
+
+  // The cites under an answer, drawn the same way whether the answer just arrived or is being
+  // read back from the tab.
+  function citeLine(cites){
+    var c = el("p", "rbchat-cites"); c.appendChild(el("span", null, strings(langNow()).from + ": "));
+    cites.forEach(function(x, i){ var a = el("a", null, x.title || x.id); a.href = link(MODEL, x.id); c.appendChild(a); if (i < cites.length - 1) c.appendChild(document.createTextNode(", ")); });
+    return c;
+  }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -235,6 +274,7 @@
     if (text.length > LIMIT) { refuse("too_long"); return; }
     var s = strings(langNow());
     messages.push({ role: "user", content: text });
+    turns.push({ role: "user", content: text });
     bubble("user").textContent = text;
     input.value = ""; busy = true; input.disabled = true; sendBtn.disabled = true;
     var ans = bubble("assistant"), body = el("div", "rbchat-body"), wait = el("p", "rbchat-wait", s.waiting);
@@ -258,7 +298,7 @@
       // alone is no text either; rendered, it is an empty bubble.
       if (!acc.trim()) {
         if (ans.parentNode) ans.parentNode.removeChild(ans);
-        messages.pop();
+        messages.pop(); turns.pop(); keep();
         busy = false; input.disabled = false; sendBtn.disabled = false;
         refuse("internal");
         return;
@@ -267,12 +307,10 @@
       ans.removeAttribute("aria-busy");
       ans.setAttribute("aria-live", "polite");
       render();
-      if (cites.length) {
-        var c = el("p", "rbchat-cites"); c.appendChild(el("span", null, strings(langNow()).from + ": "));
-        cites.forEach(function(x, i){ var a = el("a", null, x.title || x.id); a.href = link(MODEL, x.id); c.appendChild(a); if (i < cites.length - 1) c.appendChild(document.createTextNode(", ")); });
-        ans.appendChild(c);
-      }
+      if (cites.length) ans.appendChild(citeLine(cites));
       messages.push({ role: "assistant", content: acc });
+      turns.push({ role: "assistant", content: acc, cites: cites });
+      keep();
       busy = false;
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
       else { input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); }
@@ -284,7 +322,7 @@
             .then(function(code){
               clearTimeout(timer);
               if (ans.parentNode) ans.parentNode.removeChild(ans);
-              messages.pop();
+              messages.pop(); turns.pop(); keep();
               busy = false; input.disabled = false; sendBtn.disabled = false;
               refuse(code);
             });
@@ -298,7 +336,7 @@
             if (!acc.trim()) {
               clearTimeout(timer);
               if (ans.parentNode) ans.parentNode.removeChild(ans);
-              messages.pop();
+              messages.pop(); turns.pop(); keep();
               busy = false; input.disabled = false; sendBtn.disabled = false;
               refuse(code || "internal");
               return;
@@ -310,9 +348,32 @@
       .catch(function(){
         clearTimeout(timer);
         if (ans.parentNode) ans.parentNode.removeChild(ans);
-        if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") messages.pop();
+        if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { messages.pop(); turns.pop(); keep(); }
         busy = false; input.disabled = false; sendBtn.disabled = false;
         refuse("network");
       });
   }
+
+  // What the tab kept, drawn again. A conversation is read back whether or not the panel was
+  // open, so the visitor who closed it and followed a link finds it where they left it; only a
+  // panel that was open is shown. Nothing is sent by a restore: the turns are what the page
+  // already showed, and the next message carries them to the server as any message does.
+  (function restore(){
+    var was = stored();
+    if (!was || !was.turns || !was.turns.length) return;
+    if (!panel) build();
+    was.turns.forEach(function(t){
+      if (t.role === "user") { bubble("user").textContent = t.content; messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
+      var ans = bubble("assistant"), body = el("div", "rbchat-body");
+      body.innerHTML = md(t.content); ans.appendChild(body);
+      var cites = t.cites || [];
+      if (cites.length) ans.appendChild(citeLine(cites));
+      messages.push({ role: "assistant", content: t.content });
+      turns.push({ role: "assistant", content: t.content, cites: cites });
+    });
+    // A conversation read back at its length is as full as one that reached it here.
+    if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
+    if (was.open) { panel.hidden = false; button.hidden = true; }
+    log.scrollTop = log.scrollHeight;
+  })();
 })();

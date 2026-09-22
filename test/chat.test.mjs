@@ -66,9 +66,11 @@ test("every code has a sentence in both languages, and the language falls back t
   assert.notEqual(strings("de").send, strings("en").send);
 });
 
-test("a cite points at the model page with the id's slash as it is, since the stage reads the hash raw", () => {
-  assert.equal(link("/model/", "products/companygraph-core"), "/model/#products/companygraph-core");
-  assert.equal(link("../model/", "skills/data-modeling"), "../model/#skills/data-modeling");
+test("a cite opens the entity expanded, with the id's slash as it is, since the stage reads the hash raw", () => {
+  assert.equal(link("/model/", "products/companygraph-core"), "/model/?stage=expanded#products/companygraph-core");
+  assert.equal(link("../model/", "skills/data-modeling"), "../model/?stage=expanded#skills/data-modeling");
+  assert.equal(link("/model/?lang=de", "a/b"), "/model/?lang=de&stage=expanded#a/b");
+  assert.equal(link("/model/#old", "a/b"), "/model/?stage=expanded#a/b");
   assert.ok(!link("/model/", "a/b").includes("%2F"));
 });
 
