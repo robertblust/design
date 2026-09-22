@@ -261,7 +261,10 @@
   }
   function keepSize(w, h){ try { sessionStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
 
+  // Every place the conversation changes calls keep(), so the control follows it from here and
+  // no caller has to remember a second line.
   function keep(){
+    if (newBtn) newBtn.hidden = !messages.length;
     try {
       if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
       sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns }));
@@ -278,7 +281,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null, grip = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null, grip = null, newBtn = null;
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
 
@@ -295,6 +298,7 @@
     title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.textContent = "×";
     input.placeholder = s.placeholder; sendBtn.textContent = s.send;
     if (grip) grip.setAttribute("aria-label", s.size);
+    if (newBtn) newBtn.setAttribute("aria-label", s.fresh);
     notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
     fullNote.querySelector("span").textContent = s.full; fullNote.querySelector("button").textContent = s.fresh;
   }
@@ -306,7 +310,16 @@
     panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.setAttribute("aria-labelledby", "rbchat-title"); panel.hidden = true;
     var head = el("header", "rbchat-head");
     title = el("h2"); title.id = "rbchat-title"; closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
-    head.appendChild(title); head.appendChild(closeBtn);
+    // Starting over had one door, the note at the twenty-message limit, and a visitor whose
+    // question had wandered had to fill the conversation up to reach it. The header carries it
+    // instead, beside the way out, and only once there is something to clear: an empty panel
+    // shows no control for emptying it. It is the same reset the note's button calls, so the
+    // turns, the log and the tab's copy go together; the panel's size stays, being a choice
+    // about this tab's reading rather than part of the conversation.
+    newBtn = el("button", "rbchat-new"); newBtn.type = "button"; newBtn.hidden = true;
+    newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 6v12M6 12h12"/></svg>';
+    newBtn.addEventListener("click", reset);
+    head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
     notice = el("p", "rbchat-notice");
     // No aria-live here: the log used to re-announce the growing answer on every token. The
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
@@ -515,6 +528,7 @@
     // A conversation read back at its length is as full as one that reached it here.
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
     if (was.open) { panel.hidden = false; button.hidden = true; }
+    if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight;
   })();
 })();

@@ -22,9 +22,14 @@
   background:none;touch-action:none}
 .rbchat-grip:hover,.rbchat-grip.dragging{border-color:var(--c-mid)}
 .rbchat-grip:focus-visible{outline:2px solid var(--c-mid);outline-offset:2px}
-.rbchat-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1rem;border-bottom:1px solid var(--rule);background:var(--raise)}
-.rbchat-head h2{margin:0;font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
+.rbchat-head{display:flex;align-items:center;gap:.4rem;padding:.75rem 1rem;border-bottom:1px solid var(--rule);background:var(--raise)}
+.rbchat-head h2{margin:0;margin-right:auto;font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
 .rbchat-close{border:0;background:none;color:var(--dim);font-size:1.4rem;line-height:1;cursor:pointer;padding:.2rem .4rem;border-radius:6px}
+/* Starting over, beside the way out and quieter than it: the same ink as the close cross, a
+   plus rather than a word, and gone whenever there is no conversation to clear. */
+.rbchat-new{border:0;background:none;color:var(--dim);line-height:0;cursor:pointer;padding:.3rem;border-radius:6px;margin-left:auto}
+.rbchat-new[hidden]{display:none}
+.rbchat-new:hover,.rbchat-new:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
 .rbchat-close:hover,.rbchat-close:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
 .rbchat-notice{margin:0;padding:.6rem 1rem;font-size:.8rem;line-height:1.4;color:var(--dim);border-bottom:1px solid var(--rule)}
 .rbchat-notice code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.95em;color:var(--ink)}
