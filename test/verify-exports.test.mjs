@@ -235,6 +235,28 @@ test("fontsAvailable still reads an inline fenced block's font-family uses throu
   assert.equal(ok, null, `a name @font-face already declares should pass, got ${JSON.stringify(ok)}`);
 });
 
+test("fontsAvailable fails the page by name when a linked stylesheet cannot be fetched", async () => {
+  // fetch() rejects outright for a stylesheet that is simply not there — a page that names a
+  // linked file no longer on disk, or a broken relative path. Uncaught, that exception used to
+  // come out of the check as the bare rejection message ("fetch failed"), the same generic
+  // wording for every page and every href, which sends the reader hunting for which link broke.
+  // The check must name the href itself instead of letting the fetch fail through it.
+  const page = makeFontsPage({
+    hrefs: ["http://x.test/tokens.css"],
+    fonts: [{ family: "Plex Sans", status: "loaded" }],
+  });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError("fetch failed"); };
+  let bad;
+  try {
+    bad = await DESIGN_CHECKS.fontsAvailable(page);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(typeof bad, "string", `expected a failure naming the href, got ${JSON.stringify(bad)}`);
+  assert.match(bad, /http:\/\/x\.test\/tokens\.css/);
+});
+
 // tokenVersion and fences both fetch a page's own served HTML directly (see the comment above
 // each in design.mjs — a fence marker is a comment and does not survive into the rendered
 // stylesheet, so neither reads through the CSSOM). `spec.absolute` is the page URL; a page with

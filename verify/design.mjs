@@ -188,8 +188,22 @@ export const DESIGN_CHECKS = {
   async fontsAvailable(page) {
     const hrefs = await page.evaluate(() =>
       [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href));
-    const external = await Promise.all(
-      hrefs.map(async (href) => ({ href, css: await (await fetch(href)).text() })));
+    // Each fetch is caught on its own rather than left to reject the whole check: a linked
+    // stylesheet that is simply not there — a deleted file, a broken relative path — used to
+    // come out of this check as the bare rejection message, "fetch failed", the same wording
+    // whichever href it was and whichever page it was on. The href is what a reader needs, so a
+    // failed fetch fails the page by naming it instead of throwing past this function.
+    const results = await Promise.all(hrefs.map(async (href) => {
+      try {
+        return { href, css: await (await fetch(href)).text() };
+      } catch (e) {
+        return { href, error: e.message };
+      }
+    }));
+    const failed = results.filter((r) => r.error);
+    if (failed.length)
+      return "could not fetch: " + failed.map((r) => `${r.href} (${r.error})`).join(", ");
+    const external = results;
 
     const bad = await page.evaluate(({ system, external }) => {
       const ok = new Set(system);
