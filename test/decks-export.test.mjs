@@ -8,6 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
+import http from "node:http";
 import { pathToFileURL } from "node:url";
 
 import { exportDecks, validate } from "../decks/export.mjs";
@@ -91,13 +92,44 @@ test("the frame is 1280x720 at deviceScaleFactor 2, and the clip matches it", as
   assert.deepEqual(clip, { type: "png", clip: { x: 0, y: 0, width: 1280, height: 720 } });
 });
 
-test("the deck is loaded from file:// under root, by dir and not by slug", async () => {
+test("given a base, the deck is opened as <base>/<dir>/, by dir and not by slug", async () => {
+  const h = harness({ slides: 1 });
+  await exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, root: ROOT,
+                      decks: [{ dir: "talks/intro", slug: "guestgraph" }],
+                      base: "http://x.test", log: h.log, write: h.write });
+  const [, url, opts] = h.calls.find((c) => c[0] === "goto");
+  assert.equal(url, "http://x.test/talks/intro/");
+  assert.deepEqual(opts, { waitUntil: "networkidle" });
+});
+
+test("a file:// base is refused, naming this change", async () => {
+  const h = harness({ slides: 1 });
+  await assert.rejects(
+    exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, root: ROOT,
+                  decks: [{ dir: "talks/intro", slug: "g" }],
+                  base: pathToFileURL(ROOT).href, log: h.log, write: h.write }),
+    /serves.*over http|no longer opens from file:\/\//i);
+  // Nothing was launched at all: the refusal happens before the browser or the deck loop.
+  assert.equal(h.calls.length, 0);
+});
+
+test("with no base at all, the exporter serves root itself and closes the server once done", async () => {
   const h = harness({ slides: 1 });
   await exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, root: ROOT,
                       decks: [{ dir: "talks/intro", slug: "guestgraph" }], log: h.log, write: h.write });
-  const [, url, opts] = h.calls.find((c) => c[0] === "goto");
-  assert.equal(url, pathToFileURL(path.join(ROOT, "talks/intro", "index.html")).href);
-  assert.deepEqual(opts, { waitUntil: "networkidle" });
+  const [, url] = h.calls.find((c) => c[0] === "goto");
+  const m = /^http:\/\/127\.0\.0\.1:(\d+)\/talks\/intro\/$/.exec(url);
+  assert.ok(m, `expected a served base, got ${JSON.stringify(url)}`);
+  // The server this run started must not still be listening once exportDecks has returned —
+  // a leaked one is invisible here (this run's page never really connects; it's a fake) and
+  // was exactly how cards/export.mjs used to hang a run after the last card printed.
+  const port = Number(m[1]);
+  await assert.rejects(
+    new Promise((resolve, reject) => {
+      const req = http.get(`http://127.0.0.1:${port}/`, resolve);
+      req.on("error", reject);
+    }),
+    /ECONNREFUSED/);
 });
 
 test("the hide rule hides the transport, the bar and the notes, and nothing else", async () => {
