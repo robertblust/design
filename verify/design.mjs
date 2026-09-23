@@ -1,8 +1,10 @@
 // The design system, expressed as assertions.
 //
-// These three repositories share no stylesheet, and cannot: a deck has to open from
-// file://, so there is nothing to import. The tokens are therefore a copy inside every
-// page, and this file is what stops the copies drifting *within* a repository.
+// These three repositories shared no stylesheet for years and could not, because a deck had to
+// open from file:// and a file:// page can import nothing; the tokens were a copy inside every
+// page and this file is what stopped the copies drifting *within* a repository. The owner
+// dropped that requirement on 2026-09-23, so what is shared can be a file a page links, and
+// these checks now read whichever shape a page carries: a fenced copy, or a stylesheet.
 //
 // The token, header and stage blocks are now generated from @robertblust/design and
 // asserted byte-for-byte by `design:check` against the one source the package ships.

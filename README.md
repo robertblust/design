@@ -207,7 +207,7 @@ The last step needs no wait before it: the command waits for the server itself.
 
 ## A warning about `stage.js` and `card.js`
 
-`stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and has to open from `file://` with no network. **Never link a deck to `stage.js`, `card.js` or `stage.css`.** They are reached only by served prose pages, through a plain `<link>` and `<script src>`.
+`stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and needs neither. **Never link a deck to `stage.js`, `card.js` or `stage.css`.** They are reached only by served prose pages, through a plain `<link>` and `<script src>`.
 
 ## Releasing
 
