@@ -33,3 +33,8 @@ A note on the Plex Mono file names: these two faces are shipped here under the f
 the original, unmodified font, so a modified or subsetted build must be distributed under a
 different name. This rename is OFL compliance, not a typo — do not "correct" it back to
 "IBM Plex Mono".
+
+- assets/chat.js, the `mark-github` glyph inlined as SVG
+  Upstream: Octicons — https://github.com/primer/octicons
+  Copyright (c) GitHub Inc.
+  License: MIT

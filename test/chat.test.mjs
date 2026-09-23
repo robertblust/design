@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -185,4 +185,76 @@ test("a refusal without the field is the plain sentence, and with it the sentenc
 
 test("busy no longer promises a minute where the server named none", () => {
   for (const lang of ["en", "de"]) assert.ok(!/minute/i.test(strings(lang).refusal.busy), `${lang}: ${strings(lang).refusal.busy}`);
+});
+
+// citeLine builds elements, so this stub records what a browser would: a tag, its attributes,
+// its text and its children, enough to read the line back as a tree.
+function domDoc(lang = "en") {
+  const make = (tag) => {
+    const e = { tag, attrs: {}, children: [], className: "", href: "", _text: "", _html: "" };
+    e.appendChild = (c) => { e.children.push(c); return c; };
+    e.setAttribute = (k, v) => { e.attrs[k] = String(v); };
+    Object.defineProperty(e, "textContent", { get: () => e._text, set: (v) => { e._text = v; } });
+    Object.defineProperty(e, "innerHTML", { get: () => e._html, set: (v) => { e._html = v; } });
+    return e;
+  };
+  return { documentElement: { lang }, createElement: make, createTextNode: (v) => ({ text: v }) };
+}
+const kids = (e) => e.children;
+const CITES = [
+  { id: "skills/data-modeling", title: "Data modeling", url: "https://github.com/robertblust/mental-model/blob/4d14ec2a1b2c3d4e5f60718293a4b5c6d7e8f901/skills/data-modeling.md" },
+  { id: "roles/cdo", title: "CDO", url: null },
+];
+
+test("the line opens with the page's icon where it has one, and with the words where it has none", () => {
+  const withIcon = citeLine(CITES, "/model/", "/favicon.svg", domDoc());
+  assert.equal(withIcon.className, "rbchat-cites");
+  const head = kids(withIcon)[0];
+  assert.equal(head.tag, "img");
+  assert.equal(head.attrs.src, "/favicon.svg");
+  assert.equal(head.attrs.alt, "From the model");
+  assert.equal(head.attrs.title, "From the model");
+  assert.equal(head.attrs.width, "16");
+  const noIcon = citeLine(CITES, "/model/", null, domDoc());
+  assert.equal(kids(noIcon)[0].tag, "span");
+  assert.equal(kids(noIcon)[0].textContent, "From the model: ");
+  const de = citeLine(CITES, "/model/", "/favicon.svg", domDoc("de"));
+  assert.equal(kids(de)[0].attrs.alt, "Aus dem Modell");
+});
+
+test("every cite is a title link to the model page, and a cite with a URL carries the GitHub mark after it", () => {
+  const line = citeLine(CITES, "/model/", null, domDoc());
+  const links = kids(line).filter((c) => c.tag === "a" && c.className === "rbchat-cite");
+  assert.deepEqual(links.map((a) => [a.textContent, a.href]), [
+    ["Data modeling", "/model/?stage=expanded#skills/data-modeling"],
+    ["CDO", "/model/?stage=expanded#roles/cdo"],
+  ]);
+  const marks = kids(line).filter((c) => c.tag === "a" && c.className === "rbchat-gh");
+  assert.equal(marks.length, 1, "one cite has a URL, one has none");
+  assert.equal(marks[0].href, CITES[0].url);
+  assert.equal(marks[0].attrs["aria-label"], "Data modeling on GitHub, commit 4d14ec2");
+  assert.equal(marks[0].attrs.title, "Data modeling on GitHub, commit 4d14ec2");
+  assert.match(marks[0].innerHTML, /<svg[^>]*aria-hidden="true"/);
+  const order = kids(line).map((c) => c.tag || "text");
+  assert.deepEqual(order, ["span", "a", "a", "text", "a"], "icon-or-words, title, mark, separator, title");
+});
+
+test("the mark's name carries no commit when the URL has no blob segment, and the German mark reads auf GitHub", () => {
+  const cites = [{ id: "a/b", title: "T", url: "https://github.com/x/y" }];
+  const en = citeLine(cites, "/model/", null, domDoc());
+  assert.equal(kids(en).find((c) => c.className === "rbchat-gh").attrs["aria-label"], "T on GitHub");
+  const de = citeLine(CITES.slice(0, 1), "/model/", null, domDoc("de"));
+  assert.equal(kids(de).find((c) => c.className === "rbchat-gh").attrs["aria-label"], "Data modeling auf GitHub, Commit 4d14ec2");
+});
+
+test("nameLinks links a cite's title in the text exactly as it links a name's", () => {
+  const { doc, root } = fakeDoc(["Read Data modeling first."]);
+  nameLinks({}, CITES, "/model/", doc);
+  assert.equal(rendered(root), "Read [Data modeling](/model/?stage=expanded#skills/data-modeling) first.");
+});
+
+test("the page's icon is the first icon link's address, and a page without one gives null", () => {
+  const doc = { querySelector: (sel) => (sel === 'link[rel~="icon"]' ? { href: "https://blust.ch/favicon.svg" } : null) };
+  assert.equal(iconOf(doc), "https://blust.ch/favicon.svg");
+  assert.equal(iconOf({ querySelector: () => null }), null);
 });
