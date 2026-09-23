@@ -440,6 +440,59 @@ test("readoutInvariant catches a .lcd rule nested inside @media, not only a top-
   assert.match(result, /--c-mid/);
 });
 
+// A fenceless deck — the whole-file shape tokenVersion's own fenceless branch reads (see
+// verify/design.mjs) — carries no :root pair inline at all: the palette lives in the linked
+// tokens.css instead, and the page's own <style> holds only what the deck itself adds, such
+// as a `.lcd` rule this check exists to catch. Two fetches, like tokenVersion's own fallback:
+// the page's HTML, then the linked file's bytes, keyed by their resolved URLs.
+function runFetchingReadoutInvariant(bodyByUrl, spec = { absolute: "https://example.test/talks/x/" }) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => ({ text: async () => bodyByUrl[url] ?? "" });
+  return pageChecks(OPTS).readoutInvariant({}, spec).finally(() => { globalThis.fetch = realFetch; });
+}
+
+const TOKENS_CSS = `/* @robertblust/design v0.80.2 — tokens.css, assembled from the shared blocks
+   and copied into this site by \`npm run design\`. */
+
+:root[data-theme="light"]{
+  --ground:#FAF9F5; --c-mid:#3A6DA6; --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;
+}
+:root{
+  --ground:#0C0E13; --c-mid:#7FA3D8; --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;
+}
+`;
+
+test("readoutInvariant reads the palette from a linked tokens.css when the page's own <style> carries none", async () => {
+  // The bug this closes: a deck that links tokens.css rather than carrying the design-tokens
+  // fence inline has no :root pair for the old regex to find, so it failed every such page —
+  // exactly the deck blust.ch is moving to the linked-file shape now stands on. This deck's
+  // own <style> paints .lcd with only invariant tokens, so the check should still pass once
+  // the palette is read from the linked file instead.
+  const html = '<!doctype html><html><head><link rel="stylesheet" href="tokens.css">' +
+    '<style>.lcd{background:var(--lcd)} .lcd .n{color:var(--lcd-ink)}</style>' +
+    "</head><body></body></html>";
+  const result = await runFetchingReadoutInvariant({
+    "https://example.test/talks/x/": html,
+    "https://example.test/talks/x/tokens.css": TOKENS_CSS,
+  });
+  assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+});
+
+test("readoutInvariant still fails a page that links tokens.css but adds its own flipping .lcd rule", async () => {
+  // The fenceless shape must not become a way around this check: a `.lcd` rule the deck adds
+  // in its own CSS, outside anything the package owns, is exactly the vector readoutInvariant
+  // exists for — linking tokens.css only moves where the palette itself is read from.
+  const html = '<!doctype html><html><head><link rel="stylesheet" href="tokens.css">' +
+    "<style>.lcd{color:var(--c-mid)}</style>" +
+    "</head><body></body></html>";
+  const result = await runFetchingReadoutInvariant({
+    "https://example.test/talks/x/": html,
+    "https://example.test/talks/x/tokens.css": TOKENS_CSS,
+  });
+  assert.match(result, /--c-mid/);
+  assert.match(result, /\.lcd/);
+});
+
 test("readoutInvariant is fetched cold, like noFlash and sourceLang, not through page.evaluate", () => {
   const src = pageChecks(OPTS).readoutInvariant.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /fetch\(spec\.absolute\)/);
