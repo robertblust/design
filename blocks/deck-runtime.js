@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v7 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v8 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -59,7 +59,7 @@
   // the talks index keeps the language the reader already picked. Storage is guarded:
   // file:// is an opaque origin in some browsers and throws, and a deck that cannot read
   // a preference must still open — in English, its default.
-  /* ─── language · v4 · deck ─────────────────────────────────────────────
+  /* ─── language · v5 · deck ─────────────────────────────────────────────
      One language across three domains, and where it is remembered. Generated
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.

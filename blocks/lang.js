@@ -1,4 +1,4 @@
-  /* ─── language · v4 · {{variant}} ─────────────────────────────────────────────
+  /* ─── language · v5 · {{variant}} ─────────────────────────────────────────────
      One language across three domains, and where it is remembered. Generated
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
