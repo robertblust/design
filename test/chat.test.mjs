@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, when } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -172,4 +172,17 @@ test("a moment in the past, an unreadable one and a missing one give no sentence
   assert.equal(when("soon", NOW, "en", ZH), "");
   assert.equal(when(undefined, NOW, "en", ZH), "");
   assert.equal(when(null, NOW, "en", ZH), "");
+});
+
+test("a refusal without the field is the plain sentence, and with it the sentence ends with the moment", () => {
+  assert.equal(refusalText("over_day", undefined, NOW, "en", ZH), strings("en").refusal.over_day);
+  assert.equal(refusalText("over_day", "2026-09-24T00:00:00Z", NOW, "en", ZH), strings("en").refusal.over_day + " You can ask again tomorrow at 02:00.");
+  assert.equal(refusalText("busy", plus(12 * 60 * 1000), NOW, "de", ZH), strings("de").refusal.busy + " Sie können in 12 Minuten wieder fragen.");
+  assert.equal(refusalText("busy", "soon", NOW, "en", ZH), strings("en").refusal.busy, "an unreadable moment is no moment");
+  assert.equal(refusalText("foreign", plus(60000), NOW, "en", ZH), strings("en").refusal.foreign + " You can ask again in a minute.", "the field is trusted wherever the server sends it");
+  assert.equal(refusalText("no_such_code", undefined, NOW, "en", ZH), strings("en").refusal.internal, "an unknown code still falls back");
+});
+
+test("busy no longer promises a minute where the server named none", () => {
+  for (const lang of ["en", "de"]) assert.ok(!/minute/i.test(strings(lang).refusal.busy), `${lang}: ${strings(lang).refusal.busy}`);
 });
