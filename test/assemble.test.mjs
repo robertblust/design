@@ -8,8 +8,54 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assemble, FILE_NAMES } from "../lib/assemble.mjs";
+import { blockFor, FENCES } from "../lib/fences.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+// The exact algorithm assemble()'s own stripMarkersAndDedent uses, written independently here
+// rather than imported, so this test still means something if that private function regresses:
+// it scans for the block's first "*/" to end the opening comment and drops the block's last
+// line, the "end <fence>" marker, dedenting two spaces on everything in between.
+function shadowStripAndDedent(block) {
+  const lines = block.split("\n");
+  let start = 0;
+  for (; start < lines.length; start++)
+    if (lines[start].includes("*/")) { start++; break; }
+  const end = lines.length - 1;
+  return lines.slice(start, end)
+    .map((l) => (l.startsWith("  ") ? l.slice(2) : l))
+    .join("\n");
+}
+
+// The parts each assembled file carries, read off lib/assemble.mjs's own FILES table (and
+// README's "Whole files, assembled from a block"), so this test is pinned to what the package
+// actually ships rather than to a copy nobody updates when a part is added or removed.
+const FILE_PARTS = {
+  "tokens.css": [["design tokens", () => "page"]],
+  "page.css": [
+    ["prose reset", () => null],
+    ["header contract", () => null],
+    ["title contract", () => null],
+    ["prose footer", (c) => c.footer],
+    ["principles", () => null],
+    ["team", () => null],
+    ["surfaces", () => null],
+  ],
+  "page.js": [
+    ["language", () => "page"],
+    ["theme", () => "page"],
+    ["nav fit", () => "page"],
+  ],
+  "deck.css": [
+    ["deck lockup", (c) => c.lockup],
+    ["deck transport", () => null],
+  ],
+  "deck.js": [
+    ["theme", () => "deck"],
+    ["deck runtime", () => null],
+    ["deck fit", () => null],
+  ],
+};
 
 test("names exactly the five files this release assembles", () => {
   assert.deepEqual([...FILE_NAMES].sort(),
@@ -126,5 +172,52 @@ test("every assembled file ends in exactly one newline", () => {
     const text = assemble(name, config);
     assert.ok(text.endsWith("\n"), `${name} does not end in a newline`);
     assert.ok(!text.endsWith("\n\n"), `${name} ends in more than one newline`);
+  }
+});
+
+// The spec's first constraint for this shape — a file carries exactly the fenced bytes, markers
+// removed and dedented — had nothing asserting it: every test above checks a symptom (a
+// selector present, an order, a wrapper) rather than the bytes themselves. This checks every
+// part of every file, both configured variants where a file takes one, against an independent
+// strip-and-dedent of the same blockFor() call assemble() itself reads.
+test("every part of every assembled file is exactly its block, markers removed and dedented", () => {
+  const configs = [
+    { footer: "plain", lockup: "one" },
+    { footer: "credit", lockup: "two" },
+  ];
+  for (const name of FILE_NAMES) {
+    for (const config of configs) {
+      const text = assemble(name, config);
+      for (const [fence, variantFn] of FILE_PARTS[name]) {
+        const variant = variantFn(config);
+        const expected = shadowStripAndDedent(blockFor(fence, variant));
+        assert.ok(text.includes(expected),
+          `${name} (${JSON.stringify(config)}) is missing the exact "${fence}" · ${variant ?? "shared"} ` +
+          "block — its assembled bytes have drifted from blockFor() plus strip-and-dedent");
+      }
+    }
+  }
+});
+
+// The other half of the guard above: a part with no closing "*/" anywhere strips to nothing,
+// and assemble() must refuse to ship the gap rather than emit an empty part silently. Simulated
+// by feeding blockFor's own source read a block with an opening comment that never closes —
+// fs.readFileSync is the one seam both lib/fences.mjs and lib/assemble.mjs share, so patching it
+// for the one path under test reaches the real assemble()/blockFor() call, not a rewritten copy.
+test("assemble refuses a part that assembles to nothing, naming the fence and its source", () => {
+  const real = fs.readFileSync;
+  const tokensPath = path.join(PKG, "blocks/tokens.css");
+  fs.readFileSync = (p, enc) => {
+    if (p === tokensPath)
+      return "/* ─── design tokens · v11 · {{variant}}\n   this comment never closes\n" +
+        "/* ─── end design tokens ───\n";
+    return real(p, enc);
+  };
+  try {
+    assert.throws(() => assemble("tokens.css", {}), (e) =>
+      /design tokens/.test(e.message) && /blocks\/tokens\.css/.test(e.message) &&
+      /assembled to nothing/.test(e.message));
+  } finally {
+    fs.readFileSync = real;
   }
 });

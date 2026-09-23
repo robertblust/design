@@ -235,6 +235,28 @@ test("fontsAvailable still reads an inline fenced block's font-family uses throu
   assert.equal(ok, null, `a name @font-face already declares should pass, got ${JSON.stringify(ok)}`);
 });
 
+test("fontsAvailable fails the page by name when a linked stylesheet cannot be fetched", async () => {
+  // fetch() rejects outright for a stylesheet that is simply not there — a page that names a
+  // linked file no longer on disk, or a broken relative path. Uncaught, that exception used to
+  // come out of the check as the bare rejection message ("fetch failed"), the same generic
+  // wording for every page and every href, which sends the reader hunting for which link broke.
+  // The check must name the href itself instead of letting the fetch fail through it.
+  const page = makeFontsPage({
+    hrefs: ["http://x.test/tokens.css"],
+    fonts: [{ family: "Plex Sans", status: "loaded" }],
+  });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError("fetch failed"); };
+  let bad;
+  try {
+    bad = await DESIGN_CHECKS.fontsAvailable(page);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(typeof bad, "string", `expected a failure naming the href, got ${JSON.stringify(bad)}`);
+  assert.match(bad, /http:\/\/x\.test\/tokens\.css/);
+});
+
 // tokenVersion and fences both fetch a page's own served HTML directly (see the comment above
 // each in design.mjs — a fence marker is a comment and does not survive into the rendered
 // stylesheet, so neither reads through the CSSOM). `spec.absolute` is the page URL; a page with
@@ -290,6 +312,34 @@ test("tokenVersion still reads a fenced page's `design tokens · vN` marker unch
   });
   assert.equal(typeof bad, "string", `expected a failure naming the stale marker, got ${JSON.stringify(bad)}`);
   assert.match(bad, /v1/);
+});
+
+test("tokenVersion reads a linked tokens.css on a page that keeps one fence of its own, not just a page declaring none", async () => {
+  // The bug: the old condition was `spec.fences.length === 0`, so blust.ch's four stage pages
+  // — which keep the `stage contract` fence inline while moving tokens.css to the linked-file
+  // shape — fell into the marker branch instead, which found no `design tokens · vN` comment
+  // to read and failed. The right condition is "no `design tokens` fence declared", which a
+  // page keeping any other fence still satisfies.
+  const spec = { absolute: "http://x.test/", fences: ["stage contract"] };
+  const html = '<link rel="stylesheet" href="tokens.css">';
+  const matching = `/* @robertblust/design v${PKG_VERSION} — tokens.css, assembled from the shared blocks\n   and copied into this site by \`npm run design\`. */\n\n:root{}\n`;
+  const ok = await runFetchingCheck("tokenVersion", spec, {
+    "http://x.test/": html,
+    "http://x.test/tokens.css": matching,
+  });
+  assert.equal(ok, null, `expected a page keeping one other fence to read the linked file, got ${JSON.stringify(ok)}`);
+});
+
+test("tokenVersion still fails a mismatched linked tokens.css on a page that keeps one fence of its own", async () => {
+  const spec = { absolute: "http://x.test/", fences: ["stage contract"] };
+  const html = '<link rel="stylesheet" href="tokens.css">';
+  const stale = "/* @robertblust/design v0.1.0 — tokens.css, assembled from the shared blocks */\n\n:root{}\n";
+  const bad = await runFetchingCheck("tokenVersion", spec, {
+    "http://x.test/": html,
+    "http://x.test/tokens.css": stale,
+  });
+  assert.equal(typeof bad, "string", `expected a failure naming the mismatch, got ${JSON.stringify(bad)}`);
+  assert.match(bad, /0\.1\.0/);
 });
 
 test("fences passes a page that declares none, the shape a page linking the whole files takes", async () => {

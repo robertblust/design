@@ -326,8 +326,8 @@ test("the language block switches aria-labels with the page, without a page cont
   // data-de-aria, the English captured on load. It watches rather than being called, so no
   // page has to add a line to its own applyLang.
   const js = fs.readFileSync(path.join(PKG, "blocks/lang.js"), "utf8");
-  assert.match(js, /language · v4 ·/, "the language block did not move to v4");
-  assert.equal(versions.lang, "v4");
+  assert.match(js, /language · v5 ·/, "the language block did not move to v5");
+  assert.equal(versions.lang, "v5");
   assert.match(js, /MutationObserver/);
   assert.match(js, /attributeFilter:\s*\["lang"\]/);
   assert.match(js, /data-de-aria/);

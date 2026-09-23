@@ -30,7 +30,7 @@ A page's own CSS stays in the page. What this package shares is what every site 
 
 ## What has to change with it
 
-**The deck exporter opens a deck from disk.** `@robertblust/design/decks/export` calls `page.goto(pathToFileURL(…))`, which is the last thing in the family that depends on the dropped requirement. It serves the tree instead, as the card exporter already does, and takes a base URL. A deck opened by hand from Finder stops working the day this lands, and that is the requirement being dropped, said out loud.
+**The deck exporter opens a deck from disk.** `@robertblust/design/decks/export` calls `page.goto(pathToFileURL(…))`, which is the last thing in the family that depends on the dropped requirement. It serves the tree instead, as the card exporter already does, and takes a base URL. A deck opened by hand from Finder loses its guarantee the day this lands, not necessarily its behavior — nothing here promises it still works, on this release or any later one, whatever `opensFromFile` happens to measure today — and that retired promise is the requirement being dropped, said out loud.
 
 **Four checks read the fences.** `design:check` compares a fence's bytes with the release's; it compares whole files for the files it already ships and does the same for these. `noFlash` asserts that nothing that can block or repaint precedes the boot script: it gains the new links, which must come after it. `fontsAvailable` reads the faces a page names; the faces move into `tokens.css` and it reads them there. The card recipe hashes every local file a page names, so the stamps move when a stylesheet moves, which is what it already does for `chat.css`.
 

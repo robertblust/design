@@ -218,6 +218,50 @@ test("page.js: the language is carried onto a family link under the family key",
   assert.match(anchor.href, /[?&]lang=de(&|$)/);
 });
 
+test("page.js: carryLang follows a language switched after load, not the one captured when the file ran", () => {
+  // The bug measured on blust.ch's /ideas/: assemble() wraps every part in one IIFE, so
+  // page.js's own `var lang` is a private copy read once from window.rbPage.lang when the
+  // file first runs. A page's own toggle — the real mechanism a visitor's click drives — sets
+  // document.documentElement.lang directly; that is the whole point of the hook contract. A
+  // carryLang that still reads the private copy never sees that switch, so a link to a sibling
+  // site keeps carrying the language the page arrived with forever after. The fix reads
+  // document.documentElement.lang at click time instead, which is what every page's own
+  // applyLang sets, so this must see "de" here even though the file was loaded with "en".
+  let anchor;
+  loadAssembled(assemble("page.js", {}), {
+    rb: { rbPage: { lang: "en", applyLang() {} } },
+    after: ({ doc }) => {
+      // The visitor's own toggle, after the file has already run and captured "en".
+      doc.documentElement.lang = "de";
+      const handlers = doc._listeners.mousedown || [];
+      assert.ok(handlers.length > 0, "no mousedown handler was registered");
+      anchor = { href: "https://companygraph.io/" };
+      for (const fn of handlers) fn({ target: { closest: () => anchor } });
+    },
+  });
+  assert.match(anchor.href, /[?&]lang=de(&|$)/,
+    `expected the link to carry the language the page now shows (de), got ${anchor.href}`);
+});
+
+test("page.js: carryLang falls back to the language it loaded with when the live attribute is neither de nor en", () => {
+  // The live document.documentElement.lang is trusted only when it is actually one of the two
+  // languages the family carries; anything else (empty, a page that has not run its own
+  // applyLang at all, a stray value) falls back to what this file decided at load, exactly as
+  // it always has.
+  let anchor;
+  loadAssembled(assemble("page.js", {}), {
+    rb: { rbPage: { lang: "de", applyLang() {} } },
+    after: ({ doc }) => {
+      doc.documentElement.lang = "";
+      const handlers = doc._listeners.mousedown || [];
+      anchor = { href: "https://companygraph.io/" };
+      for (const fn of handlers) fn({ target: { closest: () => anchor } });
+    },
+  });
+  assert.match(anchor.href, /[?&]lang=de(&|$)/,
+    `expected the fallback to the loaded language (de), got ${anchor.href}`);
+});
+
 test("page.js: the theme still applies with no hook object at all — a stored theme is carried", () => {
   // theme has no rbPage key at all; this loads with no hook object whatsoever and relies
   // entirely on the document's own data-theme attribute and a visitor's stored choice.
