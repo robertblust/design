@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, when } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -135,4 +135,41 @@ test("no names means no walk at all", () => {
   const { doc, root } = fakeDoc(["Nothing to link."]);
   nameLinks({}, [], "/model/", doc);
   assert.equal(root.children.length, 0);
+});
+
+// The clock is fixed at 10:00 UTC on Wednesday, September 23, 2026, which is 12:00 in Zürich,
+// and the zone is Zürich, so the four distances the spec names each have one expected sentence.
+const NOW = Date.parse("2026-09-23T10:00:00Z");
+const ZH = "Europe/Zurich";
+const plus = (ms) => new Date(NOW + ms).toISOString();
+
+test("the moment is written in minutes within the hour, and a minute or less is a minute", () => {
+  assert.equal(when(plus(30 * 1000), NOW, "en", ZH), "You can ask again in a minute.");
+  assert.equal(when(plus(60 * 1000), NOW, "en", ZH), "You can ask again in a minute.");
+  assert.equal(when(plus(12 * 60 * 1000), NOW, "en", ZH), "You can ask again in 12 minutes.");
+  assert.equal(when(plus(11 * 60 * 1000 + 30 * 1000), NOW, "en", ZH), "You can ask again in 12 minutes.", "a part of a minute rounds up");
+  assert.equal(when(plus(60 * 60 * 1000), NOW, "en", ZH), "You can ask again in 60 minutes.", "the hour itself is still minutes");
+});
+
+test("later the same local day is a time, tomorrow is named, and a later day carries its name", () => {
+  assert.equal(when(plus(2 * 60 * 60 * 1000 + 35 * 60 * 1000), NOW, "en", ZH), "You can ask again at 14:35.");
+  assert.equal(when("2026-09-24T00:00:00Z", NOW, "en", ZH), "You can ask again tomorrow at 02:00.", "midnight UTC is two in the morning in Zürich");
+  assert.equal(when("2026-10-01T00:00:00Z", NOW, "en", ZH), "You can ask again on Thursday at 02:00.", "the month's ceiling lifts on the first");
+});
+
+test("the moment is written in German the same way, and an unknown language reads as English", () => {
+  assert.equal(when(plus(30 * 1000), NOW, "de", ZH), "Sie können in einer Minute wieder fragen.");
+  assert.equal(when(plus(12 * 60 * 1000), NOW, "de", ZH), "Sie können in 12 Minuten wieder fragen.");
+  assert.equal(when(plus(2 * 60 * 60 * 1000 + 35 * 60 * 1000), NOW, "de", ZH), "Sie können um 14:35 wieder fragen.");
+  assert.equal(when("2026-09-24T00:00:00Z", NOW, "de", ZH), "Sie können morgen um 02:00 wieder fragen.");
+  assert.equal(when("2026-10-01T00:00:00Z", NOW, "de", ZH), "Sie können am Donnerstag um 02:00 wieder fragen.");
+  assert.equal(when(plus(12 * 60 * 1000), NOW, "fr", ZH), when(plus(12 * 60 * 1000), NOW, "en", ZH));
+});
+
+test("a moment in the past, an unreadable one and a missing one give no sentence", () => {
+  assert.equal(when(plus(-1000), NOW, "en", ZH), "");
+  assert.equal(when(new Date(NOW).toISOString(), NOW, "en", ZH), "", "now itself is not a wait");
+  assert.equal(when("soon", NOW, "en", ZH), "");
+  assert.equal(when(undefined, NOW, "en", ZH), "");
+  assert.equal(when(null, NOW, "en", ZH), "");
 });

@@ -20,6 +20,7 @@
 //   rbChat.link(model, id)             where a cite points
 //   rbChat.nameLinks(root, names, …)   the model's names, linked in a rendered answer
 //   rbChat.refocus(window)             whether the cursor goes back after an answer
+//   rbChat.when(retryAt, now, lang)    when a limit lifts, in the visitor's language and time
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
@@ -34,6 +35,7 @@
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
+      again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -57,6 +59,7 @@
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
+      again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -80,6 +83,35 @@
   function sentence(code){
     var r = strings(langNow()).refusal;
     return Object.prototype.hasOwnProperty.call(r, code) ? r[code] : r.internal;
+  }
+
+  // When a limit lifts, in the visitor's terms. The server sends the moment as an ISO time in
+  // UTC on `busy`, `over_day` and `over_month`, and the widget writes it against the visitor's
+  // clock and zone: within the hour in minutes, later the same local day as a time, tomorrow
+  // by name, and beyond that by the day's name, so midnight UTC reads as the local hour it is.
+  // Under a minute is "a minute", the one case where the old sentence was right. The sentence
+  // says "at" and never "exactly at": the bucket is per instance, and a visitor may find the
+  // chat open earlier than the moment says, never later. `zone` is for the suite; the page
+  // passes nothing and gets the browser's. An unreadable moment or one already past gives an
+  // empty string, and the caller writes the plain sentence. `en-CA` writes a date as
+  // 2026-09-23, which two moments can be compared by; `en-GB` and `de-CH` both write a
+  // 24-hour time as 14:35, where `en-US` would write 2:35 PM.
+  function when(retryAt, now, lang, zone){
+    var t = Date.parse(retryAt);
+    if (isNaN(t) || t <= now) return "";
+    var s = strings(lang).again, clause;
+    var minutes = Math.ceil((t - now) / 60000);
+    if (minutes <= 60) clause = minutes <= 1 ? s.minute : s.minutes.replace("{n}", String(minutes));
+    else {
+      var opts = zone ? { timeZone: zone } : {};
+      var day = function(ms){ return new Intl.DateTimeFormat("en-CA", Object.assign({ year: "numeric", month: "2-digit", day: "2-digit" }, opts)).format(new Date(ms)); };
+      var time = new Intl.DateTimeFormat(lang === "de" ? "de-CH" : "en-GB", Object.assign({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" }, opts)).format(new Date(t));
+      var then = day(t);
+      if (then === day(now)) clause = s.at.replace("{time}", time);
+      else if (then === day(now + 86400000)) clause = s.tomorrow.replace("{time}", time);
+      else clause = s.day.replace("{day}", new Intl.DateTimeFormat(lang === "de" ? "de-CH" : "en-US", Object.assign({ weekday: "long" }, opts)).format(new Date(t))).replace("{time}", time);
+    }
+    return s.sentence.replace("{when}", clause);
   }
 
   // ─── The subset ───────────────────────────────────────────────────────────────────────────
@@ -271,7 +303,7 @@
     } catch (e) {}
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, when: when };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
