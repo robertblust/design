@@ -95,6 +95,8 @@ Two of the five take a variant, read from a site's `design.config.json` rather t
 
 The `files` group carries these five names and is written through `assemble()` rather than copied from `assets/`; `design sync --check` compares the bytes `assemble()` would write against what is on disk, exactly the comparison it already makes for `chat.css`. Nothing here rewrites a page: a page still carries its fences until it is edited to link these files instead, and both keep working side by side until it is.
 
+Two checks in `verify/` read whichever shape a page carries. `noFlash` fails a page whose theme-boot fence sits after a `<link rel="stylesheet">` or a `<script src>` as readily as after a `<style>` block, because `page.css` and `page.js` are exactly that once a page links them. `fontsAvailable` reads a linked stylesheet's font-family uses from its own served bytes rather than through its CSSOM, which a linked file refuses to hand back once it is opened over `file://` — the `document.fonts` registry a browser builds from `@font-face` is unaffected either way, so a name self-hosted in `tokens.css` is exempted the same way whether the page still carries the fence or links the file.
+
 ## The model pages
 
 Principles, Team and Surfaces are pages generated from an instance's model rather than written by hand, wherever a site carries them. The exports below do the writing and the fences below carry the result into the page; a page opts into any of them the same way it opts into any fence, by carrying its markers, and a page carrying none of them is untouched.
