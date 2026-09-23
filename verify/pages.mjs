@@ -453,13 +453,22 @@ export function pageChecks({ SITE, BASE }) {
       // lcdVarReferences scans below regardless of where the palette came from. Same shape as
       // tokenVersion's fallback: find the linked file, resolve it against the page's own URL,
       // read the pair out of its bytes instead.
+      //
+      // Both halves have to come from the same document. A page can carry a bare :root with no
+      // :root[data-theme="light"] beside it — mid-migration, or one whose light half only ever
+      // lived in the linked file — and filling only the missing half from tokens.css, as `light
+      // = light ?? …` once did, pairs the page's own dark with the file's light: two halves
+      // nothing in a real page ever compares. That blend can make a genuinely flipping token
+      // read as invariant, if the page's stale half happens to agree with the file's half it was
+      // never paired against. So an incomplete pair from the page is discarded whole, not
+      // patched, and the linked file is read for a complete pair of its own.
       if (!dark || !light) {
         const link = html.match(/<link[^>]+href="([^"]*\btokens\.css)"/);
         if (link) {
           const cssUrl = new URL(link[1], spec.absolute).href;
           const tokensCss = await (await fetch(cssUrl)).text();
-          dark = dark ?? rootBody(tokensCss, /:root\s*\{([\s\S]*?)\}/);
-          light = light ?? rootBody(tokensCss, /:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+          dark = rootBody(tokensCss, /:root\s*\{([\s\S]*?)\}/);
+          light = rootBody(tokensCss, /:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
         }
       }
 

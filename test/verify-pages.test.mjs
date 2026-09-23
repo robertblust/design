@@ -686,6 +686,29 @@ test("readoutInvariant reads a linked tokens.css on a page that keeps one fence 
   assert.equal(result, null, `expected a page keeping one other fence to read the linked file, got ${JSON.stringify(result)}`);
 });
 
+test("readoutInvariant requires both halves from the same source, not a page/file blend", async () => {
+  // A page's own <style> can carry a bare :root with no :root[data-theme="light"] beside it —
+  // a mid-migration page, or one whose light half only ever lived in the linked tokens.css.
+  // Filling only the missing half from the linked file, as the old code did with `light = light
+  // ?? …`, pairs the page's own dark with the file's light — two halves nothing ever compares in
+  // a real page. Here the page's own (stale) dark value for --c-mid happens to equal the linked
+  // file's real light value, so that blend reads as non-flipping, while the file's own
+  // consistent pair — its actual dark next to its actual light — genuinely differs. A .lcd rule
+  // painted from --c-mid must still be caught: the blend must not launder it into a pass.
+  const html = '<!doctype html><html><head><link rel="stylesheet" href="tokens.css">' +
+    '<style>:root{--c-mid:#111111; --lcd:#0a0b0e;} .lcd{color:var(--c-mid)}</style>' +
+    "</head><body></body></html>";
+  const tokensCss =
+    ':root[data-theme="light"]{--c-mid:#111111; --lcd:#0a0b0e;}\n' +
+    ':root{--c-mid:#222222; --lcd:#0a0b0e;}\n';
+  const result = await runFetchingReadoutInvariant({
+    "https://example.test/talks/x/": html,
+    "https://example.test/talks/x/tokens.css": tokensCss,
+  });
+  assert.match(result ?? "", /--c-mid/,
+    `expected the blended pair to still be caught as flipping, got ${JSON.stringify(result)}`);
+});
+
 test("readoutInvariant is fetched cold, like noFlash and sourceLang, not through page.evaluate", () => {
   const src = pageChecks(OPTS).readoutInvariant.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /fetch\(spec\.absolute\)/);
