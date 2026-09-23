@@ -3,12 +3,14 @@
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
 
-     This block has a contract with the page around it that `design:check` cannot see, because
-     the check only compares bytes between the markers. The page must declare a `lang` variable
-     in scope before this fence, and must call `langStored()` and `langRemember(v)` from
-     wherever it reads and writes the visitor's saved choice. Rename `lang` or drop those calls
-     and the fence still matches byte for byte — every check stays green — while a click throws
-     ReferenceError and the language silently stops crossing domains.
+     A fenced copy sits inside the page's own script and sees whatever the page declared above
+     it; a copy loaded as `page.js` or `deck.js` is its own file and sees nothing of the page
+     at all. So this block takes `lang` from `window.rbPage.lang` when a page declares one,
+     falls back to a `lang` already in scope when a fenced page still declares its own, and
+     defaults to `"en"` when neither exists — read with `typeof lang !== "undefined"`, never a
+     bare `lang`, so the absence of either throws nothing. Once decided, it calls
+     `window.rbPage.applyLang(lang)` when the page declared one, the same way guarded: a page
+     with no `data-de` needs no `applyLang` and gets none called.
 
      The key is `lang`, the family's: one name on three origins, the same word the address
      carries. A storage key is a promise to every visitor, and this one is made once, for the
@@ -17,6 +19,9 @@
   var LANG_KEY = "lang";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }
   function langRemember(v){ try { localStorage.setItem(LANG_KEY, v); } catch (e) {} }
+  var lang = (window.rbPage && typeof window.rbPage.lang !== "undefined") ? window.rbPage.lang
+    : (typeof lang !== "undefined" ? lang : "en");
+  if (window.rbPage && typeof window.rbPage.applyLang === "function") window.rbPage.applyLang(lang);
 
   /* One language across three domains. Each origin keeps its own localStorage, so a
      visitor reading German here and following a link to a sibling site would arrive in

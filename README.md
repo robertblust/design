@@ -87,6 +87,16 @@ A site opts a page into a fence by putting the markers in it — there is no lis
 
 Taking a block out of the package works the same way in reverse: delete its fence from the page, and from then on the page owns that CSS outright. That is a visible decision, made in the page's own diff, to diverge from the shared copy — not a way to make a red `design:check` go quiet without deciding anything.
 
+## Whole files, assembled from a block
+
+Five names are not fences: `tokens.css`, `page.css`, `page.js`, `deck.css` and `deck.js` are the same blocks `blockFor` already reads, written as five whole files a site copies exactly as it copies `chat.css`, rather than into a gap between two markers. `lib/assemble.mjs` reads a file's blocks in a fixed order, drops each block's own marker comment — a file carries no gap in a page for a marker to bound — and the two spaces a block carried inside a page's `<style>` or `<script>`, and opens with a comment naming the package, the release and where to change it instead: editing the file in a site does nothing, because the next `npm run design` overwrites it. `deck.css` needs no tokens of its own beyond the shared ones: what a deck page used to add after the `design tokens` fence, once the brace it left open is put back, turned out to be nothing at all, so `tokens.css` alone, always closed, is what a deck links too.
+
+Two of the five take a variant, read from a site's `design.config.json` rather than from a page's own fence: `"footer"` chooses `page.css`'s credit lockup, `"credit"` or `"plain"`, and `"lockup"` chooses `deck.css`'s, `"one"` or `"two"` — the same two words `blockFor` already reads off a fence's opening line, now read off the config instead. A file that needs a variant the config does not carry, or carries one this package does not know, is an error naming the file and the key, the same shape every other error in this package takes.
+
+The `files` group carries these five names and is written through `assemble()` rather than copied from `assets/`; `design sync --check` compares the bytes `assemble()` would write against what is on disk, exactly the comparison it already makes for `chat.css`. Nothing here rewrites a page: a page still carries its fences until it is edited to link these files instead, and both keep working side by side until it is.
+
+Two checks in `verify/` read whichever shape a page carries. `noFlash` fails a page whose theme-boot fence sits after a `<link rel="stylesheet">` or a `<script src>` as readily as after a `<style>` block, because `page.css` and `page.js` are exactly that once a page links them. `fontsAvailable` reads a linked stylesheet's font-family uses from its own served bytes rather than through its CSSOM, which a linked file refuses to hand back once it is opened over `file://` — the `document.fonts` registry a browser builds from `@font-face` is unaffected either way, so a name self-hosted in `tokens.css` is exempted the same way whether the page still carries the fence or links the file.
+
 ## The model pages
 
 Principles, Team and Surfaces are pages generated from an instance's model rather than written by hand, wherever a site carries them. The exports below do the writing and the fences below carry the result into the page; a page opts into any of them the same way it opts into any fence, by carrying its markers, and a page carrying none of them is untouched.
@@ -106,7 +116,7 @@ The suite's half is `verify/model-pages`. It exports `MODEL_PAGE_CHECKS`, which 
 
 ## No parameters
 
-Every substitution this package makes comes from a value it owns: the variant word from a fixed set `lib/fences.mjs` declares, the version from `versions.json`, a part from a file beside the block. Nothing comes from the site. `design.config.json` names the groups a site takes and nothing else, and a key it does not name is an error that names the file and the key.
+Every substitution a fence makes comes from a value this package owns: the variant word from a fixed set `lib/fences.mjs` declares, the version from `versions.json`, a part from a file beside the block. Nothing comes from the site there — a fence's variant is read off the page's own opening line, never off the site's config. `design.config.json` names the groups a site takes, and, for the `files` group alone, the two words that choose a variant `assemble()` needs, `"footer"` and `"lockup"`; nothing else, and a key it does not name is an error that names the file and the key.
 
 The storage keys are the family's. `lang` and `theme`, the words the address already carries, are what every page on the three origins reads and writes, and they are written into the blocks rather than chosen per site: a storage key is a promise to every visitor, it is one promise across three origins, and a promise the package makes is one no site can quietly make differently. Renaming a storage key starts every visitor over, so a rename is a release whose notes say so, never a site's diff.
 
@@ -197,7 +207,7 @@ The last step needs no wait before it: the command waits for the server itself.
 
 ## A warning about `stage.js` and `card.js`
 
-`stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and has to open from `file://` with no network. **Never link a deck to `stage.js`, `card.js` or `stage.css`.** They are reached only by served prose pages, through a plain `<link>` and `<script src>`.
+`stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and needs neither. **Never link a deck to `stage.js`, `card.js` or `stage.css`.** They are reached only by served prose pages, through a plain `<link>` and `<script src>`.
 
 ## Releasing
 

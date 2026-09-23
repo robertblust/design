@@ -1,8 +1,10 @@
 // The design system, expressed as assertions.
 //
-// These three repositories share no stylesheet, and cannot: a deck has to open from
-// file://, so there is nothing to import. The tokens are therefore a copy inside every
-// page, and this file is what stops the copies drifting *within* a repository.
+// These three repositories shared no stylesheet for years and could not, because a deck had to
+// open from file:// and a file:// page can import nothing; the tokens were a copy inside every
+// page and this file is what stopped the copies drifting *within* a repository. The owner
+// dropped that requirement on 2026-09-23, so what is shared can be a file a page links, and
+// these checks now read whichever shape a page carries: a fenced copy, or a stylesheet.
 //
 // The token, header and stage blocks are now generated from @robertblust/design and
 // asserted byte-for-byte by `design:check` against the one source the package ships.
@@ -147,8 +149,31 @@ export const DESIGN_CHECKS = {
   // rule or a font-family attribute — must either be @font-face'd by this page or be a
   // generic keyword or a system face everyone already has. A name that is neither is a font
   // nobody is guaranteed to own, and it will render as something else without saying so.
+  //
+  // `tokens.css` moved from a fenced block copied into every page to a whole file a page
+  // links, and this check's own CSSOM walk stopped seeing it the moment it did: reading
+  // `sheet.cssRules` throws for a *linked* stylesheet opened over file://, because Chromium
+  // gives every file:// resource its own opaque origin even when it sits beside the page in
+  // the same directory, and the `catch` below used to swallow that silently — the check
+  // that exists to catch a font named but never self-hosted went blind for exactly the
+  // shape a deck's own `tokens.css` link now takes. It never threw for a page served over
+  // http, same-origin `<link>`s included, which is why this went unnoticed: nothing in this
+  // package's own suite opens a page any other way.
+  //
+  // The fix reads a linked stylesheet as bytes fetched over the wire instead of through the
+  // CSSOM, the same way `fences` and `fenceOrder` below already read a page's own served
+  // HTML — a linked file's `href` is fetched from Node, not from the page, since a page
+  // opened via file:// cannot fetch another file:// resource at all. Only an inline `<style>`
+  // still goes through the CSSOM, which never has this problem: `sheet.href` is `null` for
+  // exactly that case and the resolved URL for everything else, so nothing here has to guess
+  // which is which.
   async fontsAvailable(page) {
-    const bad = await page.evaluate(system => {
+    const hrefs = await page.evaluate(() =>
+      [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href));
+    const external = await Promise.all(
+      hrefs.map(async (href) => ({ href, css: await (await fetch(href)).text() })));
+
+    const bad = await page.evaluate(({ system, external }) => {
       const ok = new Set(system);
       const declared = new Set([...document.fonts].map(f => f.family.toLowerCase()));
       const found = new Map();
@@ -167,14 +192,24 @@ export const DESIGN_CHECKS = {
           if (ff) for (const f of ff.split(",")) note(f, `css ${r.selectorText || "@rule"}`);
         }
       };
+      // Only an inline sheet goes through the CSSOM; a linked one is scanned as text below,
+      // from `external`, because its CSSOM is not always readable — see the note above.
       for (const sheet of document.styleSheets) {
-        try { walk(sheet.cssRules); } catch { /* cross-origin — this site has none */ }
+        if (sheet.href !== null) continue;
+        try { walk(sheet.cssRules); } catch { /* an inline sheet is never cross-origin */ }
       }
+      // A linked stylesheet's font-family uses, read as text. This regex also matches
+      // @font-face's own `font-family: "X"` line, but `declared` already exempts X: a
+      // browser's FontFaceSet is built from every @font-face rule in the document
+      // regardless of which stylesheet carried it, so the double match is harmless.
+      for (const { href, css } of external)
+        for (const m of css.matchAll(/font-family\s*:\s*([^;}{]+)/gi))
+          for (const f of m[1].split(",")) note(f, `css ${href}`);
       for (const el of document.querySelectorAll("[font-family]"))
         for (const f of el.getAttribute("font-family").split(","))
           note(f, `<${el.tagName.toLowerCase()} font-family>`);
       return [...found].map(([name, where]) => `${name} (${where})`);
-    }, [...SYSTEM_FACES]);
+    }, { system: [...SYSTEM_FACES], external });
     return bad.length
       ? "named but neither self-hosted nor a system face: " + bad.join("; ")
       : null;

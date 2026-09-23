@@ -479,13 +479,24 @@ export function pageChecks({ SITE, BASE }) {
       let at = 0;
       for (let i = 0; i < fence.start; i++) at += lines[i].length + eol.length;
 
-      // Position: nothing that applies CSS may sit earlier in the document.
+      // Position: nothing that applies CSS, or runs another script, may sit earlier in the
+      // document. `page.css` and `page.js` moved from fences copied into every page to whole
+      // files a page links, which is a `<link rel="stylesheet">` and a `<script src>` a page
+      // never carried before — a linked script fetched and run ahead of the fence is the same
+      // failure as an inline one sitting there, so it has to be caught the same way the
+      // stylesheet already is.
       const styleAt = html.indexOf("<style");
       const link = /<link\b[^>]*\brel\s*=\s*["']?stylesheet["']?[^>]*>/i.exec(html);
-      const sheetAt = Math.min(styleAt === -1 ? Infinity : styleAt, link ? link.index : Infinity);
+      const scriptSrc = /<script\b[^>]*\bsrc\s*=/i.exec(html);
+      const sheetAt = Math.min(
+        styleAt === -1 ? Infinity : styleAt,
+        link ? link.index : Infinity,
+        scriptSrc ? scriptSrc.index : Infinity,
+      );
       if (sheetAt !== Infinity && at > sheetAt)
-        return "the theme-boot block appears after a stylesheet — a browser applies CSS as " +
-          "it parses, so the theme must be set before the first <style> or stylesheet <link>";
+        return "the theme-boot block appears after a stylesheet or a linked script — a " +
+          "browser applies CSS and runs a script as it parses, so the theme must be set " +
+          "before the first <style>, stylesheet <link>, or <script src>";
 
       // Form: position alone proves nothing if the script carrying the block does not run
       // synchronously during parsing. A module, a deferred or async script, or one loaded

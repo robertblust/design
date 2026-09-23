@@ -529,6 +529,53 @@ test("noFlash asserts document order and script form, not timing", async () => {
   }
 });
 
+// `page.css` and `page.js` moved from fences copied into a page to whole files a page links —
+// a `<link rel="stylesheet">` and a `<script src>` a page never used to carry. The position
+// check above already read the stylesheet case (it has asserted `<link>` position beside
+// `<style>` since fix round 1), but never a linked script, and neither shape had a test proving
+// it: a page could gain a `<script src="page.js">` ahead of the boot fence — the same failure
+// as an inline script sitting there, since a browser fetches and may run it before the fence
+// gets to set the theme — and nothing here would have said so.
+function wrapWithResource({ resource, before }) {
+  const boot = `<script>
+    /* ─── theme boot · v1 · shared ───
+       Set the theme before anything paints.
+    */
+    (function(){
+      try {
+        var t = localStorage.getItem("rb-theme");
+        if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+      } catch (e) {}
+    })();
+    /* ─── end theme boot ─── */
+  </script>`;
+  const tag = resource === "link"
+    ? '<link rel="stylesheet" href="page.css">'
+    : '<script src="page.js"></script>';
+  const body = before ? tag + boot : boot + tag;
+  return `<!doctype html><html><head><title>x</title>${body}</head><body></body></html>`;
+}
+
+test("noFlash fails a page whose linked stylesheet or linked script precedes the boot fence, and passes one where either follows it", async () => {
+  const cases = [
+    { label: "linked stylesheet before the fence", resource: "link", before: true,
+      pass: false, match: /stylesheet/ },
+    { label: "linked script before the fence", resource: "script", before: true,
+      pass: false, match: /script/ },
+    { label: "linked stylesheet after the fence", resource: "link", before: false, pass: true },
+    { label: "linked script after the fence", resource: "script", before: false, pass: true },
+  ];
+  for (const { label, resource, before, pass, match } of cases) {
+    const result = await runNoFlash(wrapWithResource({ resource, before }));
+    if (pass) {
+      assert.equal(result, null, `${label}: expected a pass, got ${JSON.stringify(result)}`);
+    } else {
+      assert.equal(typeof result, "string", `${label}: expected a failure message, got ${JSON.stringify(result)}`);
+      assert.match(result, match, `${label}: got ${JSON.stringify(result)}`);
+    }
+  }
+});
+
 const DECK_TOKENS = ["deck-accent", "deck-paper", "deck-mark", "deck-well", "deck-track",
   "deck-hover", "deck-divider", "deck-edge", "deck-ring", "deck-quiet",
   "deck-warm", "deck-lift", "deck-drop", "deck-inset", "deck-glow"];

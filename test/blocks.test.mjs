@@ -256,7 +256,10 @@ test("the deck runtime reads its per-talk strings from TALK, not from literals",
 // Both tests below check something true of UI specifically, and a phrase that happens to
 // recur in an unrelated comment elsewhere in the block must not be able to satisfy either.
 function uiSource(js) {
-  const m = js.match(/var UI = \{[\s\S]*?\n  \};/);
+  // `var UI = ` is now followed by the hook check (`window.rbDeck.ui`, if a page supplies
+  // one) before the object literal's own opening brace, so the match runs up to the first
+  // `{` rather than assuming it sits right after `=`.
+  const m = js.match(/var UI = [\s\S]*?\{[\s\S]*?\n  \};/);
   assert.ok(m, "could not find the UI object literal in the deck runtime block");
   return m[0];
 }
