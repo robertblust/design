@@ -23,7 +23,7 @@ A page that draws a stage names the file it draws and loads three scripts in thi
 
 Such a page has to be served over `http` rather than opened from disk, because `fetch` from a `file://` page is blocked and the stage draws nothing without its data. `npm run og` starts its own server for that reason; looking at a page by hand needs one too.
 
-A site takes the chat by naming `chat` in `design.config.json`'s groups, as it does `stage`; `npm run design` then copies the two files, `chat.js` and `chat.css`, into the site. A page that offers the chat loads one more script, `chat.js`, with the endpoint and the model page on its own tag, `<script src="chat.js" data-chat="https://chat.blust.ch/chat" data-model="/model/" defer>`, and links `chat.css` beside its stylesheet; a tag without `data-chat` shows nothing. The button, the panel and every sentence the widget writes are the package's, in both languages; a site adds nothing but the tag.
+A site takes the chat by naming `chat` in `design.config.json`'s groups, as it does `stage`; `npm run design` then copies the two files, `chat.js` and `chat.css`, into the site. A page that offers the chat loads one more script, `chat.js`, with the endpoint and the model page on its own tag, `<script src="chat.js" data-chat="https://chat.blust.ch/chat" data-model="/model/" defer>`, and links `chat.css` beside its stylesheet; a tag without `data-chat` shows nothing. The button, the panel and every sentence the widget writes are the package's, in both languages; a site adds nothing but the tag. Where the chat host names the moment a limit lifts, the widget's refusal ends with it, in the page's language and the visitor's local time; a host that names none gets the plain sentence.
 
 ```jsonc
 // package.json
