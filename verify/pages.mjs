@@ -401,8 +401,9 @@ export function pageChecks({ SITE, BASE }) {
     // package has no filesystem access to a site's checkout, and a site's own copy of the
     // block could in principle drift from what it is pinned to anyway. So it is derived from
     // the served page itself: every prose and deck page carries both `:root` and
-    // `:root[data-theme="light"]` inline, from the design-tokens fence, and a token whose
-    // value differs between the two is exactly the set that must never appear inside `.lcd`.
+    // `:root[data-theme="light"]` — inline, from the design-tokens fence, or in the linked
+    // tokens.css a fenceless page takes instead (see below) — and a token whose value differs
+    // between the two is exactly the set that must never appear inside `.lcd`.
     async readoutInvariant(page, spec) {
       const html = await (await fetch(spec.absolute)).text();
       const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)]
@@ -413,11 +414,31 @@ export function pageChecks({ SITE, BASE }) {
       // immediately after `:root`, which `\s*` (whitespace only) cannot cross into a `{`, so
       // the two selectors can never be confused for one another regardless of which one the
       // served document happens to write first.
-      const rootBody = (re) => { const m = css.match(re); return m ? m[1] : null; };
-      const dark = rootBody(/:root\s*\{([\s\S]*?)\}/);
-      const light = rootBody(/:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+      const rootBody = (source, re) => { const m = source.match(re); return m ? m[1] : null; };
+      let dark = rootBody(css, /:root\s*\{([\s\S]*?)\}/);
+      let light = rootBody(css, /:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+
+      // A deck that links tokens.css rather than carrying the design-tokens fence inline (the
+      // whole-file shape — see tokenVersion's own fenceless branch in verify/design.mjs) has
+      // no :root pair in its own <style> for the two lines above to find: the pair moved into
+      // that linked file. The palette's location moves; what this check exists to catch does
+      // not — a `.lcd` rule the deck adds in its own CSS is invisible to design:check either
+      // way — so `css`, read from the page's own <style> above, stays exactly what
+      // lcdVarReferences scans below regardless of where the palette came from. Same shape as
+      // tokenVersion's fallback: find the linked file, resolve it against the page's own URL,
+      // read the pair out of its bytes instead.
+      if (!dark || !light) {
+        const link = html.match(/<link[^>]+href="([^"]*\btokens\.css)"/);
+        if (link) {
+          const cssUrl = new URL(link[1], spec.absolute).href;
+          const tokensCss = await (await fetch(cssUrl)).text();
+          dark = dark ?? rootBody(tokensCss, /:root\s*\{([\s\S]*?)\}/);
+          light = light ?? rootBody(tokensCss, /:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+        }
+      }
+
       if (!dark || !light)
-        return 'no :root / :root[data-theme="light"] pair found in the page\'s own <style>';
+        return 'no :root / :root[data-theme="light"] pair found in the page\'s own <style> or its linked tokens.css';
 
       const tokenMap = (body) => Object.fromEntries(
         [...body.matchAll(/--([a-zA-Z0-9-]+)\s*:\s*([^;]+)/g)].map((m) => [m[1], m[2].trim()]));
