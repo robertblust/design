@@ -23,16 +23,22 @@
      `file://` too, because it waits for the failure instead of predicting it.
 
      This block has a contract with the page around it that `design:check` cannot see,
-     because the check only compares bytes between the markers. The page must declare,
-     above this fence:
+     because the check only compares bytes between the markers. A fenced copy sees a `TALK`
+     the page declared above it:
 
        var TALK = { de:{ title:'…', desc:'…' }, en:{ title:'…', desc:'…' } };
 
-     Rename `TALK` or drop that declaration and the fence still matches byte for byte,
-     but the page throws a `ReferenceError` at load — caught by `opensFromFile`, armed on
-     all four decks, which fails on the page's own `pageerror`. The identical sentence in
-     `blocks/lang.js` describes a genuinely silent failure there — a click-time throw on a
-     prose page nothing watches — but a deck is not a prose page, and this is not silent.
+     A copy loaded as `deck.js` sees no such page scope, so it reads `window.rbDeck.talk`
+     first and falls back to a `TALK` already in scope, with `typeof TALK !== "undefined"`
+     rather than a bare `TALK` so the fallback check itself throws nothing. `UI`, the
+     transport's own strings built from `TALK` below, is read the same way from
+     `window.rbDeck.ui` first, and only then built as it always was; no page supplies one
+     today, so the fallback is what runs. Neither guard changes what happens when a page
+     supplies neither: `TALK` ends up `undefined`, and the first read of `TALK.de` throws a
+     `TypeError` at load — caught by `opensFromFile`, armed on all four decks, which fails on
+     the page's own `pageerror`. The identical sentence in `blocks/lang.js` describes a
+     genuinely silent failure there — a click-time throw on a prose page nothing watches —
+     but a deck is not a prose page, and this is not silent.
 
      `TALK` is not the whole of this block's contract, only the part a missing declaration
      makes loud. The block also depends on roughly twenty DOM ids and several data
@@ -58,12 +64,14 @@
      from @robertblust/design — editing it here does nothing, because the next
      `npm run design` overwrites it. Change it in the package.
 
-     This block has a contract with the page around it that `design:check` cannot see, because
-     the check only compares bytes between the markers. The page must declare a `lang` variable
-     in scope before this fence, and must call `langStored()` and `langRemember(v)` from
-     wherever it reads and writes the visitor's saved choice. Rename `lang` or drop those calls
-     and the fence still matches byte for byte — every check stays green — while a click throws
-     ReferenceError and the language silently stops crossing domains.
+     A fenced copy sits inside the page's own script and sees whatever the page declared above
+     it; a copy loaded as `page.js` or `deck.js` is its own file and sees nothing of the page
+     at all. So this block takes `lang` from `window.rbPage.lang` when a page declares one,
+     falls back to a `lang` already in scope when a fenced page still declares its own, and
+     defaults to `"en"` when neither exists — read with `typeof lang !== "undefined"`, never a
+     bare `lang`, so the absence of either throws nothing. Once decided, it calls
+     `window.rbPage.applyLang(lang)` when the page declared one, the same way guarded: a page
+     with no `data-de` needs no `applyLang` and gets none called.
 
      The key is `lang`, the family's: one name on three origins, the same word the address
      carries. A storage key is a promise to every visitor, and this one is made once, for the
@@ -72,6 +80,9 @@
   var LANG_KEY = "lang";
   function langStored(){ try { return localStorage.getItem(LANG_KEY); } catch (e) { return null; } }
   function langRemember(v){ try { localStorage.setItem(LANG_KEY, v); } catch (e) {} }
+  var lang = (window.rbPage && typeof window.rbPage.lang !== "undefined") ? window.rbPage.lang
+    : (typeof lang !== "undefined" ? lang : "en");
+  if (window.rbPage && typeof window.rbPage.applyLang === "function") window.rbPage.applyLang(lang);
 
   /* One language across three domains. Each origin keeps its own localStorage, so a
      visitor reading German here and following a link to a sibling site would arrive in
@@ -148,7 +159,9 @@
   var i18n = Array.prototype.slice.call(document.querySelectorAll('[data-de]'));
   i18n.forEach(function(el){ el.setAttribute('data-en', el.innerHTML); });
 
-  var UI = {
+  var TALK = (window.rbDeck && typeof window.rbDeck.talk !== "undefined") ? window.rbDeck.talk
+    : (typeof TALK !== "undefined" ? TALK : undefined);
+  var UI = (window.rbDeck && typeof window.rbDeck.ui !== "undefined") ? window.rbDeck.ui : {
     de:{ label:'Sprecher-Notiz', close:'Notizen schliessen',
          title:TALK.de.title, desc:TALK.de.desc,
          play:'Vortrag abspielen', pause:'Vortrag pausieren', first:'Zurück zum Anfang',

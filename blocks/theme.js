@@ -2,17 +2,21 @@
      One theme across three domains, and where it is remembered. Generated from
      @robertblust/design — editing it here does nothing.
 
-     This block has a contract with the page that `design:check` cannot see, because the check
-     only compares bytes between the markers. The page must declare a `theme` variable in scope
-     before this fence, and must carry two controls, `#thLight` and `#thDark`. Rename either and
-     the fence still matches byte for byte — every check stays green — while the control stops
-     working. `mobileNav`'s presence assertion is what actually holds this contract, gated on
-     the page's own `noFlash` flag: a page that declares it and is missing either control fails
-     there.
+     A fenced copy sees a `theme` variable the page declared above it; a copy loaded as
+     `page.js` or `deck.js` sees no such page scope, so this block falls back instead to what
+     `document.documentElement`'s own `data-theme` attribute already says — the same attribute
+     `theme boot` set before this script ever runs — read with `typeof theme !== "undefined"`,
+     never a bare `theme`, so a page declaring neither throws nothing. The page must still
+     carry two controls, `#thLight` and `#thDark`. Rename either and the fence still matches
+     byte for byte — every check stays green — while the control stops working. `mobileNav`'s
+     presence assertion is what actually holds this contract, gated on the page's own `noFlash`
+     flag: a page that declares it and is missing either control fails there.
   */
   var THEME_KEY = "theme";
   function themeStored(){ try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; } }
   function themeRemember(v){ try { localStorage.setItem(THEME_KEY, v); } catch (e) {} }
+  var theme = (typeof theme !== "undefined") ? theme
+    : (document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
 
   /* Each origin keeps its own localStorage, so a visitor reading in light who followed a link
      to a sibling site would arrive in dark — three copies of one preference, none of which can
