@@ -97,6 +97,18 @@ The `files` group carries these five names and is written through `assemble()` r
 
 Two checks in `verify/` read whichever shape a page carries. `noFlash` fails a page whose theme-boot fence sits after a `<link rel="stylesheet">` or a `<script src>` as readily as after a `<style>` block, because `page.css` and `page.js` are exactly that once a page links them. `fontsAvailable` reads a linked stylesheet's font-family uses from its own served bytes rather than through its CSSOM, which a linked file refuses to hand back once it is opened over `file://` — the `document.fonts` registry a browser builds from `@font-face` is unaffected either way, so a name self-hosted in `tokens.css` is exempted the same way whether the page still carries the fence or links the file.
 
+## What a page does with the files
+
+A prose page adds three lines after its `theme boot` fence: a `<link>` to `tokens.css`, a `<link>` to `page.css`, and a `<script src="page.js" defer>`. A deck adds three of its own, in the same place: `tokens.css`, `deck.css` and `deck.js`. `theme boot` stays a fence — the one exception "Fences" names above — because it has to run before the first paint; everything that can block a page or repaint it once painted comes after it, in that order, so a page never shows the wrong theme for a frame and never shows unstyled content while `page.css` is still on the wire.
+
+A page still declares the hook the files read, because a file has no way to see the page's own scope. Before its `<script src="page.js">`, a prose page's own inline script sets `window.rbPage = { lang, applyLang }` inside the closure where those two names actually live — the page's own `lang` variable and its own function for switching it, the same two names it declared when the block was fenced. A deck does the same with `window.rbDeck = { talk, ui }` before `deck.js`. What moves is where the value is read, not what the page has to compute.
+
+A page taking the files drops its own trailing call to apply the language on load. `page.js` makes that call itself, on the language it decides from the hook, the same way the fenced block always did; a page that also calls it decides the language twice.
+
+`page.css` reaches further than any one fence did: the principles, team and surfaces rules it carries now sit on every prose page, not only the page that used to fence each of them. A page's own CSS can use a class name `page.css` also uses for something else — `.legend`, `.card`, `.row` and `.board` are common enough to collide — and a rule it never met before can now apply to it. A site moving to the files should compare computed styles on its own pages against what they were before the move, element by element, rather than look at the rendered page and trust that nothing changed; a rule that only nudges a margin does not show on a glance.
+
+The shape creates one rule with no exception: a page and the files it links are never the same release, the file first. A file can drop a rule or rename a selector, but only across two releases — the file ships the new shape while every page still links the old one, and only once every page has taken that release does the next one remove what nothing links any more.
+
 ## The model pages
 
 Principles, Team and Surfaces are pages generated from an instance's model rather than written by hand, wherever a site carries them. The exports below do the writing and the fences below carry the result into the page; a page opts into any of them the same way it opts into any fence, by carrying its markers, and a page carrying none of them is untouched.
