@@ -192,7 +192,7 @@ if (check) {
   process.exit(1);
 }
 
-const written = applySync(siteRoot, entries);
+const written = applySync(siteRoot, entries, config);
 applyFences(siteRoot, fenceEntries);
 if (!written.length && !staleFences.length) {
   console.log(

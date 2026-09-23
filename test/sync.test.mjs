@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { readConfig, planSync, applySync } from "../lib/sync.mjs";
 import { GROUPS } from "../lib/groups.mjs";
+import { assemble } from "../lib/assemble.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -118,4 +119,56 @@ test("planSync sorts by destination, so output order is stable", () => {
   const root = site({}, { groups: ["fonts", "stage"] });
   const dests = planSync(root, { groups: ["fonts", "stage"] }).map((e) => e.to);
   assert.deepEqual(dests, [...dests].sort());
+});
+
+// The "files" group is written through lib/assemble.mjs, exactly as every group above is
+// written from bytes on disk under PKG — chat.css is the model this follows. `readConfig`
+// carries "footer" and "lockup" through for exactly this: assemble() is what actually
+// requires them, and its own error already names the file and the key.
+test("readConfig carries footer and lockup through, for the files group to read", () => {
+  const root = site({}, { groups: ["files"], footer: "plain", lockup: "one" });
+  assert.deepEqual(readConfig(root), { groups: ["files"], footer: "plain", lockup: "one" });
+});
+
+test("a site with nothing yet reports every file in the files group missing", () => {
+  const config = { groups: ["files"], footer: "plain", lockup: "one" };
+  const root = site({}, config);
+  const entries = planSync(root, config);
+  assert.equal(entries.length, GROUPS.files.length);
+  assert.ok(entries.every((e) => e.state === "missing" && e.kind === "assemble"), JSON.stringify(entries));
+});
+
+test("planSync compares the files group against what assemble() would write", () => {
+  const config = { groups: ["files"], footer: "credit", lockup: "two" };
+  const root = site({ "tokens.css": assemble("tokens.css", config) }, config);
+  const entries = planSync(root, config);
+  assert.equal(entries.find((e) => e.to === "tokens.css").state, "same");
+  assert.equal(entries.find((e) => e.to === "page.css").state, "missing");
+});
+
+test("applySync writes assemble()'s own bytes for the files group", () => {
+  const config = { groups: ["files"], footer: "plain", lockup: "one" };
+  const root = site({}, config);
+  const written = applySync(root, planSync(root, config), config);
+  assert.equal(written.length, GROUPS.files.length);
+  for (const name of GROUPS.files)
+    assert.equal(read(root, name).toString("utf8"), assemble(name, config), `${name} does not match assemble()`);
+});
+
+test("a second files-group run writes nothing and reports every file same", () => {
+  const config = { groups: ["files"], footer: "credit", lockup: "one" };
+  const root = site({}, config);
+  applySync(root, planSync(root, config), config);
+  const second = planSync(root, config);
+  assert.ok(second.every((e) => e.state === "same"), JSON.stringify(second));
+  assert.deepEqual(applySync(root, second, config), []);
+});
+
+test("the files group's variant choice moves the bytes it writes", () => {
+  const oneConfig = { groups: ["files"], footer: "plain", lockup: "one" };
+  const twoConfig = { groups: ["files"], footer: "plain", lockup: "two" };
+  const root = site({}, oneConfig);
+  applySync(root, planSync(root, oneConfig), oneConfig);
+  const entry = planSync(root, twoConfig).find((e) => e.to === "deck.css");
+  assert.equal(entry.state, "differs", "deck.css did not change when lockup changed");
 });

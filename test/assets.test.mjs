@@ -71,7 +71,10 @@ test("the drawing runs outside the fetch's promise chain, so its own throws stay
 });
 
 test("every asset is non-empty", () => {
-  for (const name of GROUP_NAMES)
+  // "files" carries no asset on disk to check the size of — its entries are names
+  // lib/assemble.mjs turns into bytes, not [from, to] pairs pointing at one. That the
+  // assembled bytes are non-empty is asserted where they are produced, in assemble.test.mjs.
+  for (const name of GROUP_NAMES.filter((n) => n !== "files"))
     for (const [from] of GROUPS[name]) {
       const size = fs.statSync(path.join(PKG, from)).size;
       assert.ok(size > 0, `${from} is empty`);
