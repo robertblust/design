@@ -470,13 +470,19 @@ export const DESIGN_CHECKS = {
     return problems.length ? problems.join("; ") : null;
   },
 
-  // The one guarantee a served page cannot test. A deck must present with no server: opened
-  // from the filesystem, with the repository intact, it renders its first slide, loads its
-  // faces from the root `fonts/` by relative path, and its runtime runs — checked by asking
-  // the canvas to have actually been scaled, since `fit()` running and doing nothing is
-  // exactly the failure a served page would never surface (see CLAUDE.md, "Slides are a
-  // canvas, not a page"). Relative paths upward are allowed and already used; what is
-  // forbidden is needing a server.
+  // A courtesy this check still happens to prove, not a guarantee any more. The owner dropped
+  // the requirement that a deck open from `file://` on 2026-09-23 (see the shared-css-as-files
+  // spec) — a deck is presented from the site or handed on as a PDF, never a folder someone
+  // opens by hand — so nothing promises this works, for any deck, on any release after this
+  // one. What retired is the promise, not the behavior: opened from the filesystem, with the
+  // repository intact, a deck still renders its first slide, loads its faces from the root
+  // `fonts/` by relative path, and runs its runtime today — checked by asking the canvas to
+  // have actually been scaled, since `fit()` running and doing nothing is exactly the failure
+  // a served page would never surface (see CLAUDE.md, "Slides are a canvas, not a page").
+  // Relative paths upward are allowed and already used; what this check still looks for is
+  // needing a server. A site may keep it armed as a courtesy for as long as it happens to
+  // pass, or drop it without a second thought the day it does not — either is fine, because
+  // nothing here is a promise to a visitor any more.
   //
   // Armed on decks only. `spec.opensFromFile` names nothing — the page's own path is enough,
   // because the check re-opens the same file the rest of the suite reached over http.
