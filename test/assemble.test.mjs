@@ -64,6 +64,31 @@ test("an unknown or missing lockup names the file and the key", () => {
   assert.throws(() => assemble("deck.css", {}), (e) => /deck\.css/.test(e.message) && /lockup/.test(e.message));
 });
 
+// Pinned to a real deck's own order, not a preference invented here: robertblust.github.io's
+// talks/mental-model/index.html (commit 88e3391) carries the `deck lockup` fence at line 441
+// and `deck transport` at line 490 — the page puts the lockup first. Both fences carry a
+// `.name` rule at equal specificity, and a media query adds none, so whichever one this file
+// emits second wins the cascade at a narrow viewport — design.mjs's own `lockupCollapses`
+// comment tells the story of a release that shipped the lockup visible on mobile because two
+// sites emitted the two fences in opposite order. Anchored on `.name{grid-column:1` (the
+// lockup part's own opening selector, present only in blocks/deck-lockup-one.css and
+// blocks/deck-lockup-two.css) rather than on `.name{` alone, because `deck transport` also
+// carries a `.name{display:none}` rule of its own inside a mobile breakpoint, and a plain
+// `.name{` search would find that one first regardless of which block actually came first.
+test("deck.css carries the lockup's own rules before the transport's, the page's own order", () => {
+  const css = assemble("deck.css", { lockup: "one" });
+  const lockupAt = css.indexOf(".name{grid-column:1");
+  const transportAt = css.indexOf(".transport{");
+  assert.ok(lockupAt !== -1, "expected the lockup's own .name{grid-column:1 rule in deck.css");
+  assert.ok(transportAt !== -1, "expected the transport's own .transport{ rule in deck.css");
+  assert.ok(lockupAt < transportAt,
+    `the lockup's first selector is at ${lockupAt}, the transport's at ${transportAt} — a real ` +
+    "deck (talks/mental-model/index.html, commit 88e3391) carries the lockup fence before the " +
+    "transport fence, and reversing that order lets the transport's mobile `.name{display:none}` " +
+    "lose to the lockup's `.name{...display:flex...}` at equal specificity, breaking the " +
+    "lockup's narrow-viewport collapse");
+});
+
 test("tokens.css closes its own :root rule", () => {
   const css = assemble("tokens.css", {});
   const lines = css.split("\n").filter((l) => l.length > 0);

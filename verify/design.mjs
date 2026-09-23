@@ -20,8 +20,10 @@
 //   header          the lockup, the nav and the header's own metrics, measured
 //   monoScope       mono means data, and nothing else
 //   contrast        the text colors clear their ratios on --ground
-//   tokenVersion    the page's `design tokens · vN` marker matches this suite
-//   fences          presence of every fence a page declares, version-blind
+//   tokenVersion    a fenced page's `design tokens · vN` marker matches this suite; a
+//                   fenceless one's linked tokens.css names the release actually installed
+//   fences          presence of every fence a page declares, version-blind; a page declaring
+//                   none passes, since a fenceless page's linked files are checked elsewhere
 //   fenceOrder      the fences a page declares appear in the order it says they must
 //   lockupCollapses at a narrow viewport, `.name` renders display:none — a cascade outcome,
 //                   asserted by rendering, not by reading which fence comes first
@@ -46,7 +48,9 @@
 import { FENCES } from "../lib/fences.mjs";
 export const TOKEN_VERSION = FENCES["design tokens"].version;
 
+import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 // Not derived from this module's own location. This file is consumed from
 // <site>/node_modules/@robertblust/design/verify/design.mjs — two `dirname`s up from there is
 // the package directory, not the site, so `fileURLToPath(import.meta.url)` silently pointed
@@ -58,6 +62,20 @@ import path from "node:path";
 // node_modules this file happens to live. Resist "fixing" this back to import.meta.url: that
 // is what silently broke it the first time.
 const SITE_ROOT = process.cwd();
+
+// The release a page with no fences is checked against instead of a fence's own version: such
+// a page links tokens.css rather than carrying the `design tokens` fence, and that file's own
+// opening comment names the package's release — see cssHeader() in lib/assemble.mjs, which
+// writes exactly this string. Read from package.json the same way assemble.mjs reads its own,
+// and unlike SITE_ROOT above, `import.meta.url` is the right root here: assemble.mjs ships at
+// the same depth (<package>/lib/assemble.mjs, this file at <package>/verify/design.mjs, both two
+// dirnames above package.json), and once installed that depth resolves inside the site's own
+// node_modules to the *package's* root, which is what a release number has to be read from —
+// the site's own root, that SITE_ROOT derivation is guarding against here, is the wrong place
+// to look for it.
+const PKG_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+export const PACKAGE_VERSION =
+  JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")).version;
 
 export const TOKENS = {
   "--ground": "#0C0E13", "--raise": "#171A21", "--rule": "#232833",
@@ -363,6 +381,13 @@ export const DESIGN_CHECKS = {
   //
   // Fetched raw rather than read from the DOM: a fence is a CSS comment, and comments do not
   // survive into the rendered stylesheet.
+  //
+  // A page that has moved to the whole-file shape declares `fences: []` — the same empty-array
+  // signal tokenVersion above reads — and needs no change here to pass: filtering nothing found
+  // missing over an empty list already returns no problems. What such a page's linked files
+  // actually carry the right bytes is `design:check`'s own byte comparison and, for the release
+  // number specifically, tokenVersion's fenceless branch above; this check's job stays exactly
+  // "every fence a page still declares is present", which an empty declaration already satisfies.
   async fences(page, spec) {
     const res = await fetch(spec.absolute);
     const html = await res.text();
@@ -502,10 +527,33 @@ export const DESIGN_CHECKS = {
     return bad.length ? bad.join("; ") : null;
   },
 
-  // the version marker that makes a cross-repo drift visible to a human
+  // The version marker that makes a cross-repo drift visible to a human. A page that carries
+  // the `design tokens` fence is asserted against the fence's own version, as it always has
+  // been; a page with no fences at all — the shape README's "Whole files, assembled from a
+  // block" describes — links tokens.css instead, and never carries that marker to find. It
+  // has its own version, in the opening comment cssHeader() (lib/assemble.mjs) writes, and
+  // that is what a fenceless page is checked against, against the package release actually
+  // installed here rather than a fence's version, which such a page no longer carries at all.
+  //
+  // `spec.fences: []` is the same signal suite.mjs's own opt-in guard already reads to tell "no
+  // fences" from "forgot to declare" (an empty array passes the guard; `undefined` does not),
+  // so this reads it too rather than asking a page to say the same thing twice. Before this,
+  // the only way a fenceless page could pass here at all was a hand-written HTML comment
+  // quoting the fence marker text — a fact invented purely to satisfy a check, which the
+  // linked file's own real comment now makes unnecessary.
   async tokenVersion(page, spec) {
     const res = await fetch(spec.absolute);
     const html = await res.text();
+    if (spec.fences && spec.fences.length === 0) {
+      const link = html.match(/<link[^>]+href="([^"]*\btokens\.css)"/);
+      if (!link) return "the page carries no fence and no linked tokens.css to read a version from";
+      const cssUrl = new URL(link[1], spec.absolute).href;
+      const css = await (await fetch(cssUrl)).text();
+      const m = css.match(/@robertblust\/design v(\d+\.\d+\.\d+)/);
+      if (!m) return `${link[1]} carries no "@robertblust/design vX.Y.Z" opening comment`;
+      return m[1] === PACKAGE_VERSION ? null
+        : `${link[1]} says v${m[1]}, this site's installed package is v${PACKAGE_VERSION}`;
+    }
     const m = html.match(/design tokens · (v\d+)/);
     if (!m) return "the page carries no `design tokens · vN` marker";
     return m[1] === TOKEN_VERSION ? null
