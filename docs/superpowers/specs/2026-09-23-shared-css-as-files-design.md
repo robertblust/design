@@ -1,6 +1,6 @@
 # What is shared is a file, not a fence
 
-Status: proposed. Decided on 2026-09-23 against `robertblust/design` at v0.79.0, `robertblust/robertblust.github.io` at 88e3391, `companygraph/companygraph.github.io` at 5cafa82 and `guestgraph/guestgraph.github.io`, whose files were read that day and are the source of every fact below about what exists.
+Status: approved by the owner on 2026-09-23, both decisions below taken. Decided on 2026-09-23 against `robertblust/design` at v0.79.0, `robertblust/robertblust.github.io` at 88e3391, `companygraph/companygraph.github.io` at 5cafa82 and `guestgraph/guestgraph.github.io`, whose files were read that day and are the source of every fact below about what exists.
 
 ## Why now
 
@@ -48,7 +48,8 @@ It is not a change to what the pages look like. The bytes that render are the sa
 
 One release, taken by one site at a time, in the family's re-sync order: design, then blust.ch, then companygraph.io, then guestgraph.io. The package keeps writing the fences until the last site has moved, so a site that has not taken the release yet stays green; the fences are dropped from the package in the release after that, when nothing names them.
 
-## Open questions for the owner
+## Two decisions
 
-1. **Caching.** GitHub Pages serves with a short cache, so for a few minutes after a deploy an old stylesheet can meet new markup. Today that cannot happen. A version in the file name would end it and would also put a line in every page on every release, which is the thing this change is removing. The proposal is to accept the window and never make a release that needs both halves at once.
-2. **`page.js`.** The three controls are small and the pages already carry them inline; moving them is the same argument as the CSS, but it is the half that can break a page while the CSS can only make it ugly. It can stay fenced in this release and move in the next.
+**The caching window is accepted.** GitHub Pages serves with a short cache, so for a few minutes after a deploy an old stylesheet can meet new markup, which today cannot happen. A version in the file name would end it and would write a line into every page on every release, which is the thing this change removes. So the window stands, and the rule that follows from it is the one that matters: no release may need both halves at once. A rule renamed, a class dropped, a selector a page starts using — each of those is two releases, the file first and the page after, and never one.
+
+**`page.js` moves with the CSS.** It is the half that can break a page rather than only make it ugly, so it is the half the suite has to catch: every page of every site declares the checks that press the language control, the theme control and the nav, and those run before a site's pull request is merged, which is the same gate the fenced copies pass today.
