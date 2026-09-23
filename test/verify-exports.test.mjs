@@ -292,6 +292,34 @@ test("tokenVersion still reads a fenced page's `design tokens · vN` marker unch
   assert.match(bad, /v1/);
 });
 
+test("tokenVersion reads a linked tokens.css on a page that keeps one fence of its own, not just a page declaring none", async () => {
+  // The bug: the old condition was `spec.fences.length === 0`, so blust.ch's four stage pages
+  // — which keep the `stage contract` fence inline while moving tokens.css to the linked-file
+  // shape — fell into the marker branch instead, which found no `design tokens · vN` comment
+  // to read and failed. The right condition is "no `design tokens` fence declared", which a
+  // page keeping any other fence still satisfies.
+  const spec = { absolute: "http://x.test/", fences: ["stage contract"] };
+  const html = '<link rel="stylesheet" href="tokens.css">';
+  const matching = `/* @robertblust/design v${PKG_VERSION} — tokens.css, assembled from the shared blocks\n   and copied into this site by \`npm run design\`. */\n\n:root{}\n`;
+  const ok = await runFetchingCheck("tokenVersion", spec, {
+    "http://x.test/": html,
+    "http://x.test/tokens.css": matching,
+  });
+  assert.equal(ok, null, `expected a page keeping one other fence to read the linked file, got ${JSON.stringify(ok)}`);
+});
+
+test("tokenVersion still fails a mismatched linked tokens.css on a page that keeps one fence of its own", async () => {
+  const spec = { absolute: "http://x.test/", fences: ["stage contract"] };
+  const html = '<link rel="stylesheet" href="tokens.css">';
+  const stale = "/* @robertblust/design v0.1.0 — tokens.css, assembled from the shared blocks */\n\n:root{}\n";
+  const bad = await runFetchingCheck("tokenVersion", spec, {
+    "http://x.test/": html,
+    "http://x.test/tokens.css": stale,
+  });
+  assert.equal(typeof bad, "string", `expected a failure naming the mismatch, got ${JSON.stringify(bad)}`);
+  assert.match(bad, /0\.1\.0/);
+});
+
 test("fences passes a page that declares none, the shape a page linking the whole files takes", async () => {
   // `fences` re-reads markers from a page's own served HTML (same reason as tokenVersion:
   // comments do not survive into the rendered stylesheet). A page that links tokens.css,

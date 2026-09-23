@@ -535,16 +535,19 @@ export const DESIGN_CHECKS = {
   // that is what a fenceless page is checked against, against the package release actually
   // installed here rather than a fence's version, which such a page no longer carries at all.
   //
-  // `spec.fences: []` is the same signal suite.mjs's own opt-in guard already reads to tell "no
-  // fences" from "forgot to declare" (an empty array passes the guard; `undefined` does not),
-  // so this reads it too rather than asking a page to say the same thing twice. Before this,
-  // the only way a fenceless page could pass here at all was a hand-written HTML comment
-  // quoting the fence marker text — a fact invented purely to satisfy a check, which the
-  // linked file's own real comment now makes unnecessary.
+  // The condition used to be `spec.fences.length === 0` — "no fences at all" — which is too
+  // narrow: a page can keep one fence of its own, blust.ch's four stage pages keep `stage
+  // contract`, while still moving tokens.css to the linked-file shape, and that page's
+  // `spec.fences` is `["stage contract"]`, not `[]`. Such a page fell into the marker branch
+  // below, found no `design tokens · vN` comment to read (it links the file instead), and
+  // failed — the exact gap that made a hand-written marker comment necessary purely to keep
+  // this check quiet, precisely the fake fact `assemble()`'s shape exists to end. The real
+  // question is never "does this page declare fences at all" but "does it still declare the
+  // `design tokens` fence specifically" — so that is what this reads instead.
   async tokenVersion(page, spec) {
     const res = await fetch(spec.absolute);
     const html = await res.text();
-    if (spec.fences && spec.fences.length === 0) {
+    if (!spec.fences || !spec.fences.includes("design tokens")) {
       const link = html.match(/<link[^>]+href="([^"]*\btokens\.css)"/);
       if (!link) return "the page carries no fence and no linked tokens.css to read a version from";
       const cssUrl = new URL(link[1], spec.absolute).href;

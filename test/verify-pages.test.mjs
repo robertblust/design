@@ -1,10 +1,14 @@
 import fs from "node:fs";
+import os from "node:os";
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { chromium } from "playwright";
 import { pageChecks } from "../verify/pages.mjs";
+import { assemble } from "../lib/assemble.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
@@ -130,6 +134,174 @@ test("carriesLang decorates on mousedown, not click", () => {
   // without the page already having left. click fires too late to matter here.
   const src = pageChecks(OPTS).carriesLang.toString().replace(/\/\/.*$/gm, "");
   assert.match(src, /"mousedown"/);
+});
+
+// carriesLang against a real, served page carrying the real assembled page.js — the only way
+// to reach the bug task one found: a visitor arrives, switches language, and only then follows
+// a family link. Every other test of this check here works from its source text, because the
+// check itself is a Playwright script; this one actually drives it, the way a site's own CI
+// does, against a minimal fixture rebuilt fresh from lib/assemble.mjs and blocks/lang.js on
+// every run — so it is red while the file form still carries the stale-copy bug and green once
+// it is fixed, never a frozen snapshot that could quietly stop testing the thing it names.
+//
+// The fixture stands in for a real page's own hand-written half of the hook contract: it reads
+// ?lang= and localStorage itself (page.js's own `language` part no longer does this for a
+// fenced page's script to share — see hooks.test.mjs), exposes `window.rbPage`, and wires
+// #lde/#len exactly as a real page must. `.bar` is there because `nav fit`, also part of
+// page.js, throws without one.
+function carriesLangFixtureHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body>
+<div class="bar"></div>
+<button id="lde">DE</button>
+<button id="len">EN</button>
+<a href="https://companygraph.io/">sibling</a>
+<script>
+(function () {
+  var m = /[?&]lang=(de|en)(&|$)/.exec(location.search);
+  var fromUrl = null;
+  if (m) {
+    fromUrl = m[1];
+    try {
+      var q = location.search.replace(/([?&])lang=(de|en)(&|$)/, "$1").replace(/[?&]$/, "");
+      history.replaceState(null, "", location.pathname + q + location.hash);
+    } catch (e) {}
+  }
+  var stored = null;
+  try { stored = localStorage.getItem("lang"); } catch (e) {}
+  var lang = fromUrl || stored || "en";
+  function applyLang(v) {
+    lang = v;
+    document.documentElement.lang = v;
+    try { localStorage.setItem("lang", v); } catch (e) {}
+  }
+  document.documentElement.lang = lang;
+  window.rbPage = { lang: lang, applyLang: applyLang };
+  document.getElementById("lde").addEventListener("click", function () { applyLang("de"); });
+  document.getElementById("len").addEventListener("click", function () { applyLang("en"); });
+})();
+</script>
+<script src="page.js"></script>
+</body>
+</html>`;
+}
+
+// A GitHub-Pages-shaped static server, the same shape test/links-site.test.mjs already serves
+// its own fixture from, kept local here rather than imported so this file's suite does not
+// depend on that one's internal helper staying exported the same way.
+function serveDir(dir) {
+  const server = http.createServer((req, res) => {
+    const p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    let file = path.join(dir, p);
+    try {
+      if (fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
+    } catch (e) { /* not a directory; read below and 404 if it is not a file either */ }
+    let body;
+    try { body = fs.readFileSync(file); } catch (e) { res.writeHead(404); res.end("not found"); return; }
+    res.writeHead(200, { "content-type": file.endsWith(".js") ? "text/javascript" : "text/html; charset=utf-8" });
+    res.end(body);
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({
+    base: `http://127.0.0.1:${server.address().port}`,
+    close: () => new Promise((r) => { server.closeAllConnections(); server.close(r); }),
+  })));
+}
+
+// A deliberate, minimal reproduction of the pre-fix shape — the closure-captured `lang` that
+// assemble()'s IIFE gave blocks/lang.js before the fix, hand-written here rather than read from
+// the package so this regression stays provable even once blocks/lang.js itself is correct and
+// there is no longer a live buggy copy to point the check at.
+function buggyCarriesLangFixtureHtml() {
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"></head>
+<body>
+<button id="lde">DE</button>
+<button id="len">EN</button>
+<a href="https://companygraph.io/">sibling</a>
+<script>
+// The page's own closure: reads ?lang=, exposes the hook, and owns the actual switching —
+// exactly the shape README's "hook object" section describes.
+(function () {
+  var m = /[?&]lang=(de|en)(&|$)/.exec(location.search);
+  var fromUrl = m ? m[1] : null;
+  if (m) {
+    try {
+      var q = location.search.replace(/([?&])lang=(de|en)(&|$)/, "$1").replace(/[?&]$/, "");
+      history.replaceState(null, "", location.pathname + q + location.hash);
+    } catch (e) {}
+  }
+  var lang = fromUrl || "en";
+  function applyLang(v) { lang = v; document.documentElement.lang = v; }
+  document.documentElement.lang = lang;
+  window.rbPage = { lang: lang, applyLang: applyLang };
+  document.getElementById("lde").addEventListener("click", function () { applyLang("de"); });
+  document.getElementById("len").addEventListener("click", function () { applyLang("en"); });
+})();
+</script>
+<script>
+// "The file": a separate closure — the pre-fix shape of blocks/lang.js, reproduced directly
+// rather than read from the package, so this regression stays provable once blocks/lang.js
+// itself is correct and there is no longer a live buggy copy to point the check at. It reads
+// window.rbPage.lang once, into its own private var, and never again — the bug.
+(function () {
+  var lang = (window.rbPage && typeof window.rbPage.lang !== "undefined") ? window.rbPage.lang : "en";
+  function carryLang(e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    var u; try { u = new URL(a.href, location.href); } catch (err) { return; }
+    if (u.origin === location.origin) return;
+    u.searchParams.set("lang", lang);
+    a.href = u.toString();
+  }
+  document.addEventListener("mousedown", carryLang, true);
+  document.addEventListener("click", carryLang, true);
+})();
+</script>
+</body>
+</html>`;
+}
+
+test("carriesLang fails a page whose language carry still reads the copy it captured at load, after a visitor's own toggle", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "carries-lang-buggy-"));
+  let served, browser;
+  try {
+    fs.writeFileSync(path.join(dir, "index.html"), buggyCarriesLangFixtureHtml());
+    served = await serveDir(dir);
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .carriesLang(page, { absolute: served.base + "/" });
+    assert.equal(typeof result, "string",
+      `expected the check to catch a link still carrying the language captured at load after a toggle, got ${JSON.stringify(result)}`);
+    assert.match(result, /English/);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("carriesLang follows a visitor's own toggle before pressing a family link, not only the language the page arrived with", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "carries-lang-"));
+  let served, browser;
+  try {
+    fs.writeFileSync(path.join(dir, "index.html"), carriesLangFixtureHtml());
+    fs.writeFileSync(path.join(dir, "page.js"), assemble("page.js", {}));
+    served = await serveDir(dir);
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .carriesLang(page, { absolute: served.base + "/" });
+    assert.equal(result, null,
+      `expected the fixed block to pass once the check also follows a visitor's own toggle, got ${JSON.stringify(result)}`);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("mobileNav is measured at the 360px breakpoint", () => {
@@ -491,6 +663,27 @@ test("readoutInvariant still fails a page that links tokens.css but adds its own
   });
   assert.match(result, /--c-mid/);
   assert.match(result, /\.lcd/);
+});
+
+test("readoutInvariant reads a linked tokens.css on a page that keeps one fence of its own, not just a page declaring none", async () => {
+  // tokenVersion's own fenceless branch (verify/design.mjs) used to gate on `spec.fences.length
+  // === 0`, which is too narrow for a page like blust.ch's four stage pages: they keep `stage
+  // contract` inline while moving tokens.css to the linked-file shape, so `spec.fences` there
+  // is `["stage contract"]`, never `[]`. readoutInvariant never had that gate to begin with —
+  // it derives the fenceless case structurally, from whether a bare `:root{}` is actually found
+  // in the page's own <style> content, not from what `spec.fences` declares — so a page keeping
+  // `stage contract` (whose own CSS carries no `:root{}`, only `.stage` rules) already falls
+  // through to the linked file correctly. This pins that down as a contract rather than an
+  // accident of the current regex, and answers the question the parallel fix to tokenVersion
+  // raises: whether this check has the same fault. It does not.
+  const html = '<!doctype html><html><head><link rel="stylesheet" href="tokens.css">' +
+    '<style>.stage{position:relative} .lcd{background:var(--lcd)}</style>' +
+    "</head><body></body></html>";
+  const result = await runFetchingReadoutInvariant({
+    "https://example.test/talks/x/": html,
+    "https://example.test/talks/x/tokens.css": TOKENS_CSS,
+  }, { absolute: "https://example.test/talks/x/", fences: ["stage contract"] });
+  assert.equal(result, null, `expected a page keeping one other fence to read the linked file, got ${JSON.stringify(result)}`);
 });
 
 test("readoutInvariant is fetched cold, like noFlash and sourceLang, not through page.evaluate", () => {
