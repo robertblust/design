@@ -20,8 +20,10 @@
 //   header          the lockup, the nav and the header's own metrics, measured
 //   monoScope       mono means data, and nothing else
 //   contrast        the text colors clear their ratios on --ground
-//   tokenVersion    the page's `design tokens · vN` marker matches this suite
-//   fences          presence of every fence a page declares, version-blind
+//   tokenVersion    a fenced page's `design tokens · vN` marker matches this suite; a
+//                   fenceless one's linked tokens.css names the release actually installed
+//   fences          presence of every fence a page declares, version-blind; a page declaring
+//                   none passes, since a fenceless page's linked files are checked elsewhere
 //   fenceOrder      the fences a page declares appear in the order it says they must
 //   lockupCollapses at a narrow viewport, `.name` renders display:none — a cascade outcome,
 //                   asserted by rendering, not by reading which fence comes first
@@ -46,7 +48,9 @@
 import { FENCES } from "../lib/fences.mjs";
 export const TOKEN_VERSION = FENCES["design tokens"].version;
 
+import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 // Not derived from this module's own location. This file is consumed from
 // <site>/node_modules/@robertblust/design/verify/design.mjs — two `dirname`s up from there is
 // the package directory, not the site, so `fileURLToPath(import.meta.url)` silently pointed
@@ -58,6 +62,20 @@ import path from "node:path";
 // node_modules this file happens to live. Resist "fixing" this back to import.meta.url: that
 // is what silently broke it the first time.
 const SITE_ROOT = process.cwd();
+
+// The release a page with no fences is checked against instead of a fence's own version: such
+// a page links tokens.css rather than carrying the `design tokens` fence, and that file's own
+// opening comment names the package's release — see cssHeader() in lib/assemble.mjs, which
+// writes exactly this string. Read from package.json the same way assemble.mjs reads its own,
+// and unlike SITE_ROOT above, `import.meta.url` is the right root here: assemble.mjs ships at
+// the same depth (<package>/lib/assemble.mjs, this file at <package>/verify/design.mjs, both two
+// dirnames above package.json), and once installed that depth resolves inside the site's own
+// node_modules to the *package's* root, which is what a release number has to be read from —
+// the site's own root, that SITE_ROOT derivation is guarding against here, is the wrong place
+// to look for it.
+const PKG_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+export const PACKAGE_VERSION =
+  JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")).version;
 
 export const TOKENS = {
   "--ground": "#0C0E13", "--raise": "#171A21", "--rule": "#232833",
@@ -170,8 +188,22 @@ export const DESIGN_CHECKS = {
   async fontsAvailable(page) {
     const hrefs = await page.evaluate(() =>
       [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href));
-    const external = await Promise.all(
-      hrefs.map(async (href) => ({ href, css: await (await fetch(href)).text() })));
+    // Each fetch is caught on its own rather than left to reject the whole check: a linked
+    // stylesheet that is simply not there — a deleted file, a broken relative path — used to
+    // come out of this check as the bare rejection message, "fetch failed", the same wording
+    // whichever href it was and whichever page it was on. The href is what a reader needs, so a
+    // failed fetch fails the page by naming it instead of throwing past this function.
+    const results = await Promise.all(hrefs.map(async (href) => {
+      try {
+        return { href, css: await (await fetch(href)).text() };
+      } catch (e) {
+        return { href, error: e.message };
+      }
+    }));
+    const failed = results.filter((r) => r.error);
+    if (failed.length)
+      return "could not fetch: " + failed.map((r) => `${r.href} (${r.error})`).join(", ");
+    const external = results;
 
     const bad = await page.evaluate(({ system, external }) => {
       const ok = new Set(system);
@@ -363,6 +395,13 @@ export const DESIGN_CHECKS = {
   //
   // Fetched raw rather than read from the DOM: a fence is a CSS comment, and comments do not
   // survive into the rendered stylesheet.
+  //
+  // A page that has moved to the whole-file shape declares `fences: []` — the same empty-array
+  // signal tokenVersion above reads — and needs no change here to pass: filtering nothing found
+  // missing over an empty list already returns no problems. What such a page's linked files
+  // actually carry the right bytes is `design:check`'s own byte comparison and, for the release
+  // number specifically, tokenVersion's fenceless branch above; this check's job stays exactly
+  // "every fence a page still declares is present", which an empty declaration already satisfies.
   async fences(page, spec) {
     const res = await fetch(spec.absolute);
     const html = await res.text();
@@ -431,13 +470,19 @@ export const DESIGN_CHECKS = {
     return problems.length ? problems.join("; ") : null;
   },
 
-  // The one guarantee a served page cannot test. A deck must present with no server: opened
-  // from the filesystem, with the repository intact, it renders its first slide, loads its
-  // faces from the root `fonts/` by relative path, and its runtime runs — checked by asking
-  // the canvas to have actually been scaled, since `fit()` running and doing nothing is
-  // exactly the failure a served page would never surface (see CLAUDE.md, "Slides are a
-  // canvas, not a page"). Relative paths upward are allowed and already used; what is
-  // forbidden is needing a server.
+  // A courtesy this check still happens to prove, not a guarantee any more. The owner dropped
+  // the requirement that a deck open from `file://` on 2026-09-23 (see the shared-css-as-files
+  // spec) — a deck is presented from the site or handed on as a PDF, never a folder someone
+  // opens by hand — so nothing promises this works, for any deck, on any release after this
+  // one. What retired is the promise, not the behavior: opened from the filesystem, with the
+  // repository intact, a deck still renders its first slide, loads its faces from the root
+  // `fonts/` by relative path, and runs its runtime today — checked by asking the canvas to
+  // have actually been scaled, since `fit()` running and doing nothing is exactly the failure
+  // a served page would never surface (see CLAUDE.md, "Slides are a canvas, not a page").
+  // Relative paths upward are allowed and already used; what this check still looks for is
+  // needing a server. A site may keep it armed as a courtesy for as long as it happens to
+  // pass, or drop it without a second thought the day it does not — either is fine, because
+  // nothing here is a promise to a visitor any more.
   //
   // Armed on decks only. `spec.opensFromFile` names nothing — the page's own path is enough,
   // because the check re-opens the same file the rest of the suite reached over http.
@@ -502,10 +547,36 @@ export const DESIGN_CHECKS = {
     return bad.length ? bad.join("; ") : null;
   },
 
-  // the version marker that makes a cross-repo drift visible to a human
+  // The version marker that makes a cross-repo drift visible to a human. A page that carries
+  // the `design tokens` fence is asserted against the fence's own version, as it always has
+  // been; a page with no fences at all — the shape README's "Whole files, assembled from a
+  // block" describes — links tokens.css instead, and never carries that marker to find. It
+  // has its own version, in the opening comment cssHeader() (lib/assemble.mjs) writes, and
+  // that is what a fenceless page is checked against, against the package release actually
+  // installed here rather than a fence's version, which such a page no longer carries at all.
+  //
+  // The condition used to be `spec.fences.length === 0` — "no fences at all" — which is too
+  // narrow: a page can keep one fence of its own, blust.ch's four stage pages keep `stage
+  // contract`, while still moving tokens.css to the linked-file shape, and that page's
+  // `spec.fences` is `["stage contract"]`, not `[]`. Such a page fell into the marker branch
+  // below, found no `design tokens · vN` comment to read (it links the file instead), and
+  // failed — the exact gap that made a hand-written marker comment necessary purely to keep
+  // this check quiet, precisely the fake fact `assemble()`'s shape exists to end. The real
+  // question is never "does this page declare fences at all" but "does it still declare the
+  // `design tokens` fence specifically" — so that is what this reads instead.
   async tokenVersion(page, spec) {
     const res = await fetch(spec.absolute);
     const html = await res.text();
+    if (!spec.fences || !spec.fences.includes("design tokens")) {
+      const link = html.match(/<link[^>]+href="([^"]*\btokens\.css)"/);
+      if (!link) return "the page carries no fence and no linked tokens.css to read a version from";
+      const cssUrl = new URL(link[1], spec.absolute).href;
+      const css = await (await fetch(cssUrl)).text();
+      const m = css.match(/@robertblust\/design v(\d+\.\d+\.\d+)/);
+      if (!m) return `${link[1]} carries no "@robertblust/design vX.Y.Z" opening comment`;
+      return m[1] === PACKAGE_VERSION ? null
+        : `${link[1]} says v${m[1]}, this site's installed package is v${PACKAGE_VERSION}`;
+    }
     const m = html.match(/design tokens · (v\d+)/);
     if (!m) return "the page carries no `design tokens · vN` marker";
     return m[1] === TOKEN_VERSION ? null

@@ -177,7 +177,7 @@ export function pageChecks({ SITE, BASE }) {
       if (/lang=/.test(arrived.search))
         problems.push(`the param stayed in the address bar as ${JSON.stringify(arrived.search)}`);
 
-      const probe = await page.evaluate((src) => {
+      const probeFamily = () => page.evaluate((src) => {
         const pick = test => [...document.querySelectorAll("a[href]")].find(a => {
           try { return test(new URL(a.href, location.href)); } catch (e) { return false; }
         });
@@ -194,11 +194,37 @@ export function pageChecks({ SITE, BASE }) {
         if (home) out.home = press(home);
         return out;
       }, FAMILY.source);
+
+      const probe = await probeFamily();
       // A page with no link to a sibling domain simply has nothing to carry.
       if (probe.away && !/[?&]lang=de(&|$)/.test(probe.away.after))
         problems.push(`a link to ${probe.away.before} did not pick the language up: ${probe.away.after}`);
       if (probe.home && probe.home.after !== probe.home.before)
         problems.push(`a same-origin link was rewritten to ${probe.home.after}; it shares this storage already`);
+
+      // The language can change again after arrival — a visitor's own toggle, not a fresh
+      // navigation — and this is the half the arrival probe above cannot see at all: a check
+      // that only ever presses a link once, right after `page.goto`, would still pass a page
+      // whose carry reads a copy frozen at that same moment, because the two never disagree
+      // until something changes them apart. Measured on blust.ch's /ideas/: the whole-file
+      // shape gives blocks/lang.js's own `lang` a private scope nothing after load can reach,
+      // so a link decorated after a real toggle kept the language the page arrived with. Press
+      // the English control this page arrived without pressing, then press a family link again
+      // and require it to carry what the page now shows, not what it showed a moment ago.
+      const toggled = await page.evaluate(() => {
+        const en = document.querySelector("#len") || document.querySelector("#langEn");
+        if (!en) return null;
+        en.click();
+        return document.documentElement.lang;
+      });
+      if (toggled !== null) {
+        if (toggled !== "en")
+          problems.push(`pressing the English control left the page in ${toggled}`);
+        const after = await probeFamily();
+        if (after.away && !/[?&]lang=en(&|$)/.test(after.away.after))
+          problems.push(`after switching to English, a link to ${after.away.before} still carries ` +
+            `${after.away.after} — the language the page arrived with, not the one it now shows`);
+      }
 
       // Leave the page as this check found it, for whatever runs next.
       await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
@@ -401,8 +427,9 @@ export function pageChecks({ SITE, BASE }) {
     // package has no filesystem access to a site's checkout, and a site's own copy of the
     // block could in principle drift from what it is pinned to anyway. So it is derived from
     // the served page itself: every prose and deck page carries both `:root` and
-    // `:root[data-theme="light"]` inline, from the design-tokens fence, and a token whose
-    // value differs between the two is exactly the set that must never appear inside `.lcd`.
+    // `:root[data-theme="light"]` — inline, from the design-tokens fence, or in the linked
+    // tokens.css a fenceless page takes instead (see below) — and a token whose value differs
+    // between the two is exactly the set that must never appear inside `.lcd`.
     async readoutInvariant(page, spec) {
       const html = await (await fetch(spec.absolute)).text();
       const css = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)]
@@ -413,11 +440,40 @@ export function pageChecks({ SITE, BASE }) {
       // immediately after `:root`, which `\s*` (whitespace only) cannot cross into a `{`, so
       // the two selectors can never be confused for one another regardless of which one the
       // served document happens to write first.
-      const rootBody = (re) => { const m = css.match(re); return m ? m[1] : null; };
-      const dark = rootBody(/:root\s*\{([\s\S]*?)\}/);
-      const light = rootBody(/:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+      const rootBody = (source, re) => { const m = source.match(re); return m ? m[1] : null; };
+      let dark = rootBody(css, /:root\s*\{([\s\S]*?)\}/);
+      let light = rootBody(css, /:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+
+      // A deck that links tokens.css rather than carrying the design-tokens fence inline (the
+      // whole-file shape — see tokenVersion's own fenceless branch in verify/design.mjs) has
+      // no :root pair in its own <style> for the two lines above to find: the pair moved into
+      // that linked file. The palette's location moves; what this check exists to catch does
+      // not — a `.lcd` rule the deck adds in its own CSS is invisible to design:check either
+      // way — so `css`, read from the page's own <style> above, stays exactly what
+      // lcdVarReferences scans below regardless of where the palette came from. Same shape as
+      // tokenVersion's fallback: find the linked file, resolve it against the page's own URL,
+      // read the pair out of its bytes instead.
+      //
+      // Both halves have to come from the same document. A page can carry a bare :root with no
+      // :root[data-theme="light"] beside it — mid-migration, or one whose light half only ever
+      // lived in the linked file — and filling only the missing half from tokens.css, as `light
+      // = light ?? …` once did, pairs the page's own dark with the file's light: two halves
+      // nothing in a real page ever compares. That blend can make a genuinely flipping token
+      // read as invariant, if the page's stale half happens to agree with the file's half it was
+      // never paired against. So an incomplete pair from the page is discarded whole, not
+      // patched, and the linked file is read for a complete pair of its own.
+      if (!dark || !light) {
+        const link = html.match(/<link[^>]+href="([^"]*\btokens\.css)"/);
+        if (link) {
+          const cssUrl = new URL(link[1], spec.absolute).href;
+          const tokensCss = await (await fetch(cssUrl)).text();
+          dark = rootBody(tokensCss, /:root\s*\{([\s\S]*?)\}/);
+          light = rootBody(tokensCss, /:root\[data-theme="light"\]\s*\{([\s\S]*?)\}/);
+        }
+      }
+
       if (!dark || !light)
-        return 'no :root / :root[data-theme="light"] pair found in the page\'s own <style>';
+        return 'no :root / :root[data-theme="light"] pair found in the page\'s own <style> or its linked tokens.css';
 
       const tokenMap = (body) => Object.fromEntries(
         [...body.matchAll(/--([a-zA-Z0-9-]+)\s*:\s*([^;]+)/g)].map((m) => [m[1], m[2].trim()]));

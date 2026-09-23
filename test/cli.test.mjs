@@ -120,6 +120,27 @@ test("a missing config exits 2 and says which file to create", () => {
   assert.match(r.out, /design\.config\.json/);
 });
 
+// A site's config can name the "files" group without the two keys assemble() needs — a typo,
+// or a config copied before the files group existed. planSync calls assemble() eagerly, for
+// every file in the group, before the CLI has decided whether it is syncing or only checking;
+// left unguarded that throws straight out of the CLI's own entry point as a raw stack trace,
+// the first command a site ever runs against a fresh config. It must fail the same clean way
+// every other config error does instead.
+test("a files group with no footer or lockup exits 2 with a config error, not a stack trace", () => {
+  const root = site({}, { groups: ["files"] });
+  const r = run(["sync"], root);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /footer/);
+  assert.doesNotMatch(r.out, /at assemble|at planSync|node:internal/);
+});
+
+test("the same config error exits 2 under --check too", () => {
+  const root = site({}, { groups: ["files"] });
+  const r = run(["sync", "--check"], root);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /footer/);
+});
+
 test("an unknown subcommand exits 2 and shows usage", () => {
   const root = site({}, { groups: ["fonts"] });
   const r = run(["frobnicate"], root);

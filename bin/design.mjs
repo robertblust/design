@@ -116,7 +116,16 @@ try {
   fail(e.message, 2);
 }
 
-const entries = planSync(siteRoot, config);
+// planSync calls assemble() eagerly for every "files" entry, whether this run is a check or a
+// write, and assemble() throws when a site's config names "files" without the "footer" or
+// "lockup" key it needs — a raw stack trace out of the first command a site with a bad config
+// runs, rather than the same clean config error every other bad design.config.json produces.
+let entries;
+try {
+  entries = planSync(siteRoot, config);
+} catch (e) {
+  fail(e.message, 2);
+}
 const stale = entries.filter((e) => e.state !== "same");
 
 let fenceEntries;
