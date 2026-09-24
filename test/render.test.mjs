@@ -326,3 +326,10 @@ test("a writer refuses to run without the site's root", () => {
   assert.throws(() => writePrinciples(data, {}), /needs the site's root/);
   assert.throws(() => writeSurfaces(data, {}), /needs the site's root/);
 });
+
+import { NOTE_DE } from "../lib/render/note.mjs";
+
+test("the generated note says the rest of the site is bilingual, not the rest of the page", () => {
+  assert.match(NOTE_DE, /Der Rest dieser Website ist zweisprachig/);
+  assert.doesNotMatch(NOTE_DE, /Der Rest dieser Seite/);
+});

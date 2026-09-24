@@ -19,6 +19,9 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
        design sitemap [--check]
        design indexnow <base> <head> [--dry-run]
        design links [--external] [--base <url>]
+       design german extract|german <page>
+       design german apply <page> <edits.json>
+       design german stale <base> <head>
 
   sync            copy this package's files into the site
   sync --check    compare only, exit 1 if a copy has drifted (this is what CI runs)
@@ -29,7 +32,11 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
   links           resolve every link the site owns, exit 1 if one does not land
   links --external
                   check every link to another site and report it, exit 1 only if the check could not run
-  --base <url>    where the site is served (default: http://127.0.0.1:8000)`;
+  --base <url>    where the site is served (default: http://127.0.0.1:8000)
+  german extract  every German value of a page by id, with its English, as JSON
+  german german   the same without the English, for a role that must not read it
+  german apply    write {id: value} back into the page; refuses an unknown id or a broken attribute
+  german stale    fail where an English edit between two commits left its German unchanged`;
 
 function fail(message, code) {
   console.error(message);
@@ -37,6 +44,38 @@ function fail(message, code) {
 }
 
 const argv = process.argv.slice(2);
+
+// The German of a page by id, for the roles of the German pipeline, and the check that finds
+// German left behind an English edit. Like the crawler commands it needs no design.config.json.
+if (argv[0] === "german") {
+  const { germanValues, applyGerman } = await import("../lib/german.mjs");
+  const [sub, a, b] = argv.slice(1);
+  if (sub === "extract" || sub === "german") {
+    if (!a) fail(USAGE, 2);
+    const v = germanValues(fs.readFileSync(a, "utf8"));
+    const keys = sub === "extract" ? ["id", "kind", "tag", "en", "de"] : ["id", "kind", "tag", "de"];
+    console.log(JSON.stringify(v.map((e) => Object.fromEntries(keys.map((k) => [k, e[k]]))), null, 1));
+    process.exit(0);
+  }
+  if (sub === "apply") {
+    if (!a || !b) fail(USAGE, 2);
+    try {
+      fs.writeFileSync(a, applyGerman(fs.readFileSync(a, "utf8"), JSON.parse(fs.readFileSync(b, "utf8"))));
+    } catch (e) { fail(`  ✗ ${e.message}`, 1); }
+    console.log(`  ✓ ${a} written`);
+    process.exit(0);
+  }
+  if (sub === "stale") {
+    if (!a || !b) fail(USAGE, 2);
+    const { staleRange } = await import("../lib/german-stale.mjs");
+    const stale = staleRange({ root: process.cwd(), base: a, head: b });
+    for (const s of stale) console.error(`  ✗ ${s.file}#${s.id} «${s.de}» was made for “${s.was}”, the English now reads “${s.now}”`);
+    if (stale.length) fail(`  ${stale.length} German value(s) left behind an English edit — translate them, or name each in a commit trailer German-unchanged: <file>#<id>`, 1);
+    console.log("  ✓ no German left behind an English edit");
+    process.exit(0);
+  }
+  fail(USAGE, 2);
+}
 
 // The two crawler commands share nothing with sync but the binary, so they are handled and exit
 // here, before anything reads design.config.json: a site's deploy workflow runs `indexnow` and

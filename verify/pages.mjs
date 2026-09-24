@@ -21,6 +21,9 @@ import { findFence } from "../lib/rewrite.mjs";
 // test in @robertblust/design is built from, moved so a site's served HTML can be scanned
 // with it too, not just the package's own blocks/deck-transport.css.
 import { lcdVarReferences } from "./lcd-scan.mjs";
+// expectedGerman reads a page's own de:{ title, desc } object below, rather than reinventing
+// the parse translates already needs elsewhere in this file.
+import { germanValues } from "../lib/german.mjs";
 
 // The German marks WRITING.md sets, kept once because two checks hold text to them:
 // typography, over the cold data-de and data-notes-de values, and translates, over the
@@ -31,6 +34,12 @@ const DE_RULES = [
   ["„", /„/], ["“", /“/], ["”", /”/],
   ["em-dash", /—/],
   ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
+  // The pages address their reader as Sie, a room as well as a person; the informal plural
+  // is the form a talk's notes reached for when the audience was more than one.
+  ["informal plural", /\b(eure|euren|eurem|eurer|eures|euer|euch)\b/i],
+  // "Over twenty-five years" is a floor that stays true; a bare count is a claim the pages do
+  // not make, and it is what a translator's shortening left twice.
+  ["bare count of the years", /(?<!über )fünfundzwanzig Jahre/i],
 ];
 
 // Every hit in `text`, each named with its side, the mark or word, and forty characters of
@@ -52,6 +61,28 @@ function markHits(side, text, rules) {
     }
   }
   return hits;
+}
+
+// The refused forms of a member's conventions/GERMAN.md, read from its `banned` fence: one
+// "form → replacement" a line. A form matches in any case and as a whole phrase, so the plural
+// of a refused noun is refused with it and a word that merely contains one is not.
+export function bannedForms(markdown) {
+  const fence = /^```banned\n([\s\S]*?)\n```$/m.exec(markdown);
+  if (!fence) return null;
+  return fence[1].split("\n").filter(Boolean).map((line) => {
+    const [form, fix] = line.split(" → ");
+    const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return [`${form} (write ${fix})`, new RegExp(`(?<![\\p{L}\\p{N}])${esc}(?=\\p{L}{0,3}(?![\\p{L}\\p{N}]))`, "iu")];
+  });
+}
+
+// The German <title> and meta description a page declares in its de:{ title, desc } object,
+// read from the source so a site's spec need not restate them — restated German is German a
+// better translation has to change twice, and the pilot of the German pipeline had to.
+export function expectedGerman(html) {
+  const v = germanValues(html);
+  const title = v.find((e) => e.id === "js.title"), desc = v.find((e) => e.id === "js.desc");
+  return title && desc ? { title: title.de, desc: desc.de } : null;
 }
 
 export function pageChecks({ SITE, BASE }) {
@@ -1039,6 +1070,15 @@ export function pageChecks({ SITE, BASE }) {
       if (!stemsLine) return `no vendored conventions-check at ${stemsUrl} — this site is not a member`;
       const stems = new RegExp(`(${stemsLine[1]})`, "i");
 
+      // The refused forms are not written here either. Every member vendors
+      // conventions/GERMAN.md, whose `banned` fence is the family's one list of forms a
+      // translator or an English original reaches for and Swiss Standard German refuses.
+      const germanUrl = `${BASE}/conventions/GERMAN.md`;
+      const germanRes = await fetch(germanUrl).catch(() => null);
+      const banned = germanRes && germanRes.ok ? bannedForms(await germanRes.text()) : null;
+      if (!banned) return `no vendored conventions/GERMAN.md with a banned fence at ${germanUrl} — take conventions v1.29.0`;
+      const deRules = [...DE_RULES, ...banned];
+
       const hits = [];
       const scan = (side, text, rules) => hits.push(...markHits(side, text, rules));
 
@@ -1078,10 +1118,34 @@ export function pageChecks({ SITE, BASE }) {
       const src = await (await fetch(spec.absolute)).text();
       const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+      // germanValues already gives, per data-de/data-notes-de attribute in source order, the
+      // tag it sits on and its English — the element to name when the value is empty, so two
+      // empty hits on one page do not read alike. It walks the same source in the same order,
+      // so the n-th data-de/data-notes-de it finds is the n-th one below; data-de-aria is
+      // dropped because the regex below never selects it either.
+      const gVals = germanValues(src);
+      const attrVals = gVals.filter(v => v.kind === "data-de" || v.kind === "data-notes-de");
+      let gi = 0;
       const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
         .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
-      for (const [name, value] of values)
-        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : DE_RULES);
+      for (const [name, value] of values) {
+        const g = name !== "notes" ? attrVals[gi++] : null;
+        if (name !== "notes" && !value.trim()) {
+          const label = g && g.en ? `<${g.tag}> "${g.en.slice(0, 40)}"` : `<${(g && g.tag) || name}>`;
+          hits.push(`[de] empty data-${name} on ${label}: a German visitor sees nothing here`);
+          continue;
+        }
+        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
+      }
+
+      // The German <title> and meta description live in the page's own de:{ title, desc }
+      // object, which this cold scan never otherwise reads — they exist only once the toggle
+      // is pressed, which is when translates reads them. deRules, built above from the site's
+      // vendored GERMAN.md, would otherwise never see either one.
+      const jsTitle = gVals.find(v => v.id === "js.title");
+      const jsDesc = gVals.find(v => v.id === "js.desc");
+      if (jsTitle) scan("de title", jsTitle.de, deRules);
+      if (jsDesc) scan("de desc", jsDesc.de, deRules);
 
       return hits.length ? hits.join("; ") : null;
     },
@@ -1151,16 +1215,21 @@ export function pageChecks({ SITE, BASE }) {
       if (kept.length) return `after the toggle ${kept.length} element(s) kept their English: ${kept.slice(0, 3).join("; ")}`;
       // The <title> and the meta description are the page's word to a crawler or a tab strip;
       // nothing in `shows`/`hides` reaches either. A visitor who picks German under an English
-      // title would sail past both.
-      if (spec.translates.title) {
+      // title would sail past both. Where the spec names neither, they are expected to be what
+      // the page's own de object declares — read from spec.absolute, when the spec carries one;
+      // a spec with none is a spec this check has always taken literal-only, and stays that way.
+      const declared = spec.absolute ? expectedGerman(await (await fetch(spec.absolute)).text()) || {} : {};
+      const wantTitle = spec.translates.title ?? declared.title;
+      const wantDesc = spec.translates.desc ?? declared.desc;
+      if (wantTitle) {
         const germanTitle = await page.title();
-        if (germanTitle !== spec.translates.title)
-          return `after the toggle title is ${JSON.stringify(germanTitle)}, expected ${JSON.stringify(spec.translates.title)}`;
+        if (germanTitle !== wantTitle)
+          return `after the toggle title is ${JSON.stringify(germanTitle)}, expected ${JSON.stringify(wantTitle)}`;
       }
-      if (spec.translates.desc) {
+      if (wantDesc) {
         const germanDesc = await desc();
-        if (germanDesc !== spec.translates.desc)
-          return `after the toggle meta description is ${JSON.stringify(germanDesc)}, expected ${JSON.stringify(spec.translates.desc)}`;
+        if (germanDesc !== wantDesc)
+          return `after the toggle meta description is ${JSON.stringify(germanDesc)}, expected ${JSON.stringify(wantDesc)}`;
       }
       // The German title and description are script strings, UI.de and TALK.de, that the
       // cold scan in typography never sees and that exist only now, after the toggle; they
