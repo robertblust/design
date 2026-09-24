@@ -1088,6 +1088,24 @@ test("typography names the element on an empty German value, so two empty hits d
   } finally { restore(); }
 });
 
+test("typography names the empty element from germanValues, not from a zip with its own regex scan", async () => {
+  // A data-de inside a <script> string and one inside an HTML comment are both counted by
+  // the raw regex this check also runs, but germanValues walks the DOM and skips both; a
+  // single-quoted data-de is the other way around: germanValues counts it, the regex does
+  // not. Any of the three shifts a zip by position, so the real empty value below would be
+  // named from whichever entry the zip happened to land on instead of its own tag and text.
+  const restore = stubFetch(
+    `<script>var s = 'data-de="x"';</script>` +
+    `<!-- <p data-de="y">Hidden</p> -->` +
+    `<p data-de='Gut'>OK</p>` +
+    `<h2 data-de="">Apaleo could not be reached</h2>`);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.equal((out.match(/\[de\] empty/g) || []).length, 1, out);
+    assert.match(out, /\[de\] empty data-de on <h2> "Apaleo could not be reached": a German visitor sees nothing here/);
+  } finally { restore(); }
+});
+
 test("typography scans the page's own de object for the German title and description", async () => {
   const restore = stubFetch(
     `<p data-de="Gut.">x</p><script>var UI = { de:{ title:"Reservierung", desc:"Gut." }, en:{ title:"Reservation", desc:"Fine." } };</script>`);

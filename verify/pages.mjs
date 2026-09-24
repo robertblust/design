@@ -1118,23 +1118,28 @@ export function pageChecks({ SITE, BASE }) {
       const src = await (await fetch(spec.absolute)).text();
       const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
-      // germanValues already gives, per data-de/data-notes-de attribute in source order, the
-      // tag it sits on and its English — the element to name when the value is empty, so two
-      // empty hits on one page do not read alike. It walks the same source in the same order,
-      // so the n-th data-de/data-notes-de it finds is the n-th one below; data-de-aria is
-      // dropped because the regex below never selects it either.
+      // The empty check reads germanValues(src) on its own, not by naming a hit from a value
+      // this scan's own regex found at the same position: the regex and germanValues walk the
+      // source differently and disagree on how many data-de/data-notes-de attributes there
+      // are — a data-de written inside a <script> string or an HTML comment is text the regex
+      // still counts but germanValues, which walks tags, never reaches, and a single-quoted
+      // data-de is the other way around, counted by germanValues and missed by a regex
+      // anchored on a double quote. Either disagreement used to shift every later index and
+      // name the wrong element for an empty value found after it. germanValues already carries
+      // the tag and the English of the element an empty value sits on, so a hit is named
+      // straight from the entry that is empty, and nothing is zipped by position.
       const gVals = germanValues(src);
-      const attrVals = gVals.filter(v => v.kind === "data-de" || v.kind === "data-notes-de");
-      let gi = 0;
+      for (const g of gVals) {
+        if (g.kind !== "data-de" && g.kind !== "data-notes-de") continue;
+        if (decode(g.de.replace(/<[^>]+>/g, "")).trim()) continue;
+        const label = g.en ? `<${g.tag}> "${g.en.slice(0, 40)}"` : `<${g.tag}>`;
+        hits.push(`[de] empty ${g.kind} on ${label}: a German visitor sees nothing here`);
+      }
+
       const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
         .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
       for (const [name, value] of values) {
-        const g = name !== "notes" ? attrVals[gi++] : null;
-        if (name !== "notes" && !value.trim()) {
-          const label = g && g.en ? `<${g.tag}> "${g.en.slice(0, 40)}"` : `<${(g && g.tag) || name}>`;
-          hits.push(`[de] empty data-${name} on ${label}: a German visitor sees nothing here`);
-          continue;
-        }
+        if (name !== "notes" && !value.trim()) continue; // named above, from germanValues
         scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
       }
 

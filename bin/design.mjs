@@ -7,6 +7,7 @@
 // bytes a visitor downloads are in the repository, and they got there deliberately.
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -50,25 +51,55 @@ const argv = process.argv.slice(2);
 if (argv[0] === "german") {
   const { germanValues, applyGerman } = await import("../lib/german.mjs");
   const [sub, a, b] = argv.slice(1);
+  // A page named on the command line that is not there — a typo, a path relative to the
+  // wrong directory — is the caller's mistake, not this tool's, so it is read here, once, and
+  // reported as one line at exit 2 rather than as fs's own ENOENT reaching the top of the
+  // process as an uncaught exception and a stack trace.
+  const readPage = (file) => {
+    try {
+      return fs.readFileSync(file, "utf8");
+    } catch (e) {
+      fail(`  ✗ design german ${sub}: cannot read ${file} — ${e.code === "ENOENT" ? "no such file" : e.message}`, 2);
+    }
+  };
   if (sub === "extract" || sub === "german") {
     if (!a) fail(USAGE, 2);
-    const v = germanValues(fs.readFileSync(a, "utf8"));
+    const v = germanValues(readPage(a));
     const keys = sub === "extract" ? ["id", "kind", "tag", "en", "de"] : ["id", "kind", "tag", "de"];
     console.log(JSON.stringify(v.map((e) => Object.fromEntries(keys.map((k) => [k, e[k]]))), null, 1));
     process.exit(0);
   }
   if (sub === "apply") {
     if (!a || !b) fail(USAGE, 2);
+    const before = readPage(a);
     try {
-      fs.writeFileSync(a, applyGerman(fs.readFileSync(a, "utf8"), JSON.parse(fs.readFileSync(b, "utf8"))));
+      fs.writeFileSync(a, applyGerman(before, JSON.parse(fs.readFileSync(b, "utf8"))));
     } catch (e) { fail(`  ✗ ${e.message}`, 1); }
     console.log(`  ✓ ${a} written`);
     process.exit(0);
   }
   if (sub === "stale") {
     if (!a || !b) fail(USAGE, 2);
+    const root = process.cwd();
+    // staleRange hands both ends straight to git as a `base..head` range, so an unknown
+    // revision throws from inside execFileSync — a raw stderr and a stack trace, on the one
+    // command whose job is to fail cleanly in CI. Checked one at a time here instead, so the
+    // one that does not resolve is the one named, rather than guessing from git's own
+    // "ambiguous argument" text, which does not say which side of the range it means.
+    for (const rev of [a, b]) {
+      try {
+        execFileSync("git", ["-C", root, "rev-parse", "--verify", "--quiet", `${rev}^{commit}`], { stdio: "ignore" });
+      } catch {
+        fail(`  ✗ design german stale: git cannot resolve ${rev} — is the history there? CI needs a full checkout (fetch-depth: 0)`, 2);
+      }
+    }
     const { staleRange } = await import("../lib/german-stale.mjs");
-    const stale = staleRange({ root: process.cwd(), base: a, head: b });
+    let stale;
+    try {
+      stale = staleRange({ root, base: a, head: b });
+    } catch (e) {
+      fail(`  ✗ design german stale: ${e.message}`, 2);
+    }
     for (const s of stale) console.error(`  ✗ ${s.file}#${s.id} «${s.de}» was made for “${s.was}”, the English now reads “${s.now}”`);
     if (stale.length) fail(`  ${stale.length} German value(s) left behind an English edit — translate them, or name each in a commit trailer German-unchanged: <file>#<id>`, 1);
     console.log("  ✓ no German left behind an English edit");

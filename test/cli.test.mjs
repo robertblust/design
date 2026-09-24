@@ -151,6 +151,40 @@ test("german extract prints every German value of a page as JSON, with its Engli
   assert.equal(v[0].en, "Two ideas.");
 });
 
+test("german extract on a missing page exits 2 with one line, not a stack trace", () => {
+  const root = site({});
+  const r = run(["german", "extract", "nope.html"], root);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /nope\.html/);
+  assert.doesNotMatch(r.out, /\bat |node:internal/);
+});
+
+test("german apply on a missing page exits 2 with one line, not a stack trace", () => {
+  const root = site({ "edits.json": "{}" });
+  const r = run(["german", "apply", "nope.html", "edits.json"], root);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /nope\.html/);
+  assert.doesNotMatch(r.out, /\bat |node:internal/);
+});
+
+// staleRange throws straight out of git when a revision is unknown — a shallow CI checkout
+// missing a base ref, or a typo — and that used to reach the CLI as an uncaught rejection: a
+// raw stack trace and exit 1, on the one command whose whole job is to fail cleanly in CI.
+test("german stale on an unknown revision exits 2, names it, and prints no stack", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "design-cli-git-"));
+  const git = (...a) => execFileSync("git", ["-C", root, ...a], { encoding: "utf8" });
+  git("init", "-q");
+  git("config", "user.email", "t@example.test");
+  git("config", "user.name", "t");
+  fs.writeFileSync(path.join(root, "index.html"), '<p data-de="Gut.">Fine.</p>');
+  git("add", ".");
+  git("commit", "-qm", "base");
+  const r = run(["german", "stale", "not-a-real-rev", "HEAD"], root);
+  assert.equal(r.code, 2, r.out);
+  assert.match(r.out, /not-a-real-rev/);
+  assert.doesNotMatch(r.out, /\bat |node:internal/);
+});
+
 test("an unknown subcommand exits 2 and shows usage", () => {
   const root = site({}, { groups: ["fonts"] });
   const r = run(["frobnicate"], root);
