@@ -31,6 +31,12 @@ const DE_RULES = [
   ["„", /„/], ["“", /“/], ["”", /”/],
   ["em-dash", /—/],
   ["du-form", /\b(du|dich|dir|dein|deine|deinen|deinem|deiner|deines)\b/i],
+  // The pages address their reader as Sie, a room as well as a person; the informal plural
+  // is the form a talk's notes reached for when the audience was more than one.
+  ["informal plural", /\b(eure|euren|eurem|eurer|eures|euer|euch)\b/i],
+  // "Over twenty-five years" is a floor that stays true; a bare count is a claim the pages do
+  // not make, and it is what a translator's shortening left twice.
+  ["bare count of the years", /(?<!über )fünfundzwanzig Jahre/i],
 ];
 
 // Every hit in `text`, each named with its side, the mark or word, and forty characters of
@@ -52,6 +58,19 @@ function markHits(side, text, rules) {
     }
   }
   return hits;
+}
+
+// The refused forms of a member's conventions/GERMAN.md, read from its `banned` fence: one
+// "form → replacement" a line. A form matches in any case and as a whole phrase, so the plural
+// of a refused noun is refused with it and a word that merely contains one is not.
+export function bannedForms(markdown) {
+  const fence = /^```banned\n([\s\S]*?)\n```$/m.exec(markdown);
+  if (!fence) return null;
+  return fence[1].split("\n").filter(Boolean).map((line) => {
+    const [form, fix] = line.split(" → ");
+    const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return [`${form} (write ${fix})`, new RegExp(`(?<![\\p{L}\\p{N}])${esc}(?=\\p{L}{0,3}(?![\\p{L}\\p{N}]))`, "iu")];
+  });
 }
 
 export function pageChecks({ SITE, BASE }) {
@@ -1039,6 +1058,15 @@ export function pageChecks({ SITE, BASE }) {
       if (!stemsLine) return `no vendored conventions-check at ${stemsUrl} — this site is not a member`;
       const stems = new RegExp(`(${stemsLine[1]})`, "i");
 
+      // The refused forms are not written here either. Every member vendors
+      // conventions/GERMAN.md, whose `banned` fence is the family's one list of forms a
+      // translator or an English original reaches for and Swiss Standard German refuses.
+      const germanUrl = `${BASE}/conventions/GERMAN.md`;
+      const germanRes = await fetch(germanUrl).catch(() => null);
+      const banned = germanRes && germanRes.ok ? bannedForms(await germanRes.text()) : null;
+      if (!banned) return `no vendored conventions/GERMAN.md with a banned fence at ${germanUrl} — take conventions v1.29.0`;
+      const deRules = [...DE_RULES, ...banned];
+
       const hits = [];
       const scan = (side, text, rules) => hits.push(...markHits(side, text, rules));
 
@@ -1080,8 +1108,10 @@ export function pageChecks({ SITE, BASE }) {
         .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
       const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
         .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
-      for (const [name, value] of values)
-        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : DE_RULES);
+      for (const [name, value] of values) {
+        if (name !== "notes" && !value.trim()) { hits.push(`[de] empty data-${name}: a German visitor sees nothing here`); continue; }
+        scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
+      }
 
       return hits.length ? hits.join("; ") : null;
     },

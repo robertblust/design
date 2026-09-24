@@ -7,11 +7,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
-import { pageChecks } from "../verify/pages.mjs";
+import { pageChecks, bannedForms } from "../verify/pages.mjs";
 import { assemble } from "../lib/assemble.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
+
+// What a member's vendored conventions/GERMAN.md carries in its refused-forms fence.
+const GERMAN_STUB = "# German\n\n```banned\nReservierung → Reservation\nOffener Kern → Open Core\n```\n";
 
 // The twenty-six this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
@@ -752,7 +755,7 @@ test("typography names each hit with its side and its context", async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url) => ({
     ok: true,
-    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+    text: async () => (String(url).endsWith("conventions-check") ? stems : String(url).endsWith("/conventions/GERMAN.md") ? GERMAN_STUB : html),
   });
   try {
     const page = { evaluate: async () => ({ text: "The way – it is. The colour of it. Fine.", title: "", desc: "" }) };
@@ -772,7 +775,7 @@ test("typography strips tags before it decodes, so escaped angle brackets in Ger
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url) => ({
     ok: true,
-    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+    text: async () => (String(url).endsWith("conventions-check") ? stems : String(url).endsWith("/conventions/GERMAN.md") ? GERMAN_STUB : html),
   });
   try {
     const page = { evaluate: async () => ({ text: "Clean English text.", title: "", desc: "" }) };
@@ -791,7 +794,7 @@ test("typography holds English speaker notes to the English rules, and German no
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url) => ({
     ok: true,
-    text: async () => (String(url).endsWith("conventions-check") ? stems : html),
+    text: async () => (String(url).endsWith("conventions-check") ? stems : String(url).endsWith("/conventions/GERMAN.md") ? GERMAN_STUB : html),
   });
   try {
     const page = { evaluate: async () => ({ text: "Clean English text.", title: "", desc: "" }) };
@@ -810,7 +813,7 @@ test("typography holds the English title and meta description to the English rul
   const realFetch = globalThis.fetch;
   try {
     const stems = "STEMS='colour([^a-z]|$)|organis(e|ed|es|ing|ation|ations)'";
-    globalThis.fetch = async url => ({ ok: true, text: async () => String(url).endsWith("conventions-check") ? stems : "<p>x</p>" });
+    globalThis.fetch = async url => ({ ok: true, text: async () => String(url).endsWith("conventions-check") ? stems : String(url).endsWith("/conventions/GERMAN.md") ? GERMAN_STUB : "<p>x</p>" });
     const page = { evaluate: async () => ({ text: "Clean English text.", title: "The colour of it", desc: "One – two." }) };
     const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/x/" });
     assert.match(out, /\[en title\] colour in "The colour of it"/);
@@ -862,12 +865,12 @@ test("typography passes a clean page and fails a site with no vendored stems", a
   const realFetch = globalThis.fetch;
   const clean = `<html><body><p data-de="Der Weg – «hier» ist es.">The way — it is.</p></body></html>`;
   globalThis.fetch = async (url) => ({
-    ok: true, text: async () => (String(url).endsWith("conventions-check") ? "STEMS='colour'\n" : clean) });
+    ok: true, text: async () => (String(url).endsWith("conventions-check") ? "STEMS='colour'\n" : String(url).endsWith("/conventions/GERMAN.md") ? GERMAN_STUB : clean) });
   try {
     const page = { evaluate: async () => "The way — it is. May 2012–Oct 2016." };
     assert.equal(await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" }), null);
   } finally { globalThis.fetch = realFetch; }
-  globalThis.fetch = async (url) => (String(url).endsWith("conventions-check") ? { ok: false, text: async () => "" } : { ok: true, text: async () => clean });
+  globalThis.fetch = async (url) => (String(url).endsWith("conventions-check") ? { ok: false, text: async () => "" } : String(url).endsWith("/conventions/GERMAN.md") ? { ok: true, text: async () => GERMAN_STUB } : { ok: true, text: async () => clean });
   try {
     const page = { evaluate: async () => "" };
     const out = await pageChecks(OPTS).typography(page, { absolute: "https://example.test/" });
@@ -977,4 +980,59 @@ test("the header contract collapses on a measurement, not on a width", () => {
   // returned would leave every page uncollapsed with nothing saying why.
   assert.match(js, /throw new Error\("nav fit: this page has no \.bar/,
     "a page without a row is handled quietly, so a misplaced fence says nothing");
+});
+
+function stubFetch(html, german = GERMAN_STUB) {
+  const stems = "STEMS='colour([^a-z]|$)'";
+  const real = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.endsWith("/conventions/GERMAN.md")) return german === null ? { ok: false, text: async () => "" } : { ok: true, text: async () => german };
+    return { ok: true, text: async () => (u.endsWith("conventions-check") ? stems : html) };
+  };
+  return () => { globalThis.fetch = real; };
+}
+const cleanPage = { evaluate: async () => ({ text: "Clean English text.", title: "", desc: "" }) };
+
+test("bannedForms reads the fence, one form and its replacement a line", () => {
+  const forms = bannedForms(GERMAN_STUB);
+  assert.equal(forms.length, 2);
+  assert.equal(forms[0][0], "Reservierung (write Reservation)");
+  assert.ok(forms[0][1].test("Ihre RESERVIERUNGEN"));
+  assert.equal(bannedForms("# German\n\nno fence\n"), null);
+});
+
+test("typography fails an empty German value", async () => {
+  const restore = stubFetch(`<h2 id="x" data-de="">Apaleo could not be reached</h2>`);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.match(out, /\[de\] empty data-de/);
+  } finally { restore(); }
+});
+
+test("typography fails a refused form as a whole phrase, in any case, and nothing inside another word", async () => {
+  const restore = stubFetch(`<p data-de="Ihre Reservierungen und ein offener Kern.">x</p><p data-de="Die Vorreservierung läuft.">y</p>`);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.match(out, /Offener Kern \(write Open Core\)/);
+    assert.match(out, /Reservierung \(write Reservation\) in "Ihre Reservierungen/);
+    assert.doesNotMatch(out, /Vorreservierung/);
+  } finally { restore(); }
+});
+
+test("typography fails the informal plural and a bare count of the years, and passes «Über fünfundzwanzig Jahre»", async () => {
+  const restore = stubFetch(`<p data-de="Weder eure Entscheide noch euer Plan.">x</p><p data-de="Dahinter stehen fünfundzwanzig Jahre Plattformarbeit.">y</p><p data-de="Über fünfundzwanzig Jahre der Reihe nach.">z</p>`);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.equal((out.match(/\[de\] informal plural/g) || []).length, 2);
+    assert.equal((out.match(/\[de\] bare count of the years/g) || []).length, 1);
+  } finally { restore(); }
+});
+
+test("typography fails a site with no vendored GERMAN.md and names the release that brings it", async () => {
+  const restore = stubFetch(`<p data-de="Gut.">x</p>`, null);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.match(out, /no vendored conventions\/GERMAN\.md .* v1\.29\.0/);
+  } finally { restore(); }
 });
