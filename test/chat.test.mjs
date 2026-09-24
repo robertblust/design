@@ -355,6 +355,17 @@ test("a chip's label is set with textContent, and activating it sends exactly it
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
-  assert.match(src, /function open\(\)\{ if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; input\.focus\(\); keep\(\); offerQuestions\(\); \}/, "open() does not offer questions");
+  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; input\.focus\(\); keep\(\); offerQuestions\(\); \}/, "open() no longer clears the old set before offering a fresh one");
   assert.match(src, /qBox = null; fullNote\.hidden = true;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
+});
+
+// The bug the review found: closing and reopening an empty conversation showed the same three
+// chips, because offerQuestions()'s own `qBox` guard — there to stop a race between two opens
+// from drawing two boxes — also stopped a genuine reopen from drawing again. open() now clears
+// the box itself, first, every time, so the guard only ever catches the race it was meant to.
+test("open() clears any standing chips before asking for a fresh set, so a reopen never repeats the last draw", () => {
+  const openFn = src.slice(src.indexOf("function open(){"), src.indexOf("function close()"));
+  assert.match(openFn, /^function open\(\)\{ hideQuestions\(\);/, "open() does not clear the chips before anything else");
+  const hideAt = openFn.indexOf("hideQuestions();"), offerAt = openFn.indexOf("offerQuestions();");
+  assert.ok(hideAt >= 0 && offerAt > hideAt, "open() does not clear before it offers again");
 });

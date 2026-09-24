@@ -5,8 +5,9 @@
 //   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/"
 //     data-questions="/model.json" defer>
 //
-// Nothing loads and nothing is sent until a visitor opens the panel and presses send. The
-// conversation lives in this closure and in the tab's own `sessionStorage`, under the key
+// Opening the panel may read the site's own model file, when `data-questions` names one, but
+// nothing is sent to the chat host until the visitor presses send. The conversation lives in
+// this closure and in the tab's own `sessionStorage`, under the key
 // `chat`, so that following a link does not throw it away; it goes when the tab goes, and it
 // reaches no server but the one the tag names. The answer
 // arrives as server-sent events and is rendered as it comes, through a Markdown subset the
@@ -588,7 +589,11 @@
     window.addEventListener("resize", function(){ if (panel.style.width) { var b = panelBox(); setSize(b.w, b.h, false); } });
   }
 
-  function open(){ if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); offerQuestions(); }
+  // hideQuestions() first, always: a set of chips already up is stale the moment the panel is
+  // shown again, so every open draws a fresh random three rather than repeating what closing the
+  // panel left behind. It only drops the box the DOM holds — `qList`/`qFetch` are untouched, so
+  // two opens ahead of the one fetch landing still share it rather than asking twice.
+  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); offerQuestions(); }
   function close(){ panel.hidden = true; button.hidden = false; button.focus(); keep(); }
   function reset(){ messages = []; turns = []; log.innerHTML = ""; qBox = null; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
 
