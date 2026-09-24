@@ -2,7 +2,8 @@
 // service. Synced whole, like card.js, and it knows no page: the endpoint and the model page
 // come off its own tag, the language off <html lang> at every render, the colors off the tokens.
 //
-//   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/" defer>
+//   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/"
+//     data-questions="/model.json" defer>
 //
 // Nothing loads and nothing is sent until a visitor opens the panel and presses send. The
 // conversation lives in this closure and in the tab's own `sessionStorage`, under the key
@@ -26,12 +27,14 @@
 //   rbChat.iconOf(doc)                 the page's icon, for the head of that line
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
 //
-// An empty conversation, once the panel is shown, offers three of the questions the site's
-// model already answers as a way in: a GET to `questions` beside the endpoint, asked once and
-// cached for the page's life, three of its titles picked at random each time the panel opens on
-// nothing, and a tap sends the one chosen exactly as the box would. A host that answers the
-// route with a 404 reads the same as one that answers it with an empty list — no chips, nothing
-// else different.
+// An empty conversation, once the panel is shown, may offer three questions as a way in, three
+// of the site's own model's entities of type `question`, picked at random each time the panel
+// opens on nothing. `data-questions` names a same-origin path to that model, the file `card.js`
+// and `stage.js` already read the same way, asked once and cached for the page's life; a tag
+// without it offers none and asks nothing. Nothing here ever reaches the chat host — the one
+// runtime call this family's pages make to a service of their own is still the POST on send,
+// unmoved by any of this — and a read that 404s, times out, answers something that is not JSON,
+// or names no question reads the same as one that named none: no chips, nothing else different.
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
@@ -44,7 +47,7 @@
       placeholder: "Ask about the model…", waiting: "Asking…",
       notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
-      questions: "Questions people ask",
+      questions: "Questions to start with",
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
@@ -70,7 +73,7 @@
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
       notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
-      questions: "Fragen, die Besucher stellen",
+      questions: "Fragen für den Einstieg",
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
@@ -396,45 +399,54 @@
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
   if (!tag || !tag.dataset || !tag.dataset.chat) return;
-  var ENDPOINT = tag.dataset.chat, MODEL = tag.dataset.model || "/model/";
+  var ENDPOINT = tag.dataset.chat, MODEL = tag.dataset.model || "/model/", QUESTIONS = tag.dataset.questions || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
   var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null, grip = null, newBtn = null;
-  // The questions the site's model answers, offered as a way into an empty conversation. `qList`
-  // is null until `questions` has resolved once, `qFetch` is that one fetch, kept so a second
-  // open before it lands does not ask twice, and `qBox` is the chip container currently in the
-  // log, if any.
+  // The questions the site's own model is built to answer, offered as a way into an empty
+  // conversation. `qList` is null until `questions` has resolved once, `qFetch` is that one
+  // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
+  // container currently in the log, if any.
   var qList = null, qFetch = null, qBox = null;
   var Q_TIMEOUT = 8000;
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
 
-  // The titles `questions` answers with, asked once for the page's life and kept whatever the
-  // answer was — an empty list on a host with no such route, on one that times out, on one that
-  // answers something that is not JSON, or on one that genuinely has nothing to offer. A caller
-  // gets the same list back whether it asked first or fifth; `cb` runs once resolved, and a
-  // second call while the first is still in flight shares its one fetch rather than starting
-  // another.
+  // The titles to offer, read from the site's own parsed model rather than asked of the chat
+  // host — nothing here may reach it before a visitor presses send. `data-questions` names a
+  // same-origin path to that model, the same shape `card.js` and `stage.js` already read,
+  // `{ entities: [{ id, type, name, … }, …] }`; a title is the `name` of every entity whose
+  // `type` is `question`, kept only where it is a non-empty string no longer than the box's own
+  // limit — a title too long to send is not a title to offer. A tag without `data-questions`
+  // asks nothing and resolves to an empty list on its own. Asked once for the page's life, kept
+  // whatever the answer was — an empty list on a 404, a timeout, a body that is not JSON, or a
+  // model with no question in it. A caller gets the same list back whether it asked first or
+  // fifth; `cb` runs once resolved, and a second call while the first is still in flight shares
+  // its one fetch rather than starting another. The timeout covers the whole response, headers
+  // and body: the timer is cleared only once the JSON has been read, so a body that stalls after
+  // its headers arrive is still aborted, and reading it is what raises the abort as a rejection.
   function questions(cb){
+    if (!QUESTIONS) { qList = qList || []; cb([]); return; }
     if (qList) { cb(qList); return; }
     if (!qFetch) {
-      var url;
-      try { url = new URL("questions", ENDPOINT).toString(); } catch (e) { url = null; }
-      if (!url) qFetch = Promise.resolve([]);
-      else {
-        var ac = new AbortController();
-        var timer = setTimeout(function(){ ac.abort(); }, Q_TIMEOUT);
-        qFetch = fetch(url, { signal: ac.signal })
-          .then(function(r){
+      var ac = new AbortController();
+      var timer = setTimeout(function(){ ac.abort(); }, Q_TIMEOUT);
+      qFetch = fetch(QUESTIONS, { signal: ac.signal })
+        .then(function(r){
+          if (!r.ok) { clearTimeout(timer); return []; }
+          return r.json().then(function(j){
             clearTimeout(timer);
-            if (!r.ok) return [];
-            return r.json().then(function(j){ return j && Array.isArray(j.titles) ? j.titles : []; });
-          })
-          .catch(function(){ clearTimeout(timer); return []; });
-      }
+            var entities = j && Array.isArray(j.entities) ? j.entities : [];
+            return entities
+              .filter(function(e){ return e && e.type === "question" && typeof e.name === "string" && e.name.length > 0; })
+              .map(function(e){ return e.name; })
+              .filter(function(t){ return t.length <= LIMIT; });
+          });
+        })
+        .catch(function(){ clearTimeout(timer); return []; });
     }
     qFetch.then(function(list){ qList = list; cb(list); });
   }

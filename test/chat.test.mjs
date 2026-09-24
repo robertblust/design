@@ -302,18 +302,35 @@ test("pick never returns a negative or fractional count", () => {
 // `document.currentScript` carries `data-chat` — the same boundary the file's own top comment
 // draws around build() and open(): not run here, only read, as assets.test.mjs already does for
 // card.js and stage.js.
-test("the widget asks `questions` beside the chat endpoint, once, and keeps what it got", () => {
-  assert.match(src, /new URL\("questions", ENDPOINT\)/, "the route is not resolved against the endpoint the tag names");
+test("the widget reads a same-origin data-questions path, never the chat endpoint, once, and keeps what it got", () => {
+  assert.match(src, /QUESTIONS = tag\.dataset\.questions \|\| null/, "the path is not read off the tag's own data-questions");
+  assert.doesNotMatch(src, /new URL\("questions", ENDPOINT\)/, "a route is still resolved against the chat endpoint");
+  assert.match(src, /if \(!QUESTIONS\) \{ qList = qList \|\| \[\]; cb\(\[\]\); return; \}/, "a tag without data-questions still asks somewhere");
   assert.match(src, /if \(qList\) \{ cb\(qList\); return; \}/, "a second ask does not reuse the first list");
   assert.match(src, /if \(!qFetch\) \{/, "a second ask before the first resolves starts its own fetch");
+  assert.match(src, /fetch\(QUESTIONS, \{ signal: ac\.signal \}\)/, "the fetch does not read QUESTIONS");
 });
 
-test("a fetch that fails, times out or is not JSON resolves to an empty list, not a throw", () => {
+test("a title is a question entity's name, filtered to a non-empty string no longer than the box's own limit", () => {
+  const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
+  assert.match(fn, /Array\.isArray\(j\.entities\)/, "a body without an entities array is not read as no questions");
+  assert.match(fn, /e\.type === "question"/, "a title is not drawn from an entity of type question");
+  assert.match(fn, /typeof e\.name === "string" && e\.name\.length > 0/, "an empty or non-string name is not filtered out");
+  assert.match(fn, /map\(function\(e\)\{ return e\.name; \}\)/, "the title is not the entity's own name");
+  assert.match(fn, /filter\(function\(t\)\{ return t\.length <= LIMIT; \}\)/, "a title longer than the send limit is not dropped");
+});
+
+test("a fetch that fails, times out or is not JSON resolves to an empty list, not a throw, and the timeout covers the whole response", () => {
   const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
   assert.match(fn, /AbortController/, "the fetch has no timeout");
-  assert.match(fn, /if \(!r\.ok\) return \[\];/, "a non-2xx answer is not read as no questions");
-  assert.match(fn, /Array\.isArray\(j\.titles\)/, "a body without a titles array is not read as no questions");
-  assert.match(fn, /\.catch\(function\(\)\{ clearTimeout\(timer\); return \[\]; \}\)/, "a rejected fetch or a JSON parse failure is not caught");
+  assert.match(fn, /if \(!r\.ok\) \{ clearTimeout\(timer\); return \[\]; \}/, "a non-2xx answer is not read as no questions, or clears the timer past a bad status");
+  // The timer is cleared only inside the JSON branch, after r.json() has resolved — not
+  // alongside the fetch's own .then — so a stalled body is still aborted, not left running past
+  // its own headers.
+  const success = fn.slice(fn.indexOf("return r.json()"), fn.indexOf(".catch("));
+  assert.match(success, /clearTimeout\(timer\);/, "the timer is not cleared once the body is read");
+  assert.ok(success.indexOf("clearTimeout(timer)") > success.indexOf("function(j)"), "the timer is cleared before the body is actually read");
+  assert.match(fn, /\.catch\(function\(\)\{ clearTimeout\(timer\); return \[\]; \}\)/, "a rejected fetch, an aborted body read or a JSON parse failure is not caught");
 });
 
 test("chips are offered only on an empty conversation, and a second race does not double them", () => {
@@ -324,8 +341,8 @@ test("chips are offered only on an empty conversation, and a second race does no
 });
 
 test("the chip container carries an accessible name from the strings, in both languages, and follows a language switch", () => {
-  assert.match(src, /questions: "Questions people ask"/);
-  assert.match(src, /questions: "Fragen, die Besucher stellen"/);
+  assert.equal(strings("en").questions, "Questions to start with");
+  assert.equal(strings("de").questions, "Fragen für den Einstieg");
   assert.match(src, /qBox\.setAttribute\("aria-label", strings\(langNow\(\)\)\.questions\)/, "the container's name is not read off the strings");
   assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
 });
