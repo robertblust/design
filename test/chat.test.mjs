@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf, pick } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf, pick, unasked } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -333,18 +333,44 @@ test("a fetch that fails, times out or is not JSON resolves to an empty list, no
   assert.match(fn, /\.catch\(function\(\)\{ clearTimeout\(timer\); return \[\]; \}\)/, "a rejected fetch, an aborted body read or a JSON parse failure is not caught");
 });
 
-test("chips are offered only on an empty conversation, and a second race does not double them", () => {
+// unasked() is what keeps the three after an answer from offering the question it answered.
+test("unasked drops every title a visitor message asked, trimmed, and keeps the rest in order", () => {
+  const list = ["What is Robert strongest at?", "Where has he worked?", "What does he write?"];
+  const messages = [
+    { role: "user", content: "  What is Robert strongest at?  " },
+    { role: "assistant", content: "Where has he worked?" }
+  ];
+  assert.deepEqual(unasked(list, messages), ["Where has he worked?", "What does he write?"], "an answer's own words are not a question asked");
+  assert.deepEqual(unasked(list, []), list);
+  assert.deepEqual(unasked(undefined, messages), []);
+  assert.deepEqual(unasked(list, undefined), list);
+});
+
+test("chips are offered only where the visitor can ask next, and a second race does not double them", () => {
+  const can = src.slice(src.indexOf("function canOffer()"), src.indexOf("function offerQuestions()"));
+  assert.match(can, /!busy/, "chips are offered while an answer is still on its way");
+  assert.match(can, /messages\.length < TURNS/, "chips are offered on a conversation at its limit");
+  assert.match(can, /messages\[messages\.length - 1\]\.role === "assistant"/, "chips are offered after a message that has no answer yet");
   const fn = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
-  assert.match(fn, /if \(messages\.length\) return;/, "chips are offered on a conversation that already has a message");
-  assert.match(fn, /if \(messages\.length \|\| qBox\) return;/, "chips are rebuilt once a message arrived while the fetch was in flight, or while chips are already up");
+  assert.match(fn, /if \(!canOffer\(\)\) return;/, "chips are offered without asking whether the visitor can ask next");
+  assert.match(fn, /if \(!canOffer\(\) \|\| qBox\) return;/, "chips are rebuilt once a message went out while the fetch was in flight, or while chips are already up");
+  assert.match(fn, /pick\(unasked\(list, messages\), 3\)/, "a title the conversation already asked can be offered again");
   assert.match(fn, /if \(!picked\.length\) return;/, "an empty pick still builds a box");
+});
+
+test("a finished answer and a restored open panel offer the next three", () => {
+  const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(ENDPOINT,"));
+  assert.match(finish, /if \(refocus\(window\)\) input\.focus\(\); offerQuestions\(\); \}/, "a finished answer short of the limit offers no next questions");
+  assert.match(src, /if \(was\.open\) \{ panel\.hidden = false; button\.hidden = true; offerQuestions\(\); \}/, "a panel restored open offers no next questions");
 });
 
 test("the chip container carries an accessible name from the strings, in both languages, and follows a language switch", () => {
   assert.equal(strings("en").questions, "Questions to start with");
   assert.equal(strings("de").questions, "Fragen für den Einstieg");
-  assert.match(src, /qBox\.setAttribute\("aria-label", strings\(langNow\(\)\)\.questions\)/, "the container's name is not read off the strings");
-  assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
+  assert.equal(strings("en").next, "Questions to ask next");
+  assert.equal(strings("de").next, "Weitere Fragen");
+  assert.match(src, /qBox\.setAttribute\("aria-label", strings\(langNow\(\)\)\[qNext \? "next" : "questions"\]\)/, "the container's name is not read off the strings, or not by whether it follows an answer");
+  assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", qNext \? s\.next : s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
 });
 
 test("a chip's label is set with textContent, and activating it sends exactly its title", () => {
