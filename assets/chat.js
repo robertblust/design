@@ -27,10 +27,12 @@
 //   rbChat.citeLine(cites, model, icon, doc)  the line under an answer: the icon, each title, each mark
 //   rbChat.iconOf(doc)                 the page's icon, for the head of that line
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
+//   rbChat.unasked(list, messages)     the titles no visitor message in the conversation has asked
 //
 // An empty conversation, once the panel is shown, may offer three questions as a way in, three
 // of the site's own model's entities of type `question`, picked at random each time the panel
-// opens on nothing. `data-questions` names a same-origin path to that model, the file `card.js`
+// opens on nothing, and every finished answer offers three more the conversation has not asked
+// yet, so a visitor who liked the first answer has somewhere to go next. `data-questions` names a same-origin path to that model, the file `card.js`
 // and `stage.js` already read the same way, asked once and cached for the page's life; a tag
 // without it offers none and asks nothing. Nothing here ever reaches the chat host — the one
 // runtime call this family's pages make to a service of their own is still the POST on send,
@@ -48,7 +50,7 @@
       placeholder: "Ask about the model…", waiting: "Asking…",
       notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
-      questions: "Questions to start with",
+      questions: "Questions to start with", next: "Questions to ask next",
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
@@ -74,7 +76,7 @@
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
       notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
-      questions: "Fragen für den Einstieg",
+      questions: "Fragen für den Einstieg", next: "Weitere Fragen",
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
@@ -360,6 +362,16 @@
     return arr.slice(0, count);
   }
 
+  // The titles still worth offering: every one no visitor message in the conversation asked in
+  // those words. A chip sends its title as it stands and a typed question is trimmed on send, so
+  // a title matches the message it became once both are trimmed; a question put in other words
+  // is not recognized and may come back, which costs a visitor one chip they can ignore.
+  function unasked(list, messages){
+    var asked = {};
+    (messages || []).forEach(function(m){ if (m && m.role === "user" && typeof m.content === "string") asked[m.content.trim()] = true; });
+    return (list || []).filter(function(t){ return !asked[String(t).trim()]; });
+  }
+
   // Where an open conversation lives while the visitor reads on. A page is a document, so
   // following a link throws the panel and everything in it away, and a visitor who asked a
   // question and clicked the answer's link lost the conversation. `sessionStorage` is the tab:
@@ -395,7 +407,7 @@
     } catch (e) {}
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -410,8 +422,9 @@
   // The questions the site's own model is built to answer, offered as a way into an empty
   // conversation. `qList` is null until `questions` has resolved once, `qFetch` is that one
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
-  // container currently in the log, if any.
-  var qList = null, qFetch = null, qBox = null;
+  // container currently in the log, if any, and `qNext` whether it follows an answer rather than
+  // opening an empty conversation, which is all that tells its two names apart.
+  var qList = null, qFetch = null, qBox = null, qNext = false;
   var Q_TIMEOUT = 8000;
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
@@ -452,19 +465,26 @@
     qFetch.then(function(list){ qList = list; cb(list); });
   }
 
-  // Three of them, tappable, under whatever the empty panel already shows. Asked for only where
-  // the conversation is still empty, and again checked once the fetch lands, since a visitor may
-  // have typed and sent by then. A second call while chips are already up does nothing — the
+  // Three of them, tappable, at the end of the log: under whatever the empty panel already
+  // shows, or under the answer just finished. Offered only where the visitor can ask next — no
+  // answer on its way, the last message an answer or none at all, the conversation short of its
+  // limit — and checked again once the fetch lands, since a visitor may have typed and sent by
+  // then. A title the conversation already asked is left out, so the three after an answer are
+  // never the question it answered. A second call while chips are already up does nothing — the
   // race is two opens before the one fetch resolves, not two different sets.
+  function canOffer(){
+    return !busy && messages.length < TURNS && (!messages.length || messages[messages.length - 1].role === "assistant");
+  }
   function offerQuestions(){
-    if (messages.length) return;
+    if (!canOffer()) return;
     questions(function(list){
-      if (messages.length || qBox) return;
-      var picked = pick(list, 3);
+      if (!canOffer() || qBox) return;
+      var picked = pick(unasked(list, messages), 3);
       if (!picked.length) return;
+      qNext = messages.length > 0;
       qBox = el("div", "rbchat-questions");
       qBox.setAttribute("role", "group");
-      qBox.setAttribute("aria-label", strings(langNow()).questions);
+      qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
       picked.forEach(function(t){
         var b = el("button", "rbchat-q", t);
         b.type = "button";
@@ -472,9 +492,11 @@
         qBox.appendChild(b);
       });
       log.appendChild(qBox);
+      if (qNext) log.scrollTop = log.scrollHeight;
     });
   }
-  // Once a message exists, in either direction, the chips are not a way in any more.
+  // A message on its way makes any chips standing stale: the ones it answered are asked, and
+  // the answer it brings is followed by a fresh three of its own.
   function hideQuestions(){ if (qBox && qBox.parentNode) qBox.parentNode.removeChild(qBox); qBox = null; }
 
   var button = el("button", "rbchat-open");
@@ -493,7 +515,7 @@
     if (newBtn) newBtn.setAttribute("aria-label", s.fresh);
     notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
     fullNote.querySelector("span").textContent = s.full; fullNote.querySelector("button").textContent = s.fresh;
-    if (qBox) qBox.setAttribute("aria-label", s.questions);
+    if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
   }
   relabel();
   // The language control swaps <html lang>; every string follows on the next tick.
@@ -658,7 +680,7 @@
       keep();
       busy = false;
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
-      else { input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); }
+      else { input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); offerQuestions(); }
     }
     fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages, lang: langNow() }) })
       .then(function(r){
@@ -722,7 +744,7 @@
     });
     // A conversation read back at its length is as full as one that reached it here.
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
-    if (was.open) { panel.hidden = false; button.hidden = true; }
+    if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); }
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight;
   })();
