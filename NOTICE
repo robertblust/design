@@ -1,40 +1,43 @@
 This package's own code — everything under lib/, bin/ and verify/ — is licensed under the
 Apache License, Version 2.0. See LICENSE.
 
-The assets/ directory is mostly third-party files, redistributed unmodified except where
-noted below. `assets/stage.js` and `assets/stage.css` are the exception: they are this
+The assets/ directory is mostly third-party files. `assets/stage.js`, `assets/stage.css`,
+`assets/card.js`, `assets/chat.js` and `assets/chat.css` are the exception: they are this
 package's own code, under the same Apache License, Version 2.0 as `lib/`, `bin/` and
-`verify/`, not third-party redistribution. The remaining files are listed below with their
-upstream project, upstream URL, copyright holder and license:
+`verify/`. The remaining files are listed below with their upstream project, upstream URL,
+copyright holder and license. Each license text sits beside what it covers and is synced into
+a site in the same group, because every one of these licenses asks for its notice in every
+copy, and a site that takes a group is a copy.
 
-- assets/d3.v7.min.js
+- assets/d3.v7.min.js, unmodified
   Upstream: D3 7.9.0 — https://d3js.org
   Copyright 2010-2023 Mike Bostock
-  License: ISC
+  License: ISC, in assets/d3.LICENSE.txt
 
-- assets/fonts/Bricolage-var.woff2
+- assets/fonts/Bricolage-var.woff2, subset to the characters the sites use
   Upstream: Bricolage Grotesque — https://github.com/ateliertriay/bricolage
-  License: SIL Open Font License, Version 1.1
+  Copyright 2022 The Bricolage Grotesque Project Authors
+  License: SIL Open Font License, Version 1.1, in assets/fonts/Bricolage.LICENSE.txt
 
-- assets/fonts/InstrumentSans-var.woff2
+- assets/fonts/InstrumentSans-var.woff2, subset to the characters the sites use
   Upstream: Instrument Sans — https://github.com/Instrument/instrument-sans
-  License: SIL Open Font License, Version 1.1
+  Copyright 2022 The Instrument Sans Project Authors
+  License: SIL Open Font License, Version 1.1, in assets/fonts/InstrumentSans.LICENSE.txt
 
-- assets/fonts/PlexMono-400.woff2
-  Upstream: IBM Plex Mono — https://github.com/IBM/plex
-  License: SIL Open Font License, Version 1.1
+- assets/fonts/PlexMono-400.woff2 and assets/fonts/PlexMono-600.woff2, unmodified
+  Upstream: IBM Plex Mono 2.5.0, fonts/complete/woff2/IBMPlexMono-Regular.woff2 and
+  IBMPlexMono-SemiBold.woff2 from the @ibm/plex-mono package — https://github.com/IBM/plex
+  Copyright 2017 IBM Corp. with Reserved Font Name "Plex"
+  License: SIL Open Font License, Version 1.1, in assets/fonts/PlexMono.LICENSE.txt
 
-- assets/fonts/PlexMono-600.woff2
-  Upstream: IBM Plex Mono — https://github.com/IBM/plex
-  License: SIL Open Font License, Version 1.1
+A note on Plex Mono: these two files are IBM's own, byte for byte, and must stay so. The
+upstream license reserves the name "Plex", so a subset or any other modified build could not
+be called Plex Mono, or anything else carrying "Plex", in its metadata or in the CSS that
+names it. Bricolage Grotesque and Instrument Sans reserve no name, which is why they may be
+subset here and Plex Mono may not. Only the file names are this package's; a file name is not
+a font name.
 
-A note on the Plex Mono file names: these two faces are shipped here under the family name
-"Plex Mono", not "IBM Plex Mono". The OFL 1.1 reserves the upstream Reserved Font Name for
-the original, unmodified font, so a modified or subsetted build must be distributed under a
-different name. This rename is OFL compliance, not a typo — do not "correct" it back to
-"IBM Plex Mono".
-
-- assets/chat.js, the `mark-github` glyph inlined as SVG
+- the `mark-github` glyph inlined as SVG in assets/chat.js
   Upstream: Octicons — https://github.com/primer/octicons
   Copyright (c) GitHub Inc.
-  License: MIT
+  License: MIT, in assets/octicons.LICENSE.txt
