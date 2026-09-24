@@ -858,6 +858,14 @@ test("translates takes its German title and description from the page when the s
   assert.match(src, /expectedGerman/);
 });
 
+// germanValues keeps a js value as the raw source text, escapes and all, so applyGerman can
+// write it back unchanged; expectedGerman compares against the rendered title and meta
+// description, which never carry a backslash, so it has to unescape first.
+test("expectedGerman unescapes a js value's own escaped quotes", () => {
+  const html = `<script>var UI = { de:{ title:"Robert\\'s Titel", desc:"Eine \\"Sache\\"." }, en:{ title:"Robert's Title", desc:"A \\"thing\\"." } };</script>`;
+  assert.deepEqual(expectedGerman(html), { title: "Robert's Titel", desc: 'Eine "Sache".' });
+});
+
 // A site's spec used to restate the German title and description of every page verbatim, so a
 // better translation failed the check until the spec caught up. With no title/desc named, the
 // check now reads what the page's own de:{ title, desc } object declares and holds the toggle

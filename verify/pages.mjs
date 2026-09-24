@@ -23,7 +23,7 @@ import { findFence } from "../lib/rewrite.mjs";
 import { lcdVarReferences } from "./lcd-scan.mjs";
 // expectedGerman reads a page's own de:{ title, desc } object below, rather than reinventing
 // the parse translates already needs elsewhere in this file.
-import { germanValues } from "../lib/german.mjs";
+import { germanValues, unescapeJs } from "../lib/german.mjs";
 
 // The German marks WRITING.md sets, kept once because two checks hold text to them:
 // typography, over the cold data-de and data-notes-de values, and translates, over the
@@ -82,7 +82,10 @@ export function bannedForms(markdown) {
 export function expectedGerman(html) {
   const v = germanValues(html);
   const title = v.find((e) => e.id === "js.title"), desc = v.find((e) => e.id === "js.desc");
-  return title && desc ? { title: title.de, desc: desc.de } : null;
+  // germanValues keeps a js value as the source text applyGerman writes back, escapes and all;
+  // what this compares against is the rendered title and meta description, so the escapes have
+  // to resolve first, the way the browser's own JavaScript engine resolves them.
+  return title && desc ? { title: unescapeJs(title.de), desc: unescapeJs(desc.de) } : null;
 }
 
 export function pageChecks({ SITE, BASE }) {
