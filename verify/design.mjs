@@ -48,9 +48,7 @@
 import { FENCES } from "../lib/fences.mjs";
 export const TOKEN_VERSION = FENCES["design tokens"].version;
 
-import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 // Not derived from this module's own location. This file is consumed from
 // <site>/node_modules/@robertblust/design/verify/design.mjs — two `dirname`s up from there is
 // the package directory, not the site, so `fileURLToPath(import.meta.url)` silently pointed
@@ -62,20 +60,6 @@ import { fileURLToPath } from "node:url";
 // node_modules this file happens to live. Resist "fixing" this back to import.meta.url: that
 // is what silently broke it the first time.
 const SITE_ROOT = process.cwd();
-
-// The release a page with no fences is checked against instead of a fence's own version: such
-// a page links tokens.css rather than carrying the `design tokens` fence, and that file's own
-// opening comment names the package's release — see cssHeader() in lib/assemble.mjs, which
-// writes exactly this string. Read from package.json the same way assemble.mjs reads its own,
-// and unlike SITE_ROOT above, `import.meta.url` is the right root here: assemble.mjs ships at
-// the same depth (<package>/lib/assemble.mjs, this file at <package>/verify/design.mjs, both two
-// dirnames above package.json), and once installed that depth resolves inside the site's own
-// node_modules to the *package's* root, which is what a release number has to be read from —
-// the site's own root, that SITE_ROOT derivation is guarding against here, is the wrong place
-// to look for it.
-const PKG_ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-export const PACKAGE_VERSION =
-  JSON.parse(fs.readFileSync(path.join(PKG_ROOT, "package.json"), "utf8")).version;
 
 export const TOKENS = {
   "--ground": "#0C0E13", "--raise": "#171A21", "--rule": "#232833",
@@ -550,10 +534,10 @@ export const DESIGN_CHECKS = {
   // The version marker that makes a cross-repo drift visible to a human. A page that carries
   // the `design tokens` fence is asserted against the fence's own version, as it always has
   // been; a page with no fences at all — the shape README's "Whole files, assembled from a
-  // block" describes — links tokens.css instead, and never carries that marker to find. It
-  // has its own version, in the opening comment cssHeader() (lib/assemble.mjs) writes, and
-  // that is what a fenceless page is checked against, against the package release actually
-  // installed here rather than a fence's version, which such a page no longer carries at all.
+  // block" describes — links tokens.css instead, and never carries that marker to find. The
+  // file's opening comment, which header() in lib/assemble.mjs writes, names the tokens block
+  // and its version, `tokens v11`, and that is held to the same number the marker is: the two
+  // forms are one comparison, and the package's release is read from the site's pin, not here.
   //
   // The condition used to be `spec.fences.length === 0` — "no fences at all" — which is too
   // narrow: a page can keep one fence of its own, blust.ch's four stage pages keep `stage
@@ -572,10 +556,10 @@ export const DESIGN_CHECKS = {
       if (!link) return "the page carries no fence and no linked tokens.css to read a version from";
       const cssUrl = new URL(link[1], spec.absolute).href;
       const css = await (await fetch(cssUrl)).text();
-      const m = css.match(/@robertblust\/design v(\d+\.\d+\.\d+)/);
-      if (!m) return `${link[1]} carries no "@robertblust/design vX.Y.Z" opening comment`;
-      return m[1] === PACKAGE_VERSION ? null
-        : `${link[1]} says v${m[1]}, this site's installed package is v${PACKAGE_VERSION}`;
+      const m = css.match(/^\/\* @robertblust\/design — [^]*?assembled from the shared blocks:[^]*?\btokens (v\d+)\b/);
+      if (!m) return `${link[1]} names no tokens version in its opening comment — run npm run design`;
+      return m[1] === TOKEN_VERSION ? null
+        : `${link[1]} says tokens ${m[1]}, this site's installed package ships ${TOKEN_VERSION}`;
     }
     const m = html.match(/design tokens · (v\d+)/);
     if (!m) return "the page carries no `design tokens · vN` marker";

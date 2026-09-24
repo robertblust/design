@@ -626,8 +626,8 @@ function runFetchingReadoutInvariant(bodyByUrl, spec = { absolute: "https://exam
   return pageChecks(OPTS).readoutInvariant({}, spec).finally(() => { globalThis.fetch = realFetch; });
 }
 
-const TOKENS_CSS = `/* @robertblust/design v0.80.2 — tokens.css, assembled from the shared blocks
-   and copied into this site by \`npm run design\`. */
+const TOKENS_CSS = `/* @robertblust/design — tokens.css, assembled from the shared blocks: tokens v11.
+   Editing this file in a site does nothing: the next npm run design overwrites it. */
 
 :root[data-theme="light"]{
   --ground:#FAF9F5; --c-mid:#3A6DA6; --lcd:#0a0b0e; --lcd-ink:#7FA3D8; --lcd-faint:#7C8496;

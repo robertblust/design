@@ -156,13 +156,46 @@ test("page.js and deck.js are one IIFE each", () => {
   }
 });
 
-test("every assembled file opens with a comment naming the package and the release", () => {
+test("every assembled file opens with a comment naming each block it holds and that block's version", () => {
+  // The header used to name the package's release, so every release rewrote all five files by
+  // one line and moved every share-card stamp, whether or not a block in them had changed. It
+  // names the blocks instead, each with the version versions.json gives it, so a file's bytes
+  // move exactly when a block in it moves.
+  const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
+  const expected = {
+    "tokens.css": ["tokens"],
+    "page.css": ["reset", "header", "title", "footer", "principles", "team", "surfaces"],
+    "page.js": ["lang", "theme", "navFit"],
+    "deck.css": ["lockup", "transport"],
+    "deck.js": ["theme", "runtime", "fit"],
+  };
+  for (const name of FILE_NAMES) {
+    const text = assemble(name, { footer: "plain", lockup: "one" });
+    const head = text.slice(0, text.indexOf("\n\n"));
+    const flat = head.split("\n").map((l) => l.replace(/^(\/\* |\/\/ |   )/, "")).join(" ");
+    const list = expected[name].map((k) => `${k} ${versions[k]}`).join(" · ");
+    assert.ok(flat.includes(`@robertblust/design — ${name}, assembled from the shared blocks: ${list}.`),
+      `${name}'s header does not name ${list}:\n${head}`);
+    assert.match(head, /Editing this file in a site does nothing: the next npm run design overwrites it\./);
+  }
+});
+
+test("no assembled file names the package's release, so a release that moves no block moves no file", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(PKG, "package.json"), "utf8"));
   for (const name of FILE_NAMES) {
-    const config = { footer: "plain", lockup: "one" };
-    const text = assemble(name, config);
-    assert.match(text, new RegExp(`@robertblust/design v${pkg.version.replace(/\./g, "\\.")}`));
-    assert.match(text, /npm run design/);
+    const text = assemble(name, { footer: "plain", lockup: "one" });
+    assert.ok(!text.includes(pkg.version), `${name} still carries the release ${pkg.version}`);
+    assert.doesNotMatch(text.slice(0, 200), /design v\d+\.\d+\.\d+/, `${name} still names a release`);
+  }
+});
+
+test("an assembled file's header wraps short of a hundred characters and never between a block and its version", () => {
+  for (const name of FILE_NAMES) {
+    const text = assemble(name, { footer: "plain", lockup: "one" });
+    for (const line of text.slice(0, text.indexOf("\n\n")).split("\n")) {
+      assert.ok(line.length <= 100, `${name}: ${line.length} characters: ${line}`);
+      assert.doesNotMatch(line, /^(\/\/|   ) ?v\d+/, `${name}: a line opens on a version: ${line}`);
+    }
   }
 });
 
