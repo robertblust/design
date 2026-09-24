@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf, pick } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -257,4 +257,87 @@ test("the page's icon is the first icon link's address, and a page without one g
   const doc = { querySelector: (sel) => (sel === 'link[rel~="icon"]' ? { href: "https://blust.ch/favicon.svg" } : null) };
   assert.equal(iconOf(doc), "https://blust.ch/favicon.svg");
   assert.equal(iconOf({ querySelector: () => null }), null);
+});
+
+// pick() is the picker behind the empty panel's three questions: a Fisher-Yates shuffle of a
+// copy, cut to n, so it is deterministic once the caller supplies the random source.
+test("pick takes n items of a longer list, all distinct and drawn from it", () => {
+  const list = ["a", "b", "c", "d", "e"];
+  const got = pick(list, 3);
+  assert.equal(got.length, 3);
+  assert.equal(new Set(got).size, 3, "no duplicates");
+  for (const t of got) assert.ok(list.includes(t));
+});
+
+test("pick gives back the whole list, shuffled, when asked for more than it holds", () => {
+  const list = ["x", "y"];
+  const got = pick(list, 3);
+  assert.equal(got.length, 2);
+  assert.deepEqual([...got].sort(), ["x", "y"]);
+});
+
+test("pick of an empty list is empty, however many are asked for", () => {
+  assert.deepEqual(pick([], 3), []);
+  assert.deepEqual(pick(undefined, 3), []);
+});
+
+test("pick is deterministic with an injected random, and it is a Fisher-Yates shuffle cut to n", () => {
+  // rnd() => 0 always picks index 0 to swap with, at every step: arr walks
+  // [a,b,c,d,e] -> [e,b,c,d,a] -> [d,b,c,e,a] -> [c,b,d,e,a] -> [b,c,d,e,a], cut to 3.
+  const rnd = () => 0;
+  assert.deepEqual(pick(["a", "b", "c", "d", "e"], 3, rnd), ["b", "c", "d"]);
+  // A different constant still walks the same algorithm to a different, but reproducible, order.
+  const half = () => 0.5;
+  const first = pick(["a", "b", "c", "d"], 4, half);
+  const second = pick(["a", "b", "c", "d"], 4, half);
+  assert.deepEqual(first, second, "the same random source gives the same order every time");
+});
+
+test("pick never returns a negative or fractional count", () => {
+  assert.deepEqual(pick(["a", "b"], 0), []);
+  assert.deepEqual(pick(["a", "b"], -1), []);
+});
+
+// The rest of offering the three questions lives in the page section, built only once a real
+// `document.currentScript` carries `data-chat` — the same boundary the file's own top comment
+// draws around build() and open(): not run here, only read, as assets.test.mjs already does for
+// card.js and stage.js.
+test("the widget asks `questions` beside the chat endpoint, once, and keeps what it got", () => {
+  assert.match(src, /new URL\("questions", ENDPOINT\)/, "the route is not resolved against the endpoint the tag names");
+  assert.match(src, /if \(qList\) \{ cb\(qList\); return; \}/, "a second ask does not reuse the first list");
+  assert.match(src, /if \(!qFetch\) \{/, "a second ask before the first resolves starts its own fetch");
+});
+
+test("a fetch that fails, times out or is not JSON resolves to an empty list, not a throw", () => {
+  const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
+  assert.match(fn, /AbortController/, "the fetch has no timeout");
+  assert.match(fn, /if \(!r\.ok\) return \[\];/, "a non-2xx answer is not read as no questions");
+  assert.match(fn, /Array\.isArray\(j\.titles\)/, "a body without a titles array is not read as no questions");
+  assert.match(fn, /\.catch\(function\(\)\{ clearTimeout\(timer\); return \[\]; \}\)/, "a rejected fetch or a JSON parse failure is not caught");
+});
+
+test("chips are offered only on an empty conversation, and a second race does not double them", () => {
+  const fn = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
+  assert.match(fn, /if \(messages\.length\) return;/, "chips are offered on a conversation that already has a message");
+  assert.match(fn, /if \(messages\.length \|\| qBox\) return;/, "chips are rebuilt once a message arrived while the fetch was in flight, or while chips are already up");
+  assert.match(fn, /if \(!picked\.length\) return;/, "an empty pick still builds a box");
+});
+
+test("the chip container carries an accessible name from the strings, in both languages, and follows a language switch", () => {
+  assert.match(src, /questions: "Questions people ask"/);
+  assert.match(src, /questions: "Fragen, die Besucher stellen"/);
+  assert.match(src, /qBox\.setAttribute\("aria-label", strings\(langNow\(\)\)\.questions\)/, "the container's name is not read off the strings");
+  assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
+});
+
+test("a chip's label is set with textContent, and activating it sends exactly its title", () => {
+  assert.match(src, /el\("button", "rbchat-q", t\)/, "a chip's label is not textContent, through el()");
+  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = t; send\(\); \}\)/, "a chip does not send its own title through send()");
+});
+
+test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
+  const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
+  assert.match(src, /function open\(\)\{ if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; input\.focus\(\); keep\(\); offerQuestions\(\); \}/, "open() does not offer questions");
+  assert.match(src, /qBox = null; fullNote\.hidden = true;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
 });
