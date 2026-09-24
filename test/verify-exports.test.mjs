@@ -5,17 +5,15 @@ import { httpStatus } from "@robertblust/design/verify/http";
 import { FENCES } from "../lib/fences.mjs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, realpathSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-// The installed package's own version — the same value assemble()'s cssHeader() writes into
-// tokens.css's opening comment, and read the same way design.mjs itself now has to read it:
-// from package.json, not from versions.json's fence version, which is a different number
-// (`v11`, `v12`, …) that only a fenced page still carries.
-const PKG_VERSION = JSON.parse(
-  readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf8"),
-).version;
+// tokens.css as assemble() writes it, whose opening comment names the tokens block and its
+// version, the number a linked page is held to exactly as a fenced page's marker is.
+const tokensCss = (version) =>
+  `/* @robertblust/design — tokens.css, assembled from the shared blocks: tokens ${version}.\n` +
+  "   Editing this file in a site does nothing: the next npm run design overwrites it. */\n\n:root{}\n";
 
 // design.mjs and http.mjs are imported here through the package's own `exports` map
 // (Node's self-reference resolution, since this package's own package.json declares
@@ -277,7 +275,7 @@ test("tokenVersion reads a fenceless page's linked tokens.css, not a marker it n
   // unlike `undefined`), so that is the signal this check reads too, rather than a new flag.
   const spec = { absolute: "http://x.test/", fences: [] };
   const html = '<link rel="stylesheet" href="tokens.css">';
-  const matching = `/* @robertblust/design v${PKG_VERSION} — tokens.css, assembled from the shared blocks\n   and copied into this site by \`npm run design\`. */\n\n:root{}\n`;
+  const matching = tokensCss(TOKEN_VERSION);
   const ok = await runFetchingCheck("tokenVersion", spec, {
     "http://x.test/": html,
     "http://x.test/tokens.css": matching,
@@ -285,17 +283,29 @@ test("tokenVersion reads a fenceless page's linked tokens.css, not a marker it n
   assert.equal(ok, null, `expected a matching version to pass, got ${JSON.stringify(ok)}`);
 });
 
-test("tokenVersion fails a fenceless page whose linked tokens.css names a different release", async () => {
+test("tokenVersion fails a fenceless page whose linked tokens.css names a different tokens version", async () => {
   const spec = { absolute: "http://x.test/", fences: [] };
   const html = '<link rel="stylesheet" href="tokens.css">';
-  const stale = "/* @robertblust/design v0.1.0 — tokens.css, assembled from the shared blocks */\n\n:root{}\n";
+  const stale = tokensCss("v1");
   const bad = await runFetchingCheck("tokenVersion", spec, {
     "http://x.test/": html,
     "http://x.test/tokens.css": stale,
   });
   assert.equal(typeof bad, "string", `expected a failure naming the mismatch, got ${JSON.stringify(bad)}`);
-  assert.match(bad, /0\.1\.0/);
-  assert.match(bad, new RegExp(PKG_VERSION.replace(/\./g, "\\.")));
+  assert.match(bad, /\bv1\b/);
+  assert.ok(bad.includes(TOKEN_VERSION), `the failure does not name ${TOKEN_VERSION}: ${bad}`);
+});
+
+test("tokenVersion fails a linked tokens.css that still names a release, the header before the blocks", async () => {
+  // A site that re-pinned without running `npm run design` still carries the old header, which
+  // names the package's release and no tokens version; the check says what to run.
+  const spec = { absolute: "http://x.test/", fences: [] };
+  const bad = await runFetchingCheck("tokenVersion", spec, {
+    "http://x.test/": '<link rel="stylesheet" href="tokens.css">',
+    "http://x.test/tokens.css": "/* @robertblust/design v0.83.0 — tokens.css, assembled from the shared blocks */\n\n:root{}\n",
+  });
+  assert.equal(typeof bad, "string", `expected a failure, got ${JSON.stringify(bad)}`);
+  assert.match(bad, /npm run design/);
 });
 
 test("tokenVersion still reads a fenced page's `design tokens · vN` marker unchanged", async () => {
@@ -322,7 +332,7 @@ test("tokenVersion reads a linked tokens.css on a page that keeps one fence of i
   // page keeping any other fence still satisfies.
   const spec = { absolute: "http://x.test/", fences: ["stage contract"] };
   const html = '<link rel="stylesheet" href="tokens.css">';
-  const matching = `/* @robertblust/design v${PKG_VERSION} — tokens.css, assembled from the shared blocks\n   and copied into this site by \`npm run design\`. */\n\n:root{}\n`;
+  const matching = tokensCss(TOKEN_VERSION);
   const ok = await runFetchingCheck("tokenVersion", spec, {
     "http://x.test/": html,
     "http://x.test/tokens.css": matching,
@@ -333,13 +343,13 @@ test("tokenVersion reads a linked tokens.css on a page that keeps one fence of i
 test("tokenVersion still fails a mismatched linked tokens.css on a page that keeps one fence of its own", async () => {
   const spec = { absolute: "http://x.test/", fences: ["stage contract"] };
   const html = '<link rel="stylesheet" href="tokens.css">';
-  const stale = "/* @robertblust/design v0.1.0 — tokens.css, assembled from the shared blocks */\n\n:root{}\n";
+  const stale = tokensCss("v1");
   const bad = await runFetchingCheck("tokenVersion", spec, {
     "http://x.test/": html,
     "http://x.test/tokens.css": stale,
   });
   assert.equal(typeof bad, "string", `expected a failure naming the mismatch, got ${JSON.stringify(bad)}`);
-  assert.match(bad, /0\.1\.0/);
+  assert.match(bad, /\bv1\b/);
 });
 
 test("fences passes a page that declares none, the shape a page linking the whole files takes", async () => {
