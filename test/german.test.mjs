@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { germanValues, applyGerman } from "../lib/german.mjs";
+import { germanValues, applyGerman, unescapeJs } from "../lib/german.mjs";
 
 const PAGE = `<!doctype html><html lang="en"><head>
 <meta name="description" id="metadesc" content="Over twenty-five years." data-de="Über fünfundzwanzig Jahre.">
@@ -54,4 +54,54 @@ test("de:{...} and en:{...} need a left boundary, so mode:{...} is not read as G
   const v = germanValues(src);
   assert.equal(v.find((e) => e.id === "js.title"), undefined);
   assert.equal(v.find((e) => e.id === "js.desc"), undefined);
+});
+
+// The real case this guards: companygraph.io's talks/intro/index.html carries an escaped
+// apostrophe inside a single-quoted en desc — "a company's knowledge" — and a non-greedy
+// [\s\S]*? used to stop at that escaped quote, truncating the value at "a company".
+test("germanValues keeps a js description whole across an escaped apostrophe", () => {
+  const src = `<script>var UI = {
+    de:{ title:"T", desc:"Ein Vortrag ueber das Wissen einer Firma als Graph." },
+    en:{ title:"T", desc:'A talk on the graph — a company\\'s knowledge as a graph.' }
+  };</script>`;
+  const v = germanValues(src);
+  const desc = v.find((e) => e.id === "js.desc");
+  assert.equal(desc.en, "A talk on the graph — a company\\'s knowledge as a graph.");
+});
+
+test("applyGerman edits the js description without disturbing a title that carries an escaped apostrophe", () => {
+  const src = `<script>
+  var UI = {
+    de:{ title:'Robert\\'s Talk', desc:"Alte Beschreibung." },
+    en:{ title:"Robert's Talk", desc:"Old description." }
+  };
+</script>`;
+  const out = applyGerman(src, { "js.desc": "Neue Beschreibung." });
+  assert.equal(out, src.replace("Alte Beschreibung.", "Neue Beschreibung."));
+});
+
+test("applyGerman accepts an escaped quote in a js value and refuses a bare one", () => {
+  const src = `<script>
+  var UI = {
+    de:{ title:'Titel', desc:'Alte Beschreibung.' },
+    en:{ title:"Title", desc:"Old description." }
+  };
+</script>`;
+  const out = applyGerman(src, { "js.desc": "Das ist\\'s so." });
+  assert.equal(out, src.replace("Alte Beschreibung.", "Das ist\\'s so."));
+  assert.throws(() => applyGerman(src, { "js.desc": "Das ist's bare." }), /^Error: refused: js\.desc$/);
+});
+
+test("applyGerman still refuses a quote in an HTML attribute, even preceded by a backslash", () => {
+  assert.throws(() => applyGerman(PAGE, { a1: 'ein "Zitat"' }), /^Error: refused: a1$/);
+  // An HTML attribute has no backslash escape, so a backslash before the quote is just a
+  // character and the quote still ends the attribute early; a2's own quote is ".
+  assert.throws(() => applyGerman(PAGE, { a2: 'a &gt; b, «ja\\"»' }), /^Error: refused: a2$/);
+});
+
+test("unescapeJs resolves the escapes a JS string carries, leaving other backslashes alone", () => {
+  assert.equal(unescapeJs("Robert\\'s Titel"), "Robert's Titel");
+  assert.equal(unescapeJs('Eine \\"Sache\\".'), 'Eine "Sache".');
+  assert.equal(unescapeJs("a\\\\b"), "a\\b");
+  assert.equal(unescapeJs("no escapes here"), "no escapes here");
 });
