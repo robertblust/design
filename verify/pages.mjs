@@ -21,6 +21,9 @@ import { findFence } from "../lib/rewrite.mjs";
 // test in @robertblust/design is built from, moved so a site's served HTML can be scanned
 // with it too, not just the package's own blocks/deck-transport.css.
 import { lcdVarReferences } from "./lcd-scan.mjs";
+// expectedGerman reads a page's own de:{ title, desc } object below, rather than reinventing
+// the parse translates already needs elsewhere in this file.
+import { germanValues } from "../lib/german.mjs";
 
 // The German marks WRITING.md sets, kept once because two checks hold text to them:
 // typography, over the cold data-de and data-notes-de values, and translates, over the
@@ -71,6 +74,15 @@ export function bannedForms(markdown) {
     const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return [`${form} (write ${fix})`, new RegExp(`(?<![\\p{L}\\p{N}])${esc}(?=\\p{L}{0,3}(?![\\p{L}\\p{N}]))`, "iu")];
   });
+}
+
+// The German <title> and meta description a page declares in its de:{ title, desc } object,
+// read from the source so a site's spec need not restate them — restated German is German a
+// better translation has to change twice, and the pilot of the German pipeline had to.
+export function expectedGerman(html) {
+  const v = germanValues(html);
+  const title = v.find((e) => e.id === "js.title"), desc = v.find((e) => e.id === "js.desc");
+  return title && desc ? { title: title.de, desc: desc.de } : null;
 }
 
 export function pageChecks({ SITE, BASE }) {
@@ -1181,16 +1193,21 @@ export function pageChecks({ SITE, BASE }) {
       if (kept.length) return `after the toggle ${kept.length} element(s) kept their English: ${kept.slice(0, 3).join("; ")}`;
       // The <title> and the meta description are the page's word to a crawler or a tab strip;
       // nothing in `shows`/`hides` reaches either. A visitor who picks German under an English
-      // title would sail past both.
-      if (spec.translates.title) {
+      // title would sail past both. Where the spec names neither, they are expected to be what
+      // the page's own de object declares — read from spec.absolute, when the spec carries one;
+      // a spec with none is a spec this check has always taken literal-only, and stays that way.
+      const declared = spec.absolute ? expectedGerman(await (await fetch(spec.absolute)).text()) || {} : {};
+      const wantTitle = spec.translates.title ?? declared.title;
+      const wantDesc = spec.translates.desc ?? declared.desc;
+      if (wantTitle) {
         const germanTitle = await page.title();
-        if (germanTitle !== spec.translates.title)
-          return `after the toggle title is ${JSON.stringify(germanTitle)}, expected ${JSON.stringify(spec.translates.title)}`;
+        if (germanTitle !== wantTitle)
+          return `after the toggle title is ${JSON.stringify(germanTitle)}, expected ${JSON.stringify(wantTitle)}`;
       }
-      if (spec.translates.desc) {
+      if (wantDesc) {
         const germanDesc = await desc();
-        if (germanDesc !== spec.translates.desc)
-          return `after the toggle meta description is ${JSON.stringify(germanDesc)}, expected ${JSON.stringify(spec.translates.desc)}`;
+        if (germanDesc !== wantDesc)
+          return `after the toggle meta description is ${JSON.stringify(germanDesc)}, expected ${JSON.stringify(wantDesc)}`;
       }
       // The German title and description are script strings, UI.de and TALK.de, that the
       // cold scan in typography never sees and that exist only now, after the toggle; they

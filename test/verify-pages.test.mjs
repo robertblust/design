@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "playwright";
-import { pageChecks, bannedForms } from "../verify/pages.mjs";
+import { pageChecks, bannedForms, expectedGerman } from "../verify/pages.mjs";
 import { assemble } from "../lib/assemble.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -848,6 +848,73 @@ test("translates holds the German title and meta description to the German marks
   lang = "en";
   page.title = async () => lang === "de" ? "Ideen – Robert Blust" : "Ideas — Robert Blust";
   assert.equal(await pageChecks(OPTS).translates(page, spec), null);
+});
+
+test("translates takes its German title and description from the page when the spec names none", () => {
+  const html = `<script>var UI = { de:{ title:"Titel – DE", desc:"Beschreibung." }, en:{ title:"Title", desc:"Description." } };</script>`;
+  assert.deepEqual(expectedGerman(html), { title: "Titel – DE", desc: "Beschreibung." });
+  assert.equal(expectedGerman("<p data-de='x'>y</p>"), null);
+  const src = pageChecks(OPTS).translates.toString();
+  assert.match(src, /expectedGerman/);
+});
+
+// A site's spec used to restate the German title and description of every page verbatim, so a
+// better translation failed the check until the spec caught up. With no title/desc named, the
+// check now reads what the page's own de:{ title, desc } object declares and holds the toggle
+// to that instead.
+test("translates checks the toggle's title and description against the page's own de object when the spec names none", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ text: async () =>
+    `<script>var UI = { de:{ title:"Ideen – Robert Blust", desc:"Zwei Ideen." }, en:{ title:"Ideas", desc:"Two." } };</script>` });
+  try {
+    let lang = "en";
+    const page = {
+      click: async sel => { lang = sel === "#lde" ? "de" : "en"; },
+      title: async () => lang === "de" ? "Ideen – Robert Blust" : "Ideas",
+      evaluate: async fn => {
+        const s = fn.toString();
+        if (s.includes("documentElement.lang")) return lang;
+        if (s.includes("metadesc")) return lang === "de" ? "Zwei Ideen." : "Two.";
+        if (s.includes("data-de-href")) return null;
+        if (s.includes("data-de-aria")) return [];
+        return lang === "de" ? "Ideen" : "Ideas";
+      },
+    };
+    const spec = { absolute: "https://example.test/", translates: { lang: "de", shows: ["Ideen"], hides: ["Ideas"] } };
+    assert.equal(await pageChecks(OPTS).translates(page, spec), null);
+
+    // A page whose toggle disagrees with its own de object is caught, naming the page's value
+    // as the expectation — not a value the spec never stated.
+    page.title = async () => lang === "de" ? "Wrong Title" : "Ideas";
+    const out = await pageChecks(OPTS).translates(page, spec);
+    assert.match(out, /expected "Ideen – Robert Blust"/);
+  } finally { globalThis.fetch = realFetch; }
+});
+
+// Read the source, not asked of it: a spec with no `absolute` — the shape every pre-existing
+// translates test above and below this one uses — must never reach fetch, because fetch(undefined)
+// is a thrown TypeError, not a skipped check. A page with no de object and no literal title/desc
+// checks neither, exactly as before this task.
+test("translates never calls fetch when the spec carries no absolute", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("fetch must not be called without spec.absolute"); };
+  try {
+    let lang = "en";
+    const page = {
+      click: async sel => { lang = sel === "#lde" ? "de" : "en"; },
+      title: async () => lang === "de" ? "Ideen" : "Ideas",
+      evaluate: async fn => {
+        const s = fn.toString();
+        if (s.includes("documentElement.lang")) return lang;
+        if (s.includes("metadesc")) return "";
+        if (s.includes("data-de-href")) return null;
+        if (s.includes("data-de-aria")) return [];
+        return lang === "de" ? "Ideen" : "Ideas";
+      },
+    };
+    const spec = { translates: { lang: "de", shows: ["Ideen"], hides: ["Ideas"] } };
+    assert.equal(await pageChecks(OPTS).translates(page, spec), null);
+  } finally { globalThis.fetch = realFetch; }
 });
 
 test("the vendored STEMS line compiles as a JavaScript regex and reads as the check reads it", async () => {
