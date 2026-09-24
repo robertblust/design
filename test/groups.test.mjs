@@ -23,9 +23,9 @@ test("names exactly the groups this release ships", () => {
   assert.deepEqual([...GROUP_NAMES].sort(), ["chat", "files", "fonts", "stage"]);
 });
 
-test("the chat group carries the widget's script and stylesheet", () => {
+test("the chat group carries the widget's script and stylesheet, and the Octicon's license", () => {
   const dests = GROUPS.chat.map(([, to]) => to).sort();
-  assert.deepEqual(dests, ["chat.css", "chat.js"]);
+  assert.deepEqual(dests, ["chat.css", "chat.js", "octicons.LICENSE.txt"]);
 });
 
 test("every listed source file exists in the package", () => {
@@ -59,19 +59,54 @@ test("no destination is claimed by two groups", () => {
   }
 });
 
-test("the stage group carries the card, the script, the stylesheet and the vendored d3", () => {
+test("the stage group carries the card, the script, the stylesheet and the vendored d3 with its license", () => {
   const dests = GROUPS.stage.map(([, to]) => to).sort();
-  assert.deepEqual(dests, ["card.js", "d3.v7.min.js", "stage.css", "stage.js"]);
+  assert.deepEqual(dests, ["card.js", "d3.LICENSE.txt", "d3.v7.min.js", "stage.css", "stage.js"]);
 });
 
-test("the fonts group carries all four faces, under fonts/", () => {
+test("the fonts group carries all four faces and each family's license, under fonts/", () => {
   const dests = GROUPS.fonts.map(([, to]) => to).sort();
   assert.deepEqual(dests, [
     "fonts/Bricolage-var.woff2",
+    "fonts/Bricolage.LICENSE.txt",
     "fonts/InstrumentSans-var.woff2",
+    "fonts/InstrumentSans.LICENSE.txt",
     "fonts/PlexMono-400.woff2",
     "fonts/PlexMono-600.woff2",
+    "fonts/PlexMono.LICENSE.txt",
   ]);
+});
+
+// The OFL and the ISC and MIT licenses all ask for the notice in every copy, and a site that
+// takes a group is a copy. So a license file travels in the same group as what it covers, and
+// never alone: a site that takes the fonts cannot end up with a face and without its license.
+test("every third-party file travels in a group beside its license", () => {
+  const covered = {
+    "fonts/Bricolage-var.woff2": "fonts/Bricolage.LICENSE.txt",
+    "fonts/InstrumentSans-var.woff2": "fonts/InstrumentSans.LICENSE.txt",
+    "fonts/PlexMono-400.woff2": "fonts/PlexMono.LICENSE.txt",
+    "fonts/PlexMono-600.woff2": "fonts/PlexMono.LICENSE.txt",
+    "d3.v7.min.js": "d3.LICENSE.txt",
+    "chat.js": "octicons.LICENSE.txt",
+  };
+  for (const [name, pairs] of Object.entries(GROUPS)) {
+    if (name === "files") continue;
+    const dests = pairs.map(([, to]) => to);
+    for (const to of dests)
+      if (covered[to]) assert.ok(dests.includes(covered[to]), `${name} ships ${to} without ${covered[to]}`);
+  }
+});
+
+test("every license file a group ships is the upstream text, carrying its copyright line", () => {
+  for (const [name, pairs] of Object.entries(GROUPS)) {
+    if (name === "files") continue;
+    for (const [from] of pairs.filter(([f]) => f.endsWith(".LICENSE.txt"))) {
+      const text = fs.readFileSync(new URL(`../${from}`, import.meta.url), "utf8");
+      assert.match(text, /Copyright/, `${from} carries no copyright line`);
+      assert.match(text, /SIL Open Font License|Permission to use, copy|Permission is hereby granted/,
+        `${from} is not a license text`);
+    }
+  }
 });
 
 test("the files group names exactly the files lib/assemble.mjs knows how to write", () => {
