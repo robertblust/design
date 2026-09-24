@@ -141,6 +141,16 @@ test("the same config error exits 2 under --check too", () => {
   assert.match(r.out, /footer/);
 });
 
+test("german extract prints every German value of a page as JSON, with its English", () => {
+  const root = site({ "index.html": '<h1 data-de="Zwei Ideen.">Two ideas.</h1>' });
+  const r = run(["german", "extract", path.join(root, "index.html")]);
+  assert.equal(r.code, 0, r.out);
+  const v = JSON.parse(r.out);
+  assert.deepEqual(v.map((e) => e.id), ["a0"]);
+  assert.equal(v[0].de, "Zwei Ideen.");
+  assert.equal(v[0].en, "Two ideas.");
+});
+
 test("an unknown subcommand exits 2 and shows usage", () => {
   const root = site({}, { groups: ["fonts"] });
   const r = run(["frobnicate"], root);
