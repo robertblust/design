@@ -143,7 +143,7 @@ test("the same config error exits 2 under --check too", () => {
 
 test("german extract prints every German value of a page as JSON, with its English", () => {
   const root = site({ "index.html": '<h1 data-de="Zwei Ideen.">Two ideas.</h1>' });
-  const r = run(["german", "extract", path.join(root, "index.html")]);
+  const r = run(["german", "extract", "index.html"], root);
   assert.equal(r.code, 0, r.out);
   const v = JSON.parse(r.out);
   assert.deepEqual(v.map((e) => e.id), ["a0"]);
