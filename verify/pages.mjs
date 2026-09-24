@@ -1118,12 +1118,34 @@ export function pageChecks({ SITE, BASE }) {
       const src = await (await fetch(spec.absolute)).text();
       const decode = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&");
+      // germanValues already gives, per data-de/data-notes-de attribute in source order, the
+      // tag it sits on and its English — the element to name when the value is empty, so two
+      // empty hits on one page do not read alike. It walks the same source in the same order,
+      // so the n-th data-de/data-notes-de it finds is the n-th one below; data-de-aria is
+      // dropped because the regex below never selects it either.
+      const gVals = germanValues(src);
+      const attrVals = gVals.filter(v => v.kind === "data-de" || v.kind === "data-notes-de");
+      let gi = 0;
       const values = [...src.matchAll(/data-(de|notes-de|notes)="([^"]*)"/g)]
         .map(m => [m[1], decode(m[2].replace(/<code[\s\S]*?<\/code>/g, " ").replace(/<[^>]+>/g, " "))]);
       for (const [name, value] of values) {
-        if (name !== "notes" && !value.trim()) { hits.push(`[de] empty data-${name}: a German visitor sees nothing here`); continue; }
+        const g = name !== "notes" ? attrVals[gi++] : null;
+        if (name !== "notes" && !value.trim()) {
+          const label = g && g.en ? `<${g.tag}> "${g.en.slice(0, 40)}"` : `<${(g && g.tag) || name}>`;
+          hits.push(`[de] empty data-${name} on ${label}: a German visitor sees nothing here`);
+          continue;
+        }
         scan(name === "notes" ? "en" : "de", value, name === "notes" ? enRules : deRules);
       }
+
+      // The German <title> and meta description live in the page's own de:{ title, desc }
+      // object, which this cold scan never otherwise reads — they exist only once the toggle
+      // is pressed, which is when translates reads them. deRules, built above from the site's
+      // vendored GERMAN.md, would otherwise never see either one.
+      const jsTitle = gVals.find(v => v.id === "js.title");
+      const jsDesc = gVals.find(v => v.id === "js.desc");
+      if (jsTitle) scan("de title", jsTitle.de, deRules);
+      if (jsDesc) scan("de desc", jsDesc.de, deRules);
 
       return hits.length ? hits.join("; ") : null;
     },

@@ -1077,6 +1077,26 @@ test("typography fails an empty German value", async () => {
   } finally { restore(); }
 });
 
+test("typography names the element on an empty German value, so two empty hits do not read alike", async () => {
+  const restore = stubFetch(
+    `<h2 id="x" data-de="">Apaleo could not be reached</h2><meta name="og:site" content="" data-de="">`);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.match(out, /\[de\] empty data-de on <h2> "Apaleo could not be reached": a German visitor sees nothing here/);
+    // The meta tag has no text of its own, so the start tag is the whole identifier.
+    assert.match(out, /\[de\] empty data-de on <meta>: a German visitor sees nothing here/);
+  } finally { restore(); }
+});
+
+test("typography scans the page's own de object for the German title and description", async () => {
+  const restore = stubFetch(
+    `<p data-de="Gut.">x</p><script>var UI = { de:{ title:"Reservierung", desc:"Gut." }, en:{ title:"Reservation", desc:"Fine." } };</script>`);
+  try {
+    const out = await pageChecks(OPTS).typography(cleanPage, { absolute: "https://example.test/x/" });
+    assert.match(out, /\[de title\] Reservierung \(write Reservation\)/);
+  } finally { restore(); }
+});
+
 test("typography fails a refused form as a whole phrase, in any case, and nothing inside another word", async () => {
   const restore = stubFetch(`<p data-de="Ihre Reservierungen und ein offener Kern.">x</p><p data-de="Die Vorreservierung läuft.">y</p>`);
   try {

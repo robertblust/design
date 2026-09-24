@@ -48,3 +48,10 @@ test("applyGerman refuses an unknown id and a value holding its own quote", () =
   assert.throws(() => applyGerman(PAGE, { a99: "x" }), /^Error: refused: a99/);
   assert.throws(() => applyGerman(PAGE, { a1: 'ein "Zitat"' }), /^Error: refused: a1/);
 });
+
+test("de:{...} and en:{...} need a left boundary, so mode:{...} is not read as German", () => {
+  const src = `<script>var UI = { mode:{ title:"M", desc:"D" } };</script>`;
+  const v = germanValues(src);
+  assert.equal(v.find((e) => e.id === "js.title"), undefined);
+  assert.equal(v.find((e) => e.id === "js.desc"), undefined);
+});
