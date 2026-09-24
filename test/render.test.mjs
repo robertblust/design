@@ -333,3 +333,68 @@ test("the generated note says the rest of the site is bilingual, not the rest of
   assert.match(NOTE_DE, /Der Rest dieser Website ist zweisprachig/);
   assert.doesNotMatch(NOTE_DE, /Der Rest dieser Seite/);
 });
+
+// ── a seat held by more than one profile ──────────────────────────────────────────────────────
+// A role names nobody and any number of profiles may list it, so a seat can have several
+// holders. TEAM_FIXTURE's agent holds Maker and Checker; each case below adds a holder.
+const withProfile = (fields, name = "Another Agent", id = "profiles/b") => {
+  const f = structuredClone(TEAM_FIXTURE);
+  f.entities.splice(2, 0, { id, type: "profile", name, tagline: "A third line.",
+    path: `model/${id}/${id.split("/")[1]}.md`, fields, sections: [] });
+  return f;
+};
+const rowOf = (html, id) => {
+  const at = html.indexOf(`id="${id}"`);
+  return html.slice(html.lastIndexOf("<details", at), html.indexOf("</details>", at));
+};
+const railOf = (html) => html.slice(html.indexOf('<div class="whos">'), html.indexOf("</div><button"));
+
+test("seatsOf keeps every profile that holds a seat, not only the first", () => {
+  const f = withProfile({ nature: "agent", roles: ["Maker"] });
+  const maker = seatsOf(f, processesOf(f)[0]).find((s) => s.role.name === "Maker");
+  assert.deepEqual(maker.holders.map((p) => p.name), ["An Agent", "Another Agent"]);
+});
+
+test("a seat no profile holds has no holders", () => {
+  const f = structuredClone(TWO_PROCESS_FIXTURE);
+  const helper = seatsOf(f, processesOf(f)[1]).find((s) => s.role.name === "Helper");
+  assert.deepEqual(helper.holders, []);
+});
+
+test("profiles holding the same seats on a board share one entry on its rail", () => {
+  const html = regionOf(renderTeamInto(withProfile({ nature: "agent", roles: ["Maker", "Checker"] })));
+  const rail = railOf(html);
+  assert.match(rail, /<div class="nm">An Agent, Another Agent<\/div><div class="lbl">agents · share 2 of 3<\/div>/);
+  assert.match(rail, /<span class="stack"><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><svg class="mk agent"/);
+  assert.equal((rail.match(/class="hw"/g) || []).length, 2, "the person and the two agents together");
+});
+
+test("profiles holding different seats keep an entry each, and each counts a shared seat", () => {
+  const html = regionOf(renderTeamInto(withProfile({ nature: "agent", roles: ["Maker"] })));
+  const rail = railOf(html);
+  assert.match(rail, /<div class="nm">An Agent<\/div><div class="lbl">agent · holds 2 of 3<\/div>/);
+  assert.match(rail, /<div class="nm">Another Agent<\/div><div class="lbl">agent · holds 1 of 3<\/div>/);
+  assert.doesNotMatch(rail, /class="stack"/);
+});
+
+test("a shared seat's row carries a stacked mark and names its holders in words", () => {
+  const html = regionOf(renderTeamInto(withProfile({ nature: "agent", roles: ["Maker"] })));
+  const row = rowOf(html, "maker");
+  assert.match(row, /<span class="sname"><span class="stack"><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><\/span><span class="tw">Maker<\/span>/);
+  assert.match(row, /aria-label="Maker, agent, held by An Agent and Another Agent\. executes One\. approves no gate\."/);
+  assert.doesNotMatch(rowOf(html, "checker"), /class="stack"/);
+});
+
+test("a seat a person shares with an agent is a person's row, the person's mark in front", () => {
+  const f = structuredClone(TEAM_FIXTURE);
+  f.entities.find((e) => e.id === "profiles/p").fields.roles = ["Boss", "Checker"];
+  const html = regionOf(renderTeamInto(f));
+  const row = rowOf(html, "checker");
+  assert.match(row, /<details class="human" id="checker"/);
+  assert.match(row, /<span class="stack"><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><svg class="mk human"[^>]*><use href="#m-human"\/><\/svg><\/span>/);
+  assert.match(row, /aria-label="Checker, human and agent, held by A Person and An Agent\./);
+  assert.deepEqual(seatsOf(f, processesOf(f)[0]).map((s) => s.role.name), ["Boss", "Checker", "Maker"]);
+  const rail = railOf(html);
+  assert.match(rail, /<div class="nm">A Person<\/div><div class="lbl">human · holds 2 of 3<\/div>/);
+  assert.match(rail, /<div class="nm">An Agent<\/div><div class="lbl">agent · holds 2 of 3<\/div>/);
+});

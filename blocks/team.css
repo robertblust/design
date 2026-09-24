@@ -1,4 +1,4 @@
-  /* ─── team · v1 · {{variant}} ─────────────────────────────────────────────
+  /* ─── team · v2 · {{variant}} ─────────────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The board /team/ draws: the head rail with its Open-all button, the grid of seats and
@@ -20,6 +20,15 @@
   .mk.human{color:var(--c-firm)}
   .mk.agent{color:var(--c-mid)}
   .hw .mk{width:2.3rem; height:2.3rem}
+  /* A seat several profiles hold: two marks, one behind the other, the one behind at half
+     strength and lifted, the one in front cut out of whatever it sits on. --halo is that ground:
+     the page's on the rail, a row's own where a row is shaded, so the cut-out never shows as a
+     box. */
+  .stack{display:inline-flex; flex:none; align-items:flex-end}
+  .stack .mk:first-child{opacity:.5; transform:translateY(-.22em)}
+  .stack .mk + .mk{margin-left:-.42em; background:var(--halo, var(--ground)); border-radius:.3em;
+                   box-shadow:0 0 0 .1em var(--halo, var(--ground))}
+  .hw .stack .mk + .mk{margin-left:-1rem}
 
   .hdrail{display:flex; gap:2rem; align-items:center; justify-content:space-between;
           padding-bottom:1.1rem; border-bottom:1px solid var(--rule); margin-top:.9rem}
@@ -57,7 +66,7 @@
                 grid-auto-columns:var(--phase); align-items:center;
                 list-style:none; cursor:pointer; padding:.62rem 0}
   .grid summary::-webkit-details-marker{display:none}
-  .grid summary:hover{background:var(--press)}
+  .grid summary:hover{background:var(--press); --halo:var(--press)}
   .grid summary:focus-visible{outline:2px solid var(--c-mid); outline-offset:-2px}
   .grid summary > span{text-align:center}
   .grid .sname{display:flex; align-items:center; gap:.6rem; text-align:left}
@@ -70,7 +79,7 @@
                        transition:transform .12s ease; flex:none}
   .grid details[open] .sname::before{transform:rotate(90deg); border-left-color:var(--c-mid)}
   .grid details[open] .sname .tw{color:var(--c-firm)}
-  .grid details.human summary{background:var(--press)}
+  .grid details.human summary{background:var(--press); --halo:var(--press)}
   /* Full width, not an indent: the References table under a role wrapped its URLs at anything
      narrower. The card's own prose keeps a measure inside it. */
   .grid .drawer{padding:.3rem 0 1.5rem}
