@@ -46,7 +46,11 @@ function rbStage(data) {
     next:  { en:"Next",  de:"Weiter" },
     backTo:{ en:"Back to ",    de:"Zurück zu " },
     nextTo:{ en:"Forward to ", de:"Weiter zu " },
-    folder:{ en:"folder", de:"Ordner" }
+    folder:{ en:"folder", de:"Ordner" },
+    // the notes on the two controls that open and close the expanded stage: what each does,
+    // since Expand's own word does not say where it goes and the close button is a bare cross
+    expand:{ en:"Open full screen",  de:"Im Vollbild öffnen" },
+    shrink:{ en:"Close full screen", de:"Vollbild schliessen" }
   };
   function lang(){ return document.documentElement.lang === "de" ? "de" : "en"; }
   function t(k){ return STR[k][lang()]; }
@@ -766,7 +770,17 @@ function rbStage(data) {
     refit();
   }
   expandBtn.addEventListener("click", expand);
-  document.getElementById("modalclose").addEventListener("click", function(){ modal.close(); });
+  var closeBtn = document.getElementById("modalclose");
+  closeBtn.addEventListener("click", function(){ modal.close(); });
+  // Both controls carry the family's note, the box the transport already shows, so every
+  // control on the stage answers a pointer the same way. The cross names its key as well,
+  // because Escape closes the dialog too and nothing else on the page says so.
+  function noteControls(){
+    rbCard.describe(expandBtn, "", t("expand"), "");
+    rbCard.describe(closeBtn, "", t("shrink"), "Esc");
+  }
+  noteControls();
+  new MutationObserver(noteControls).observe(document.documentElement, { attributes:true, attributeFilter:["lang"] });
   // Escape is native to <dialog> and needs no handler here. A click on the backdrop lands
   // with the dialog itself as the event target — nothing else is there to hit — which is
   // what tells it apart from a click on the content the dialog contains.
