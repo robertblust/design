@@ -395,3 +395,12 @@ test("open() clears any standing chips before asking for a fresh set, so a reope
   const hideAt = openFn.indexOf("hideQuestions();"), offerAt = openFn.indexOf("offerQuestions();");
   assert.ok(hideAt >= 0 && offerAt > hideAt, "open() does not clear before it offers again");
 });
+
+test("the new-conversation control is an arrow come back round with a note, not a bare plus", () => {
+  assert.doesNotMatch(src, /d="M12 6v12M6 12h12"/, "the plus is back beside the close cross");
+  assert.match(src, /newBtn\.setAttribute\("aria-label", s\.fresh\); newBtn\.setAttribute\("data-tip", s\.fresh\);/, "the button's note does not follow the language");
+  assert.match(src, /closeBtn\.setAttribute\("data-tip", s\.close\)/, "the close cross has no note");
+  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after\{content:attr\(data-tip\)/, "the note is not drawn");
+  assert.match(css, /\.rbchat-new:focus-visible::after/, "the note does not show on keyboard focus");
+});
