@@ -10,7 +10,7 @@ Status: approved by the owner on 2026-09-25. It came from blust.ch's cost page, 
 
 **Red waits.** `--warn` and `--c-flag` measured a CVD distance of 3.4 in light and are below the normal-vision floor in both themes, so a red risk line would be read as a caveat by a reader with red-green color blindness. A risk line comes with a second carrier, a dash or a label, when a page first needs one.
 
-**The values.** `--c-sum` is #2A8C5A on the light ground and #7AD0B2 on the dark, each above the 3:1 WCAG asks of a non-text mark. Measured against the amber and `--c-mid`, the closest pair in light is the amber at a CVD distance of 8.1 and a normal-vision distance of 16.4, and in dark the blue at 15.3, all above the palette check's floors of 8 and 15. The first greens tried, #2F7A4A and #6FBF8A, sat below both floors against the amber and were refused.
+**The values.** `--c-sum` is #1E9A4B on the light ground and #34D399 on the dark, each above the 3:1 WCAG asks of a non-text mark and saturated enough to stand beside the amber: the owner found a first, bluer pair, #2A8C5A and #7AD0B2, too faint next to the yellow. Measured against the amber and `--c-mid`, the closest pair is the amber in both themes, at a CVD distance of 9.4 and a normal-vision distance of 19.5 in light and 8.6 and 19.0 in dark, all above the palette check's floors of 8 and 15. A purer green was tried in dark and refused: every one fell below 5 against the amber for a reader with red-green color blindness, the classic green–yellow confusion, so the dark green keeps a trace of blue. The first greens of all, #2F7A4A and #6FBF8A, sat below both floors against the amber.
 
 ## What changes
 
