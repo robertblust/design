@@ -25,12 +25,25 @@
 .rbchat-head{display:flex;align-items:center;gap:.4rem;padding:.75rem 1rem;border-bottom:1px solid var(--rule);background:var(--raise)}
 .rbchat-head h2{margin:0;margin-right:auto;font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
 .rbchat-close{border:0;background:none;color:var(--dim);font-size:1.4rem;line-height:1;cursor:pointer;padding:.2rem .4rem;border-radius:6px}
-/* Starting over, beside the way out and quieter than it: the same ink as the close cross, a
-   plus rather than a word, and gone whenever there is no conversation to clear. */
-.rbchat-new{border:0;background:none;color:var(--dim);line-height:0;cursor:pointer;padding:.3rem;border-radius:6px;margin-left:auto}
+/* Starting over, beside the way out and quieter than it: the same ink as the close cross, an
+   arrow come back round rather than a word, held a little apart from the cross so the two are
+   not one control, and gone whenever there is no conversation to clear. */
+.rbchat-new{border:0;background:none;color:var(--dim);line-height:0;cursor:pointer;padding:.3rem;border-radius:6px;margin-left:auto;margin-right:.35rem}
 .rbchat-new[hidden]{display:none}
 .rbchat-new:hover,.rbchat-new:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
 .rbchat-close:hover,.rbchat-close:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
+/* The note under a header control: what the family's .tip says on a chip, in the same box, drawn
+   by the stylesheet because card.js is not on every page the chat is. It hangs below and to the
+   left of its button, since the panel clips above its header and the buttons sit at its right
+   edge. It shows on hover and on keyboard focus, never on a tap's focus. */
+.rbchat-new,.rbchat-close{position:relative}
+.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
+  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
+  background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
+  box-shadow:0 6px 18px var(--deck-drop);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--ink)}
+.rbchat-new:hover::after,.rbchat-new:focus-visible::after,.rbchat-close:hover::after,.rbchat-close:focus-visible::after{opacity:1;transform:none}
+@media (hover:none){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{display:none}}
+@media (prefers-reduced-motion:reduce){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{transition:none}}
 .rbchat-notice{margin:0;padding:.6rem 1rem;font-size:.8rem;line-height:1.4;color:var(--dim);border-bottom:1px solid var(--rule)}
 .rbchat-notice code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.95em;color:var(--ink)}
 .rbchat-notice a{color:var(--c-mid)}

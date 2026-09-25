@@ -509,10 +509,10 @@
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
-    title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.textContent = "×";
+    title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
     input.placeholder = s.placeholder; sendBtn.textContent = s.send;
     if (grip) grip.setAttribute("aria-label", s.size);
-    if (newBtn) newBtn.setAttribute("aria-label", s.fresh);
+    if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
     fullNote.querySelector("span").textContent = s.full; fullNote.querySelector("button").textContent = s.fresh;
     if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
@@ -532,7 +532,10 @@
     // turns, the log and the tab's copy go together; the panel's size stays, being a choice
     // about this tab's reading rather than part of the conversation.
     newBtn = el("button", "rbchat-new"); newBtn.type = "button"; newBtn.hidden = true;
-    newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 6v12M6 12h12"/></svg>';
+    // The glyph is an arrow come back round, not a plus: a plus beside the cross read as "add",
+    // and what the button does is start over. The note under it names the action for a pointer
+    // and for a keyboard, which a bare glyph never did.
+    newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12a7 7 0 1 0 2.05-4.95L5 9M5 5v4h4"/></svg>';
     newBtn.addEventListener("click", reset);
     head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
     notice = el("p", "rbchat-notice");
