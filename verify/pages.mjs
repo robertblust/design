@@ -1206,12 +1206,16 @@ export function pageChecks({ SITE, BASE }) {
       // English, or be rewritten by a script after the switch, with every suite green; so every
       // element carrying data-de must show that value, serialized the way the browser serializes
       // it, and every element carrying data-de-aria must be labeled with it.
+      // A number slot, an empty <span data-v> the German value carries too, is filled by the
+      // page's script after the switch; its content is the script's and not the translation's,
+      // so both sides are compared with every slot emptied, and the words around it still count.
       const kept = await page.evaluate(() => {
         const out = [];
+        const bare = (node) => { node.querySelectorAll("[data-v]").forEach((s) => { s.textContent = ""; }); return node.innerHTML; };
         document.querySelectorAll("[data-de]").forEach((el, i) => {
           const t = document.createElement(el.tagName);
           t.innerHTML = el.getAttribute("data-de");
-          if (el.innerHTML !== t.innerHTML)
+          if (bare(el.cloneNode(true)) !== bare(t))
             out.push(`data-de #${i} <${el.tagName.toLowerCase()}> shows ${JSON.stringify(el.textContent.trim().slice(0, 40))}`);
         });
         document.querySelectorAll("[data-de-aria]").forEach((el, i) => {

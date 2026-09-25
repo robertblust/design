@@ -1149,3 +1149,59 @@ test("typography fails a site with no vendored GERMAN.md and names the release t
     assert.match(out, /no vendored conventions\/GERMAN\.md .* v1\.29\.0/);
   } finally { restore(); }
 });
+
+// A page may put a number a script computes inside a translated sentence, as an empty
+// <span data-v> the script fills after every language switch. The German value carries the
+// same empty slot, so the element can never equal its value once filled; the check reads past
+// the slots, and still catches a sentence left in English around them.
+function slotsFixtureHtml(german) {
+  return `<!doctype html><html lang="en"><head><title>Cost</title></head><body>
+<button id="lde">DE</button><button id="len">EN</button>
+<p data-de="${german}">On average <span data-v="fte"></span> FTE for <span data-v="months"></span> months</p>
+<script>
+  const el = document.querySelector("[data-de]");
+  el.setAttribute("data-en", el.innerHTML);
+  const fill = (lang) => {
+    for (const s of document.querySelectorAll("[data-v]"))
+      s.textContent = s.dataset.v === "fte" ? (lang === "de" ? "8,4" : "8.4") : "9";
+  };
+  const set = (lang) => { document.documentElement.lang = lang; el.innerHTML = el.getAttribute("data-" + lang); fill(lang); };
+  document.getElementById("lde").onclick = () => set("de");
+  document.getElementById("len").onclick = () => set("en");
+  fill("en");
+</script></body></html>`;
+}
+
+async function translatesOn(html, translates = { lang: "de", shows: ["Im Schnitt"], hides: ["On average"] }) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "translates-slots-"));
+  let served, browser;
+  try {
+    fs.writeFileSync(path.join(dir, "index.html"), html);
+    served = await serveDir(dir);
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(served.base + "/");
+    return await pageChecks({ SITE: served.base, BASE: served.base })
+      .translates(page, { translates });
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("translates accepts a translated sentence whose number slots a script fills", async () => {
+  const out = await translatesOn(slotsFixtureHtml("Im Schnitt <span data-v='fte'></span> FTE während <span data-v='months'></span> Monaten"));
+  assert.equal(out, null);
+});
+
+test("translates still fails a slot's sentence whose words stayed English", async () => {
+  // The switch writes the German value, and a later script puts the English words back
+  // around the filled slots: the slots are ignored, the words are not.
+  const html = slotsFixtureHtml("Im Schnitt <span data-v='fte'></span> FTE während <span data-v='months'></span> Monaten")
+    .replace('const set = (lang) => { document.documentElement.lang = lang; el.innerHTML = el.getAttribute("data-" + lang); fill(lang); };',
+             'const set = (lang) => { document.documentElement.lang = lang; el.innerHTML = el.getAttribute("data-en"); fill(lang); };');
+  // No shows or hides, so the sample strings cannot catch it first: the element walk must.
+  const out = await translatesOn(html, { lang: "de" });
+  assert.match(out || "", /kept their English: data-de #0 <p>/);
+});
