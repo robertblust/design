@@ -303,3 +303,18 @@ test("card.js links a single-valued field through the edge the parser drew for i
   assert.match(js, /dd\.appendChild\(refId\(edge\.to\)\)/, "a single-valued reference is no longer linked where its edge lands");
 });
 
+
+test("Expand and the expanded stage's cross carry the family's note, in both languages", () => {
+  const src = asset("assets/stage.js");
+  assert.match(src, /expand:\{ en:"Open full screen",\s+de:"Im Vollbild öffnen" \}/, "Expand's note is gone or untranslated");
+  assert.match(src, /shrink:\{ en:"Close full screen", de:"Vollbild schliessen" \}/, "the cross's note is gone or untranslated");
+  assert.match(src, /rbCard\.describe\(expandBtn, "", t\("expand"\), ""\);/, "Expand is not described");
+  assert.match(src, /rbCard\.describe\(closeBtn, "", t\("shrink"\), "Esc"\);/, "the cross is not described, or no longer names its key");
+  assert.match(src, /new MutationObserver\(noteControls\)/, "the notes do not follow a language switch");
+});
+
+test("focus shows a note only where the browser draws a focus ring", () => {
+  const src = asset("assets/card.js");
+  assert.match(src, /function keyed\(el\)\{ try \{ return el\.matches\(":focus-visible"\); \}/, "focus is no longer asked whether it came from a keyboard");
+  assert.match(src, /if \(el && keyed\(el\)\) showTip\(el\);/, "a script's focus, such as a dialog opening, shows a note under the pointer");
+});

@@ -436,7 +436,12 @@
   function tipTarget(node){ return node && node.closest ? node.closest("[data-tip-name]") : null; }
   document.addEventListener("mouseover", function(ev){ var el = tipTarget(ev.target); if (el) showTip(el); else if (held && !held.contains(ev.target)) hideTip(); });
   document.addEventListener("mouseout", function(ev){ if (held && ev.relatedTarget && !held.contains(ev.relatedTarget) && !tipTarget(ev.relatedTarget)) hideTip(); });
-  document.addEventListener("focusin", function(ev){ var el = tipTarget(ev.target); if (el) showTip(el); else hideTip(); });
+  // Focus shows a note only when the browser would draw a focus ring: a keyboard arriving, not
+  // a script handing focus back. A dialog focuses its first control as it opens, and closing
+  // it returns focus to the button that opened it; after a click neither is a question the
+  // reader asked, and a note there would pop up under the pointer on every open and close.
+  function keyed(el){ try { return el.matches(":focus-visible"); } catch (e) { return true; } }
+  document.addEventListener("focusin", function(ev){ var el = tipTarget(ev.target); if (el && keyed(el)) showTip(el); else if (!el) hideTip(); });
   document.addEventListener("focusout", function(ev){ if (held && ev.target === held) hideTip(); });
   document.addEventListener("keydown", function(ev){ if (ev.key === "Escape") hideTip(); });
   document.addEventListener("scroll", function(){ if (held && tip && tip.classList.contains("show")) placeTip(held); }, true);
