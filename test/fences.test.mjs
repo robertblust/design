@@ -16,10 +16,10 @@ import { findFence } from "../lib/rewrite.mjs";
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
 
-test("names exactly the nineteen fences this release ships", () => {
+test("names exactly the twenty fences this release ships", () => {
   assert.deepEqual([...FENCE_NAMES].sort(),
     ["deck fit", "deck lockup", "deck runtime", "deck transport", "design tokens",
-     "header contract", "language", "model card", "nav fit", "principles", "prose footer",
+     "header contract", "language", "lines", "model card", "nav fit", "principles", "prose footer",
      "prose reset", "stage contract", "surfaces", "surfaces lineage", "team", "theme",
      "theme boot", "title contract"]);
 });

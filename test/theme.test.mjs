@@ -910,3 +910,15 @@ test("the theme control's rules sit outside .lcd, not inside it", () => {
   for (const b of segThemeBlocks)
     assert.ok(!targetsLcd(b.selector), `"${b.selector}" must not target .lcd`);
 });
+
+// A conclusion is marked by a line, not by text, so --c-sum is held to the 3:1 WCAG asks of a
+// non-text mark rather than the 4.5:1 of the text tokens above.
+test("--c-sum, the conclusion line, clears 3:1 against its own ground, in both themes", () => {
+  const css = blockFor("design tokens", "page");
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    assert.ok(p["c-sum"], `${name}: no --c-sum`);
+    const r = ratio(p["c-sum"], p.ground);
+    assert.ok(r >= 3, `${name}: --c-sum is ${r.toFixed(2)}:1 on --ground, needs 3`);
+  }
+});

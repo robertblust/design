@@ -1,0 +1,16 @@
+  /* ─── lines · v1 · {{variant}} ─────────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The two lines a prose page draws beside a paragraph, and what each means, so that a line's
+     color says the same thing on every page of the family:
+       · .title .note   the caveat, in --c-flag: what a reader should know before trusting the
+                        rest. Once per page, under the title.
+       · .conclusion    the conclusion, in --c-sum: what the figures above add up to. At most
+                        once per section.
+     A risk has no line yet: --warn and --c-flag are too close for a reader with red-green
+     color blindness to tell apart by color alone, so a risk line waits for a second carrier. */
+  .title .note{margin-top:2rem; max-width:54ch; padding-left:1rem;
+               border-left:2px solid var(--c-flag); color:var(--ink); font-size:1rem}
+  .conclusion{margin-block:1rem; max-width:62ch; padding-left:1rem;
+              border-left:2px solid var(--c-sum); color:var(--ink)}
+  /* ─── end lines ─────────────────────────────────────────────────────────── */

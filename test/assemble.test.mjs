@@ -36,6 +36,7 @@ const FILE_PARTS = {
     ["prose reset", () => null],
     ["header contract", () => null],
     ["title contract", () => null],
+    ["lines", () => null],
     ["prose footer", (c) => c.footer],
     ["principles", () => null],
     ["team", () => null],
@@ -164,7 +165,7 @@ test("every assembled file opens with a comment naming each block it holds and t
   const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
   const expected = {
     "tokens.css": ["tokens"],
-    "page.css": ["reset", "header", "title", "footer", "principles", "team", "surfaces"],
+    "page.css": ["reset", "header", "title", "lines", "footer", "principles", "team", "surfaces"],
     "page.js": ["lang", "theme", "navFit"],
     "deck.css": ["lockup", "transport"],
     "deck.js": ["theme", "runtime", "fit"],
@@ -253,4 +254,10 @@ test("assemble refuses a part that assembles to nothing, naming the fence and it
   } finally {
     fs.readFileSync = real;
   }
+});
+
+test("page.css draws a conclusion's line in --c-sum and a note's in --c-flag", () => {
+  const css = assemble("page.css", { footer: "plain" });
+  assert.match(css, /\.conclusion\{[^}]*border-left:2px solid var\(--c-sum\)/);
+  assert.match(css, /\.title \.note\{[^}]*border-left:2px solid var\(--c-flag\)/);
 });

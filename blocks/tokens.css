@@ -1,4 +1,4 @@
-  /* ─── design tokens · v11 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v12 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -9,6 +9,10 @@
        --c-mid   anything interactive — links, controls, the brand accent
        --c-firm  the resolved thing — the thesis, the current page
        --c-flag  a reversal; at most one per page, never decoration
+
+     And one hue beside the ramp, for a page's own reading of it:
+       --c-sum   a conclusion: what the figures above add up to; at most one per
+                 section, and only as the line of a .conclusion, never as text
 
      And one name for a job the four stops do not cover:
        --c-path  where you are and how you got here — in the drawing, the
@@ -43,7 +47,7 @@
   :root[data-theme="light"]{
     --ground:#FAF9F5; --raise:#F2F0EA; --rule:#DFDCD3;
     --ink:#16181D;    --dim:#5F6058;
-    --c-weak:#8FA6C2; --c-mid:#3A6DA6; --c-firm:#1C3E68; --c-flag:#8A5A12;
+    --c-weak:#8FA6C2; --c-mid:#3A6DA6; --c-firm:#1C3E68; --c-flag:#8A5A12; --c-sum:#1E9A4B;
     --c-path:#1C3E68; --press:#E7ECF4;
 
     /* The deck's own chrome. A transport is a physical object in this design — the source
@@ -72,7 +76,7 @@
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;
     --sky:radial-gradient(120% 60% at 50% -10%, var(--raise) 0%, var(--ground) 60%);
     --ink:#EFEDE8;    --dim:#8A8B86;
-    --c-weak:#3E5878; --c-mid:#7FA3D8; --c-firm:#B8D0FF; --c-flag:#D9A44F;
+    --c-weak:#3E5878; --c-mid:#7FA3D8; --c-firm:#B8D0FF; --c-flag:#D9A44F; --c-sum:#34D399;
     --c-path:#B8D0FF; --press:#1b2231;
 
     /* The deck's own chrome. A transport is a physical object in this design — the source
