@@ -28,6 +28,7 @@
 //   rbChat.iconOf(doc)                 the page's icon, for the head of that line
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
 //   rbChat.unasked(list, messages)     the titles no visitor message in the conversation has asked
+//   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them
 //
 // An empty conversation, once the panel is shown, may offer three questions as a way in, three
 // of the site's own model's entities of type `question`, picked at random each time the panel
@@ -372,6 +373,25 @@
     return (list || []).filter(function(t){ return !asked[String(t).trim()]; });
   }
 
+  // The chips as a span of what the model answers: where its questions name a kind, three kinds
+  // are picked at random and one question from each, so a visitor sees three sorts of question
+  // rather than three that may all be about one thing. Fewer kinds than chips fill from what is
+  // left, and a model whose questions name no kind is offered exactly as pick() offers it, so a
+  // site that takes this before its model groups anything loses nothing.
+  function spread(items, n, random){
+    var rnd = typeof random === "function" ? random : Math.random;
+    var list = (items || []).filter(function(q){ return q && typeof q.title === "string"; });
+    var kinded = list.filter(function(q){ return typeof q.kind === "string" && q.kind; });
+    if (!kinded.length) return pick(list.map(function(q){ return q.title; }), n, rnd);
+    var byKind = {}, kinds = [];
+    kinded.forEach(function(q){ if (!byKind[q.kind]) { byKind[q.kind] = []; kinds.push(q.kind); } byKind[q.kind].push(q.title); });
+    var chosen = pick(kinds, n, rnd).map(function(k){ return pick(byKind[k], 1, rnd)[0]; });
+    var taken = {};
+    chosen.forEach(function(t){ taken[t] = true; });
+    var rest = list.map(function(q){ return q.title; }).filter(function(t){ return !taken[t]; });
+    return chosen.concat(pick(rest, Math.max(0, (Number(n) || 0) - chosen.length), rnd));
+  }
+
   // Where an open conversation lives while the visitor reads on. A page is a document, so
   // following a link throws the panel and everything in it away, and a visitor who asked a
   // question and clicked the answer's link lost the conversation. `sessionStorage` is the tab:
@@ -407,7 +427,7 @@
     } catch (e) {}
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -456,8 +476,8 @@
             var entities = j && Array.isArray(j.entities) ? j.entities : [];
             return entities
               .filter(function(e){ return e && e.type === "question" && typeof e.name === "string" && e.name.length > 0; })
-              .map(function(e){ return e.name; })
-              .filter(function(t){ return t.length <= LIMIT; });
+              .map(function(e){ return { title: e.name, kind: e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null }; })
+              .filter(function(q){ return q.title.length <= LIMIT; });
           });
         })
         .catch(function(){ clearTimeout(timer); return []; });
@@ -479,7 +499,8 @@
     if (!canOffer()) return;
     questions(function(list){
       if (!canOffer() || qBox) return;
-      var picked = pick(unasked(list, messages), 3);
+      var open = unasked(list.map(function(q){ return q.title; }), messages);
+      var picked = spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
       qNext = messages.length > 0;
       qBox = el("div", "rbchat-questions");
