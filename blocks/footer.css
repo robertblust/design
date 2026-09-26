@@ -1,4 +1,4 @@
-  /* ─── prose footer · v1 · {{variant}} ───────────────────────────────────
+  /* ─── prose footer · v2 · {{variant}} ───────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      Two forms, and the difference is not styling. companygraph.io and
@@ -9,10 +9,9 @@
 
      The row is mono because the row is data: a repository URL and a license.
      The credit leaves that mono deliberately, because a brand is not a record
-     value. Both facts belong here rather than in sixteen page comments. */
+     value. Both facts belong here rather than in sixteen page comments. A link
+     in the row is the family's link, from the `link` block, with nothing of its own. */
   footer{padding:0 0 2rem; display:flex; flex-wrap:wrap; gap:.9rem 2.6rem; align-items:center;
          font-family:"Plex Mono",monospace; font-size:.76rem; letter-spacing:.08em; color:var(--dim)}
-  footer a{color:var(--c-mid); text-decoration:none}
-  footer a:hover, footer a:focus-visible{text-decoration:underline}
 {{credit}}  footer a[aria-current="page"]{color:var(--c-firm)}
   /* ─── end prose footer ──────────────────────────────────────────────────*/

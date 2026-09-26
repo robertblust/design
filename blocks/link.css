@@ -1,0 +1,17 @@
+  /* ─── link · v1 · {{variant}} ──────────────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The family has one link style: a link in text is the interactive blue, --c-mid, with no
+     line at rest and a --c-mid line under the pointer or the keyboard's focus. The line is a
+     bottom border kept transparent until then, so drawing it moves nothing. Every prose page
+     and every deck carries this block, and a page writes no link rule of its own for text.
+
+     Every selector is inside :where(), so the block weighs nothing in the cascade: the nav,
+     the footer's current page, a card's chips and any rule a page writes for a control all win
+     without having to know this block exists. An anchor with a class is a component — a
+     button, a tile, a transport control — and takes only the inherited color, because a
+     transparent border would add a pixel to its box and a hover line would cross a button. */
+  :where(a){color:inherit}
+  :where(a:not([class])){color:var(--c-mid); text-decoration:none; border-bottom:1px solid transparent}
+  :where(a:not([class]):hover, a:not([class]):focus-visible){border-bottom-color:var(--c-mid)}
+  /* ─── end link ─────────────────────────────────────────────────────────── */

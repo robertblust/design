@@ -171,6 +171,22 @@ test("the card's prose is dim and its section headings are headings, not labels"
   assert.ok(css.includes(".cbody td code{color:var(--ink)}"), "a quoted token in a cell went dim");
 });
 
+test("a classed link in the card or the chat has the family's one link style by hand: blue, a line only under the pointer", () => {
+  const rest = (css, sel) => { const r = css.slice(css.indexOf(sel)); return r.slice(0, r.indexOf("}")); };
+  const stage = asset("assets/stage.css"), chat = asset("assets/chat.css");
+  for (const [css, sel] of [[stage, ".cbody a.go{"], [stage, ".cbody a.ext{"], [chat, ".rbchat-cites a.rbchat-cite{"]]) {
+    const d = rest(css, sel);
+    assert.match(d, /color:var\(--c-mid\)/, `${sel} is not the interactive blue`);
+    assert.match(d, /border-bottom:1px solid transparent/, `${sel} draws a line at rest`);
+    assert.doesNotMatch(d, /--c-weak/, `${sel} paints with the candidate's colour`);
+  }
+  assert.ok(stage.includes(".cbody a.go:focus-visible, .cbody a.ext:focus-visible{border-bottom-color:var(--c-mid)}"), "the card's links draw no line under the pointer");
+  assert.match(chat, /\.rbchat-cites a\.rbchat-cite:focus-visible\{border-bottom-color:var\(--c-mid\)\}/, "the chat's links draw no line under the pointer");
+  // An unclassed link is the page's link block's; a rule here would be a second link style.
+  assert.doesNotMatch(chat, /\.rbchat-(body|notice) a[,{:]/, "the chat styles an unclassed link itself");
+  assert.doesNotMatch(stage, /\.cfoot a\{[^}]*color|\.ledger \.none a\{/, "the stage styles an unclassed link itself");
+});
+
 test("the stage carries a history control that acts on the browser's history and nothing else", () => {
   const js = asset("assets/stage.js"), css = asset("assets/stage.css");
   assert.match(js, /hist\.className = "history"/, "stage.js does not build the control");

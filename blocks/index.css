@@ -1,4 +1,4 @@
-  /* ─── index · v1 · {{variant}} ─────────────────────────────────────────────
+  /* ─── index · v2 · {{variant}} ─────────────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The list a section's index page draws under its title: one row per thing the section
@@ -25,8 +25,6 @@
                color:var(--dim); letter-spacing:.1em; white-space:nowrap; text-align:right}
   .index .meta b{color:var(--ink); font-weight:600}
   .index .dl{margin:0 0 clamp(1.6rem,3vh,2.4rem); font-size:.78rem; letter-spacing:.06em}
-  .index .dl a{color:var(--c-mid); text-decoration:none; border-bottom:1px solid transparent}
-  .index .dl a:hover, .index .dl a:focus-visible{border-color:var(--c-mid)}
   .index .sep{color:var(--dim); margin:0 .7em}
   @media (max-width:900px){
     .index .entry{grid-template-columns:minmax(0,1fr); gap:.5rem}
