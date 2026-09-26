@@ -67,8 +67,15 @@
 .rbchat-body li::marker{color:var(--c-weak)}
 .rbchat-body code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--press);padding:.05em .3em;border-radius:4px;color:var(--ink)}
 .rbchat-body table{border-collapse:collapse;margin:.2rem 0 .6rem;font-size:.9em;display:block;overflow-x:auto;max-width:100%}
-.rbchat-body th,.rbchat-body td{border:1px solid var(--rule);padding:.3rem .5rem;text-align:left;vertical-align:top}
+/* A cell breaks a word only where the word cannot fit. The bubble's `anywhere` would let a
+   column shrink to a letter's width, so a short first column read "Grou p"; `break-word` leaves
+   a column as wide as its longest word and still breaks an address too long for the panel. */
+.rbchat-body th,.rbchat-body td{border:1px solid var(--rule);padding:.3rem .5rem;text-align:left;vertical-align:top;overflow-wrap:break-word}
 .rbchat-body th{background:var(--press);font-weight:600}
+/* A list in a cell is the cell's content, not a block beside it: no margin of its own, a
+   narrower indent than the body's lists, and items that sit as close as the cell's lines do. */
+.rbchat-body td ul,.rbchat-body td ol{margin:0;padding-left:1rem}
+.rbchat-body td li+li{margin-top:.15rem}
 .rbchat-wait{margin:0;color:var(--dim);font-style:italic}
 .rbchat-wait::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:rbchat-dots 1.2s steps(4,end) infinite}
 @keyframes rbchat-dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}

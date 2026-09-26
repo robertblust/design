@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf, pick, unasked, spread } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -34,6 +34,30 @@ test("the subset renders, and everything is escaped first", () => {
 test("a table with no delimiter row is prose, and a half-typed table is prose until it closes", () => {
   assert.equal(md("| a | b |"), "<p>| a | b |</p>");
   assert.equal(md("| a | b |\n| ---"), "<p>| a | b | | ---</p>");
+});
+
+test("a cell whose every line is an item is a list, and any other cell keeps its lines as lines", () => {
+  const row = (c) => md(`| a | b |\n| --- | --- |\n| x | ${c} |`).replace(/^.*<td>x<\/td><td>/, "").replace(/<\/td>.*$/, "");
+  assert.equal(row("- one<br>- **two**"), "<ul><li>one</li><li><strong>two</strong></li></ul>");
+  assert.equal(row("• one<br/>• two"), "<ul><li>one</li><li>two</li></ul>", "the bullet the model reaches for unasked is a bullet");
+  assert.equal(row("1. one<BR />2. two"), "<ol><li>one</li><li>two</li></ol>");
+  assert.equal(row("- one"), "<ul><li>one</li></ul>");
+  assert.equal(row("one<br>two"), "one<br>two");
+  assert.equal(row("- one<br>two"), "- one<br>two", "a list is every line or none");
+  assert.equal(row("<br>"), "");
+  assert.equal(md("a<br>b"), "<p>a&lt;br&gt;b</p>", "outside a cell a <br> is text");
+  assert.equal(row("<script>x</script>"), "&lt;script&gt;x&lt;/script&gt;", "a cell is still escaped first");
+});
+
+test("heard gathers every answer's names and cites, oldest first, and a question brings none", () => {
+  const turns = [
+    { role: "user", content: "q" },
+    { role: "assistant", content: "a", names: [{ id: "n/1", title: "One" }], cites: [{ id: "c/1", title: "Cited" }] },
+    { role: "user", content: "q2" },
+    { role: "assistant", content: "b" }
+  ];
+  assert.deepEqual(heard(turns).map((n) => n.id), ["n/1", "c/1"]);
+  assert.deepEqual(heard([]), []);
 });
 
 test("an underscore inside a word is a letter, not a mark, and a lone one still is", () => {
