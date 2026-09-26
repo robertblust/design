@@ -264,3 +264,14 @@ test("page.css draws a conclusion's line in --c-sum and a note's in --c-flag", (
   assert.match(css, /\.conclusion\{[^}]*border-left:2px solid var\(--c-sum\)/);
   assert.match(css, /\.title \.note\{[^}]*border-left:2px solid var\(--c-flag\)/);
 });
+
+test("page.css sets a key line in --c-firm, bound to what precedes it, with no line of its own", () => {
+  const css = assemble("page.css", { footer: "plain" });
+  const rule = css.match(/\.keyline\{[^}]*\}/);
+  assert.ok(rule, "page.css has no .keyline rule");
+  assert.match(rule[0], /color:var\(--c-firm\)/);
+  assert.match(rule[0], /margin:\.6rem 0 1\.4rem/);
+  assert.match(rule[0], /font-weight:500/);
+  assert.match(rule[0], /text-wrap:balance/);
+  assert.doesNotMatch(rule[0], /border/);
+});
