@@ -1,6 +1,6 @@
   footer .credit{display:inline-flex; align-items:center; gap:.5em; vertical-align:-.25em;
                  font-family:"Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-                 font-size:.84rem; letter-spacing:0; color:var(--ink)}
+                 font-size:.84rem; letter-spacing:0; color:var(--ink); text-decoration:none}
   footer .credit .rbmark{display:flex}
   footer .credit .rbmark svg{width:14px; height:14px; display:block}
   footer .credit .plate{fill:var(--raise); stroke:var(--rule); stroke-width:1.5}
