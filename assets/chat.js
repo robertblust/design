@@ -28,6 +28,7 @@
 //   rbChat.iconOf(doc)                 the page's icon, for the head of that line
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
 //   rbChat.unasked(list, messages)     the titles no visitor message in the conversation has asked
+//   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them
 //
 // An empty conversation, once the panel is shown, may offer three questions as a way in, three
 // of the site's own model's entities of type `question`, picked at random each time the panel
