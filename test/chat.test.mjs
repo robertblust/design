@@ -364,6 +364,16 @@ test("the widget keeps each question's kind from the model file and offers throu
   assert.match(offer, /spread\(/, "the chips are not picked across kinds");
 });
 
+test("an answer's question titles are linked from the chips' own list, and only once the panel is shown", () => {
+  const fn = src.slice(src.indexOf("function linkQuestions(body)"), src.indexOf("function canOffer()"));
+  assert.match(fn, /if \(!QUESTIONS\) return;/, "a tag without data-questions still reads something");
+  assert.match(fn, /if \(!panel \|\| panel\.hidden\) \{ unlinked\.push\(body\); return; \}/, "a closed panel still reads the model file");
+  assert.match(fn, /questions\(function\(list\)\{ nameLinks\(body, list\.filter\(function\(q\)\{ return q\.id; \}\), MODEL, document\); \}\)/, "the titles are not linked from the one list, by id");
+  assert.equal((src.match(/linkQuestions\(body\);/g) || []).length, 2, "a finished answer and a restored one do not both link their question titles");
+  assert.match(src, /function open\(\)\{[^\n]*linkWaiting\(\); \}/, "opening the panel does not link what waited");
+  assert.match(src, /if \(was\.open\) \{[^\n]*linkWaiting\(\); \}/, "a restored open panel does not link what waited");
+});
+
 // The rest of offering the three questions lives in the page section, built only once a real
 // `document.currentScript` carries `data-chat` — the same boundary the file's own top comment
 // draws around build() and open(): not run here, only read, as assets.test.mjs already does for
@@ -382,7 +392,7 @@ test("a title is a question entity's name, filtered to a non-empty string no lon
   assert.match(fn, /Array\.isArray\(j\.entities\)/, "a body without an entities array is not read as no questions");
   assert.match(fn, /e\.type === "question"/, "a title is not drawn from an entity of type question");
   assert.match(fn, /typeof e\.name === "string" && e\.name\.length > 0/, "an empty or non-string name is not filtered out");
-  assert.match(fn, /map\(function\(e\)\{ return \{ title: e\.name, kind: e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null \}; \}\)/, "the title is not the entity's own name, kept with its kind");
+  assert.match(fn, /map\(function\(e\)\{ return \{ id: typeof e\.id === "string" \? e\.id : null, title: e\.name, kind: e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null \}; \}\)/, "the title is not the entity's own name, kept with its id and its kind");
   assert.match(fn, /filter\(function\(q\)\{ return q\.title\.length <= LIMIT; \}\)/, "a title longer than the send limit is not dropped");
 });
 
@@ -428,7 +438,7 @@ test("chips are offered only where the visitor can ask next, and a second race d
 test("a finished answer and a restored open panel offer the next three", () => {
   const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(finish, /if \(refocus\(window\)\) input\.focus\(\); offerQuestions\(\); \}/, "a finished answer short of the limit offers no next questions");
-  assert.match(src, /if \(was\.open\) \{ panel\.hidden = false; button\.hidden = true; offerQuestions\(\); \}/, "a panel restored open offers no next questions");
+  assert.match(src, /if \(was\.open\) \{ panel\.hidden = false; button\.hidden = true; offerQuestions\(\); linkWaiting\(\); \}/, "a panel restored open offers no next questions");
 });
 
 test("the chip container carries an accessible name from the strings, in both languages, and follows a language switch", () => {
@@ -448,7 +458,7 @@ test("a chip's label is set with textContent, and activating it sends exactly it
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
-  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; input\.focus\(\); keep\(\); offerQuestions\(\); \}/, "open() no longer clears the old set before offering a fresh one");
+  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; input\.focus\(\); keep\(\); offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set before offering a fresh one");
   assert.match(src, /qBox = null; fullNote\.hidden = true;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
 });
 
