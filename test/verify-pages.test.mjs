@@ -962,6 +962,15 @@ test("navOrder's rule names Timeline after Model", () => {
   assert.equal(order.indexOf("Example"), order.indexOf("Timeline") + 1);
 });
 
+test("navOrder's rule names Blog between Timeline and Talks", () => {
+  // What was written comes before what was spoken, and both come after the record they draw on.
+  const src = pageChecks(OPTS).navOrder.toString();
+  const m = /const ORDER = \[([^\]]+)\]/.exec(src);
+  const order = m[1].split(",").map(s => s.trim().replace(/"/g, ""));
+  assert.equal(order.indexOf("Blog"), order.indexOf("Example") + 1);
+  assert.equal(order.indexOf("Talks"), order.indexOf("Blog") + 1);
+});
+
 // Both lists, parsed and compared — not two strings matched. The previous form asserted that
 // header.css contained the words "order Ideas, Principles, …" and that the file named a fence
 // version, and both held while API sat in one list and not the other: a name missing from the
