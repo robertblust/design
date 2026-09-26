@@ -501,7 +501,7 @@
             var entities = j && Array.isArray(j.entities) ? j.entities : [];
             return entities
               .filter(function(e){ return e && e.type === "question" && typeof e.name === "string" && e.name.length > 0; })
-              .map(function(e){ return { title: e.name, kind: e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null }; })
+              .map(function(e){ return { id: typeof e.id === "string" ? e.id : null, title: e.name, kind: e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null }; })
               .filter(function(q){ return q.title.length <= LIMIT; });
           });
         })
@@ -509,6 +509,20 @@
     }
     qFetch.then(function(list){ qList = list; cb(list); });
   }
+
+  // The questions are entities too, and an answer names them by title: asked what the model
+  // answers, the chat reads the titles off its prompt rather than a tool, so no answer's names
+  // carry them and they would stand unlinked. The same list the chips come from links them, a
+  // title only where its entity has an id, and only once the panel is shown, because that is
+  // when this read is allowed to happen at all: an answer drawn into a closed panel, a restored
+  // one, waits in `unlinked` until the panel opens.
+  var unlinked = [];
+  function linkQuestions(body){
+    if (!QUESTIONS) return;
+    if (!panel || panel.hidden) { unlinked.push(body); return; }
+    questions(function(list){ nameLinks(body, list.filter(function(q){ return q.id; }), MODEL, document); });
+  }
+  function linkWaiting(){ unlinked.splice(0).forEach(linkQuestions); }
 
   // Three of them, tappable, at the end of the log: under whatever the empty panel already
   // shows, or under the answer just finished. Offered only where the visitor can ask next — no
@@ -664,7 +678,7 @@
   // shown again, so every open draws a fresh random three rather than repeating what closing the
   // panel left behind. It only drops the box the DOM holds — `qList`/`qFetch` are untouched, so
   // two opens ahead of the one fetch landing still share it rather than asking twice.
-  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); offerQuestions(); }
+  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); offerQuestions(); linkWaiting(); }
   function close(){ panel.hidden = true; button.hidden = false; button.focus(); keep(); }
   function reset(){ messages = []; turns = []; log.innerHTML = ""; qBox = null; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
 
@@ -724,6 +738,7 @@
       // that cites it; the server keeps cites and names disjoint, so nothing is linked twice.
       // An earlier turn's names are linked too, which a follow-up that called no tool needs.
       nameLinks(body, names.concat(cites, heard(turns)), MODEL, document);
+      linkQuestions(body);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: acc });
       turns.push({ role: "assistant", content: acc, cites: cites, names: names });
@@ -788,13 +803,14 @@
       body.innerHTML = md(t.content); ans.appendChild(body);
       var cites = t.cites || [];
       nameLinks(body, (t.names || []).concat(cites, heard(turns)), MODEL, document);
+      linkQuestions(body);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [] });
     });
     // A conversation read back at its length is as full as one that reached it here.
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
-    if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); }
+    if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); linkWaiting(); }
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight;
   })();
