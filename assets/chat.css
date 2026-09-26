@@ -75,7 +75,7 @@
    take the treatment of a card's model link, .cbody a.go in stage.css, because that is the
    nearest sibling, a body of prose linking into the model. Written in tokens, so both themes
    follow. Before this, a link in the body fell through to the browser's default. */
-.rbchat-body a,.rbchat-cites a.rbchat-cite{color:var(--c-mid);text-decoration:none;border-bottom:1px solid var(--c-weak)}
+.rbchat-body a,.rbchat-cites a.rbchat-cite{color:var(--c-mid);text-decoration:none;border-bottom:1px solid transparent}
 .rbchat-body a:hover,.rbchat-body a:focus-visible,.rbchat-cites a.rbchat-cite:hover,.rbchat-cites a.rbchat-cite:focus-visible{border-bottom-color:var(--c-mid)}
 .rbchat-cites{margin:.5rem 0 0;font-size:.82rem;line-height:1.7;color:var(--dim)}
 /* The site's icon at the head of the line, once, and GitHub's mark after each title: quiet

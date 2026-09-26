@@ -175,11 +175,14 @@
   /* Prose, not a table cell, is where a path or URL actually runs long enough to need the
      anywhere break — back to that here. */
   .cbody p code{overflow-wrap:anywhere}
-  .cbody a.go{color:var(--c-mid); text-decoration:none; border-bottom:1px solid var(--c-weak); cursor:pointer}
+  /* A link here has the family's one link style, the index's and the nav's: the interactive
+     blue, and a line only under the pointer. The line is a border kept transparent at rest, so
+     hovering draws it without moving the text. */
+  .cbody a.go{color:var(--c-mid); text-decoration:none; border-bottom:1px solid transparent; cursor:pointer}
   /* A link that leaves the model, in the same treatment as one that walks it — a reader should
      not have to learn two link styles in one card. It breaks anywhere, because a URL is one
      long unbreakable word and this column is narrow. */
-  .cbody a.ext{color:var(--c-mid); text-decoration:none; border-bottom:1px solid var(--c-weak);
+  .cbody a.ext{color:var(--c-mid); text-decoration:none; border-bottom:1px solid transparent;
                overflow-wrap:anywhere}
   .cbody a.go:hover, .cbody a.ext:hover,
   .cbody a.go:focus-visible, .cbody a.ext:focus-visible{border-bottom-color:var(--c-mid)}
