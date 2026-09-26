@@ -352,6 +352,32 @@ test("the index block carries the list a section's index draws, scoped to .index
   assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, "the block leaves a brace open");
 });
 
+test("the link block is the family's one link style and weighs nothing in the cascade", () => {
+  // Every selector is inside :where(), so a page's nav, its footer's current page and any rule
+  // it writes for a control win without knowing the block exists; an anchor with a class is a
+  // component and takes only the inherited color.
+  const css = blockFor("link", null);
+  const rules = [...css.matchAll(/^\s*([^\s/*][^{\n]*)\{([^}]*)\}/gm)].map((m) => [m[1].trim(), m[2]]);
+  assert.equal(rules.length, 3, "the block has more or fewer rules than the three it states");
+  for (const [sel] of rules) assert.match(sel, /^:where\([^]*\)$/, `${sel} has weight in the cascade`);
+  assert.deepEqual(rules[0], [":where(a)", "color:inherit"]);
+  assert.match(rules[1][1], /color:var\(--c-mid\); text-decoration:none; border-bottom:1px solid transparent/);
+  assert.match(rules[1][0], /a:not\(\[class\]\)/);
+  assert.equal(rules[2][1], "border-bottom-color:var(--c-mid)");
+  assert.match(rules[2][0], /a:not\(\[class\]\):hover, a:not\(\[class\]\):focus-visible/);
+  assert.doesNotMatch(blockFor("prose reset", null), /(^|\s)a\{/, "the reset still draws a link");
+  for (const v of ["credit", "plain"])
+    assert.doesNotMatch(blockFor("prose footer", v), /footer a\{|footer a:hover/, "the footer draws its own link");
+  assert.doesNotMatch(blockFor("index", null), /\.dl a/, "the index draws its own link");
+});
+
+test("the link fence declares no variants and no parameters", () => {
+  assert.equal(FENCES["link"].variants, null);
+  assert.equal(FENCES["link"].params, undefined);
+  assert.equal(FENCES["link"].closes, null);
+  assert.equal(FENCES["link"].version, versions.link);
+});
+
 test("the index fence declares no variants and no parameters", () => {
   assert.equal(FENCES["index"].variants, null);
   assert.equal(FENCES["index"].params, undefined);

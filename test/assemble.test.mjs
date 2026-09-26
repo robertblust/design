@@ -34,6 +34,7 @@ const FILE_PARTS = {
   "tokens.css": [["design tokens", () => "page"]],
   "page.css": [
     ["prose reset", () => null],
+    ["link", () => null],
     ["header contract", () => null],
     ["title contract", () => null],
     ["lines", () => null],
@@ -49,6 +50,7 @@ const FILE_PARTS = {
     ["nav fit", () => "page"],
   ],
   "deck.css": [
+    ["link", () => null],
     ["deck lockup", (c) => c.lockup],
     ["deck transport", () => null],
   ],
@@ -166,9 +168,9 @@ test("every assembled file opens with a comment naming each block it holds and t
   const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
   const expected = {
     "tokens.css": ["tokens"],
-    "page.css": ["reset", "header", "title", "lines", "footer", "principles", "team", "surfaces", "index"],
+    "page.css": ["reset", "link", "header", "title", "lines", "footer", "principles", "team", "surfaces", "index"],
     "page.js": ["lang", "theme", "navFit"],
-    "deck.css": ["lockup", "transport"],
+    "deck.css": ["link", "lockup", "transport"],
     "deck.js": ["theme", "runtime", "fit"],
   };
   for (const name of FILE_NAMES) {

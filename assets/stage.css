@@ -59,7 +59,7 @@
   .cbody{flex:1; min-height:0; overflow:auto; padding:1.3rem 1.4rem}
   .cfoot{border-top:1px solid var(--rule); padding:.8rem 1.4rem; min-height:2.6rem;
          display:flex; align-items:center; justify-content:space-between; gap:1rem}
-  .cfoot a{font-family:"Plex Mono",monospace; font-size:.78rem; letter-spacing:.06em; color:var(--c-mid); text-decoration:none}
+  .cfoot a{font-family:"Plex Mono",monospace; font-size:.78rem; letter-spacing:.06em}
   /* A control, never mono — .expand sits at the end of the path line, styled like .recenter
      because both are things you can do to the stage, not things it reports. It is visible at
      every focus: the whole stage — path, canvas and card — is always worth expanding, unlike
@@ -175,9 +175,9 @@
   /* Prose, not a table cell, is where a path or URL actually runs long enough to need the
      anywhere break — back to that here. */
   .cbody p code{overflow-wrap:anywhere}
-  /* A link here has the family's one link style, the index's and the nav's: the interactive
-     blue, and a line only under the pointer. The line is a border kept transparent at rest, so
-     hovering draws it without moving the text. */
+  /* A card's links carry a class, so the page's `link` block leaves them alone; these two rules
+     give them the family's one link style by hand: the interactive blue, and a line only under
+     the pointer, a border kept transparent at rest so drawing it moves nothing. */
   .cbody a.go{color:var(--c-mid); text-decoration:none; border-bottom:1px solid transparent; cursor:pointer}
   /* A link that leaves the model, in the same treatment as one that walks it — a reader should
      not have to learn two link styles in one card. It breaks anywhere, because a URL is one
@@ -460,7 +460,6 @@
   .kinds .menu .all button:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px; border-radius:3px}
   /* The one line the ledger shows when every kind is off, with the way back. */
   .ledger .none{padding:1.2rem 0 1.2rem calc(var(--when) + 1.25rem + 1.6rem); color:var(--dim); font-size:.93rem}
-  .ledger .none a{color:var(--c-mid)}
   /* figure tokens. No @media (prefers-reduced-motion) block here on purpose: every node is
      placed by its own transform attribute, and a blanket `transform:none !important` would
      not cancel a displacement, it would replace the attribute-derived position and collapse

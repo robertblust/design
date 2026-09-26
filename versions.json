@@ -3,9 +3,9 @@
   "header": "v16",
   "stage": "v2",
   "title": "v1",
-  "reset": "v2",
+  "reset": "v3",
   "lang": "v5",
-  "footer": "v1",
+  "footer": "v2",
   "transport": "v9",
   "lockup": "v1",
   "fit": "v1",
@@ -19,5 +19,6 @@
   "principles": "v1",
   "modelCard": "v2",
   "lines": "v1",
-  "index": "v1"
+  "index": "v2",
+  "link": "v1"
 }

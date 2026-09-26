@@ -46,7 +46,6 @@
 @media (prefers-reduced-motion:reduce){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{transition:none}}
 .rbchat-notice{margin:0;padding:.6rem 1rem;font-size:.8rem;line-height:1.4;color:var(--dim);border-bottom:1px solid var(--rule)}
 .rbchat-notice code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.95em;color:var(--ink)}
-.rbchat-notice a{color:var(--c-mid)}
 .rbchat-log{flex:1;overflow-y:auto;padding:.75rem 1rem;display:flex;flex-direction:column;gap:.6rem;font-size:.95rem;line-height:1.5}
 .rbchat-msg{max-width:92%;padding:.55rem .8rem;border-radius:12px;overflow-wrap:anywhere}
 .rbchat-user{align-self:flex-end;background:var(--press);color:var(--ink);white-space:pre-wrap}
@@ -71,12 +70,11 @@
 .rbchat-wait::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:rbchat-dots 1.2s steps(4,end) infinite}
 @keyframes rbchat-dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 @media (prefers-reduced-motion:reduce){.rbchat-wait::after{animation:none;content:"\2026"}}
-/* One link, the card's: a name or a cited title in the answer and a title on the line under it
-   take the treatment of a card's model link, .cbody a.go in stage.css, because that is the
-   nearest sibling, a body of prose linking into the model. Written in tokens, so both themes
-   follow. Before this, a link in the body fell through to the browser's default. */
-.rbchat-body a,.rbchat-cites a.rbchat-cite{color:var(--c-mid);text-decoration:none;border-bottom:1px solid transparent}
-.rbchat-body a:hover,.rbchat-body a:focus-visible,.rbchat-cites a.rbchat-cite:hover,.rbchat-cites a.rbchat-cite:focus-visible{border-bottom-color:var(--c-mid)}
+/* One link style, the family's: a link in the answer or the notice has no class, so the page's
+   `link` block draws it. A cited title carries one, so it takes the same treatment here by
+   hand, the interactive blue and a line only under the pointer. */
+.rbchat-cites a.rbchat-cite{color:var(--c-mid);text-decoration:none;border-bottom:1px solid transparent}
+.rbchat-cites a.rbchat-cite:hover,.rbchat-cites a.rbchat-cite:focus-visible{border-bottom-color:var(--c-mid)}
 .rbchat-cites{margin:.5rem 0 0;font-size:.82rem;line-height:1.7;color:var(--dim)}
 /* The site's icon at the head of the line, once, and GitHub's mark after each title: quiet
    until pointed at, and both sized so the line stays one line on a phone. */
