@@ -358,3 +358,23 @@ test("the index fence declares no variants and no parameters", () => {
   assert.equal(FENCES["index"].closes, null);
   assert.equal(FENCES["index"].version, versions.index);
 });
+
+test("nav fit tries the tight row before it collapses, and clears it before measuring", () => {
+  // Eight labels in German need more than blust.ch's shell gives at any width, so the row
+  // collapsed to a button on every desktop. A tighter gap and letter-spacing fit it; the
+  // button is for a row that does not fit even tightened. Measured in the wide state, so both
+  // attributes come off before the read.
+  const js = blockFor("nav fit", "page");
+  assert.match(js, /root\.removeAttribute\("data-nav"\)/);
+  const tight = js.indexOf('root.setAttribute("data-nav", "tight")');
+  const compact = js.indexOf('root.setAttribute("data-nav", "compact")');
+  assert.ok(tight > -1, "nav fit never tries the tight row");
+  assert.ok(compact > tight, "the tight row is tried after collapsing, not before");
+});
+
+test("the header contract tightens the row under data-nav=tight and keeps the links on it", () => {
+  const css = blockFor("header contract", null);
+  assert.match(css, /:root\[data-nav="tight"\] nav\{gap:1\.2rem; letter-spacing:\.11em\}/);
+  assert.match(css, /:root\[data-nav="tight"\] \.navlinks\{gap:1\.2rem\}/);
+  assert.doesNotMatch(css, /:root\[data-nav="tight"\] \.navlinks\{display:none/);
+});

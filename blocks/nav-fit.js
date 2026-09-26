@@ -1,4 +1,4 @@
-  /* ─── nav fit · v1 · {{variant}} ──────────────────────────────────────
+  /* ─── nav fit · v2 · {{variant}} ──────────────────────────────────────
      Whether the header row fits, measured rather than declared. Generated from
      @robertblust/design — editing it here does nothing, because the next `npm run design`
      overwrites it. Change it in the package.
@@ -26,6 +26,13 @@
      It runs on load, on resize, when the fonts arrive — a row measured in the fallback face is
      measured at the wrong width — and when `<html lang>` changes, which is the case that
      started this: the same six links are 561px in German and 428 in English.
+
+     Between the wide row and the button there is a tight row, `data-nav="tight"`: the same
+     links with a smaller gap and less letter-spacing. Eight labels in German need more than
+     blust.ch's shell gives at any width, so without this step every desktop visitor reading
+     German got a menu button where the row would have read perfectly well tightened. The
+     tight row is tried first and kept if it fits; the button is for a row that does not fit
+     even tightened. A row that fits wide is never tightened, so nothing that fits today moves.
   */
   (function(){
     var root = document.documentElement, bar = document.querySelector(".bar");
@@ -46,6 +53,10 @@
       var wrap = bar.style.flexWrap;
       bar.style.flexWrap = "nowrap";
       var over = bar.scrollWidth > bar.clientWidth;
+      if (over) {
+        root.setAttribute("data-nav", "tight");
+        over = bar.scrollWidth > bar.clientWidth;
+      }
       bar.style.flexWrap = wrap;
       if (over) root.setAttribute("data-nav", "compact");
     }
