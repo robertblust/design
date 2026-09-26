@@ -1,4 +1,4 @@
-  /* ─── design tokens · v12 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v13 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -7,7 +7,7 @@
      Brightness is confidence. Each stop has exactly one job:
        --c-weak  a candidate: considered, not accepted
        --c-mid   anything interactive — links, controls, the brand accent
-       --c-firm  the resolved thing — the thesis, the current page
+       --c-firm  the resolved thing — the thesis, the current page, a key line
        --c-flag  a reversal; at most one per page, never decoration
 
      And one hue beside the ramp, for a page's own reading of it:
