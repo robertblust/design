@@ -1,6 +1,6 @@
 {
   "tokens": "v12",
-  "header": "v15",
+  "header": "v16",
   "stage": "v2",
   "title": "v1",
   "reset": "v2",
@@ -12,7 +12,7 @@
   "runtime": "v8",
   "themeBoot": "v3",
   "theme": "v5",
-  "navFit": "v1",
+  "navFit": "v2",
   "team": "v2",
   "surfaces": "v1",
   "lineage": "v1",
