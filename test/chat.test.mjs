@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf, pick, unasked } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, when, refusalText, citeLine, iconOf, pick, unasked, spread } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -298,6 +298,48 @@ test("pick never returns a negative or fractional count", () => {
   assert.deepEqual(pick(["a", "b"], -1), []);
 });
 
+// spread() is what makes the three chips show the range of what the model answers: one
+// question from each of three kinds, picked at random, where the model groups its questions.
+const Q = (title, kind) => ({ title, kind });
+const KINDED = [Q("a1", "A"), Q("a2", "A"), Q("a3", "A"), Q("b1", "B"), Q("b2", "B"), Q("c1", "C"), Q("d1", "D")];
+
+test("spread names three different kinds wherever three exist, however the random falls", () => {
+  const kindOf = Object.fromEntries(KINDED.map((q) => [q.title, q.kind]));
+  for (let i = 0; i < 200; i++) {
+    const got = spread(KINDED, 3);
+    assert.equal(got.length, 3);
+    assert.equal(new Set(got.map((t) => kindOf[t])).size, 3, `three kinds in ${got}`);
+  }
+});
+
+test("spread fills from the rest when fewer kinds than chips exist, never repeating a title", () => {
+  const two = [Q("a1", "A"), Q("a2", "A"), Q("a3", "A"), Q("b1", "B")];
+  for (let i = 0; i < 100; i++) {
+    const got = spread(two, 3);
+    assert.equal(got.length, 3);
+    assert.equal(new Set(got).size, 3);
+    assert.ok(got.includes("b1"), "the smaller kind is always represented");
+  }
+});
+
+test("spread with no kinds is pick under the same random, so a model without kinds is offered as before", () => {
+  const plain = ["a", "b", "c", "d", "e"].map((t) => Q(t, null));
+  const seq = () => { let s = 0; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); };
+  assert.deepEqual(spread(plain, 3, seq()), pick(["a", "b", "c", "d", "e"], 3, seq()));
+});
+
+test("spread of an empty or missing list is empty", () => {
+  assert.deepEqual(spread([], 3), []);
+  assert.deepEqual(spread(undefined, 3), []);
+});
+
+test("the widget keeps each question's kind from the model file and offers through spread", () => {
+  const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
+  assert.match(fn, /e\.fields && typeof e\.fields\.kind === "string"/, "a question's kind is not read from fields.kind");
+  const offer = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
+  assert.match(offer, /spread\(/, "the chips are not picked across kinds");
+});
+
 // The rest of offering the three questions lives in the page section, built only once a real
 // `document.currentScript` carries `data-chat` — the same boundary the file's own top comment
 // draws around build() and open(): not run here, only read, as assets.test.mjs already does for
@@ -316,8 +358,8 @@ test("a title is a question entity's name, filtered to a non-empty string no lon
   assert.match(fn, /Array\.isArray\(j\.entities\)/, "a body without an entities array is not read as no questions");
   assert.match(fn, /e\.type === "question"/, "a title is not drawn from an entity of type question");
   assert.match(fn, /typeof e\.name === "string" && e\.name\.length > 0/, "an empty or non-string name is not filtered out");
-  assert.match(fn, /map\(function\(e\)\{ return e\.name; \}\)/, "the title is not the entity's own name");
-  assert.match(fn, /filter\(function\(t\)\{ return t\.length <= LIMIT; \}\)/, "a title longer than the send limit is not dropped");
+  assert.match(fn, /map\(function\(e\)\{ return \{ title: e\.name, kind: e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null \}; \}\)/, "the title is not the entity's own name, kept with its kind");
+  assert.match(fn, /filter\(function\(q\)\{ return q\.title\.length <= LIMIT; \}\)/, "a title longer than the send limit is not dropped");
 });
 
 test("a fetch that fails, times out or is not JSON resolves to an empty list, not a throw, and the timeout covers the whole response", () => {
@@ -354,7 +396,8 @@ test("chips are offered only where the visitor can ask next, and a second race d
   const fn = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
   assert.match(fn, /if \(!canOffer\(\)\) return;/, "chips are offered without asking whether the visitor can ask next");
   assert.match(fn, /if \(!canOffer\(\) \|\| qBox\) return;/, "chips are rebuilt once a message went out while the fetch was in flight, or while chips are already up");
-  assert.match(fn, /pick\(unasked\(list, messages\), 3\)/, "a title the conversation already asked can be offered again");
+  assert.match(fn, /var open = unasked\(list\.map\(function\(q\)\{ return q\.title; \}\), messages\);/, "a title the conversation already asked can be offered again");
+  assert.match(fn, /spread\(list\.filter\(function\(q\)\{ return open\.indexOf\(q\.title\) !== -1; \}\), 3\)/, "the chips are not picked across kinds from the titles still open");
   assert.match(fn, /if \(!picked\.length\) return;/, "an empty pick still builds a box");
 });
 
