@@ -1,4 +1,4 @@
-  /* ─── title contract · v1 · {{variant}} ─────────────────────────────────
+  /* ─── title contract · v2 · {{variant}} ─────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      How every prose page in the family opens, and why it is one block and not fourteen
@@ -18,6 +18,9 @@
        · the tagline  46ch, and the full column once the column is narrower than that. The
                       narrow rule is in here rather than in the page's own media block,
                       because a fence that owns a measure wide and not narrow owns neither.
+                      Its lines wrap balanced: two or three lines at that measure, and a
+                      sentence that ran just past the second left its last word alone on
+                      the third, which reads as a mistake under a headline set on purpose.
 
      A landing page is not this block. Each site's front page is its one statement and is
      sized for it — blust.ch at weight 200 under class names of its own, guestgraph a step
@@ -30,6 +33,6 @@
   .title h1 .rcl{display:block; font-weight:800}
   .title h1 em{font-style:normal; color:var(--c-firm)}
   .tagline{margin-top:1.6rem; font-size:clamp(1.1rem,1.9vw,1.4rem); color:var(--dim);
-           max-width:46ch; line-height:1.4}
+           max-width:46ch; line-height:1.4; text-wrap:balance}
   @media (max-width:900px){ .tagline{max-width:100%} }
   /* ─── end title contract ────────────────────────────────────────────────── */
