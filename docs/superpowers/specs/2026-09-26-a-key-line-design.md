@@ -36,7 +36,7 @@ The post `blog/deciding-well-solved/` takes the release and uses it. These are t
 - A paragraph a key line is lifted from splits in two around it. The writer rewords only the edges, such as a lead-in that ends in a colon or a continuation that no longer starts with the lifted sentence, and the owner reviews the English on the rendered page. The German roles then run on the values that changed.
 - The post's prose rule becomes `.post p:where(:not(.keyline,.conclusion))`, which keeps its weight so that the smaller rules under it, such as the gap under a "Rests on" entry's title, still apply.
 - The rules between the post's sections go, and so do the rules between the entries in "Rests on". Space and the section headings separate them. The only rules left are a 1px rule under each group label, "Decisions" and "Experiences".
-- "Rests on" is quieter: its heading keeps the headings' face at about 1.05rem, weight 600, in `--dim`, with more space above it and no rule. Its entries are a step smaller, titles at 0.94rem and lines at 0.88rem. A dim mono label was tried and refused, because it made "Rests on" read weaker than the group labels under it.
+- "Rests on" is quieter: its heading keeps the headings' face at about 1.05rem, weight 600, in `--dim`, with more space above it and no rule. Its group labels, "Decisions" and "Experiences", stay in mono but drop to about 0.74rem, weight 400, in `--dim`. Its entries are a step smaller, titles at 0.94rem and lines at 0.88rem. A dim mono label was tried and refused, because it made "Rests on" read weaker than the group labels under it.
 
 ## Order
 
