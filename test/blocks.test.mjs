@@ -98,6 +98,10 @@ test("the two prose footer variants emit different bytes", () => {
   const plain  = blockFor("prose footer", "plain");
   assert.notEqual(credit, plain);
   assert.match(credit, /footer \.credit\{/);
+  // The credit is a classed link, so the link block leaves it alone; without its own
+  // text-decoration it takes the browser's underline under the lockup at rest.
+  const creditRule = credit.slice(credit.indexOf("footer .credit{"));
+  assert.match(creditRule.slice(0, creditRule.indexOf("}")), /text-decoration:none/, "the credit is underlined at rest");
   assert.doesNotMatch(plain, /\.credit/);
 });
 
