@@ -21,6 +21,7 @@
 //   rbChat.strings(lang)               the sentences
 //   rbChat.link(model, id)             where a cite points
 //   rbChat.nameLinks(root, names, …)   the model's names, linked in a rendered answer
+//   rbChat.heard(turns)                every name and cite the conversation's answers brought
 //   rbChat.refocus(window)             whether the cursor goes back after an answer
 //   rbChat.when(retryAt, now, lang)    when a limit lifts, in the visitor's language and time
 //   rbChat.refusalText(code, retryAt, …)  the refusal sentence, ending with that moment where there is one
@@ -252,6 +253,15 @@
       node.parentNode.replaceChild(piece, node);
     });
   }
+  // Every name the conversation has heard, each answer's names and cites, oldest first. A
+  // follow-up that only reshapes an earlier answer, the same entities as a table, calls no
+  // tool, so its own turn brings no names; the names an earlier turn brought are still names
+  // the server sent, so they are linked wherever a later answer writes them.
+  function heard(turns){
+    var out = [];
+    turns.forEach(function(t){ if (t.role === "assistant") out = out.concat(t.names || [], t.cites || []); });
+    return out;
+  }
   function edged(text, at, len){
     var before = at > 0 ? text.charAt(at - 1) : " ", after = at + len < text.length ? text.charAt(at + len) : " ";
     return !/[0-9A-Za-z]/.test(before) && !/[0-9A-Za-z]/.test(after);
@@ -271,7 +281,22 @@
     return out + links(s.slice(i));
   }
   var ROW = /^\s*\|(.+)\|\s*$/, DELIM = /^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/, BULLET = /^\s*[-*]\s+(.*)$/, NUMBER = /^\s*\d+\.\s+(.*)$/;
-  function cells(line){ return line.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(function(c){ return inline(c.trim()); }); }
+  function cells(line){ return line.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(function(c){ return cell(c.trim()); }); }
+  // A table row is one line, so a cell cannot hold a list the way the body does. The model is
+  // told to write one as `- first<br>- second`, and that is the one place a `<br>` means
+  // anything: it arrives escaped like every other character, and it is read back only here. A
+  // cell whose every line is an item is a list, bulleted or numbered as the body's lists are, and
+  // the bullet the model reaches for unasked, `•`, counts as one; any other cell keeps its
+  // lines as lines.
+  var BR = /&lt;br\s*\/?&gt;/i, CELL_BULLET = /^(?:[-*•])\s+(.*)$/, CELL_NUMBER = /^\d+\.\s+(.*)$/;
+  function cell(c){
+    var parts = c.split(BR).map(function(p){ return p.trim(); }).filter(Boolean);
+    if (!parts.length) return "";
+    var re = parts.every(function(p){ return CELL_BULLET.test(p); }) ? CELL_BULLET : parts.every(function(p){ return CELL_NUMBER.test(p); }) ? CELL_NUMBER : null;
+    if (!re) return parts.map(inline).join("<br>");
+    var tag = re === CELL_NUMBER ? "ol" : "ul";
+    return "<" + tag + ">" + parts.map(function(p){ return "<li>" + inline(re.exec(p)[1].trim()) + "</li>"; }).join("") + "</" + tag + ">";
+  }
   // Blocks, line by line: a table needs its delimiter row before it is a table, so one still
   // arriving is a paragraph until its second line lands; a list is consecutive items; the rest
   // is paragraphs split at blank lines.
@@ -427,7 +452,7 @@
     } catch (e) {}
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -697,7 +722,8 @@
       // language switch, a redraw — would simply do it again.
       // A cited entity is linked in the text too, so no title stands plain above the line
       // that cites it; the server keeps cites and names disjoint, so nothing is linked twice.
-      nameLinks(body, names.concat(cites), MODEL, document);
+      // An earlier turn's names are linked too, which a follow-up that called no tool needs.
+      nameLinks(body, names.concat(cites, heard(turns)), MODEL, document);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: acc });
       turns.push({ role: "assistant", content: acc, cites: cites, names: names });
@@ -761,7 +787,7 @@
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
       body.innerHTML = md(t.content); ans.appendChild(body);
       var cites = t.cites || [];
-      nameLinks(body, (t.names || []).concat(cites), MODEL, document);
+      nameLinks(body, (t.names || []).concat(cites, heard(turns)), MODEL, document);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [] });
