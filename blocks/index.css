@@ -1,0 +1,39 @@
+  /* ─── index · v1 · {{variant}} ─────────────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     The list a section's index page draws under its title: one row per thing the section
+     holds, a talk on /talks/ and a post on /blog/. A row is a rule above and, on the last, a
+     rule below; the entry inside it is one link, the title in Bricolage with a mono figure at
+     its right (a duration, a reading time) and the dim description under the title; the line
+     under the entry names what can be done with it, because a large invisible click target is
+     not an affordance. Every selector starts with .index: page.css reaches every prose page,
+     and a bare .row or .meta would restyle a page that never asked for a list. */
+  .index{margin-top:clamp(3rem,6vh,5rem)}
+  .index .row{border-top:2px solid var(--rule)}
+  .index .row:last-child{border-bottom:2px solid var(--rule)}
+  .index .entry{
+    display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem 2.5rem; align-items:baseline;
+    padding:clamp(1.6rem,3vh,2.4rem) 0;
+    text-decoration:none; color:inherit; transition:border-color .2s ease;
+  }
+  .index .entry:hover .t, .index .entry:focus-visible .t{color:var(--c-mid)}
+  .index .t{font-family:"Bricolage Grotesque",sans-serif; font-size:clamp(1.32rem,2.65vw,2rem); font-weight:700; line-height:1.2;
+            letter-spacing:-.015em; transition:color .2s ease}
+  .index .d{grid-column:1; margin-top:.7rem; color:var(--dim);
+            font-size:clamp(1rem,1.35vw,1.15rem); line-height:1.5; max-width:62ch}
+  .index .meta{font-family:"Plex Mono",monospace; font-size:.78rem;
+               color:var(--dim); letter-spacing:.1em; white-space:nowrap; text-align:right}
+  .index .meta b{color:var(--ink); font-weight:600}
+  .index .dl{margin:0 0 clamp(1.6rem,3vh,2.4rem); font-size:.78rem; letter-spacing:.06em}
+  .index .dl a{color:var(--c-mid); text-decoration:none; border-bottom:1px solid transparent}
+  .index .dl a:hover, .index .dl a:focus-visible{border-color:var(--c-mid)}
+  .index .sep{color:var(--dim); margin:0 .7em}
+  @media (max-width:900px){
+    .index .entry{grid-template-columns:minmax(0,1fr); gap:.5rem}
+    .index .meta{grid-column:1; text-align:left; margin-top:.4rem}
+    .index .d{grid-column:1; max-width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .index .entry, .index .t{transition:none}
+  }
+  /* ─── end index ────────────────────────────────────────────────────────── */

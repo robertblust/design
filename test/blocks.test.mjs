@@ -333,3 +333,28 @@ test("the language block switches aria-labels with the page, without a page cont
   assert.match(js, /data-de-aria/);
   assert.match(js, /data-en-aria/);
 });
+
+test("the index block carries the list a section's index draws, scoped to .index", () => {
+  // Every selector starts with .index: page.css reaches every prose page, and a bare .row or
+  // .meta would restyle a page that never asked for a list. README's own warning, enforced.
+  const css = blockFor("index", null);
+  const selectors = [...css.matchAll(/^\s*([^{@\n][^{\n]*)\{/gm)].map((m) => m[1].trim())
+    .filter((s) => !s.startsWith("@") && !s.startsWith("/*") && !s.includes("*/"));  // a media query and the marker line, which carries {{variant}}
+  assert.ok(selectors.length >= 8, "the block has fewer rules than the talks list had");
+  for (const s of selectors)
+    for (const part of s.split(","))
+      assert.match(part.trim(), /^\.index\b/, `${part.trim()} is not scoped to .index`);
+  assert.match(css, /\.index \.entry\{[^}]*grid-template-columns:minmax\(0,1fr\) auto/);
+  assert.match(css, /\.index \.row:last-child\{border-bottom:2px solid var\(--rule\)\}/);
+  assert.match(css, /\.index \.t\{font-family:"Bricolage Grotesque"/);
+  assert.match(css, /@media \(max-width:900px\)\{[^]*\.index \.entry\{grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{[^]*\.index \.entry, \.index \.t\{transition:none\}/);
+  assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, "the block leaves a brace open");
+});
+
+test("the index fence declares no variants and no parameters", () => {
+  assert.equal(FENCES["index"].variants, null);
+  assert.equal(FENCES["index"].params, undefined);
+  assert.equal(FENCES["index"].closes, null);
+  assert.equal(FENCES["index"].version, versions.index);
+});
