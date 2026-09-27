@@ -14,6 +14,9 @@
 // model is told to write and nothing outside it — paragraphs, emphasis, code spans, lists,
 // tables, with a bare URL made clickable — after every character has been escaped, so text that
 // looks like markup stays text.
+// A picture the host drew arrives as its own event and is drawn under the answer by Mermaid,
+// fetched from beside this file the first time one arrives; each node links where the cite
+// line would, and the picture is kept with its answer in the tab like the rest of the turn.
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
 //
 //   rbChat.md(text)                    the subset, rendered
@@ -522,7 +525,76 @@
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
   // opening an empty conversation, which is all that tells its two names apart.
   var qList = null, qFetch = null, qBox = null, qNext = false;
+  // Mermaid is fetched from the folder this file came from, the site's own, the first time a
+  // picture arrives and never before, so a visitor who asks for none never downloads it and no
+  // host but the page's own is asked. `figures` are the pictures drawn, redrawn when the theme
+  // changes and relabeled when the language does.
+  var mermaidLoad = null, figures = [], drawCount = 0;
   var Q_TIMEOUT = 8000;
+
+  function loadMermaid(){
+    if (window.mermaid) return Promise.resolve(window.mermaid);
+    if (!mermaidLoad) mermaidLoad = new Promise(function(resolve, reject){
+      var s = document.createElement("script");
+      s.src = new URL("mermaid.min.js", tag.src).href;
+      s.onload = function(){ if (window.mermaid) resolve(window.mermaid); else reject(new Error("mermaid.min.js set no mermaid")); };
+      // A failed fetch is not remembered: the next picture tries again.
+      s.onerror = function(){ mermaidLoad = null; reject(new Error("mermaid.min.js did not load")); };
+      document.head.appendChild(s);
+    });
+    return mermaidLoad;
+  }
+  function tokenReader(){
+    var root = getComputedStyle(document.documentElement), body = document.body ? getComputedStyle(document.body) : null;
+    return function(name){ return name === "font" ? (body ? body.fontFamily : "") : root.getPropertyValue(name); };
+  }
+  // Each node becomes a link to where the cite line would send it. Mermaid's own click lines
+  // are off under `strict`, and the host writes none; the widget links from `nodes`.
+  function drawFigure(fig){
+    var box = fig.querySelector(".rbchat-diagram-box"), d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
+    loadMermaid().then(function(m){
+      m.initialize(mermaidConfig(tokenReader()));
+      return m.render(id, oriented(d.mermaid, log ? log.clientWidth : window.innerWidth));
+    }).then(function(out){
+      box.innerHTML = out.svg;
+      var svg = box.querySelector("svg");
+      (d.nodes || []).forEach(function(n){
+        var g = nodeElement(svg, n.node);
+        if (!g || !n.id) return;
+        var a = document.createElementNS("http://www.w3.org/2000/svg", "a");
+        a.setAttribute("href", link(MODEL, n.id));
+        a.setAttribute("aria-label", n.title || n.id);
+        g.parentNode.insertBefore(a, g); a.appendChild(g);
+      });
+    }).catch(function(){
+      // Mermaid leaves what it could not finish in the body; it goes, and the source stands in.
+      [id, "d" + id].forEach(function(x){ var left = document.getElementById(x); if (left && !box.contains(left)) left.parentNode.removeChild(left); });
+      box.textContent = "";
+      box.appendChild(el("p", "rbchat-diagram-failed", strings(langNow()).diagram.failed));
+      box.appendChild(el("pre", null, d.mermaid));
+    });
+  }
+  function labelFigure(fig){
+    var s = strings(langNow()).diagram, open = fig.classList.contains("rbchat-diagram-open"), b = fig.querySelector(".rbchat-diagram-full");
+    fig.querySelector("figcaption span").textContent = diagramCaption(fig.rbDiagram, langNow());
+    b.textContent = open ? "×" : "⤢"; b.setAttribute("aria-label", open ? s.shut : s.expand); b.setAttribute("data-tip", open ? s.shut : s.expand);
+  }
+  function toggleFigure(fig){ fig.classList.toggle("rbchat-diagram-open"); labelFigure(fig); }
+  function figure(d){
+    var fig = el("figure", "rbchat-diagram"), cap = el("figcaption"), full = el("button", "rbchat-diagram-full");
+    full.type = "button"; full.addEventListener("click", function(){ toggleFigure(fig); });
+    cap.appendChild(el("span")); cap.appendChild(full);
+    fig.appendChild(cap); fig.appendChild(el("div", "rbchat-diagram-box"));
+    fig.rbDiagram = d;
+    figures = figures.filter(function(f){ return document.documentElement.contains(f); });
+    figures.push(fig);
+    labelFigure(fig); drawFigure(fig);
+    return fig;
+  }
+  if (window.MutationObserver) new MutationObserver(function(){
+    figures = figures.filter(function(f){ return document.documentElement.contains(f); });
+    figures.forEach(drawFigure);
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
 
@@ -621,6 +693,7 @@
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
+    figures.forEach(labelFigure);
     title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
     input.placeholder = s.placeholder; sendBtn.textContent = s.send;
     if (grip) grip.setAttribute("aria-label", s.size);
@@ -670,7 +743,12 @@
     panel.appendChild(grip);
     panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(fullNote); panel.appendChild(form);
     document.body.appendChild(panel);
-    document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !panel.hidden) close(); });
+    // A picture opened full screen takes Escape first, and the panel stays open behind it.
+    document.addEventListener("keydown", function(e){
+      if (e.key !== "Escape" || panel.hidden) return;
+      var open = panel.querySelector(".rbchat-diagram-open");
+      if (open) toggleFigure(open); else close();
+    });
     sizing();
     applyStoredSize();
     relabel();
@@ -757,7 +835,7 @@
     // Streaming, from the moment the request goes out until finish() has the whole answer.
     ans.setAttribute("aria-busy", "true");
     ans.appendChild(wait); ans.appendChild(body);
-    var acc = "", cites = [], names = [], cut = false;
+    var acc = "", cites = [], names = [], cut = false, picture = null, fig = null;
     function render(){ body.innerHTML = md(acc); log.scrollTop = log.scrollHeight; }
     // A stream that never ends — a dropped connection the browser does not notice — would
     // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
@@ -793,7 +871,7 @@
       linkQuestions(body);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: acc });
-      turns.push({ role: "assistant", content: acc, cites: cites, names: names });
+      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture });
       keep();
       busy = false;
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
@@ -817,6 +895,13 @@
           if (name === "text") { if (wait.parentNode) wait.parentNode.removeChild(wait); acc += data.text || ""; render(); }
           else if (name === "cite") cites.push(data);
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
+          else if (name === "diagram" && data && typeof data.mermaid === "string") {
+            // The last picture a message brings is the one drawn: a second replaces the first.
+            picture = data;
+            if (fig && fig.parentNode) fig.parentNode.removeChild(fig);
+            fig = figure(data);
+            ans.insertBefore(fig, body.nextSibling);
+          }
           else if (name === "done") cut = !!data.cut;
           else if (name === "error") {
             var code = data && data.error && data.error.code, at = data && data.error && data.error.retryAt;
@@ -856,9 +941,10 @@
       var cites = t.cites || [];
       nameLinks(body, (t.names || []).concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
+      if (t.diagram) ans.appendChild(figure(t.diagram));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [] });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: t.diagram || null });
     });
     // A conversation read back at its length is as full as one that reached it here.
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }

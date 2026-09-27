@@ -107,3 +107,27 @@
   .rbchat{right:0;bottom:0;width:100vw!important;height:100dvh!important;border-radius:0;border:0}
   .rbchat-grip{display:none}
 }
+/* A picture the host drew, under the answer and above the cite line: at its own size in a box
+   that scrolls, captioned in the page's language, each node a link. Opened full screen it
+   covers the page and the panel stays behind it. */
+.rbchat-diagram{margin:.6rem 0 0;padding:.5rem 0 0;border-top:1px solid var(--rule)}
+.rbchat-diagram figcaption{display:flex;align-items:center;gap:.5rem;margin:0 0 .4rem;font-size:.8rem;color:var(--dim)}
+.rbchat-diagram figcaption span{margin-right:auto}
+.rbchat-diagram-full{position:relative;border:0;background:none;color:var(--dim);font:inherit;font-size:1rem;line-height:1;cursor:pointer;padding:.2rem .35rem;border-radius:6px}
+.rbchat-diagram-full:hover,.rbchat-diagram-full:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
+.rbchat-diagram-full[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
+  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
+  background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
+  box-shadow:0 6px 18px var(--deck-drop);font-size:.8rem;line-height:1.35;color:var(--ink)}
+.rbchat-diagram-full:hover::after,.rbchat-diagram-full:focus-visible::after{opacity:1;transform:none}
+@media (hover:none){.rbchat-diagram-full[data-tip]::after{display:none}}
+@media (prefers-reduced-motion:reduce){.rbchat-diagram-full[data-tip]::after{transition:none}}
+.rbchat-diagram-box{overflow:auto;max-width:100%}
+.rbchat-diagram-box svg{display:block;max-width:none;height:auto}
+.rbchat-diagram-box a{cursor:pointer}
+.rbchat-diagram-box a:hover :is(rect,polygon,path),.rbchat-diagram-box a:focus-visible :is(rect,polygon,path){stroke-width:2px}
+.rbchat-diagram-failed{margin:0;font-size:.85rem}
+.rbchat-diagram-box pre{margin:.3rem 0 0;white-space:pre-wrap;font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--ink)}
+.rbchat-diagram-open{position:fixed;inset:0;z-index:70;margin:0;padding:1rem max(1rem,env(safe-area-inset-right)) 1rem max(1rem,env(safe-area-inset-left));
+  background:var(--ground);border:0;display:flex;flex-direction:column}
+.rbchat-diagram-open .rbchat-diagram-box{flex:1}
