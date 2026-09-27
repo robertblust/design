@@ -370,7 +370,7 @@ test("the home block carries the home sections' rules, every selector scoped to 
   assert.doesNotMatch(css, /\.sec \.index\{/, "the blog row stays its own, on blust.ch alone");
   assert.match(css, /\.sec\{margin-top:clamp\(4rem,9vh,7rem\)\}/);
   assert.match(css, /\.sec \.kicker\{[^}]*text-transform:uppercase/);
-  assert.match(css, /\.sec h2\{font-weight:600; letter-spacing:-\.025em; line-height:1\.06; font-size:clamp\(1\.9rem,3\.7vw,3rem\)\}/);
+  assert.match(css, /\.sec h2\{font-weight:600; letter-spacing:-\.025em; line-height:1\.06; font-size:clamp\(1\.9rem,3\.7vw,3rem\); margin-top:\.9rem\}/);
   assert.match(css, /\.sec h2 em\{font-style:normal; color:var\(--c-mid\)\}/);
   assert.match(css, /\.sec \.lede\{margin-top:1\.5rem; font-size:clamp\(1rem,1\.35vw,1\.18rem\); color:var\(--dim\); max-width:52ch\}/);
   assert.match(css, /\.sec \.values a\{[^}]*grid-template-columns:minmax\(0,30ch\) minmax\(0,1fr\)/);
@@ -378,6 +378,7 @@ test("the home block carries the home sections' rules, every selector scoped to 
   assert.match(css, /\.sec \.tiles\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(css, /\.sec \.tile b\{font-family:"Bricolage Grotesque"/);
   assert.match(css, /@media \(max-width:760px\)\{[^]*\.sec \.values a\{grid-template-columns:1fr\}[^]*\.sec \.tiles\{grid-template-columns:1fr\}/);
+  assert.match(css, /@media \(max-width:900px\)\{\s*\.sec \.lede\{max-width:100%\}\s*\}/, "blust.ch's own narrow-screen lede rule, so the fence carries its values unchanged");
   assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{[^]*\.sec \.tile, \.sec \.values b\{transition:none\}/);
   assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, "the block leaves a brace open");
 });

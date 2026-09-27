@@ -1305,6 +1305,23 @@ test("home fails naming the row when the value rows are out of the model's order
   }
 });
 
+test("home names a readable failure when spec.home is not { model }", async () => {
+  let dir, served, browser;
+  try {
+    ({ dir, served } = await serveHomeFixture());
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(served.base + "/");
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .home(page, { home: true });
+    assert.equal(result, `home needs { model: "/model.json" } in the page's spec, not true`);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("home makes no request to /blog/ when spec.home carries no blog", async () => {
   let dir, served, browser;
   try {

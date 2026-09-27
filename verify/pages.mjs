@@ -945,6 +945,8 @@ export function pageChecks({ SITE, BASE }) {
     // model.json both have, is also companygraph.io's company.json's shape, so nothing here
     // reads differently for it.
     async home(page, spec) {
+      if (typeof spec.home !== "object" || spec.home === null || typeof spec.home.model !== "string")
+        return `home needs { model: "/model.json" } in the page's spec, not ${JSON.stringify(spec.home)}`;
       const model = await (await fetch(BASE + spec.home.model)).json();
       // Sorted by path, the order `@robertblust/design/render/principles`'s `valuesOf` renders
       // both pages in — not the model's own entity order, which is neither.
