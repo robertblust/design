@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import crypto from "node:crypto";
 
 import { GROUPS, GROUP_NAMES } from "../lib/groups.mjs";
 
@@ -333,4 +334,13 @@ test("focus shows a note only where the browser draws a focus ring", () => {
   const src = asset("assets/card.js");
   assert.match(src, /function keyed\(el\)\{ try \{ return el\.matches\(":focus-visible"\); \}/, "focus is no longer asked whether it came from a keyboard");
   assert.match(src, /if \(el && keyed\(el\)\) showTip\(el\);/, "a script's focus, such as a dialog opening, shows a note under the pointer");
+});
+
+// The vendored Mermaid is the release's own file, byte for byte: its license and NOTICE speak for
+// that file, and a copy edited here would be a fork nobody reviews.
+test("mermaid.min.js is Mermaid 12.0.0's dist file, unmodified, and its license is the upstream text", () => {
+  const sha = (rel) => crypto.createHash("sha256").update(fs.readFileSync(path.join(PKG, rel))).digest("hex");
+  assert.equal(sha("assets/mermaid.min.js"), "28fca7ae6ebc7ed7bb63bde63136a74bfef14f296a57e403657eeb8b32836073");
+  assert.equal(sha("assets/mermaid.LICENSE.txt"), "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80");
+  assert.match(asset("assets/mermaid.min.js"), /globalThis\["mermaid"\]/);
 });
