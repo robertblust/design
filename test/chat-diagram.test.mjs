@@ -83,6 +83,10 @@ test("a picture of the schemas links each type to its schema's file and is capti
     const href = await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
     assert.equal(href, n.url);
   }
+  // A type reads as a link like any node, and a multiplicity is an edge label, dim like the field.
+  assert.equal(await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).color), "rgb(127, 163, 216)");
+  const many = await page.$$eval(".rbchat-diagram svg .edgeLabel p", (els) => els.filter((el) => /^\d/.test(el.textContent.trim())).map((el) => getComputedStyle(el).color));
+  assert.ok(many.length > 0 && many.every((c) => c === "rgb(138, 139, 134)"), String(many));
   await page.close();
 });
 
