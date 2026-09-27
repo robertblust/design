@@ -387,18 +387,18 @@ const FOLLOW_QS = [
 const CG = { id: "experiences/cg", title: "CompanyGraph", type: "experience" };
 
 test("follow offers the type's schema, the entity's neighbors and a question resting on the entity", () => {
-  assert.deepEqual(follow([CG], FOLLOW_QS, [], "en"), ["Show me the schema of experience", "Show me the neighbors of CompanyGraph", "On CG?"]);
+  assert.deepEqual(follow([CG], FOLLOW_QS, [], "en"), ["Show me the schema of CompanyGraph (experience)", "Show me the neighbors of CompanyGraph", "On CG?"]);
 });
 
 test("follow writes the first two in German with the type under its own name", () => {
-  assert.deepEqual(follow([CG], FOLLOW_QS, [], "de").slice(0, 2), ["Zeig mir das Schema von experience", "Zeig mir die Nachbarn von CompanyGraph"]);
+  assert.deepEqual(follow([CG], FOLLOW_QS, [], "de").slice(0, 2), ["Zeig mir das Schema von CompanyGraph (experience)", "Zeig mir die Nachbarn von CompanyGraph"]);
 });
 
 test("follow takes a question resting on the type when none rests on the entity, and any question when none rests on the type", () => {
   const noCg = FOLLOW_QS.slice(1);
   for (let i = 0; i < 50; i++) assert.equal(follow([CG], noCg, [], "en")[2], "On another experience?");
   const got = follow([CG], [R("On a skill?", "C", ["skills/java", "skill"])], [], "en");
-  assert.deepEqual(got, ["Show me the schema of experience", "Show me the neighbors of CompanyGraph", "On a skill?"]);
+  assert.deepEqual(got, ["Show me the schema of CompanyGraph (experience)", "Show me the neighbors of CompanyGraph", "On a skill?"]);
 });
 
 test("follow names the first cited entity when several of one type are cited", () => {
@@ -414,12 +414,12 @@ test("follow is null with no cite, or with cites of more than one type", () => {
 });
 
 test("follow leaves out what the conversation asked and fills from the questions still open", () => {
-  const messages = [{ role: "user", content: "Show me the schema of experience" }, { role: "assistant", content: "…" }, { role: "user", content: " On CG? " }];
+  const messages = [{ role: "user", content: "Show me the schema of CompanyGraph (experience)" }, { role: "assistant", content: "…" }, { role: "user", content: " On CG? " }];
   const got = follow([CG], FOLLOW_QS, messages, "en");
   assert.equal(got.length, 3);
   assert.equal(got[0], "Show me the neighbors of CompanyGraph");
   assert.equal(got[1], "On another experience?", "the type's question steps in for the entity's asked one");
-  assert.ok(!got.includes("On CG?") && !got.includes("Show me the schema of experience"));
+  assert.ok(!got.includes("On CG?") && !got.includes("Show me the schema of CompanyGraph (experience)"));
   assert.equal(new Set(got).size, 3);
 });
 

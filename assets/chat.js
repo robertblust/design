@@ -66,7 +66,7 @@
       notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
       questions: "Questions to start with", next: "Questions to ask next",
-      follow: { schema: "Show me the schema of {type}", neighbors: "Show me the neighbors of {title}" },
+      follow: { schema: "Show me the schema of {title} ({type})", neighbors: "Show me the neighbors of {title}" },
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
@@ -94,7 +94,7 @@
       notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       questions: "Fragen für den Einstieg", next: "Weitere Fragen",
-      follow: { schema: "Zeig mir das Schema von {type}", neighbors: "Zeig mir die Nachbarn von {title}" },
+      follow: { schema: "Zeig mir das Schema von {title} ({type})", neighbors: "Zeig mir die Nachbarn von {title}" },
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
@@ -447,7 +447,9 @@
   // The three after an answer that cited entities of one type only, T, the first of them E: T's
   // schema and E's neighbors, which the chat draws as pictures when asked in these words, then a
   // question of the model's that rests on E, else one that rests on anything of type T, else
-  // any. The type is written as its own name in both languages, as the chat writes it. Each is
+  // any. The schema chip names E with T after it, "Owner (role)", so a visitor reads which
+  // schema it is without knowing the type's name; the type is written as its own name in both
+  // languages, as the chat writes it. Each is
   // offered only where no visitor message asked it and it fits the box; a chip left out that
   // way is filled from spread() over the questions still open, so three show wherever three
   // exist. An answer with no cite, or cites of more than one type, follows nothing: null, and
@@ -458,7 +460,7 @@
     var cs = (cites || []).filter(function(c){ return c && typeof c.id === "string" && typeof c.type === "string" && c.type; });
     if (!cs.length || cs.some(function(c){ return c.type !== cs[0].type; })) return null;
     var type = cs[0].type, e = cs[0], s = strings(lang).follow;
-    var own = [s.schema.replace("{type}", type), s.neighbors.replace("{title}", e.title || e.id)];
+    var own = [s.schema.replace("{title}", e.title || e.id).replace("{type}", type), s.neighbors.replace("{title}", e.title || e.id)];
     var chosen = unasked(own, messages).filter(function(t){ return t.length <= LIMIT; });
     var titles = (items || []).filter(function(q){ return q && typeof q.title === "string"; }).map(function(q){ return q.title; });
     var open = unasked(titles, messages);
