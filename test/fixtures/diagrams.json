@@ -4,9 +4,24 @@
   "title": "Delivery",
   "mermaid": "flowchart LR\n  n0[\"<b>Specify</b><br/>Backend Engineer\"]\n  n1[\"<b>Build</b><br/>Backend Engineer, Reviewer\"]\n  n2[\"<b>Release</b><br/>Reviewer\"]\n  n0 -->|\"Reviewer\"| n1\n  n1 -->|\"Reviewer\"| n2",
   "nodes": [
-   { "node": "n0", "id": "processes/delivery/phases/specify", "title": "Specify", "type": "phase" },
-   { "node": "n1", "id": "processes/delivery/phases/build", "title": "Build", "type": "phase" },
-   { "node": "n2", "id": "processes/delivery/phases/release", "title": "Release", "type": "phase" }
+   {
+    "node": "n0",
+    "id": "processes/delivery/phases/specify",
+    "title": "Specify",
+    "type": "phase"
+   },
+   {
+    "node": "n1",
+    "id": "processes/delivery/phases/build",
+    "title": "Build",
+    "type": "phase"
+   },
+   {
+    "node": "n2",
+    "id": "processes/delivery/phases/release",
+    "title": "Release",
+    "type": "phase"
+   }
   ],
   "omitted": 0
  },
@@ -15,8 +30,18 @@
   "title": "Loop",
   "mermaid": "flowchart LR\n  n0[\"A #quot;quoted#quot; #lt;b#gt;bold#lt;/b#gt; #35;1 --#gt; [x] {y} (z) | pipe ; semi & amp<br/>Exec #lt;A#gt;\"]\n  n1[\"B\"]\n  n0 -->|\"gate #quot;x#quot; #lt;y#gt; #35;z | w\"| n1\n  more[\"+3: Evidence.Skill\"]\n  n0 -.- more",
   "nodes": [
-   { "node": "n0", "id": "concepts/odd", "title": "odd", "type": "concept" },
-   { "node": "n1", "id": "concepts/b", "title": "B", "type": "concept" }
+   {
+    "node": "n0",
+    "id": "concepts/odd",
+    "title": "odd",
+    "type": "concept"
+   },
+   {
+    "node": "n1",
+    "id": "concepts/b",
+    "title": "B",
+    "type": "concept"
+   }
   ],
   "omitted": 3
  },
@@ -35,15 +60,114 @@
   "title": null,
   "mermaid": "classDiagram\n  class n0[\"Billing period\"]\n  class n1[\"Contract\"]\n  class n2[\"Credit note\"]\n  class n3[\"Customer\"]\n  class n4[\"Invoice\"]\n  class n5[\"Invoice line\"]\n  class n6[\"Pricing rule\"]\n  class n7[\"Usage record\"]\n  n1 --> n3 : one, signing customer\n  n1 --> n3 : maybe one, paying customer\n  n1 --> n6 : one to many, terms\n  n2 --> n4 : one, corrected invoice\n  n2 --> n5 : one to many, lines\n  n4 --> n0 : one\n  n4 --> n3 : one, billed customer\n  n4 --> n5 : one to many, lines\n  n5 --> n6 : one, rule\n  n5 --> n7 : many, usage read\n  n7 --> n1 : one",
   "nodes": [
-   { "node": "n0", "id": "concepts/billing-period", "title": "Billing period", "type": "concept" },
-   { "node": "n1", "id": "concepts/contract", "title": "Contract", "type": "concept" },
-   { "node": "n2", "id": "concepts/credit-note", "title": "Credit note", "type": "concept" },
-   { "node": "n3", "id": "concepts/customer", "title": "Customer", "type": "concept" },
-   { "node": "n4", "id": "concepts/invoice", "title": "Invoice", "type": "concept" },
-   { "node": "n5", "id": "concepts/invoice-line", "title": "Invoice line", "type": "concept" },
-   { "node": "n6", "id": "concepts/pricing-rule", "title": "Pricing rule", "type": "concept" },
-   { "node": "n7", "id": "concepts/usage-record", "title": "Usage record", "type": "concept" }
+   {
+    "node": "n0",
+    "id": "concepts/billing-period",
+    "title": "Billing period",
+    "type": "concept"
+   },
+   {
+    "node": "n1",
+    "id": "concepts/contract",
+    "title": "Contract",
+    "type": "concept"
+   },
+   {
+    "node": "n2",
+    "id": "concepts/credit-note",
+    "title": "Credit note",
+    "type": "concept"
+   },
+   {
+    "node": "n3",
+    "id": "concepts/customer",
+    "title": "Customer",
+    "type": "concept"
+   },
+   {
+    "node": "n4",
+    "id": "concepts/invoice",
+    "title": "Invoice",
+    "type": "concept"
+   },
+   {
+    "node": "n5",
+    "id": "concepts/invoice-line",
+    "title": "Invoice line",
+    "type": "concept"
+   },
+   {
+    "node": "n6",
+    "id": "concepts/pricing-rule",
+    "title": "Pricing rule",
+    "type": "concept"
+   },
+   {
+    "node": "n7",
+    "id": "concepts/usage-record",
+    "title": "Usage record",
+    "type": "concept"
+   }
   ],
   "omitted": 0
+ },
+ "schema": {
+  "shape": "schema",
+  "title": "phase",
+  "mermaid": "classDiagram\n  class n0[\"phase\"]\n  class n1[\"process\"]\n  class n2[\"role\"]\n  n0 --> \"1..*\" n2 : executed-by\n  n0 --> \"0..1\" n0 : gate-to\n  n1 --> \"0..*\" n0 : Phases.Phase\n  n0 --* n1 : nested-in",
+  "nodes": [
+   {
+    "node": "n0",
+    "id": "core/phase",
+    "title": "phase",
+    "type": "schema",
+    "url": "https://github.com/robertblust/mental-model/blob/0123456789abcdef0123456789abcdef01234567/meta/core/phase-schema.md"
+   },
+   {
+    "node": "n1",
+    "id": "core/process",
+    "title": "process",
+    "type": "schema",
+    "url": "https://github.com/robertblust/mental-model/blob/0123456789abcdef0123456789abcdef01234567/meta/core/process-schema.md"
+   },
+   {
+    "node": "n2",
+    "id": "core/role",
+    "title": "role",
+    "type": "schema",
+    "url": "https://github.com/robertblust/mental-model/blob/0123456789abcdef0123456789abcdef01234567/meta/core/role-schema.md"
+   }
+  ],
+  "links": [
+   {
+    "from": "n0",
+    "to": "n2",
+    "label": "executed-by 1..*"
+   },
+   {
+    "from": "n0",
+    "to": "n0",
+    "label": "gate-to 0..1"
+   },
+   {
+    "from": "n1",
+    "to": "n0",
+    "label": "Phases.Phase 0..*"
+   },
+   {
+    "from": "n0",
+    "to": "n1",
+    "label": "nested-in"
+   }
+  ],
+  "everyType": [
+   {
+    "via": "source",
+    "to": "source",
+    "multiplicity": "1"
+   }
+  ],
+  "edges": 4,
+  "omitted": 1
  }
 }

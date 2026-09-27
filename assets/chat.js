@@ -18,7 +18,8 @@
 // looks like markup stays text.
 // A picture the host drew arrives as its own event and is drawn under the answer by Mermaid,
 // fetched from beside this file the first time one arrives; each node links where the cite
-// line would, and the picture is kept with its answer in the tab like the rest of the turn.
+// line would, or a type to its schema's file where the host names one, and the picture is kept
+// with its answer in the tab like the rest of the turn.
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
 //
 //   rbChat.md(text)                    the subset, rendered
@@ -66,7 +67,7 @@
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -93,7 +94,7 @@
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -538,12 +539,15 @@
     return width && width < NARROW ? String(source).replace(/^flowchart LR\b/, "flowchart TB") : source;
   }
   // The caption: the shape in the page's language, then what the host drew it of.
+  function nodeHref(model, n){
+    return typeof n.url === "string" && /^https:\/\//.test(n.url) ? n.url : link(model, n.id);
+  }
   function diagramCaption(d, lang){
     var name = strings(lang).diagram[d && d.shape] || "";
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, oriented: oriented };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -589,7 +593,9 @@
     return function(name){ return name === "font" ? (body ? body.fontFamily : "") : root.getPropertyValue(name); };
   }
   // Each node becomes a link to where the cite line would send it. Mermaid's own click lines
-  // are off under `strict`, and the host writes none; the widget links from `nodes`.
+  // are off under `strict`, and the host writes none; the widget links from `nodes`. A type is
+  // no entity the model page holds, so the host names its schema's file as `url`, and an https
+  // address alone is taken, since a node's link is the one place the host's words become an href.
   function drawFigure(fig){
     // fig.rbBox, not a query, because while the dialog holds this figure the box is not
     // inside it: a theme change redraws into the box wherever it currently stands.
@@ -605,7 +611,7 @@
         var g = nodeElement(svg, n.node);
         if (!g) return;
         var a = document.createElementNS("http://www.w3.org/2000/svg", "a");
-        a.setAttribute("href", link(MODEL, n.id));
+        a.setAttribute("href", nodeHref(MODEL, n));
         a.setAttribute("aria-label", n.title || n.id);
         g.parentNode.insertBefore(a, g); a.appendChild(g);
       });
