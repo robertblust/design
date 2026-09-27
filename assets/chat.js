@@ -314,12 +314,22 @@
     var tag = re === CELL_NUMBER ? "ol" : "ul";
     return "<" + tag + ">" + parts.map(function(p){ return "<li>" + inline(re.exec(p)[1].trim()) + "</li>"; }).join("") + "</" + tag + ">";
   }
+  // A name the answer's language keeps unchanged comes back twice, **Master** (Master), because
+  // the model is told to follow every name with its exact title and follows that past its own
+  // sense; no wording of that instruction stopped it. The pair is the same words, so it is
+  // written once, and the name still links, since the title is what it links by. A bold name
+  // folds wherever it stands. One not in bold folds only where a name begins, at the head of a
+  // line, a cell or an item or after a comma, colon or semicolon, because the words before
+  // "Plan (Plan)" may be the name's own rendering, Business Plan.
+  var TWICE_BOLD = /\*\*([^*\n]+?)\*\* \(\1\)/g,
+    TWICE_PLAIN = /(^[ \t]*(?:(?:[-*•]|\d+\.)[ \t]+)?|[|:;,][ \t]*|<br>[ \t]*(?:[-*•][ \t]+)?)([^\s*()|<][^*()|\n<]*?) \(\2\)/gm;
+  function once(text){ return text.replace(TWICE_BOLD, "**$1**").replace(TWICE_PLAIN, "$1$2"); }
   // Blocks, line by line: a table needs its delimiter row before it is a table, so one still
   // arriving is a paragraph until its second line lands; a list is consecutive items; the rest
   // is paragraphs split at blank lines.
   function md(text){
     if (!text) return "";
-    var lines = esc(text).split(/\r?\n/), out = "", i = 0, n = lines.length;
+    var lines = esc(once(text)).split(/\r?\n/), out = "", i = 0, n = lines.length;
     while (i < n) {
       var line = lines[i];
       if (!line.trim()) { i++; continue; }
