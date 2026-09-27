@@ -14,6 +14,9 @@ const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
 const PICTURES = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "diagrams.json"), "utf8"));
 
 const PAGE = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>
+/* A real page links chat.css beside its own stylesheet, which carries the family's reset;
+   this stands in for the one rule of it the dialog's own sizing depends on. */
+*{box-sizing:border-box}
 :root{--ground:#0C0E13;--raise:#171A21;--rule:#232833;--ink:#EFEDE8;--dim:#8A8B86;--c-mid:#7FA3D8;--press:#1b2231;--deck-drop:rgba(0,0,0,.4)}
 :root[data-theme="light"]{--ground:#FAF9F5;--raise:#F2F0EA;--rule:#DFDCD3;--ink:#16181D;--dim:#5F6058;--c-mid:#3A6DA6;--press:#E7ECF4}
 body{background:var(--ground);color:var(--ink)}
@@ -42,10 +45,10 @@ before(async () => {
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
 
 // A fresh tab, the panel opened, one question asked and its answer finished.
-async function asked(events, { mermaid = true } = {}) {
+async function asked(events, { mermaid = true, viewport } = {}) {
   state.events = [...events, ["done", { model: null, spent: 1, dayLeft: 1 }]];
   state.mermaid = mermaid;
-  const page = await browser.newPage();
+  const page = await browser.newPage(viewport ? { viewport } : {});
   const requests = [];
   page.on("request", (r) => requests.push(r.url()));
   await page.goto(base + "/");
@@ -114,6 +117,22 @@ test("Expand opens a dialog modal holding the picture, its node links intact", a
     const href = await page.$eval(`dialog.rbchat-modal svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
     assert.equal(href, `/model/?stage=expanded#${n.id}`);
   }
+  await page.close();
+});
+
+test("on a phone the dialog fills the screen, borderless", async () => {
+  const p = PICTURES.process;
+  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]], { viewport: { width: 390, height: 844 } });
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  const box = await page.$eval("dialog.rbchat-modal", (d) => {
+    const r = d.getBoundingClientRect();
+    return { width: r.width, height: r.height, border: parseFloat(getComputedStyle(d).borderWidth) };
+  });
+  assert.ok(Math.abs(box.width - 390) <= 1, `width ${box.width}`);
+  assert.ok(Math.abs(box.height - 844) <= 1, `height ${box.height}`);
+  assert.equal(box.border, 0);
   await page.close();
 });
 
