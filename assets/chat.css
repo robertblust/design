@@ -126,6 +126,23 @@
 .rbchat-diagram-box svg{display:block;max-width:none;height:auto}
 .rbchat-diagram-box a{cursor:pointer}
 .rbchat-diagram-box a:hover :is(rect,polygon,path),.rbchat-diagram-box a:focus-visible :is(rect,polygon,path){stroke-width:2px}
+/* A node is a link, so its name reads as one: the family's link color, underlined on hover and
+   keyboard focus. Mermaid writes its own per-render <style> with id-scoped selectors, which beats
+   a class rule on specificity alone, so the color needs !important; the underline competes with
+   nothing Mermaid draws and needs none. A class diagram's title is the same .nodeLabel span. The
+   whole box stays the link's target, but the underline is scoped to .rbchat-node-name, the span
+   chat.js wraps around the name alone: a text-decoration set on .nodeLabel itself would propagate
+   into the host's own quieter line below it (a neighborhood's «type», a phase's seats), which
+   never reads as the link. */
+.rbchat-diagram-box svg a .nodeLabel,.rbchat-diagram-box svg a .nodeLabel p,.rbchat-diagram-box svg a text{color:var(--c-mid)!important;fill:var(--c-mid)!important}
+.rbchat-diagram-box svg a:hover .rbchat-node-name,.rbchat-diagram-box svg a:focus-visible .rbchat-node-name{text-decoration-line:underline;text-underline-offset:2px}
+/* The host's own line under a node's name — a neighborhood's stereotype, a phase's seats — reads
+   quieter than the title above it. */
+.rbchat-diagram-box svg small{color:var(--dim);font-size:.78em;font-weight:400}
+/* An edge's label shares Mermaid's one text-color variable with a node's label, so its own color
+   needs the same !important; its background is the panel's own raise, reached through
+   mermaidConfig's edgeLabelBackground instead of fought over here. */
+.rbchat-diagram-box svg .edgeLabel,.rbchat-diagram-box svg .edgeLabel p,.rbchat-diagram-box svg .edgeLabel text{color:var(--dim)!important;fill:var(--dim)!important}
 .rbchat-diagram-failed{margin:0;font-size:.85rem}
 .rbchat-diagram-box pre{margin:.3rem 0 0;white-space:pre-wrap;font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--ink)}
 /* The dialog Expand opens: a dimmed backdrop, a bordered box, a × in the corner, closed by

@@ -18,7 +18,8 @@
 // looks like markup stays text.
 // A picture the host drew arrives as its own event and is drawn under the answer by Mermaid,
 // fetched from beside this file the first time one arrives; each node links where the cite
-// line would, and the picture is kept with its answer in the tab like the rest of the turn.
+// line would, or a type to its schema's file where the host names one, and the picture is kept
+// with its answer in the tab like the rest of the turn.
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
 //
 //   rbChat.md(text)                    the subset, rendered
@@ -66,7 +67,7 @@
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -93,7 +94,7 @@
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -480,15 +481,20 @@
       // below reading. A concept carries no attributes or methods, so its class has no empty bars.
       flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
       // `strict` alone still lets DOMPurify pass an `<img src>` through a label; a label writes
-      // only `b` and `br`, so an image is never a label and would be a request to another host,
-      // which "no request leaves the page's origin" promises never happens.
+      // only `b`, `br` and `small`, so an image is never a label and would be a request to
+      // another host, which "no request leaves the page's origin" promises never happens.
       dompurifyConfig: { FORBID_TAGS: ["img"] },
       themeVariables: {
         fontFamily: font, fontSize: "13px", background: v("--ground"),
         primaryColor: v("--raise"), mainBkg: v("--raise"), secondaryColor: v("--press"), tertiaryColor: v("--ground"),
         primaryTextColor: v("--ink"), textColor: v("--ink"), nodeTextColor: v("--ink"), classText: v("--ink"),
-        // A node is a link, and every link in the family is --c-mid.
-        primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"), edgeLabelBackground: v("--ground")
+        // A node is a link, and every link in the family is --c-mid; its own text color is set
+        // in chat.css instead, scoped to a linked node, because this variable also colors an
+        // edge label's text and an unlinked overflow bubble's, which stay --ink.
+        primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"),
+        // An edge label's own background: Mermaid draws it from this one variable in every
+        // diagram kind this file uses, so the panel's raise reaches it without a CSS rule.
+        edgeLabelBackground: v("--raise")
       }
     };
   }
@@ -501,6 +507,31 @@
     for (var i = 0; i < all.length; i++) if (re.test(all[i].id)) return all[i];
     return null;
   }
+  // A node's name alone reads as the link: every run of a label's children that is neither the
+  // host's own <small> line (a neighborhood's «type», a phase's seats) nor the <br> that sets it
+  // apart is gathered into one span.rbchat-node-name, so chat.css can underline the name on hover
+  // and focus without a text-decoration on the label propagating into the quieter line beside it.
+  // A label with no <small> has nothing to keep apart from, so it is wrapped whole, <br> and all.
+  // Tolerant of a label Mermaid renders differently: an empty run is left unwrapped.
+  function wrapNodeName(p){
+    var kids = [].slice.call(p.childNodes), hasSmall = false, i;
+    for (i = 0; i < kids.length; i++) if (kids[i].nodeType === 1 && kids[i].tagName === "SMALL") { hasSmall = true; break; }
+    function wrap(run){
+      if (!run.length) return;
+      var span = document.createElement("span");
+      span.className = "rbchat-node-name";
+      p.insertBefore(span, run[0]);
+      for (var j = 0; j < run.length; j++) span.appendChild(run[j]);
+    }
+    if (!hasSmall) { wrap(kids); return; }
+    var run = [];
+    for (i = 0; i < kids.length; i++) {
+      var k = kids[i];
+      if (k.nodeType === 1 && (k.tagName === "SMALL" || k.tagName === "BR")) { wrap(run); run = []; }
+      else run.push(k);
+    }
+    wrap(run);
+  }
   // A flow drawn left to right is wider than a phone: in a narrow panel it runs top to bottom.
   // Only the direction changes; every node and arrow is the host's.
   var NARROW = 560;
@@ -508,12 +539,15 @@
     return width && width < NARROW ? String(source).replace(/^flowchart LR\b/, "flowchart TB") : source;
   }
   // The caption: the shape in the page's language, then what the host drew it of.
+  function nodeHref(model, n){
+    return typeof n.url === "string" && /^https:\/\//.test(n.url) ? n.url : link(model, n.id);
+  }
   function diagramCaption(d, lang){
     var name = strings(lang).diagram[d && d.shape] || "";
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, oriented: oriented };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -559,7 +593,9 @@
     return function(name){ return name === "font" ? (body ? body.fontFamily : "") : root.getPropertyValue(name); };
   }
   // Each node becomes a link to where the cite line would send it. Mermaid's own click lines
-  // are off under `strict`, and the host writes none; the widget links from `nodes`.
+  // are off under `strict`, and the host writes none; the widget links from `nodes`. A type is
+  // no entity the model page holds, so the host names its schema's file as `url`, and an https
+  // address alone is taken, since a node's link is the one place the host's words become an href.
   function drawFigure(fig){
     // fig.rbBox, not a query, because while the dialog holds this figure the box is not
     // inside it: a theme change redraws into the box wherever it currently stands.
@@ -575,10 +611,13 @@
         var g = nodeElement(svg, n.node);
         if (!g) return;
         var a = document.createElementNS("http://www.w3.org/2000/svg", "a");
-        a.setAttribute("href", link(MODEL, n.id));
+        a.setAttribute("href", nodeHref(MODEL, n));
         a.setAttribute("aria-label", n.title || n.id);
         g.parentNode.insertBefore(a, g); a.appendChild(g);
       });
+      // After the nodes are linked, so the selector below reaches only a linked node's label.
+      var names = svg.querySelectorAll("a .nodeLabel > p");
+      for (var ni = 0; ni < names.length; ni++) { try { wrapNodeName(names[ni]); } catch (e) {} }
     }).catch(function(){
       // Mermaid leaves what it could not finish in the body; it goes, and the source stands in.
       [id, "d" + id].forEach(function(x){ var left = document.getElementById(x); if (left && !box.contains(left)) left.parentNode.removeChild(left); });

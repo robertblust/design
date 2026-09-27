@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, oriented } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -490,6 +490,7 @@ test("Mermaid is configured strict, from the tokens, and never from an empty one
   assert.deepEqual([c.themeVariables.primaryColor, c.themeVariables.primaryTextColor, c.themeVariables.primaryBorderColor, c.themeVariables.lineColor, c.themeVariables.background], ["#F2F0EA", "#16181D", "#3A6DA6", "#5F6058", "#FAF9F5"]);
   assert.equal(c.fontFamily, '"Instrument Sans", sans-serif');
   assert.ok(c.dompurifyConfig.FORBID_TAGS.includes("img"), "an <img> label would be a request to another host");
+  assert.equal(c.themeVariables.edgeLabelBackground, "#F2F0EA", "an edge label sits on the panel's raise, not the ground it once did");
   const bare = mermaidConfig(() => "  ");
   assert.equal(bare.themeVariables.primaryColor, "#171A21", "an undefined token falls back to the dark theme's value");
   assert.match(bare.fontFamily, /sans-serif/);
@@ -518,7 +519,9 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "concepts", title: null }, "en"), "Concepts");
   assert.equal(diagramCaption({ shape: "neighborhood", title: "Claim" }, "de"), "Verbindungen · Claim");
   assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "shut"]);
+  assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
+  assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "schema", "shut"]);
 });
 
 test("any element carrying data-chat-open opens the panel, and the header says so", () => {
@@ -526,4 +529,11 @@ test("any element carrying data-chat-open opens the panel, and the header says s
   assert.match(src, /document\.addEventListener\("click"[\s\S]{0,200}data-chat-open[\s\S]{0,120}open\(\)/,
     "the delegated click calls open()");
   assert.match(src.slice(0, 3000), /data-chat-open/, "the header comment names the attribute");
+});
+
+test("a node links to its entity on the model page, or to the https address the host names for it", () => {
+  assert.equal(nodeHref("/model/", { id: "concepts/invoice" }), "/model/?stage=expanded#concepts/invoice");
+  assert.equal(nodeHref("/model/", { id: "core/phase", url: "https://github.com/o/r/blob/c/meta/core/phase-schema.md" }), "https://github.com/o/r/blob/c/meta/core/phase-schema.md");
+  assert.equal(nodeHref("/model/", { id: "core/phase", url: null }), "/model/?stage=expanded#core/phase");
+  assert.equal(nodeHref("/model/", { id: "core/phase", url: "javascript:alert(1)" }), "/model/?stage=expanded#core/phase");
 });

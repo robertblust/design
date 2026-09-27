@@ -74,10 +74,86 @@ test("a picture is drawn under its answer, captioned, each node a link to where 
   await page.close();
 });
 
+test("a picture of the schemas links each type to its schema's file and is captioned as the meta-model", async () => {
+  const p = PICTURES.schema;
+  const { page } = await asked([["diagram", p], ["text", { text: "A phase is nested in a process." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  assert.equal(await page.textContent(".rbchat-diagram figcaption span"), "Meta-model · phase");
+  for (const n of p.nodes) {
+    const href = await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
+    assert.equal(href, n.url);
+  }
+  // A type reads as a link like any node, and a multiplicity is an edge label, dim like the field.
+  assert.equal(await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).color), "rgb(127, 163, 216)");
+  const many = await page.$$eval(".rbchat-diagram svg .edgeLabel p", (els) => els.filter((el) => /^\d/.test(el.textContent.trim())).map((el) => getComputedStyle(el).color));
+  assert.ok(many.length > 0 && many.every((c) => c === "rgb(138, 139, 134)"), String(many));
+  await page.close();
+});
+
 test("an answer with no picture never fetches Mermaid", async () => {
   const { page, requests } = await asked([["text", { text: "No picture." }]]);
   assert.equal(await page.$(".rbchat-diagram"), null);
   assert.ok(!requests.some((u) => u.endsWith("/mermaid.min.js")));
+  await page.close();
+});
+
+test("a linked node's name is the link color, its type line quiet and smaller, in both themes", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .nodeLabel small");
+  const read = () => page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => {
+    const small = el.querySelector("small");
+    return { color: getComputedStyle(el).color, titleSize: parseFloat(getComputedStyle(el).fontSize), smallColor: getComputedStyle(small).color, smallSize: parseFloat(getComputedStyle(small).fontSize) };
+  });
+  const dark = await read();
+  assert.equal(dark.color, "rgb(127, 163, 216)", "the node's name is --c-mid");
+  assert.equal(dark.smallColor, "rgb(138, 139, 134)", "the type line is --dim");
+  assert.ok(dark.smallSize < dark.titleSize, `the type line is smaller: ${dark.smallSize} vs ${dark.titleSize}`);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".rbchat-diagram svg a .nodeLabel")).color === "rgb(58, 109, 166)");
+  const light = await read();
+  assert.equal(light.smallColor, "rgb(95, 96, 88)", "the type line follows the light theme's dim too");
+  await page.close();
+});
+
+test("hovering or focusing a node underlines its name alone, never its type line", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .rbchat-node-name");
+  const read = () => page.$eval(".rbchat-diagram svg a", (a) => ({
+    name: getComputedStyle(a.querySelector(".rbchat-node-name")).textDecorationLine,
+    label: getComputedStyle(a.querySelector(".nodeLabel")).textDecorationLine
+  }));
+  const before = await read();
+  assert.equal(before.name, "none");
+  assert.equal(before.label, "none");
+  await page.hover(".rbchat-diagram svg a");
+  const hovered = await read();
+  assert.equal(hovered.name, "underline");
+  assert.equal(hovered.label, "none", "the label itself, and so the type line inside it, is not under a propagated underline");
+  await page.close();
+});
+
+test("a node's name span holds the title alone, never the type line above it", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .rbchat-node-name");
+  const text = await page.$eval(".rbchat-diagram svg a .rbchat-node-name", (el) => el.textContent);
+  assert.equal(text, "Concept A");
+  await page.close();
+});
+
+test("a class diagram's node, with no type line, gets one name span around its whole title", async () => {
+  const { page } = await asked([["diagram", PICTURES.concepts], ["text", { text: "Concepts." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .rbchat-node-name");
+  const text = await page.$eval(".rbchat-diagram svg a .rbchat-node-name", (el) => el.textContent);
+  assert.equal(text, "Billing period");
+  await page.close();
+});
+
+test("an edge label's text is dim and its background is off the panel's own ground", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .edgeLabel");
+  const edge = await page.$eval(".rbchat-diagram svg span.edgeLabel", (el) => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
+  assert.equal(edge.color, "rgb(138, 139, 134)", "the edge label's text is --dim");
+  assert.notEqual(edge.background, "rgb(12, 14, 19)", "no longer the old ground the label sat on");
   await page.close();
 });
 
@@ -108,8 +184,8 @@ test("a caption and its control follow the page's language", async () => {
 });
 
 test("Expand opens a dialog modal holding the picture, its node links intact", async () => {
-  const p = PICTURES.process;
-  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]]);
+  const p = PICTURES.typed;
+  const { page } = await asked([["diagram", p], ["text", { text: "Neighborhood." }]]);
   await page.waitForSelector(".rbchat-diagram svg");
   await page.click(".rbchat-diagram-full");
   await page.waitForSelector("dialog.rbchat-modal[open] svg");
@@ -117,6 +193,9 @@ test("Expand opens a dialog modal holding the picture, its node links intact", a
     const href = await page.$eval(`dialog.rbchat-modal svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
     assert.equal(href, `/model/?stage=expanded#${n.id}`);
   }
+  const label = await page.$eval("dialog.rbchat-modal svg a .nodeLabel", (el) => ({ color: getComputedStyle(el).color, smallColor: getComputedStyle(el.querySelector("small")).color }));
+  assert.equal(label.color, "rgb(127, 163, 216)", "the node's name is still --c-mid in the moved box");
+  assert.equal(label.smallColor, "rgb(138, 139, 134)", "its type line is still --dim in the moved box");
   await page.close();
 });
 
