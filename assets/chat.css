@@ -129,9 +129,13 @@
 /* A node is a link, so its name reads as one: the family's link color, underlined on hover and
    keyboard focus. Mermaid writes its own per-render <style> with id-scoped selectors, which beats
    a class rule on specificity alone, so the color needs !important; the underline competes with
-   nothing Mermaid draws and needs none. A class diagram's title is the same .nodeLabel span. */
+   nothing Mermaid draws and needs none. A class diagram's title is the same .nodeLabel span. The
+   whole box stays the link's target, but the underline is scoped to .rbchat-node-name, the span
+   chat.js wraps around the name alone: a text-decoration set on .nodeLabel itself would propagate
+   into the host's own quieter line below it (a neighborhood's «type», a phase's seats), which
+   never reads as the link. */
 .rbchat-diagram-box svg a .nodeLabel,.rbchat-diagram-box svg a .nodeLabel p,.rbchat-diagram-box svg a text{color:var(--c-mid)!important;fill:var(--c-mid)!important}
-.rbchat-diagram-box svg a:hover .nodeLabel,.rbchat-diagram-box svg a:focus-visible .nodeLabel{text-decoration-line:underline;text-underline-offset:2px}
+.rbchat-diagram-box svg a:hover .rbchat-node-name,.rbchat-diagram-box svg a:focus-visible .rbchat-node-name{text-decoration-line:underline;text-underline-offset:2px}
 /* The host's own line under a node's name — a neighborhood's stereotype, a phase's seats — reads
    quieter than the title above it. */
 .rbchat-diagram-box svg small{color:var(--dim);font-size:.78em;font-weight:400}

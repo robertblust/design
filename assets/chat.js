@@ -506,6 +506,31 @@
     for (var i = 0; i < all.length; i++) if (re.test(all[i].id)) return all[i];
     return null;
   }
+  // A node's name alone reads as the link: every run of a label's children that is neither the
+  // host's own <small> line (a neighborhood's «type», a phase's seats) nor the <br> that sets it
+  // apart is gathered into one span.rbchat-node-name, so chat.css can underline the name on hover
+  // and focus without a text-decoration on the label propagating into the quieter line beside it.
+  // A label with no <small> has nothing to keep apart from, so it is wrapped whole, <br> and all.
+  // Tolerant of a label Mermaid renders differently: an empty run is left unwrapped.
+  function wrapNodeName(p){
+    var kids = [].slice.call(p.childNodes), hasSmall = false, i;
+    for (i = 0; i < kids.length; i++) if (kids[i].nodeType === 1 && kids[i].tagName === "SMALL") { hasSmall = true; break; }
+    function wrap(run){
+      if (!run.length) return;
+      var span = document.createElement("span");
+      span.className = "rbchat-node-name";
+      p.insertBefore(span, run[0]);
+      for (var j = 0; j < run.length; j++) span.appendChild(run[j]);
+    }
+    if (!hasSmall) { wrap(kids); return; }
+    var run = [];
+    for (i = 0; i < kids.length; i++) {
+      var k = kids[i];
+      if (k.nodeType === 1 && (k.tagName === "SMALL" || k.tagName === "BR")) { wrap(run); run = []; }
+      else run.push(k);
+    }
+    wrap(run);
+  }
   // A flow drawn left to right is wider than a phone: in a narrow panel it runs top to bottom.
   // Only the direction changes; every node and arrow is the host's.
   var NARROW = 560;
@@ -584,6 +609,9 @@
         a.setAttribute("aria-label", n.title || n.id);
         g.parentNode.insertBefore(a, g); a.appendChild(g);
       });
+      // After the nodes are linked, so the selector below reaches only a linked node's label.
+      var names = svg.querySelectorAll("a .nodeLabel > p");
+      for (var ni = 0; ni < names.length; ni++) { try { wrapNodeName(names[ni]); } catch (e) {} }
     }).catch(function(){
       // Mermaid leaves what it could not finish in the body; it goes, and the source stands in.
       [id, "d" + id].forEach(function(x){ var left = document.getElementById(x); if (left && !box.contains(left)) left.parentNode.removeChild(left); });
