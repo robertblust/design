@@ -356,6 +356,40 @@ test("the index block carries the list a section's index draws, scoped to .index
   assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, "the block leaves a brace open");
 });
 
+test("the home block carries the home sections' rules, every selector scoped to .sec", () => {
+  // Controller ruling: every selector starts with .sec, as the index fence scopes everything
+  // under .index, because page.css reaches every prose page and a bare .kicker, .values or
+  // .tile would restyle a page that never asked for a home section.
+  const css = blockFor("home", null);
+  const selectors = [...css.matchAll(/^\s*([^{@\n][^{\n]*)\{/gm)].map((m) => m[1].trim())
+    .filter((s) => !s.startsWith("@") && !s.startsWith("/*") && !s.includes("*/"));
+  assert.ok(selectors.length >= 10, "the block has fewer rules than the home sections had");
+  for (const s of selectors)
+    for (const part of s.split(","))
+      assert.match(part.trim(), /^\.sec\b/, `${part.trim()} is not scoped to .sec`);
+  assert.doesNotMatch(css, /\.sec \.index\{/, "the blog row stays its own, on blust.ch alone");
+  assert.match(css, /\.sec\{margin-top:clamp\(4rem,9vh,7rem\)\}/);
+  assert.match(css, /\.sec \.kicker\{[^}]*text-transform:uppercase/);
+  assert.match(css, /\.sec h2\{font-weight:600; letter-spacing:-\.025em; line-height:1\.06; font-size:clamp\(1\.9rem,3\.7vw,3rem\); margin-top:\.9rem\}/);
+  assert.match(css, /\.sec h2 em\{font-style:normal; color:var\(--c-mid\)\}/);
+  assert.match(css, /\.sec \.lede\{margin-top:1\.5rem; font-size:clamp\(1rem,1\.35vw,1\.18rem\); color:var\(--dim\); max-width:52ch\}/);
+  assert.match(css, /\.sec \.values a\{[^}]*grid-template-columns:minmax\(0,30ch\) minmax\(0,1fr\)/);
+  assert.match(css, /\.sec \.values a:last-child\{border-bottom:2px solid var\(--rule\)\}/);
+  assert.match(css, /\.sec \.tiles\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(css, /\.sec \.tile b\{font-family:"Bricolage Grotesque"/);
+  assert.match(css, /@media \(max-width:760px\)\{[^]*\.sec \.values a\{grid-template-columns:1fr\}[^]*\.sec \.tiles\{grid-template-columns:1fr\}/);
+  assert.match(css, /@media \(max-width:900px\)\{\s*\.sec \.lede\{max-width:100%\}\s*\}/, "blust.ch's own narrow-screen lede rule, so the fence carries its values unchanged");
+  assert.match(css, /@media \(prefers-reduced-motion:reduce\)\{[^]*\.sec \.tile, \.sec \.values b\{transition:none\}/);
+  assert.equal((css.match(/\{/g) || []).length, (css.match(/\}/g) || []).length, "the block leaves a brace open");
+});
+
+test("the home fence declares no variants and no parameters", () => {
+  assert.equal(FENCES["home"].variants, null);
+  assert.equal(FENCES["home"].params, undefined);
+  assert.equal(FENCES["home"].closes, null);
+  assert.equal(FENCES["home"].version, versions.home);
+});
+
 test("the link block is the family's one link style and weighs nothing in the cascade", () => {
   // Every selector is inside :where(), so a page's nav, its footer's current page and any rule
   // it writes for a control win without knowing the block exists; an anchor with a class is a

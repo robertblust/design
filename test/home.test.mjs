@@ -64,6 +64,21 @@ test("a value whose last paragraph is not an I never line stops the build, namin
   assert.throws(() => into(data), /values\/c/);
 });
 
+test("a value's never line may begin We never as well as I never", () => {
+  const weNever = value("we", "Effluvium", "We never ship a thing.");
+  assert.equal(neverOf(weNever), "We never ship a thing.");
+  const data = { ...DATA, entities: [...DATA.entities, weNever] };
+  const page = into(data);
+  assert.ok(page.includes("We never ship a thing."), page);
+});
+
+test("a value ending They never still stops the build, naming it", () => {
+  const theyNever = value("they", "Effluvium", "They never notice.");
+  assert.throws(() => neverOf(theyNever), /values\/they/);
+  const data = { ...DATA, entities: [...DATA.entities, theyNever] };
+  assert.throws(() => into(data), /values\/they/);
+});
+
 test("neverOf reads the last paragraph of the first section, not the last section", () => {
   const twoSection = {
     id: "values/two", type: "value", name: "Sea", tagline: "Sea tagline.", path: "model/values/two.md",
