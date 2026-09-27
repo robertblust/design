@@ -16,11 +16,11 @@ const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 // What a member's vendored conventions/GERMAN.md carries in its refused-forms fence.
 const GERMAN_STUB = "# German\n\n```banned\nReservierung → Reservation\nOffener Kern → Open Core\n```\n";
 
-// The twenty-six this module is responsible for. A body that quietly stops being exported
+// The twenty-seven this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
-  "headerFits", "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
+  "headerFits", "home", "internalLinks", "landing", "lang", "links", "mobileNav", "navOrder", "noFlash", "noNewTab",
   "readoutInvariant", "sameOrigin", "sameTab", "seo", "sourceLang", "storageKeys", "title",
   "translates", "transportBaseline", "transportFits", "typography", "wayOut"];
 
@@ -195,8 +195,13 @@ function carriesLangFixtureHtml() {
 // its own fixture from, kept local here rather than imported so this file's suite does not
 // depend on that one's internal helper staying exported the same way.
 function serveDir(dir) {
+  // `requests` records every path this server was asked for, in order — read by the home
+  // check's own "no blog key, no request to /blog/" test, which has to prove a negative about
+  // real network traffic rather than about what the check's source merely says it skips.
+  const requests = [];
   const server = http.createServer((req, res) => {
     const p = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    requests.push(p);
     let file = path.join(dir, p);
     try {
       if (fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
@@ -208,6 +213,7 @@ function serveDir(dir) {
   });
   return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({
     base: `http://127.0.0.1:${server.address().port}`,
+    requests,
     close: () => new Promise((r) => { server.closeAllConnections(); server.close(r); }),
   })));
 }
@@ -1213,4 +1219,107 @@ test("translates still fails a slot's sentence whose words stayed English", asyn
   // No shows or hides, so the sample strings cannot catch it first: the element walk must.
   const out = await translatesOn(html, { lang: "de" });
   assert.match(out || "", /kept their English: data-de #0 <p>/);
+});
+
+// A minimal home page: two value rows, a vision heading, a stub chat the Ask tile can open,
+// and enough CSS that the 390px stacking assertions are simply always true rather than
+// dependent on a real responsive layout this fixture has no reason to carry. `rows` is the
+// order the anchors and names render in, deliberately swappable so the same fixture can prove
+// both the pass and the out-of-order failure.
+function homeFixtureHtml(rows = [["a", "Value A"], ["b", "Value B"]]) {
+  const values = rows.map(([id, name]) => `<a href="/principles/#${id}"><b>${name}</b><span>note</span></a>`).join("");
+  return `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>
+  #values .values a{display:flex; flex-direction:column}
+  #vision .tile{display:block}
+</style></head>
+<body>
+<section id="vision"><h2>The vision.</h2>
+  <button class="tile" type="button" data-chat-open>Ask</button>
+  <a class="tile" href="/model/">See the model</a>
+</section>
+<section id="values"><div class="values">${values}</div></section>
+<section class="rbchat" hidden>chat</section>
+<script>
+document.querySelector("[data-chat-open]").addEventListener("click", function () {
+  document.querySelector("section.rbchat").removeAttribute("hidden");
+});
+</script>
+</body>
+</html>`;
+}
+
+// entities at the document's own root — the shape blust.ch's and guestgraph.io's model.json
+// carry, and the shape confirmed against companygraph.io's real company.json, so home reads
+// both the same way.
+const HOME_MODEL = JSON.stringify({
+  entities: [
+    { type: "vision", name: "The vision" },
+    { type: "value", path: "a", name: "Value A" },
+    { type: "value", path: "b", name: "Value B" },
+  ],
+});
+
+async function serveHomeFixture(rows) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "home-"));
+  fs.writeFileSync(path.join(dir, "index.html"), homeFixtureHtml(rows));
+  fs.writeFileSync(path.join(dir, "model.json"), HOME_MODEL);
+  fs.mkdirSync(path.join(dir, "principles"));
+  fs.writeFileSync(path.join(dir, "principles", "index.html"), `<div id="a"></div><div id="b"></div>`);
+  const served = await serveDir(dir);
+  return { dir, served };
+}
+
+test("home passes a fixture whose value rows match the model, in order", async () => {
+  let dir, served, browser;
+  try {
+    ({ dir, served } = await serveHomeFixture());
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(served.base + "/");
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .home(page, { home: { model: "/model.json" } });
+    assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("home fails naming the row when the value rows are out of the model's order", async () => {
+  let dir, served, browser;
+  try {
+    ({ dir, served } = await serveHomeFixture([["b", "Value B"], ["a", "Value A"]]));
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(served.base + "/");
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .home(page, { home: { model: "/model.json" } });
+    assert.match(result, /value row 0 reads "Value B", the model "Value A"/);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("home makes no request to /blog/ when spec.home carries no blog", async () => {
+  let dir, served, browser;
+  try {
+    ({ dir, served } = await serveHomeFixture());
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(served.base + "/");
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .home(page, { home: { model: "/model.json" } });
+    assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+    const toBlog = served.requests.filter(p => p.startsWith("/blog"));
+    assert.deepEqual(toBlog, [], `expected no request to /blog/, got ${toBlog.join(", ")}`);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

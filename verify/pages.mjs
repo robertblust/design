@@ -935,6 +935,62 @@ export function pageChecks({ SITE, BASE }) {
       }, spec.footer);
       return bad.length ? bad.join("; ") : null;
     },
+    // The home page's own claims: the values it lists, in the model's order, each pointing at
+    // a real anchor on /principles/; the vision's own heading; the newest post, on a site that
+    // carries one; and the Ask tile's ability to actually open the chat. Ported verbatim from
+    // blust.ch's own `home` check — its comments below are its own reasons, kept because they
+    // still are the reasons — generalized only so a site names its own model file and whether
+    // it has a blog at all: `spec.home` is `{ model, blog? }`. A model whose JSON carries its
+    // entities at the document's own root, the shape blust.ch's model.json and guestgraph.io's
+    // model.json both have, is also companygraph.io's company.json's shape, so nothing here
+    // reads differently for it.
+    async home(page, spec) {
+      const model = await (await fetch(BASE + spec.home.model)).json();
+      // Sorted by path, the order `@robertblust/design/render/principles`'s `valuesOf` renders
+      // both pages in — not the model's own entity order, which is neither.
+      const values = model.entities.filter(e => e.type === "value")
+        .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+      const rows = await page.$$eval("#values .values a", as => as.map(a => ({ href: a.getAttribute("href"), name: a.querySelector("b").textContent })));
+      if (rows.length !== values.length) return `${rows.length} value rows for ${values.length} values in the model`;
+      for (let i = 0; i < values.length; i++) {
+        if (rows[i].name !== values[i].name) return `value row ${i} reads ${JSON.stringify(rows[i].name)}, the model ${JSON.stringify(values[i].name)}`;
+      }
+      const princ = await (await fetch(BASE + "/principles/")).text();
+      for (const r of rows) {
+        const id = r.href.split("#")[1];
+        if (!princ.includes(`id="${id}"`)) return `${r.href} names no value on /principles/`;
+      }
+      const vision = model.entities.find(e => e.type === "vision");
+      const h2 = await page.$eval("#vision h2", e => e.textContent);
+      if (h2 !== vision.name + ".") return `the vision reads ${JSON.stringify(h2)}, the model ${JSON.stringify(vision.name)}`;
+      // Only a site that carries a blog carries this section at all — companygraph.io and
+      // guestgraph.io have neither, so a spec with no `blog` skips straight past it rather than
+      // fetching a page that would 404 or reading a section that was never rendered.
+      if (spec.home.blog) {
+        // A regex over raw HTML breaks on an entity and throws when the page has no entry at
+        // all; reading the rendered DOM of the blog index itself avoids both. browser().newPage()
+        // rather than page.context().newPage(): `page` here comes from browser.newPage(), whose
+        // implicit context refuses a second page of its own and asks for browser.newContext()
+        // instead.
+        const blogPage = await page.context().browser().newPage();
+        await blogPage.goto(BASE + spec.home.blog);
+        const first = await blogPage.$eval(".index .entry .t", e => e.textContent).catch(() => null);
+        await blogPage.close();
+        if (first == null) return "the blog index has no first entry to read the newest post from";
+        const latest = await page.$eval("#latest .t", e => e.textContent);
+        if (latest !== first) return `the newest post reads ${JSON.stringify(latest)}, the blog index ${JSON.stringify(first)}`;
+      }
+      await page.click("[data-chat-open]");
+      try { await page.waitForSelector("section.rbchat:not([hidden])", { timeout: 3000 }); }
+      catch { return "the Ask tile did not open the chat"; }
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 390, height: 844 });
+      const lefts = await page.$$eval("#vision .tile", ts => new Set(ts.map(t => Math.round(t.getBoundingClientRect().left))).size);
+      if (lefts !== 1) return "the tiles do not stack at 390px";
+      const rowsSplit = await page.$$eval("#values .values a", as => as.some(a => a.querySelector("span").getBoundingClientRect().top <= a.querySelector("b").getBoundingClientRect().top));
+      if (rowsSplit) return "a value row does not stack at 390px";
+      return null;
+    },
     // The head Google reads, asserted as a contract rather than page by page. Three of these
     // were live failures before the check existed: a logo.svg this site has never served, an
     // isPartOf naming a #website node defined on another document, and /ideas/ advertising the
