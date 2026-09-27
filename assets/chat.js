@@ -690,7 +690,9 @@
         var g = nodeElement(svg, n.node);
         if (!g) return;
         var a = document.createElementNS("http://www.w3.org/2000/svg", "a");
-        a.setAttribute("href", nodeHref(MODEL, n));
+        // A page's own picture names the model page relative to itself, as a site writes every
+        // link in its markup; an answer's picture takes the tag's.
+        a.setAttribute("href", nodeHref(fig.getAttribute("data-model") || MODEL, n));
         a.setAttribute("aria-label", n.title || n.id);
         g.parentNode.insertBefore(a, g); a.appendChild(g);
       });

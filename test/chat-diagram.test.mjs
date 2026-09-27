@@ -381,7 +381,7 @@ test("a page's own picture is drawn once it nears the screen, with no chat on th
   assert.equal(await page.textContent("figure[data-diagram] figcaption span"), "Process · Delivery");
   for (const n of PICTURES.process.nodes) {
     const href = await page.$eval(`figure[data-diagram] svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
-    assert.equal(href, `/model/?stage=expanded#${n.id}`);
+    assert.equal(href, `../model/?stage=expanded#${n.id}`, "relative, as the page check asks of a page's own links");
   }
   await page.close();
 });

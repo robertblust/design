@@ -208,10 +208,16 @@ test("each process's picture sits under its tagline and before its head rail, in
     assert.ok(sec.indexOf('class="proctag"') < sec.indexOf("<figure") && sec.indexOf("<figure") < sec.indexOf('class="hdrail"'), "the picture comes between the tagline and the head rail");
     assert.ok(sec.includes(`<figcaption><span>Process · ${name}</span><button class="rbchat-diagram-full" type="button"`), sec);
     assert.ok(sec.includes('<div class="rbchat-diagram-box"></div>'));
+    assert.ok(sec.includes('<figure class="rbchat-diagram" data-diagram data-model="../model/">'), "the model page, relative to the team page");
     const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);
     assert.deepEqual(json, { shape: "process", title: name, mermaid: `flowchart LR\n  n0["<b>${name}</b>"]`,
       nodes: [{ node: "n0", id: ["processes/d", "processes/e"][i], title: name }] });
   });
+});
+
+test("a site whose model is drawn elsewhere names that page, and the picture links there", () => {
+  const diagram = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [] });
+  assert.ok(regionOf(renderTeamInto(TEAM_FIXTURE, { diagram, model: "../" })).includes('<figure class="rbchat-diagram" data-diagram data-model="../">'));
 });
 
 test("no title can close the script a picture's JSON sits in", () => {
