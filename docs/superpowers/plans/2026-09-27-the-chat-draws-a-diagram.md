@@ -17,7 +17,7 @@
 - **Every command's exit code is read on its own**, never through a pipe into `tail` or `head`.
 - **A single test file runs as** `node --test test/<name>.test.mjs`; the whole suite as `npm test`. `sh conventions/conventions-check` and `sh conventions/conventions-format check` exit 0 before every commit.
 - **Mermaid is 12.0.0's `dist/mermaid.min.js`, unmodified**, sha256 `28fca7ae6ebc7ed7bb63bde63136a74bfef14f296a57e403657eeb8b32836073`; its `LICENSE` is sha256 `ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80`. The bundle sets `globalThis.mermaid` and carries its dependencies' notices inline.
-- **Mermaid is configured** `startOnLoad: false`, `securityLevel: "strict"`, `theme: "base"`, `useMaxWidth: false` for flowchart and class, colors from the tokens. A node's border is `--c-mid`, since every link in the family is.
+- **Mermaid is configured** `startOnLoad: false`, `securityLevel: "strict"`, `theme: "base"`, `look: "classic"` (flat: the default look draws shadows and gradients), `useMaxWidth: false` for flowchart and class, `hideEmptyMembersBox: true`, colors from the tokens. A `flowchart LR` is drawn `flowchart TB` in a panel narrower than 560px, which a phone's is. A node's border is `--c-mid`, since every link in the family is.
 - **Nodes are found** by the group id Mermaid 12 gives them, `…-flowchart-n<k>-<i>` and `…-classId-n<k>-<i>`, and nowhere but `nodeElement`. Each is wrapped in an SVG `<a href>` to `link(MODEL, id)`, `aria-label` its title.
 - **No request leaves the page's origin.** Mermaid is fetched from `new URL("mermaid.min.js", tag.src)`, once per page, only when a `diagram` event arrives or a stored turn carries one.
 - **Words:** English `Concepts`, `Process`, `Connections`, `Open full screen`, `Close full screen`, `The diagram could not be drawn; this is its source.`; German `Konzepte`, `Prozess`, `Verbindungen`, `Im Vollbild öffnen`, `Vollbild schliessen`, `Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle.` The German stands as the translator's draft under the file's existing comment; `Im Vollbild öffnen` is the stage's approved string. Swiss Standard German, ss and never ß.
@@ -169,14 +169,14 @@ git log -1 --format='[%s]'
 
 - [ ] **Step 1: Write the failing tests**
 
-In `test/chat.test.mjs`, extend the destructuring from `globalThis.rbChat` with `mermaidConfig, nodeElement, diagramCaption`, and append:
+In `test/chat.test.mjs`, extend the destructuring from `globalThis.rbChat` with `mermaidConfig, nodeElement, diagramCaption, oriented`, and append:
 
 ```js
 test("Mermaid is configured strict, from the tokens, and never from an empty one", () => {
   const tokens = { "--ground": "#FAF9F5", "--raise": "#F2F0EA", "--ink": "#16181D", "--dim": "#5F6058", "--c-mid": "#3A6DA6", "--press": "#E7ECF4", font: '"Instrument Sans", sans-serif' };
   const c = mermaidConfig((n) => tokens[n]);
-  assert.deepEqual([c.startOnLoad, c.securityLevel, c.theme], [false, "strict", "base"]);
-  assert.deepEqual([c.flowchart.useMaxWidth, c.class.useMaxWidth], [false, false]);
+  assert.deepEqual([c.startOnLoad, c.securityLevel, c.theme, c.look], [false, "strict", "base", "classic"]);
+  assert.deepEqual([c.flowchart.useMaxWidth, c.class.useMaxWidth, c.class.hideEmptyMembersBox], [false, false, true]);
   assert.deepEqual([c.themeVariables.primaryColor, c.themeVariables.primaryTextColor, c.themeVariables.primaryBorderColor, c.themeVariables.lineColor, c.themeVariables.background], ["#F2F0EA", "#16181D", "#3A6DA6", "#5F6058", "#FAF9F5"]);
   assert.equal(c.fontFamily, '"Instrument Sans", sans-serif');
   const bare = mermaidConfig(() => "  ");
@@ -192,6 +192,14 @@ test("a node is found by the id Mermaid gives it, in either kind of diagram, and
   assert.equal(nodeElement(svg, "n3"), null);
   assert.equal(nodeElement(svg, "n1.*"), null, "a name is a node's name, never a pattern");
   assert.equal(nodeElement(null, "n1"), null);
+});
+
+test("a flow runs top to bottom in a panel narrower than a phone's, and nothing else changes", () => {
+  const flow = 'flowchart LR\n  n0["A"]\n  n0 --> n1';
+  assert.equal(oriented(flow, 390), 'flowchart TB\n  n0["A"]\n  n0 --> n1');
+  assert.equal(oriented(flow, 760), flow);
+  assert.equal(oriented(flow, 0), flow, "an unmeasured panel keeps the host's direction");
+  assert.equal(oriented("classDiagram\n  class n0[\"A\"]", 390), "classDiagram\n  class n0[\"A\"]");
 });
 
 test("the caption names the shape in the page's language, then what it was drawn of", () => {
@@ -239,10 +247,11 @@ Directly before the line `window.rbChat = { md: md, …`, insert:
     function v(name){ var x = String(read(name) || "").trim(); return x || DARK[name]; }
     var font = String(read("font") || "").trim() || "ui-sans-serif, system-ui, sans-serif";
     return {
-      startOnLoad: false, securityLevel: "strict", theme: "base", fontFamily: font,
+      // The classic look is flat, as the family draws: the default draws shadows and gradients.
+      startOnLoad: false, securityLevel: "strict", theme: "base", look: "classic", fontFamily: font,
       // At its own size in a box that scrolls: fitted to a bubble, a wide picture's words shrink
-      // below reading.
-      flowchart: { useMaxWidth: false }, class: { useMaxWidth: false },
+      // below reading. A concept carries no attributes or methods, so its class has no empty bars.
+      flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
       themeVariables: {
         fontFamily: font, fontSize: "13px", background: v("--ground"),
         primaryColor: v("--raise"), mainBkg: v("--raise"), secondaryColor: v("--press"), tertiaryColor: v("--ground"),
@@ -261,6 +270,12 @@ Directly before the line `window.rbChat = { md: md, …`, insert:
     for (var i = 0; i < all.length; i++) if (re.test(all[i].id)) return all[i];
     return null;
   }
+  // A flow drawn left to right is wider than a phone: in a narrow panel it runs top to bottom.
+  // Only the direction changes; every node and arrow is the host's.
+  var NARROW = 560;
+  function oriented(source, width){
+    return width && width < NARROW ? String(source).replace(/^flowchart LR\b/, "flowchart TB") : source;
+  }
   // The caption: the shape in the page's language, then what the host drew it of.
   function diagramCaption(d, lang){
     var name = strings(lang).diagram[d && d.shape] || "";
@@ -269,19 +284,20 @@ Directly before the line `window.rbChat = { md: md, …`, insert:
 
 ```
 
-and at the end of the `window.rbChat = { … }` object, after `spread: spread`, add `, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption`. In the header comment's list of `rbChat` members, after the `rbChat.spread` line, add:
+and at the end of the `window.rbChat = { … }` object, after `spread: spread`, add `, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, oriented: oriented`. In the header comment's list of `rbChat` members, after the `rbChat.spread` line, add:
 
 ```js
 //   rbChat.mermaidConfig(read)         Mermaid's configuration, from the tokens `read` gives
 //   rbChat.nodeElement(svg, node)      the group Mermaid drew a node as, or null
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
+//   rbChat.oriented(source, width)     a flow turned top to bottom in a panel narrower than a phone's
 ```
 
 - [ ] **Step 5: Run the tests to see them pass**
 
 Run: `node --test test/chat.test.mjs`
 
-Expected: PASS, every test in the file, the three new ones among them.
+Expected: PASS, every test in the file, the four new ones among them.
 
 - [ ] **Step 6: Commit**
 
@@ -326,7 +342,7 @@ Create `test/fixtures/diagrams.json`: `process` and `concepts` are what the host
  "process": {
   "shape": "process",
   "title": "Delivery",
-  "mermaid": "flowchart LR\n  n0[\"Specify<br/>Backend Engineer\"]\n  n1[\"Build<br/>Backend Engineer, Reviewer\"]\n  n2[\"Release<br/>Reviewer\"]\n  n0 -->|\"Reviewer\"| n1\n  n1 -->|\"Reviewer\"| n2",
+  "mermaid": "flowchart LR\n  n0[\"<b>Specify</b><br/>Backend Engineer\"]\n  n1[\"<b>Build</b><br/>Backend Engineer, Reviewer\"]\n  n2[\"<b>Release</b><br/>Reviewer\"]\n  n0 -->|\"Reviewer\"| n1\n  n1 -->|\"Reviewer\"| n2",
   "nodes": [
    { "node": "n0", "id": "processes/delivery/phases/specify", "title": "Specify", "type": "phase" },
    { "node": "n1", "id": "processes/delivery/phases/build", "title": "Build", "type": "phase" },
@@ -547,7 +563,7 @@ Directly before `function el(tagName, cls, text){`:
     var box = fig.querySelector(".rbchat-diagram-box"), d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
       m.initialize(mermaidConfig(tokenReader()));
-      return m.render(id, d.mermaid);
+      return m.render(id, oriented(d.mermaid, log ? log.clientWidth : window.innerWidth));
     }).then(function(out){
       box.innerHTML = out.svg;
       var svg = box.querySelector("svg");
