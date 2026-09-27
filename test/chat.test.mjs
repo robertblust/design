@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -532,7 +532,7 @@ test("a chip's label is set with textContent, and activating it sends exactly it
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
-  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; input\.focus\(\); keep\(\); offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set before offering a fresh one");
+  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; settle\(\); input\.focus\(\); keep\(\); offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set before offering a fresh one");
   assert.match(src, /qBox = null; fullNote\.hidden = true;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
 });
 
@@ -610,4 +610,66 @@ test("a node links to its entity on the model page, or to the https address the 
   assert.equal(nodeHref("/model/", { id: "core/phase", url: "https://github.com/o/r/blob/c/meta/core/phase-schema.md" }), "https://github.com/o/r/blob/c/meta/core/phase-schema.md");
   assert.equal(nodeHref("/model/", { id: "core/phase", url: null }), "/model/?stage=expanded#core/phase");
   assert.equal(nodeHref("/model/", { id: "core/phase", url: "javascript:alert(1)" }), "/model/?stage=expanded#core/phase");
+});
+
+// A log standing in for the panel's: bubbles of the given heights, one under the other, each
+// carrying the turn it shows, and a box of the given height scrolled to `top`.
+function fakeLog(heights, height, top) {
+  const log = { scrollTop: top, clientHeight: height, scrollHeight: heights.reduce((a, b) => a + b, 0) };
+  const kids = heights.map((h, i) => ({ turn: String(i), h, getAttribute: () => String(i),
+    getBoundingClientRect() { const at = heights.slice(0, i).reduce((a, b) => a + b, 0); return { top: at - log.scrollTop, height: h }; } }));
+  log.getBoundingClientRect = () => ({ top: 0 });
+  log.querySelectorAll = () => kids;
+  log.querySelector = (sel) => kids.find((k) => sel === '[data-turn="' + k.turn + '"]') || null;
+  return log;
+}
+
+test("the reading place is the turn the log's top edge stands in, and how far into it", () => {
+  assert.deepEqual(place(fakeLog([100, 300, 200], 150, 250)), { turn: 1, by: 150 });
+  assert.deepEqual(place(fakeLog([100, 300, 200], 150, 0)), { turn: 0, by: 0 });
+  assert.equal(place(fakeLog([100, 300, 200], 150, 450)), null, "a log read to its end keeps no place, so it opens at its end");
+  assert.equal(place(fakeLog([], 0, 0)), null, "a hidden log keeps no place");
+});
+
+test("a kept place is found again when the turns above it have grown, and a place with no turn is not", () => {
+  // The picture in turn 0 drew taller after the page came back: the place follows its turn.
+  const log = fakeLog([400, 300, 200], 150, 0);
+  assert.equal(placed(log, { turn: 1, by: 150 }), true);
+  assert.equal(log.scrollTop, 550);
+  assert.equal(placed(fakeLog([100], 150, 0), { turn: 4, by: 0 }), false);
+  assert.equal(placed(fakeLog([100], 150, 0), null), false);
+  const end = fakeLog([400, 300], 150, 0);
+  assert.equal(placed(end, { end: true }), true, "the end is no place");
+  assert.equal(end.scrollTop, 700);
+});
+
+test("the place is kept as the page goes and given back where the conversation is drawn again", () => {
+  const keep = src.slice(src.indexOf("function keep(){"), src.indexOf("// ─── The picture"));
+  assert.match(keep, /at: reading \|\| \(panel && !panel\.hidden \? place\(log\) : null\)/, "the stored conversation carries no place");
+  assert.match(src, /window\.addEventListener\("pagehide", keep\)/, "leaving the page does not keep the place");
+  const restore = src.slice(src.indexOf("(function restore(){"));
+  assert.match(restore, /reading = was\.at && typeof was\.at\.turn === "number" \? was\.at : \{ end: true \};/, "a restore does not read the place back");
+  assert.match(restore, /log\.scrollTop = log\.scrollHeight; settle\(\);/, "a restore does not go to the place");
+  assert.match(src, /if \(qNext && !reading\) log\.scrollTop = log\.scrollHeight; else settle\(\);/, "the chips a restore offers send the log to its end");
+  assert.match(src, /function open\(\)\{[^\n]*settle\(\);/, "a panel opened later does not go to the place");
+  assert.match(src, /function close\(\)\{ if \(!reading\) reading = place\(log\); panel\.hidden = true;/, "a closed panel forgets where it was read");
+  const draw = src.slice(src.indexOf("function drawFigure(fig){"), src.indexOf("function labelFigure(fig){"));
+  assert.match(draw, /settle\(\);/, "a picture drawn late moves the place away");
+});
+
+test("the visitor's own scrolling, a new message and a fresh conversation let the place go", () => {
+  assert.match(src, /\["wheel", "pointerdown", "keydown", "touchstart"\]\.forEach\(function\(k\)\{ log\.addEventListener\(k, function\(\)\{ reading = null; \}/);
+  const send = src.slice(src.indexOf("function send(){"), src.indexOf("function finish(){"));
+  assert.match(send, /reading = null;/, "a new message is scrolled back to a place");
+  assert.match(src, /function reset\(\)\{ reading = null;/, "a fresh conversation keeps the old place");
+});
+
+test("every bubble that shows a kept turn carries its turn, and one that lost its turn does not", () => {
+  const send = src.slice(src.indexOf("function send(){"));
+  assert.match(send, /mine\.setAttribute\("data-turn", turns\.length - 1\);/);
+  assert.match(send, /ans\.setAttribute\("data-turn", turns\.length - 1\);/);
+  assert.match(send, /function unsend\(\)\{ messages\.pop\(\); turns\.pop\(\); mine\.removeAttribute\("data-turn"\); keep\(\); \}/);
+  assert.equal((send.match(/messages\.pop\(\); turns\.pop\(\); keep\(\);/g) || []).length, 0, "a failed message still pops without unmarking its bubble");
+  const restore = src.slice(src.indexOf("(function restore(){"));
+  assert.equal((restore.match(/setAttribute\("data-turn", turns\.length\)/g) || []).length, 2, "a restored bubble carries no turn");
 });

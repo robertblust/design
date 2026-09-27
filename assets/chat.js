@@ -498,13 +498,36 @@
   }
   function keepSize(w, h){ try { sessionStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
 
+  // Where the visitor was reading, kept with the conversation so the back button returns them
+  // to it and not to the end. A place is a turn and a distance into its bubble, not a pixel
+  // offset: a picture drawn again after the page comes back takes its height a moment late,
+  // and a pixel counted from the top would land in the wrong answer. A log read to its end
+  // keeps no place, and opens at its end as it always did; so does a hidden one, having none.
+  // The end is a place placed() knows too, since a picture drawing late moves the end as well.
+  function place(log){
+    if (log.scrollHeight - log.scrollTop - log.clientHeight < 2) return null;
+    var top = log.scrollTop, box = log.getBoundingClientRect().top, kids = log.querySelectorAll("[data-turn]");
+    for (var i = 0; i < kids.length; i++) {
+      var r = kids[i].getBoundingClientRect(), at = r.top - box + top;
+      if (at + r.height > top) return { turn: +kids[i].getAttribute("data-turn"), by: top - at };
+    }
+    return null;
+  }
+  function placed(log, at){
+    if (at && at.end) { log.scrollTop = log.scrollHeight; return true; }
+    var b = at && log.querySelector('[data-turn="' + at.turn + '"]');
+    if (!b) return false;
+    log.scrollTop = b.getBoundingClientRect().top - log.getBoundingClientRect().top + log.scrollTop + at.by;
+    return true;
+  }
+
   // Every place the conversation changes calls keep(), so the control follows it from here and
   // no caller has to remember a second line.
   function keep(){
     if (newBtn) newBtn.hidden = !messages.length;
     try {
       if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns }));
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns, at: reading || (panel && !panel.hidden ? place(log) : null) }));
     } catch (e) {}
   }
 
@@ -591,7 +614,7 @@
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -603,6 +626,11 @@
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
   var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null, grip = null, newBtn = null;
+  // The place a restore owes the visitor, held until the log is shown and every picture above it
+  // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
+  // the log is where they put it, and place() reads it there.
+  var reading = null;
+  function settle(){ if (reading && panel && !panel.hidden && !placed(log, reading)) reading = null; }
   // The questions the site's own model is built to answer, offered as a way into an empty
   // conversation. `qList` is null until `questions` has resolved once, `qFetch` is that one
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
@@ -662,6 +690,8 @@
       // After the nodes are linked, so the selector below reaches only a linked node's label.
       var names = svg.querySelectorAll("a .nodeLabel > p");
       for (var ni = 0; ni < names.length; ni++) { try { wrapNodeName(names[ni]); } catch (e) {} }
+      // A picture above the kept place has just taken its height, so the place is found again.
+      settle();
     }).catch(function(){
       // Mermaid leaves what it could not finish in the body; it goes, and the source stands in.
       [id, "d" + id].forEach(function(x){ var left = document.getElementById(x); if (left && !box.contains(left)) left.parentNode.removeChild(left); });
@@ -843,7 +873,7 @@
         qBox.appendChild(b);
       });
       log.appendChild(qBox);
-      if (qNext) log.scrollTop = log.scrollHeight;
+      if (qNext && !reading) log.scrollTop = log.scrollHeight; else settle();
     });
   }
   // A message on its way makes any chips standing stale: the ones it answered are asked, and
@@ -902,6 +932,7 @@
     // No aria-live here: the log used to re-announce the growing answer on every token. The
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
     log = el("div", "rbchat-log");
+    ["wheel", "pointerdown", "keydown", "touchstart"].forEach(function(k){ log.addEventListener(k, function(){ reading = null; }, { passive: true }); });
     fullNote = el("p", "rbchat-full"); fullNote.hidden = true; fullNote.appendChild(el("span")); var fresh = el("button", "rbchat-fresh"); fresh.type = "button"; fresh.addEventListener("click", reset); fullNote.appendChild(fresh);
     var form = el("form", "rbchat-form");
     input = el("textarea"); input.rows = 2; input.maxLength = LIMIT;
@@ -987,9 +1018,9 @@
   // shown again, so every open draws a fresh random three rather than repeating what closing the
   // panel left behind. It only drops the box the DOM holds — `qList`/`qFetch` are untouched, so
   // two opens ahead of the one fetch landing still share it rather than asking twice.
-  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; input.focus(); keep(); offerQuestions(); linkWaiting(); }
-  function close(){ panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ messages = []; turns = []; log.innerHTML = ""; qBox = null; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
+  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; settle(); input.focus(); keep(); offerQuestions(); linkWaiting(); }
+  function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
+  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; qBox = null; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1005,10 +1036,14 @@
     if (!text) return;
     if (text.length > LIMIT) { refuse("too_long"); return; }
     hideQuestions();
+    reading = null;
     var s = strings(langNow());
     messages.push({ role: "user", content: text });
     turns.push({ role: "user", content: text });
-    bubble("user").textContent = text;
+    var mine = bubble("user");
+    mine.textContent = text; mine.setAttribute("data-turn", turns.length - 1);
+    // A message that goes unanswered leaves the conversation, and its bubble stops naming a turn.
+    function unsend(){ messages.pop(); turns.pop(); mine.removeAttribute("data-turn"); keep(); }
     input.value = ""; busy = true; input.disabled = true; sendBtn.disabled = true;
     var ans = bubble("assistant"), body = el("div", "rbchat-body"), wait = el("p", "rbchat-wait", s.waiting);
     // Streaming, from the moment the request goes out until finish() has the whole answer.
@@ -1031,7 +1066,7 @@
       // alone is no text either; rendered, it is an empty bubble.
       if (!acc.trim()) {
         if (ans.parentNode) ans.parentNode.removeChild(ans);
-        messages.pop(); turns.pop(); keep();
+        unsend();
         busy = false; input.disabled = false; sendBtn.disabled = false;
         refuse("internal");
         return;
@@ -1051,6 +1086,7 @@
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: acc });
       turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture });
+      ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
       if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
@@ -1065,7 +1101,7 @@
             .then(function(got){
               clearTimeout(timer);
               if (ans.parentNode) ans.parentNode.removeChild(ans);
-              messages.pop(); turns.pop(); keep();
+              unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
               refuse(got.code, got.retryAt);
             });
@@ -1090,7 +1126,7 @@
             if (!acc.trim()) {
               clearTimeout(timer);
               if (ans.parentNode) ans.parentNode.removeChild(ans);
-              messages.pop(); turns.pop(); keep();
+              unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
               refuse(code || "internal", at);
               return;
@@ -1102,7 +1138,7 @@
       .catch(function(){
         clearTimeout(timer);
         if (ans.parentNode) ans.parentNode.removeChild(ans);
-        if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { messages.pop(); turns.pop(); keep(); }
+        if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { unsend(); }
         busy = false; input.disabled = false; sendBtn.disabled = false;
         refuse("network");
       });
@@ -1112,13 +1148,18 @@
   // open, so the visitor who closed it and followed a link finds it where they left it; only a
   // panel that was open is shown. Nothing is sent by a restore: the turns are what the page
   // already showed, and the next message carries them to the server as any message does.
+  // A link followed, the back button, a tab put away: the page going is the last moment the log
+  // can be read, and keep() reads the place from it then.
+  window.addEventListener("pagehide", keep);
   (function restore(){
     var was = stored();
     if (!was || !was.turns || !was.turns.length) return;
     if (!panel) build();
+    reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
     was.turns.forEach(function(t){
-      if (t.role === "user") { bubble("user").textContent = t.content; messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
+      if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
+      ans.setAttribute("data-turn", turns.length);
       body.innerHTML = md(t.content); ans.appendChild(body);
       var cites = t.cites || [];
       // The same gate send() applies to a picture arriving live: a stored turn from before this
@@ -1135,6 +1176,6 @@
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
     if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); linkWaiting(); }
     if (newBtn) newBtn.hidden = !messages.length;
-    log.scrollTop = log.scrollHeight;
+    log.scrollTop = log.scrollHeight; settle();
   })();
 })();
