@@ -194,7 +194,7 @@ test("a site that passes no diagram draws no picture, and the board is what it w
   assert.ok(!renderTeamInto(TEAM_FIXTURE).includes("data-diagram"));
 });
 
-test("each process's picture sits under its head rail and above its board, in its own section, as the chat's figure with the picture as JSON", () => {
+test("each process's picture sits under its tagline and before its head rail, in its own section, as the chat's figure with the picture as JSON", () => {
   const seen = [];
   const diagram = (data, proc) => {
     seen.push(proc.id);
@@ -205,7 +205,7 @@ test("each process's picture sits under its head rail and above its board, in it
   const sections = html.split('<section class="proc"').slice(1);
   sections.forEach((sec, i) => {
     const name = ["Doing", "Else"][i];
-    assert.ok(sec.indexOf('class="hdrail"') < sec.indexOf("<figure") && sec.indexOf("<figure") < sec.indexOf('class="grid"'), "the picture comes between the head rail and the board");
+    assert.ok(sec.indexOf('class="proctag"') < sec.indexOf("<figure") && sec.indexOf("<figure") < sec.indexOf('class="hdrail"'), "the picture comes between the tagline and the head rail");
     assert.ok(sec.includes(`<figcaption><span>Process · ${name}</span><button class="rbchat-diagram-full" type="button"`), sec);
     assert.ok(sec.includes('<div class="rbchat-diagram-box"></div>'));
     const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);

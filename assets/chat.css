@@ -146,7 +146,7 @@
 /* A page's own picture is a preview: fitted to the column, never past its own size, and
    opened by a click to be read; chat.js marks it. The rule reaches the box only while it is in
    its figure, so in the dialog the zoom has it whole. */
-figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:.4rem 0 1.2rem}
+figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:1.1rem 0 1.4rem}
 .rbchat-diagram-fit .rbchat-diagram-box{overflow:hidden; cursor:zoom-in}
 .rbchat-diagram-fit .rbchat-diagram-box svg{max-width:100%; height:auto; margin:0 auto}
 .rbchat-diagram-box pre{margin:.3rem 0 0;white-space:pre-wrap;font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--ink)}
