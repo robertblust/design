@@ -136,8 +136,8 @@ dialog.rbchat-modal{width:min(1500px,96vw); height:min(92vh,1000px);
   margin:auto; border:1.5px solid var(--c-mid); border-radius:12px;
   background:var(--raise); color:var(--ink); flex-direction:column}
 dialog.rbchat-modal[open]{display:flex}
-/* The dialog holds focus itself once opened, so that no control is lit before a visitor has
-   touched anything; it is a container, and a container draws no ring. */
+/* chat.js never focuses the dialog itself — showModal() focuses the × — but should focus ever
+   land on it, it is a container, and a container draws no ring. */
 dialog.rbchat-modal:focus, dialog.rbchat-modal:focus-visible{outline:none}
 dialog.rbchat-modal::backdrop{background:rgba(0,0,0,.6)}
 @keyframes rbchatModalIn{ from{opacity:0} to{opacity:1} }
@@ -152,6 +152,16 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
   font:inherit; font-size:1.3rem; line-height:1; background:none; border:0;
   border-radius:6px; color:var(--dim); cursor:pointer}
 .rbchat-modal-close:hover, .rbchat-modal-close:focus-visible{color:var(--c-mid)}
+/* The note under the ×, the same box .rbchat-close's note takes: chat.js sets data-tip and
+   there is no rbCard.describe to draw it here, card.js not being on every page the chat is.
+   It hangs below and to the left of the ×, the corner the dialog leaves clear. */
+.rbchat-modal-close[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
+  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
+  background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
+  box-shadow:0 6px 18px var(--deck-drop);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--ink)}
+.rbchat-modal-close:hover::after,.rbchat-modal-close:focus-visible::after{opacity:1;transform:none}
+@media (hover:none){.rbchat-modal-close[data-tip]::after{display:none}}
+@media (prefers-reduced-motion:reduce){.rbchat-modal-close[data-tip]::after{transition:none}}
 /* The box takes whatever height the head leaves and scrolls both ways, the same rule
    .rbchat-diagram-box carries on the page. */
 .rbchat-modal-body{flex:1 1 auto; min-height:0; margin-top:.8rem}

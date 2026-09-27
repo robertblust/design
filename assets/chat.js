@@ -602,7 +602,9 @@
     // its caption and its × exactly as it reaches the figure's own.
     if (modal && modalFig === fig) {
       modalCap.textContent = caption;
-      modalClose.setAttribute("aria-label", s.shut); modalClose.setAttribute("data-tip", s.shut);
+      // The note names the key that also closes the dialog, as the stage's own × does, so a
+      // visitor who reads it before clicking learns the shortcut too.
+      modalClose.setAttribute("aria-label", s.shut); modalClose.setAttribute("data-tip", s.shut + " · Esc");
     }
   }
   // Built once, on the first Expand, and reused by every figure on the page after that — only
@@ -611,7 +613,10 @@
     if (modal) return modal;
     modal = el("dialog", "rbchat-modal");
     var head = el("div", "rbchat-modal-head");
-    modalCap = el("span");
+    // The dialog names itself by the caption it holds, since a picture's Expand is the only
+    // way in: no other text sits above the box to give it a name of its own.
+    modalCap = el("span"); modalCap.id = "rbchat-modal-cap";
+    modal.setAttribute("aria-labelledby", "rbchat-modal-cap");
     modalClose = el("button", "rbchat-modal-close"); modalClose.type = "button"; modalClose.textContent = "×";
     modalClose.addEventListener("click", function(){ modal.close(); });
     head.appendChild(modalCap); head.appendChild(modalClose);
@@ -821,11 +826,13 @@
     panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(fullNote); panel.appendChild(form);
     document.body.appendChild(panel);
     // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
-    // this keydown, not before: while the dialog is still open the panel must not close behind
-    // it too, so the guard below sees it open and leaves the panel alone.
+    // this keydown, not before: while a modal dialog is still open the panel must not close
+    // behind it too. The guard asks the document rather than naming this page's own `modal`,
+    // because a modal dialog is what the family opens everywhere, and a page carrying the
+    // stage's own dialog as well needs Escape kept from the panel by that one too.
     document.addEventListener("keydown", function(e){
       if (e.key !== "Escape" || panel.hidden) return;
-      if (modal && modal.open) return;
+      if (document.querySelector("dialog[open]")) return;
       close();
     });
     sizing();
@@ -976,6 +983,9 @@
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
           else if (name === "diagram" && data && typeof data.mermaid === "string") {
             // The last picture a message brings is the one drawn: a second replaces the first.
+            // Where the dialog holds the figure being replaced, it is closed first, or it would
+            // go on showing a box about to be torn out from under it.
+            if (modal && modalFig === fig) modal.close();
             picture = data;
             if (fig && fig.parentNode) fig.parentNode.removeChild(fig);
             fig = figure(data);

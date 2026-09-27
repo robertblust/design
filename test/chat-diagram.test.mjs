@@ -120,6 +120,27 @@ test("Expand opens a dialog modal holding the picture, its node links intact", a
   await page.close();
 });
 
+test("the dialog names itself by the caption it holds", async () => {
+  const p = PICTURES.process;
+  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  const labelledby = await page.getAttribute("dialog.rbchat-modal", "aria-labelledby");
+  assert.ok(labelledby, "the dialog carries aria-labelledby");
+  assert.equal(await page.$eval(`#${labelledby}`, (el) => el.textContent), "Process · Delivery");
+  await page.close();
+});
+
+test("the ×'s note names the key that also closes the dialog", async () => {
+  const { page } = await asked([["diagram", PICTURES.process], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  assert.match(await page.getAttribute(".rbchat-modal-close", "data-tip"), /Esc/);
+  await page.close();
+});
+
 test("on a phone the dialog fills the screen, borderless", async () => {
   const p = PICTURES.process;
   const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]], { viewport: { width: 390, height: 844 } });
@@ -147,6 +168,21 @@ test("Escape closes the dialog, the panel stays open and the picture is back in 
   await page.waitForFunction(() => document.querySelector(".rbchat-diagram svg") && !document.querySelector("dialog.rbchat-modal[open]"));
   assert.equal(await page.$eval(".rbchat", (p) => p.hidden), false);
   assert.ok(await page.$(".rbchat-diagram svg"), "the svg is back inside the figure");
+  await page.close();
+});
+
+test("Escape leaves the panel open while a dialog of another kind is open on the page", async () => {
+  const { page } = await asked([["text", { text: "No picture." }]]);
+  // A stand-in for the stage's own dialog.modal — any modal dialog, not this widget's — since
+  // the guard has to hold on a page that carries both, not only on this one's own.
+  await page.evaluate(() => {
+    const d = document.createElement("dialog");
+    d.id = "other-modal";
+    document.body.appendChild(d);
+    d.showModal();
+  });
+  await page.keyboard.press("Escape");
+  assert.equal(await page.$eval(".rbchat", (p) => p.hidden), false, "the panel closed behind the other dialog");
   await page.close();
 });
 
