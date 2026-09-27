@@ -984,12 +984,22 @@ export function pageChecks({ SITE, BASE }) {
       try { await page.waitForSelector("section.rbchat:not([hidden])", { timeout: 3000 }); }
       catch { return "the Ask tile did not open the chat"; }
       await page.keyboard.press("Escape");
-      await page.setViewportSize({ width: 390, height: 844 });
-      const lefts = await page.$$eval("#vision .tile", ts => new Set(ts.map(t => Math.round(t.getBoundingClientRect().left))).size);
-      if (lefts !== 1) return "the tiles do not stack at 390px";
-      const rowsSplit = await page.$$eval("#values .values a", as => as.some(a => a.querySelector("span").getBoundingClientRect().top <= a.querySelector("b").getBoundingClientRect().top));
-      if (rowsSplit) return "a value row does not stack at 390px";
-      return null;
+      // home now sits ahead of seo, typography and translates in this shared object, so a
+      // phone viewport left set here would have every check after it read a page laid out for
+      // 390px instead of the desktop size they expect — the same failure mobileNav, headerFits,
+      // transportFits and transportBaseline already guard against for their own viewport
+      // changes.
+      try {
+        await page.setViewportSize({ width: 390, height: 844 });
+        const lefts = await page.$$eval("#vision .tile", ts => new Set(ts.map(t => Math.round(t.getBoundingClientRect().left))).size);
+        if (lefts !== 1) return "the tiles do not stack at 390px";
+        const rowsSplit = await page.$$eval("#values .values a", as => as.some(a => a.querySelector("span").getBoundingClientRect().top <= a.querySelector("b").getBoundingClientRect().top));
+        if (rowsSplit) return "a value row does not stack at 390px";
+        return null;
+      } finally {
+        // Every other check runs at the desktop size; leave the page as they expect it.
+        await page.setViewportSize({ width: 1280, height: 720 });
+      }
     },
     // The head Google reads, asserted as a contract rather than page by page. Three of these
     // were live failures before the check existed: a logo.svg this site has never served, an

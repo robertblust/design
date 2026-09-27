@@ -16,7 +16,7 @@ const OPTS = { SITE: "https://example.test", BASE: "http://127.0.0.1:8000" };
 // What a member's vendored conventions/GERMAN.md carries in its refused-forms fence.
 const GERMAN_STUB = "# German\n\n```banned\nReservierung → Reservation\nOffener Kern → Open Core\n```\n";
 
-// The twenty-seven this module is responsible for. A body that quietly stops being exported
+// The checks this module is responsible for. A body that quietly stops being exported
 // takes its coverage from three suites at once, and every one of them still reports "all
 // checks pass" — nothing else in the system would notice.
 const EXPECTED = ["carriesLang", "card", "contains", "contrast", "footer", "headerBaseline",
@@ -1317,6 +1317,30 @@ test("home makes no request to /blog/ when spec.home carries no blog", async () 
     assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
     const toBlog = served.requests.filter(p => p.startsWith("/blog"));
     assert.deepEqual(toBlog, [], `expected no request to /blog/, got ${toBlog.join(", ")}`);
+  } finally {
+    if (browser) await browser.close();
+    if (served) await served.close();
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("home leaves the page at the desktop viewport it found, not the 390px it measured stacking at", async () => {
+  // home now sits ahead of seo, typography and translates in this shared object; a phone
+  // viewport left set here would have every check after it read a page laid out for 390px
+  // instead of the desktop size they expect — the same failure mobileNav, headerFits,
+  // transportFits and transportBaseline already guard against for their own viewport changes.
+  let dir, served, browser;
+  try {
+    ({ dir, served } = await serveHomeFixture());
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(served.base + "/");
+    const result = await pageChecks({ SITE: served.base, BASE: served.base })
+      .home(page, { home: { model: "/model.json" } });
+    assert.equal(result, null, `expected a pass, got ${JSON.stringify(result)}`);
+    assert.deepEqual(page.viewportSize(), { width: 1280, height: 720 },
+      `expected the desktop viewport restored, got ${JSON.stringify(page.viewportSize())}`);
   } finally {
     if (browser) await browser.close();
     if (served) await served.close();
