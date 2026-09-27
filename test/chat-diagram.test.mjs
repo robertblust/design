@@ -74,6 +74,22 @@ test("a picture is drawn under its answer, captioned, each node a link to where 
   await page.close();
 });
 
+test("a picture of the schemas links each type to its schema's file and is captioned as the meta-model", async () => {
+  const p = PICTURES.schema;
+  const { page } = await asked([["diagram", p], ["text", { text: "A phase is nested in a process." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  assert.equal(await page.textContent(".rbchat-diagram figcaption span"), "Meta-model · phase");
+  for (const n of p.nodes) {
+    const href = await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
+    assert.equal(href, n.url);
+  }
+  // A type reads as a link like any node, and a multiplicity is an edge label, dim like the field.
+  assert.equal(await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).color), "rgb(127, 163, 216)");
+  const many = await page.$$eval(".rbchat-diagram svg .edgeLabel p", (els) => els.filter((el) => /^\d/.test(el.textContent.trim())).map((el) => getComputedStyle(el).color));
+  assert.ok(many.length > 0 && many.every((c) => c === "rgb(138, 139, 134)"), String(many));
+  await page.close();
+});
+
 test("an answer with no picture never fetches Mermaid", async () => {
   const { page, requests } = await asked([["text", { text: "No picture." }]]);
   assert.equal(await page.$(".rbchat-diagram"), null);

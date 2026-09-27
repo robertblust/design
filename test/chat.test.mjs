@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, oriented } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -519,7 +519,9 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "concepts", title: null }, "en"), "Concepts");
   assert.equal(diagramCaption({ shape: "neighborhood", title: "Claim" }, "de"), "Verbindungen · Claim");
   assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "shut"]);
+  assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
+  assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "schema", "shut"]);
 });
 
 test("any element carrying data-chat-open opens the panel, and the header says so", () => {
@@ -527,4 +529,11 @@ test("any element carrying data-chat-open opens the panel, and the header says s
   assert.match(src, /document\.addEventListener\("click"[\s\S]{0,200}data-chat-open[\s\S]{0,120}open\(\)/,
     "the delegated click calls open()");
   assert.match(src.slice(0, 3000), /data-chat-open/, "the header comment names the attribute");
+});
+
+test("a node links to its entity on the model page, or to the https address the host names for it", () => {
+  assert.equal(nodeHref("/model/", { id: "concepts/invoice" }), "/model/?stage=expanded#concepts/invoice");
+  assert.equal(nodeHref("/model/", { id: "core/phase", url: "https://github.com/o/r/blob/c/meta/core/phase-schema.md" }), "https://github.com/o/r/blob/c/meta/core/phase-schema.md");
+  assert.equal(nodeHref("/model/", { id: "core/phase", url: null }), "/model/?stage=expanded#core/phase");
+  assert.equal(nodeHref("/model/", { id: "core/phase", url: "javascript:alert(1)" }), "/model/?stage=expanded#core/phase");
 });
