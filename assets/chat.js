@@ -20,6 +20,9 @@
 // fetched from beside this file the first time one arrives; each node links where the cite
 // line would, or a type to its schema's file where the host names one, and the picture is kept
 // with its answer in the tab like the rest of the turn.
+// A page may carry a picture of its own too, written when its site builds: a figure with
+// `data-diagram` and the picture as JSON inside it, drawn the same way once it nears the
+// screen, whether or not the tag names a chat. Expanded, any picture zooms and pans.
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
 //
 //   rbChat.md(text)                    the subset, rendered
@@ -75,7 +78,7 @@
       fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -103,7 +106,7 @@
       fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -630,25 +633,15 @@
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
-  if (!tag || !tag.dataset || !tag.dataset.chat) return;
-  var ENDPOINT = tag.dataset.chat, MODEL = tag.dataset.model || "/model/", QUESTIONS = tag.dataset.questions || null;
-  var ICON = iconOf(document);
-  var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
+  // Loaded some other way than by a tag, as the unit tests load it, it only exports.
+  if (!tag || !tag.dataset) return;
+  // The model page a node links to, off this tag, which is the one place a page names it.
+  var MODEL = tag.dataset.model || "/model/";
 
-  // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
-  // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null;
-  // The place a restore owes the visitor, held until the log is shown and every picture above it
-  // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
-  // the log is where they put it, and place() reads it there.
-  var reading = null;
-  function settle(){ if (reading && panel && !panel.hidden && !placed(log, reading)) reading = null; }
-  // The questions the site's own model is built to answer, offered as a way into an empty
-  // conversation. `qList` is null until `questions` has resolved once, `qFetch` is that one
-  // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
-  // container currently in the log, if any, and `qNext` whether it follows an answer rather than
-  // opening an empty conversation, which is all that tells its two names apart.
-  var qList = null, qFetch = null, qBox = null, qNext = false;
+  // ─── The pictures ─────────────────────────────────────────────────────────────────────────
+  // Before the chat's own gate, because a picture is not only an answer's: a page may carry one
+  // it was built with, written as a figure the widget draws (see `hydrate()` below), and a page
+  // like that needs the drawing, the Expand and the zoom whether or not it names a chat.
   // Mermaid is fetched from the folder this file came from, the site's own, the first time a
   // picture arrives and never before, so a visitor who asks for none never downloads it and no
   // host but the page's own is asked. `figures` are the pictures drawn, redrawn when the theme
@@ -658,7 +651,7 @@
   // made once per page, that a figure's picture box moves into and back out of — never a copy —
   // so the same element and the links Mermaid drew into it keep working on both sides of the move.
   var modal = null, modalBody = null, modalCap = null, modalClose = null, modalFig = null, modalMark = null;
-  var Q_TIMEOUT = 8000;
+  var zoomIn = null, zoomOut = null, zoomFit = null;
 
   function loadMermaid(){
     if (window.mermaid) return Promise.resolve(window.mermaid);
@@ -686,7 +679,9 @@
     var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
       m.initialize(mermaidConfig(tokenReader()));
-      return m.render(id, oriented(d.mermaid, (log && log.clientWidth) || window.innerWidth));
+      // The width the picture is drawn for: an answer's is the log's, which the chat gives it,
+      // and a page's the figure's own.
+      return m.render(id, oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth));
     }).then(function(out){
       box.innerHTML = out.svg;
       var svg = box.querySelector("svg");
@@ -702,8 +697,9 @@
       // After the nodes are linked, so the selector below reaches only a linked node's label.
       var names = svg.querySelectorAll("a .nodeLabel > p");
       for (var ni = 0; ni < names.length; ni++) { try { wrapNodeName(names[ni]); } catch (e) {} }
-      // A picture above the kept place has just taken its height, so the place is found again.
-      settle();
+      // A picture the dialog holds keeps the view the visitor zoomed it to across a redraw.
+      if (view && view.box === box) viewTake();
+      if (fig.rbDrawn) fig.rbDrawn();
     }).catch(function(){
       // Mermaid leaves what it could not finish in the body; it goes, and the source stands in.
       [id, "d" + id].forEach(function(x){ var left = document.getElementById(x); if (left && !box.contains(left)) left.parentNode.removeChild(left); });
@@ -730,6 +726,10 @@
       // The note names the key that also closes the dialog, as the stage's own × does, so a
       // visitor who reads it before clicking learns the shortcut too.
       modalClose.setAttribute("aria-label", s.shut); modalClose.setAttribute("data-tip", s.shut + " · Esc");
+      // Each zoom control names the key that does the same, the way the × names Escape.
+      zoomIn.setAttribute("aria-label", s.zoomIn); zoomIn.setAttribute("data-tip", s.zoomIn + " · +");
+      zoomOut.setAttribute("aria-label", s.zoomOut); zoomOut.setAttribute("data-tip", s.zoomOut + " · −");
+      zoomFit.textContent = s.fit; zoomFit.setAttribute("aria-label", s.fitTip); zoomFit.setAttribute("data-tip", s.fitTip + " · 0");
     }
   }
   // Built once, on the first Expand, and reused by every figure on the page after that — only
@@ -744,7 +744,18 @@
     modal.setAttribute("aria-labelledby", "rbchat-modal-cap");
     modalClose = el("button", "rbchat-modal-close"); modalClose.type = "button"; modalClose.textContent = "×";
     modalClose.addEventListener("click", function(){ modal.close(); });
-    head.appendChild(modalCap); head.appendChild(modalClose);
+    // showModal() focuses the first control it finds, which the zoom's − now precedes; the ×
+    // keeps that focus, as it had before the zoom came.
+    modalClose.autofocus = true;
+    // The zoom controls sit in the head beside the caption, the gestures' visible twin: a
+    // visitor who does not know a pinch or Ctrl and the wheel zoom still finds a way to.
+    var zoom = el("div", "rbchat-modal-zoom");
+    zoomOut = el("button", null, "−"); zoomIn = el("button", null, "+"); zoomFit = el("button", "rbchat-modal-fit");
+    [zoomOut, zoomIn, zoomFit].forEach(function(b){ b.type = "button"; zoom.appendChild(b); });
+    zoomOut.addEventListener("click", function(){ viewStep(1 / STEP_ZOOM); });
+    zoomIn.addEventListener("click", function(){ viewStep(STEP_ZOOM); });
+    zoomFit.addEventListener("click", function(){ viewFit(); });
+    head.appendChild(modalCap); head.appendChild(zoom); head.appendChild(modalClose);
     modalBody = el("div", "rbchat-modal-body");
     modal.appendChild(head); modal.appendChild(modalBody);
     // Appended to document.body: the top layer a native dialog opens into needs no z-index to
@@ -753,6 +764,7 @@
     // A click on the backdrop lands with the dialog itself as the event target — nothing else
     // is there to hit — which is what tells it apart from a click on the box it holds.
     modal.addEventListener("click", function(ev){ if (ev.target === modal) modal.close(); });
+    modal.addEventListener("keydown", viewKey);
     // One handler for every way the dialog closes — ×, Escape, backdrop click — because all
     // three end in the native "close" event. The box goes back in front of the marker Expand
     // left, which puts it exactly where it was whatever else the turn grew around it.
@@ -763,6 +775,7 @@
         modalMark.parentNode.removeChild(modalMark);
       }
       modalFig = null; modalMark = null;
+      viewDrop();
       if (fig) labelFigure(fig);
     });
     return modal;
@@ -777,6 +790,156 @@
     modalFig = fig;
     labelFigure(fig);
     modal.showModal();
+    // A page's picture not yet scrolled to is drawn now, and the view waits for it.
+    if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); }
+    viewOpen(fig.rbBox);
+  }
+
+  // ─── The zoom ─────────────────────────────────────────────────────────────────────────────
+  // In the dialog a picture is looked at, not read in passing, so it behaves as a viewer does:
+  // it opens fitted to the sheet, Ctrl or ⌘ with the wheel and a trackpad's pinch zoom at the
+  // pointer, two fingers pinch on a phone, a drag or the plain wheel moves it, and −, + and Fit
+  // in the head, or the keys -, + and 0, do the same from the keyboard. The picture is moved by
+  // a transform on its own SVG, never redrawn, so the links Mermaid drew stay the same elements;
+  // a drag that has moved is a pan and swallows the click it ends in, and a press that has not
+  // still follows the node's link. Nothing is kept once the dialog closes: the box goes back to
+  // the page as it came, scrolling as it did.
+  var view = null, STEP_ZOOM = 1.25, MOVED = 4;
+  function viewOpen(box){
+    view = { box: box, k: 1, x: 0, y: 0, fit: 1, moved: false, pointers: {}, pinch: null, touched: false };
+    box.classList.add("rbchat-zoom");
+    box.addEventListener("wheel", viewWheel, { passive: false });
+    box.addEventListener("pointerdown", viewDown);
+    box.addEventListener("pointermove", viewMove);
+    box.addEventListener("pointerup", viewUp);
+    box.addEventListener("pointercancel", viewUp);
+    box.addEventListener("click", viewClick, true);
+    box.addEventListener("dragstart", viewNoDrag);
+    window.addEventListener("resize", viewResize);
+    viewTake();
+  }
+  function viewDrop(){
+    if (!view) return;
+    var box = view.box, svg = box.querySelector("svg");
+    box.classList.remove("rbchat-zoom", "rbchat-panning");
+    box.removeEventListener("wheel", viewWheel, { passive: false });
+    box.removeEventListener("pointerdown", viewDown);
+    box.removeEventListener("pointermove", viewMove);
+    box.removeEventListener("pointerup", viewUp);
+    box.removeEventListener("pointercancel", viewUp);
+    box.removeEventListener("click", viewClick, true);
+    box.removeEventListener("dragstart", viewNoDrag);
+    window.removeEventListener("resize", viewResize);
+    if (svg) { svg.style.transform = ""; svg.style.transformOrigin = ""; svg.style.width = ""; svg.style.height = ""; }
+    view = null;
+  }
+  // The picture's own size, from the box Mermaid gave it, which a transform leaves alone.
+  function viewSize(svg){
+    var vb = svg.viewBox && svg.viewBox.baseVal;
+    if (vb && vb.width && vb.height) return { w: vb.width, h: vb.height };
+    var r = svg.getBoundingClientRect(), k = view ? view.k : 1;
+    return { w: r.width / k || 1, h: r.height / k || 1 };
+  }
+  // A fresh SVG, after Expand or after the theme drew the picture again: fitted the first time,
+  // and at the view the visitor left it at every time after.
+  function viewTake(){
+    if (!view) return;
+    var svg = view.box.querySelector("svg");
+    if (!svg) return;
+    var size = viewSize(svg);
+    svg.style.width = size.w + "px"; svg.style.height = size.h + "px";
+    svg.style.transformOrigin = "0 0";
+    if (view.touched) viewApply(); else viewFit();
+  }
+  function viewFit(){
+    if (!view) return;
+    var svg = view.box.querySelector("svg");
+    if (!svg) return;
+    var size = viewSize(svg), bw = view.box.clientWidth, bh = view.box.clientHeight;
+    // Fitted, but never blown up past twice its size: a small picture filling a whole screen
+    // reads as a mistake, not as a view.
+    view.fit = Math.min(bw / size.w, bh / size.h, 2) || 1;
+    view.k = view.fit;
+    view.x = (bw - size.w * view.k) / 2; view.y = (bh - size.h * view.k) / 2;
+    view.touched = false;
+    viewApply();
+  }
+  function viewApply(){
+    var svg = view && view.box.querySelector("svg");
+    if (svg) svg.style.transform = "translate(" + view.x + "px," + view.y + "px) scale(" + view.k + ")";
+  }
+  // Zoom by `f` about the point (px, py) of the box, which stays where it is on the screen. The
+  // range runs from a quarter of the fitted size to eight times the picture's own.
+  function viewZoom(f, px, py){
+    var k = Math.max(view.fit / 4, Math.min(8, view.k * f));
+    view.x = px - (px - view.x) * (k / view.k);
+    view.y = py - (py - view.y) * (k / view.k);
+    view.k = k; view.touched = true;
+    viewApply();
+  }
+  function viewStep(f){ if (view) viewZoom(f, view.box.clientWidth / 2, view.box.clientHeight / 2); }
+  function viewPan(dx, dy){ view.x += dx; view.y += dy; view.touched = true; viewApply(); }
+  function viewAt(ev){ var r = view.box.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+  function viewWheel(ev){
+    ev.preventDefault();
+    var unit = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? view.box.clientHeight : 1;
+    // A trackpad's pinch arrives as a wheel with ctrlKey set, so one branch serves both.
+    if (ev.ctrlKey || ev.metaKey) { var at = viewAt(ev); viewZoom(Math.exp(-ev.deltaY * unit * 0.01), at.x, at.y); }
+    else viewPan(-ev.deltaX * unit, -ev.deltaY * unit);
+  }
+  function viewDown(ev){
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    view.pointers[ev.pointerId] = viewAt(ev);
+    var ids = Object.keys(view.pointers);
+    if (ids.length === 1) { view.moved = false; view.start = viewAt(ev); }
+    if (ids.length === 2) {
+      var a = view.pointers[ids[0]], b = view.pointers[ids[1]];
+      view.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      view.moved = true;
+    }
+  }
+  function viewMove(ev){
+    var was = view.pointers[ev.pointerId];
+    if (!was) return;
+    var now = viewAt(ev), ids = Object.keys(view.pointers);
+    view.pointers[ev.pointerId] = now;
+    if (ids.length === 1) {
+      if (!view.moved && Math.hypot(now.x - view.start.x, now.y - view.start.y) < MOVED) return;
+      // Captured only once it is a drag: captured on the press, the click a still press ends
+      // in would land on the box and not on the node's link.
+      if (!view.moved) { view.moved = true; view.box.classList.add("rbchat-panning"); try { view.box.setPointerCapture(ev.pointerId); } catch (e) {} }
+      viewPan(now.x - was.x, now.y - was.y);
+    } else if (ids.length === 2 && view.pinch) {
+      var a = view.pointers[ids[0]], b = view.pointers[ids[1]];
+      var d = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      viewPan(mx - view.pinch.x, my - view.pinch.y);
+      viewZoom(d / view.pinch.d, mx, my);
+      view.pinch = { d: d, x: mx, y: my };
+    }
+  }
+  function viewUp(ev){
+    if (!view.pointers[ev.pointerId]) return;
+    delete view.pointers[ev.pointerId];
+    if (Object.keys(view.pointers).length < 2) view.pinch = null;
+    if (!Object.keys(view.pointers).length) view.box.classList.remove("rbchat-panning");
+  }
+  function viewClick(ev){ if (view.moved) { ev.preventDefault(); ev.stopPropagation(); view.moved = false; } }
+  function viewNoDrag(ev){ ev.preventDefault(); }
+  // A sheet that changes size, a phone turned or a window dragged, fits again unless the
+  // visitor has zoomed, whose view is theirs.
+  function viewResize(){ if (view && !view.touched) viewFit(); }
+  function viewKey(ev){
+    if (!view || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    var k = ev.key, PAN = 60;
+    if (k === "+" || k === "=") viewStep(STEP_ZOOM);
+    else if (k === "-" || k === "_") viewStep(1 / STEP_ZOOM);
+    else if (k === "0") viewFit();
+    else if (k === "ArrowLeft") viewPan(PAN, 0);
+    else if (k === "ArrowRight") viewPan(-PAN, 0);
+    else if (k === "ArrowUp") viewPan(0, PAN);
+    else if (k === "ArrowDown") viewPan(0, -PAN);
+    else return;
+    ev.preventDefault();
   }
   function figure(d){
     var fig = el("figure", "rbchat-diagram"), cap = el("figcaption"), full = el("button", "rbchat-diagram-full");
@@ -785,6 +948,10 @@
     fig.rbBox = el("div", "rbchat-diagram-box");
     fig.appendChild(cap); fig.appendChild(fig.rbBox);
     fig.rbDiagram = d;
+    // An answer's picture is drawn for the log's width, and once drawn, a picture above the
+    // kept place has taken its height, so the place is found again.
+    fig.rbWidth = function(){ return log && log.clientWidth; };
+    fig.rbDrawn = settle;
     figures = figures.filter(function(f){ return document.documentElement.contains(f); });
     figures.push(fig);
     labelFigure(fig); drawFigure(fig);
@@ -792,10 +959,74 @@
   }
   if (window.MutationObserver) new MutationObserver(function(){
     figures = figures.filter(function(f){ return document.documentElement.contains(f); });
-    figures.forEach(drawFigure);
+    figures.forEach(function(f){ if (!f.rbWaiting) drawFigure(f); });
   }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   function el(tagName, cls, text){ var e = document.createElement(tagName); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+
+  // A picture a page was built with: a figure carrying `data-diagram`, its caption, its Expand
+  // and an empty box, with the picture itself as JSON in a script inside it, the shape an
+  // answer's picture arrives in. The page is written when its site builds, from the commit it
+  // pins, so the picture changes when the model does and never between two visits. It is drawn
+  // once it is near the screen, so a page whose picture sits below the fold fetches Mermaid
+  // only for a visitor who scrolls to it or opens it.
+  function hydrate(){
+    var found = document.querySelectorAll("figure[data-diagram]");
+    for (var i = 0; i < found.length; i++) (function(fig){
+      if (fig.rbDiagram) return;
+      var src = fig.querySelector('script[type="application/json"]'), d = null;
+      try { d = JSON.parse(src.textContent); } catch (e) { return; }
+      if (!d || typeof d.mermaid !== "string") return;
+      fig.rbDiagram = d;
+      fig.rbBox = fig.querySelector(".rbchat-diagram-box");
+      var full = fig.querySelector(".rbchat-diagram-full");
+      if (!fig.rbBox || !full) return;
+      full.addEventListener("click", function(){ expandFigure(fig); });
+      // On the page the picture is a preview, fitted to the column however wide the flow is,
+      // so a click anywhere on it but a node's link opens it to be read, as Expand does.
+      fig.classList.add("rbchat-diagram-fit");
+      fig.rbBox.addEventListener("click", function(ev){
+        if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
+        expandFigure(fig);
+      });
+      fig.rbWaiting = true;
+      figures.push(fig);
+      labelFigure(fig);
+      function draw(){ if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); } }
+      if (!window.IntersectionObserver) { draw(); return; }
+      var near = new IntersectionObserver(function(seen){
+        if (seen.some(function(x){ return x.isIntersecting; })) { near.disconnect(); draw(); }
+      }, { rootMargin: "400px 0px" });
+      near.observe(fig);
+    })(found[i]);
+  }
+  // A page's figures are in the markup, so they are there once the document is parsed.
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", hydrate); else hydrate();
+  // The language a page switches to reaches its figures here, since a page without a chat has
+  // no panel whose relabel would.
+  if (window.MutationObserver) new MutationObserver(function(){ figures.forEach(labelFigure); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+
+  if (!tag.dataset.chat) return;
+  var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
+  var ICON = iconOf(document);
+  var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
+
+  // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
+  // answer's cites are the widget's to draw and are no part of a message.
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null;
+  // The place a restore owes the visitor, held until the log is shown and every picture above it
+  // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
+  // the log is where they put it, and place() reads it there.
+  var reading = null;
+  function settle(){ if (reading && panel && !panel.hidden && !placed(log, reading)) reading = null; }
+  // The questions the site's own model is built to answer, offered as a way into an empty
+  // conversation. `qList` is null until `questions` has resolved once, `qFetch` is that one
+  // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
+  // container currently in the log, if any, and `qNext` whether it follows an answer rather than
+  // opening an empty conversation, which is all that tells its two names apart.
+  var qList = null, qFetch = null, qBox = null, qNext = false;
+  var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
   // host — nothing here may reach it before a visitor presses send. `data-questions` names a
@@ -909,7 +1140,6 @@
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
-    figures.forEach(labelFigure);
     title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
     input.placeholder = s.placeholder; sendBtn.textContent = s.send;
     if (grip) grip.setAttribute("aria-label", s.size);

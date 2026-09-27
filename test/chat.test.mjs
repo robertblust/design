@@ -604,7 +604,7 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "schema", "shut"]);
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "fit", "fitTip", "neighborhood", "process", "schema", "shut", "zoomIn", "zoomOut"]);
 });
 
 test("any element carrying data-chat-open opens the panel, and the header says so", () => {
@@ -662,8 +662,12 @@ test("the place is kept as the page goes and given back where the conversation i
   assert.match(src, /if \(qNext && !reading\) log\.scrollTop = log\.scrollHeight; else settle\(\);/, "the chips a restore offers send the log to its end");
   assert.match(src, /function open\(\)\{[^\n]*settle\(\);/, "a panel opened later does not go to the place");
   assert.match(src, /function close\(\)\{ if \(!reading\) reading = place\(log\); panel\.hidden = true;/, "a closed panel forgets where it was read");
+  // An answer's picture calls back once drawn, and the call is settle: a page's own picture,
+  // with no conversation to keep a place in, has none.
   const draw = src.slice(src.indexOf("function drawFigure(fig){"), src.indexOf("function labelFigure(fig){"));
-  assert.match(draw, /settle\(\);/, "a picture drawn late moves the place away");
+  assert.match(draw, /if \(fig\.rbDrawn\) fig\.rbDrawn\(\);/, "a picture drawn late does not call back");
+  const answer = src.slice(src.indexOf("function figure(d){"), src.indexOf("function hydrate(){"));
+  assert.match(answer, /fig\.rbDrawn = settle;/, "a picture drawn late moves the place away");
 });
 
 test("the visitor's own scrolling, a new message and a fresh conversation let the place go", () => {
