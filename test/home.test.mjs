@@ -64,6 +64,37 @@ test("a value whose last paragraph is not an I never line stops the build, namin
   assert.throws(() => into(data), /values\/c/);
 });
 
+test("neverOf reads the last paragraph of the first section, not the last section", () => {
+  const twoSection = {
+    id: "values/two", type: "value", name: "Sea", tagline: "Sea tagline.", path: "model/values/two.md",
+    sections: [
+      { heading: "In practice", text: "Body one.\n\nI never skip section one." },
+      { heading: "Also", text: "Body two.\n\nI never read section two, and neither should this." },
+    ],
+  };
+  assert.equal(neverOf(twoSection), "I never skip section one.");
+  const data = { ...DATA, entities: [...DATA.entities, twoSection] };
+  const page = into(data);
+  assert.ok(page.includes("I never skip section one."), page);
+  assert.ok(!page.includes("I never read section two"), page);
+});
+
+test("a value with no sections stops the build, naming it, rather than throw a raw TypeError", () => {
+  const sectionless = { id: "values/none", type: "value", name: "None", tagline: "None tagline.",
+    path: "model/values/none.md", sections: [] };
+  assert.throws(() => neverOf(sectionless), /values\/none/);
+  const data = { ...DATA, entities: [...DATA.entities, sectionless] };
+  assert.throws(() => into(data), /values\/none/);
+});
+
+test("a backtick in a value's name and its German renders as code, quoted for where it sits", () => {
+  const backticked = value("d", "Dee `code`", "I never break the mono span.");
+  const data = { ...DATA, entities: [...DATA.entities, backticked] };
+  const page = into(data);
+  assert.ok(page.includes('Dee <code class="mono">code</code>'), page);
+  assert.ok(page.includes(`data-de="DE:Dee <code class='mono'>code</code>"`), page);
+});
+
 test("the home page needs German for the model's words", () => {
   assert.throws(() => into(DATA, { de: undefined }), /needs de/);
 });
