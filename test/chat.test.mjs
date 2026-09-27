@@ -520,3 +520,10 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
   for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "shut"]);
 });
+
+test("any element carrying data-chat-open opens the panel, and the header says so", () => {
+  assert.match(src, /closest\("\[data-chat-open\]"\)/, "the click is delegated to [data-chat-open]");
+  assert.match(src, /document\.addEventListener\("click"[\s\S]{0,200}data-chat-open[\s\S]{0,120}open\(\)/,
+    "the delegated click calls open()");
+  assert.match(src.slice(0, 3000), /data-chat-open/, "the header comment names the attribute");
+});

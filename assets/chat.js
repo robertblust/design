@@ -5,6 +5,8 @@
 //   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/"
 //     data-questions="/model.json" defer>
 //
+// Any element carrying `data-chat-open` opens the panel on click, as the button does.
+//
 // Opening the panel may read the site's own model file, when `data-questions` names one, but
 // nothing is sent to the chat host until the visitor presses send. The conversation lives in
 // this closure and in the tab's own `sessionStorage`, under the key
@@ -696,6 +698,14 @@
   button.type = "button";
   button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M4 5.5h16v10H9l-5 4z"/></svg><span></span>';
   button.addEventListener("click", open);
+  // Any element on the page opens the panel by carrying `data-chat-open`: a home page's tile,
+  // a link in a post. Delegated from the document, so an element written after this script ran
+  // opens it too, and the attribute is the whole contract.
+  document.addEventListener("click", function(e){
+    var t = e.target && e.target.closest && e.target.closest("[data-chat-open]");
+    if (!t) return;
+    e.preventDefault(); open();
+  });
   document.body.appendChild(button);
 
   function relabel(){

@@ -1,6 +1,6 @@
 {
   "name": "@robertblust/design",
-  "version": "0.100.0",
+  "version": "0.101.0",
   "description": "The design system shared by blust.ch, companygraph.io and guestgraph.io.",
   "license": "Apache-2.0",
   "type": "module",
@@ -53,7 +53,8 @@
     "./render/note": "./lib/render/note.mjs",
     "./render/principles": "./lib/render/principles.mjs",
     "./render/team": "./lib/render/team.mjs",
-    "./render/surfaces": "./lib/render/surfaces.mjs"
+    "./render/surfaces": "./lib/render/surfaces.mjs",
+    "./render/home": "./lib/render/home.mjs"
   },
   "scripts": {
     "test": "node --test \"test/*.test.mjs\""
