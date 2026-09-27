@@ -45,6 +45,16 @@
   ],
   "omitted": 3
  },
+ "typed": {
+  "shape": "neighborhood",
+  "title": "Neighborhood",
+  "mermaid": "flowchart LR\n  n0[\"<small>«concept»</small><br/>Concept A\"]\n  n1[\"<small>«concept»</small><br/>Concept B\"]\n  n0 -->|\"domain\"| n1",
+  "nodes": [
+   { "node": "n0", "id": "concepts/concept-a", "title": "Concept A", "type": "concept" },
+   { "node": "n1", "id": "concepts/concept-b", "title": "Concept B", "type": "concept" }
+  ],
+  "omitted": 0
+ },
  "concepts": {
   "shape": "concepts",
   "title": null,
