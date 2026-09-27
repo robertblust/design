@@ -14,6 +14,9 @@ const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
 const PICTURES = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "diagrams.json"), "utf8"));
 
 const PAGE = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>
+/* A real page links chat.css beside its own stylesheet, which carries the family's reset;
+   this stands in for the one rule of it the dialog's own sizing depends on. */
+*{box-sizing:border-box}
 :root{--ground:#0C0E13;--raise:#171A21;--rule:#232833;--ink:#EFEDE8;--dim:#8A8B86;--c-mid:#7FA3D8;--press:#1b2231;--deck-drop:rgba(0,0,0,.4)}
 :root[data-theme="light"]{--ground:#FAF9F5;--raise:#F2F0EA;--rule:#DFDCD3;--ink:#16181D;--dim:#5F6058;--c-mid:#3A6DA6;--press:#E7ECF4}
 body{background:var(--ground);color:var(--ink)}
@@ -42,10 +45,10 @@ before(async () => {
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
 
 // A fresh tab, the panel opened, one question asked and its answer finished.
-async function asked(events, { mermaid = true } = {}) {
+async function asked(events, { mermaid = true, viewport } = {}) {
   state.events = [...events, ["done", { model: null, spent: 1, dayLeft: 1 }]];
   state.mermaid = mermaid;
-  const page = await browser.newPage();
+  const page = await browser.newPage(viewport ? { viewport } : {});
   const requests = [];
   page.on("request", (r) => requests.push(r.url()));
   await page.goto(base + "/");
@@ -104,15 +107,116 @@ test("a caption and its control follow the page's language", async () => {
   await page.close();
 });
 
-test("full screen opens and Escape closes it, leaving the panel open", async () => {
+test("Expand opens a dialog modal holding the picture, its node links intact", async () => {
+  const p = PICTURES.process;
+  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open] svg");
+  for (const n of p.nodes) {
+    const href = await page.$eval(`dialog.rbchat-modal svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
+    assert.equal(href, `/model/?stage=expanded#${n.id}`);
+  }
+  await page.close();
+});
+
+test("the dialog names itself by the caption it holds", async () => {
+  const p = PICTURES.process;
+  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  const labelledby = await page.getAttribute("dialog.rbchat-modal", "aria-labelledby");
+  assert.ok(labelledby, "the dialog carries aria-labelledby");
+  assert.equal(await page.$eval(`#${labelledby}`, (el) => el.textContent), "Process · Delivery");
+  await page.close();
+});
+
+test("the ×'s note names the key that also closes the dialog", async () => {
+  const { page } = await asked([["diagram", PICTURES.process], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  assert.match(await page.getAttribute(".rbchat-modal-close", "data-tip"), /Esc/);
+  await page.close();
+});
+
+test("on a phone the dialog fills the screen, borderless", async () => {
+  const p = PICTURES.process;
+  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]], { viewport: { width: 390, height: 844 } });
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  const box = await page.$eval("dialog.rbchat-modal", (d) => {
+    const r = d.getBoundingClientRect();
+    return { width: r.width, height: r.height, border: parseFloat(getComputedStyle(d).borderWidth) };
+  });
+  assert.ok(Math.abs(box.width - 390) <= 1, `width ${box.width}`);
+  assert.ok(Math.abs(box.height - 844) <= 1, `height ${box.height}`);
+  assert.equal(box.border, 0);
+  await page.close();
+});
+
+test("Escape closes the dialog, the panel stays open and the picture is back in the figure", async () => {
   const { page } = await asked([["diagram", PICTURES.concepts], ["text", { text: "Concepts." }]]);
   await page.waitForSelector(".rbchat-diagram svg");
-  assert.equal(await page.textContent(".rbchat-diagram figcaption span"), "Concepts");
   await page.click(".rbchat-diagram-full");
-  assert.ok(await page.$(".rbchat-diagram.rbchat-diagram-open"));
+  await page.waitForSelector("dialog.rbchat-modal[open]");
   await page.keyboard.press("Escape");
-  assert.equal(await page.$(".rbchat-diagram.rbchat-diagram-open"), null);
+  // The dialog's "close" event is queued rather than fired inline with the attribute's removal,
+  // so the wait is for the box actually being back, not merely for [open] to be gone.
+  await page.waitForFunction(() => document.querySelector(".rbchat-diagram svg") && !document.querySelector("dialog.rbchat-modal[open]"));
   assert.equal(await page.$eval(".rbchat", (p) => p.hidden), false);
+  assert.ok(await page.$(".rbchat-diagram svg"), "the svg is back inside the figure");
+  await page.close();
+});
+
+test("Escape leaves the panel open while a dialog of another kind is open on the page", async () => {
+  const { page } = await asked([["text", { text: "No picture." }]]);
+  // A stand-in for the stage's own dialog.modal — any modal dialog, not this widget's — since
+  // the guard has to hold on a page that carries both, not only on this one's own.
+  await page.evaluate(() => {
+    const d = document.createElement("dialog");
+    d.id = "other-modal";
+    document.body.appendChild(d);
+    d.showModal();
+  });
+  await page.keyboard.press("Escape");
+  assert.equal(await page.$eval(".rbchat", (p) => p.hidden), false, "the panel closed behind the other dialog");
+  await page.close();
+});
+
+test("the dialog's × closes it", async () => {
+  const { page } = await asked([["diagram", PICTURES.concepts], ["text", { text: "Concepts." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  await page.click(".rbchat-modal-close");
+  assert.equal(await page.$("dialog.rbchat-modal[open]"), null);
+  await page.close();
+});
+
+test("a click on the backdrop closes the dialog", async () => {
+  const { page } = await asked([["diagram", PICTURES.concepts], ["text", { text: "Concepts." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open]");
+  // Near the viewport's corner: the dialog is centered and inset from every edge, so this
+  // point is always on the backdrop and never on the box it holds.
+  await page.mouse.click(2, 2);
+  assert.equal(await page.$("dialog.rbchat-modal[open]"), null);
+  await page.close();
+});
+
+test("a theme change while the dialog is open redraws the picture inside it", async () => {
+  const { page } = await asked([["diagram", PICTURES.process], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open] svg a");
+  const fill = () => page.$eval("dialog.rbchat-modal svg a", (a) => getComputedStyle(a.querySelector("rect, path, polygon")).fill);
+  assert.equal(await fill(), "rgb(23, 26, 33)");
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await page.waitForFunction(() => { const a = document.querySelector("dialog.rbchat-modal svg a"); return a && getComputedStyle(a.querySelector("rect, path, polygon")).fill === "rgb(242, 240, 234)"; });
   await page.close();
 });
 
