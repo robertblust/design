@@ -481,3 +481,10 @@ test("the new-conversation control is an arrow come back round with a note, not 
   assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after\{content:attr\(data-tip\)/, "the note is not drawn");
   assert.match(css, /\.rbchat-new:focus-visible::after/, "the note does not show on keyboard focus");
 });
+
+test("any element carrying data-chat-open opens the panel, and the header says so", () => {
+  assert.match(src, /closest\("\[data-chat-open\]"\)/, "the click is delegated to [data-chat-open]");
+  assert.match(src, /document\.addEventListener\("click"[\s\S]{0,200}data-chat-open[\s\S]{0,120}open\(\)/,
+    "the delegated click calls open()");
+  assert.match(src.slice(0, 3000), /data-chat-open/, "the header comment names the attribute");
+});
