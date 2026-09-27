@@ -190,6 +190,38 @@ export const regionOf = (page) => page.slice(page.indexOf("<!-- team:start -->")
 // process: captured from that commit's code, not written by hand.
 const BEFORE_ONE_PROCESS = "<!-- team:start -->\n      <div class=\"hdrail\"><div class=\"whos\">\n        <div class=\"hw\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><div><div class=\"nm\">A Person</div><div class=\"lbl\">human · holds 1 of 3</div></div></div>\n        <div class=\"hw\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><div><div class=\"nm\">An Agent</div><div class=\"lbl\">agent · holds 2 of 3</div></div></div>\n      </div><button class=\"openall\" id=\"openall\" type=\"button\" data-de=\"Alle öffnen\">Open all</button></div>\n      <div class=\"grid\" id=\"board\">\n        <div class=\"ghead\"><span class=\"lbl\">Seat</span><span><span class=\"phnum\">01</span><span class=\"phname\">One</span></span><span><span class=\"phnum\">02</span><span class=\"phname\">Two</span></span></div>\n        <details class=\"human\" id=\"boss\" data-role=\"roles/boss\">\n          <summary aria-label=\"Boss, human. executes Two. approves the gate of One, Two.\"><span class=\"sname\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><span class=\"tw\">Boss</span></span><span><i class=\"g ga\"></i></span><span><i class=\"g ex\"></i><i class=\"g ga\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"maker\" data-role=\"roles/maker\">\n          <summary aria-label=\"Maker, agent. executes One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Maker</span></span><span><i class=\"g ex\"></i></span><span></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"checker\" data-role=\"roles/checker\">\n          <summary aria-label=\"Checker, agent. executes Two. supports One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Checker</span></span><span><i class=\"g su\"></i></span><span><i class=\"g ex\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n      </div>\n      <div class=\"legend\"><span><i class=\"g ex\"></i> <span data-de=\"führt die Phase aus\">executes the phase</span></span><span><i class=\"g su\"></i> <span data-de=\"unterstützt sie\">supports it</span></span><span><i class=\"g ga\"></i> <span data-de=\"gibt ihr Gate frei\">approves its gate</span></span><span><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg> <span data-de=\"Mensch\">human</span></span><span><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg> <span data-de=\"Agent\">agent</span></span></div>\n      <dl class=\"phases\">\n        <dt><span class=\"phnum\">01</span><span class=\"phname\">One</span></dt>\n        <dd>First.</dd>\n        <dt><span class=\"phnum\">02</span><span class=\"phname\">Two</span></dt>\n        <dd>Second.</dd>\n      </dl>\n      ";
 
+test("a site that passes no diagram draws no picture, and the board is what it was", () => {
+  assert.ok(!renderTeamInto(TEAM_FIXTURE).includes("data-diagram"));
+});
+
+test("each process's picture sits under its tagline and before its head rail, in its own section, as the chat's figure with the picture as JSON", () => {
+  const seen = [];
+  const diagram = (data, proc) => {
+    seen.push(proc.id);
+    return { title: proc.name, mermaid: `flowchart LR\n  n0["<b>${proc.name}</b>"]`, nodes: [{ node: "n0", id: proc.id, title: proc.name, type: "phase" }], links: [], edges: 0 };
+  };
+  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE, { diagram }));
+  assert.deepEqual(seen, ["processes/d", "processes/e"]);
+  const sections = html.split('<section class="proc"').slice(1);
+  sections.forEach((sec, i) => {
+    const name = ["Doing", "Else"][i];
+    assert.ok(sec.indexOf('class="proctag"') < sec.indexOf("<figure") && sec.indexOf("<figure") < sec.indexOf('class="hdrail"'), "the picture comes between the tagline and the head rail");
+    assert.ok(sec.includes(`<figcaption><span>Process · ${name}</span><button class="rbchat-diagram-full" type="button"`), sec);
+    assert.ok(sec.includes('<div class="rbchat-diagram-box"></div>'));
+    const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);
+    assert.deepEqual(json, { shape: "process", title: name, mermaid: `flowchart LR\n  n0["<b>${name}</b>"]`,
+      nodes: [{ node: "n0", id: ["processes/d", "processes/e"][i], title: name }] });
+  });
+});
+
+test("no title can close the script a picture's JSON sits in", () => {
+  const diagram = () => ({ title: "</script><b>x", mermaid: "flowchart LR", nodes: [] });
+  const html = regionOf(renderTeamInto(TEAM_FIXTURE, { diagram }));
+  const script = html.slice(html.indexOf('<script type="application/json">'));
+  assert.equal(script.indexOf("</script>"), script.lastIndexOf("</script>"));
+  assert.equal(JSON.parse(script.slice(script.indexOf(">") + 1, script.indexOf("</script>"))).title, "</script><b>x");
+});
+
 test("a model with two processes draws two boards, in the order the artifact lists them", () => {
   const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
   const boards = [...html.matchAll(/<div class="grid" id="([a-z-]*)board">/g)].map((m) => m[1]);

@@ -8,6 +8,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { renderPicture } from "../lib/render/team.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
@@ -23,6 +24,11 @@ body{background:var(--ground);color:var(--ink)}
 </style><link rel="stylesheet" href="/chat.css"></head><body><p>A page.</p>
 <script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
 
+// A page built with a picture of its own, as the team page is: the figure writeTeam writes, far
+// enough below the fold that it is out of sight, and a tag naming no chat.
+const BUILT = PAGE.replace('<p>A page.</p>', `<p>A page.</p><div style="height:3000px"></div>\n${renderPicture(PICTURES.process)}`)
+  .replace('<script src="/chat.js" data-chat="/chat" data-model="/model/" defer>', '<script src="/chat.js" data-model="/model/" defer>');
+
 // What the next POST answers, and whether the vendored script is served at all.
 const state = { events: [], mermaid: true };
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
@@ -32,7 +38,7 @@ before(async () => {
   server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(state.events)); return; }
-    const files = { "/": ["text/html", PAGE], "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")] };
+    const files = { "/": ["text/html", PAGE], "/built": ["text/html", BUILT], "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")] };
     if (state.mermaid) files["/mermaid.min.js"] = ["text/javascript", asset("mermaid.min.js")];
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
@@ -353,3 +359,168 @@ test("a null entry among a picture's nodes is skipped, and the real nodes still 
   assert.equal(links, 2, "only the two real nodes became links");
   await page.close();
 });
+
+// ── a page's own picture ──────────────────────────────────────────────────────────────────
+
+async function built(viewport) {
+  const page = await browser.newPage(viewport ? { viewport } : {});
+  const requests = [];
+  page.on("request", (r) => requests.push(r.url()));
+  await page.goto(base + "/built");
+  return { page, requests };
+}
+
+test("a page's own picture is drawn once it nears the screen, with no chat on the tag, each node a link", async () => {
+  state.mermaid = true;
+  const { page, requests } = await built();
+  await page.waitForTimeout(300);
+  assert.equal(requests.filter((u) => u.endsWith("/mermaid.min.js")).length, 0, "not fetched while out of sight");
+  assert.equal(await page.$(".rbchat-open"), null, "no chat button on a tag that names no chat");
+  await page.$eval("figure[data-diagram]", (f) => f.scrollIntoView());
+  await page.waitForSelector("figure[data-diagram] svg");
+  assert.equal(await page.textContent("figure[data-diagram] figcaption span"), "Process · Delivery");
+  for (const n of PICTURES.process.nodes) {
+    const href = await page.$eval(`figure[data-diagram] svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
+    assert.equal(href, `/model/?stage=expanded#${n.id}`);
+  }
+  await page.close();
+});
+
+test("a page's picture follows the page's language, and Expand draws one not yet scrolled to", async () => {
+  state.mermaid = true;
+  const { page } = await built();
+  await page.evaluate(() => { document.documentElement.lang = "de"; });
+  await page.waitForFunction(() => document.querySelector("figure[data-diagram] figcaption span").textContent === "Prozess · Delivery");
+  await page.$eval(".rbchat-diagram-full", (b) => b.click());
+  await page.waitForSelector("dialog.rbchat-modal[open] svg");
+  assert.equal(await page.getAttribute(".rbchat-modal-fit", "aria-label"), "Auf den Bildschirm einpassen");
+  await page.close();
+});
+
+// ── the zoom ──────────────────────────────────────────────────────────────────────────────
+
+const scaleOf = (page) => page.$eval("dialog.rbchat-modal svg", (svg) => new DOMMatrix(getComputedStyle(svg).transform).a);
+const shiftOf = (page) => page.$eval("dialog.rbchat-modal svg", (svg) => { const m = new DOMMatrix(getComputedStyle(svg).transform); return { x: m.e, y: m.f }; });
+async function expanded(viewport) {
+  const { page } = await asked([["diagram", PICTURES.process], ["text", { text: "Delivery." }]], viewport ? { viewport } : {});
+  await page.waitForSelector(".rbchat-diagram svg");
+  await page.click(".rbchat-diagram-full");
+  await page.waitForSelector("dialog.rbchat-modal[open] svg");
+  return page;
+}
+
+test("Expand opens the picture fitted to the sheet and centered", async () => {
+  const page = await expanded();
+  const fit = await page.evaluate(() => {
+    const box = document.querySelector("dialog.rbchat-modal .rbchat-diagram-box").getBoundingClientRect();
+    const svg = document.querySelector("dialog.rbchat-modal svg").getBoundingClientRect();
+    return { box: [box.left, box.top, box.right, box.bottom], svg: [svg.left, svg.top, svg.right, svg.bottom] };
+  });
+  const [bl, bt, br, bb] = fit.box, [sl, st, sr, sb] = fit.svg;
+  assert.ok(sl >= bl - 1 && sr <= br + 1 && st >= bt - 1 && sb <= bb + 1, `inside the box: ${JSON.stringify(fit)}`);
+  assert.ok(Math.abs((sl - bl) - (br - sr)) <= 2, "centered across");
+  assert.ok(Math.abs(sr - sl - (br - bl)) <= 2 || Math.abs(sb - st - (bb - bt)) <= 2 || await scaleOf(page) === 2, "touches two sides, or is at the cap");
+  await page.close();
+});
+
+test("+, − and Fit zoom and fit again, from the buttons and from the keys", async () => {
+  const page = await expanded();
+  const fitted = await scaleOf(page);
+  await page.click(".rbchat-modal-zoom button:nth-child(2)");
+  assert.ok(Math.abs(await scaleOf(page) - fitted * 1.25) < 1e-3, `${fitted} then ${await scaleOf(page)}`);
+  await page.click(".rbchat-modal-zoom button:nth-child(1)");
+  assert.ok(Math.abs(await scaleOf(page) - fitted) < 1e-3);
+  await page.keyboard.press("+"); await page.keyboard.press("+");
+  assert.ok(Math.abs(await scaleOf(page) - fitted * 1.5625) < 1e-3);
+  await page.keyboard.press("0");
+  assert.ok(Math.abs(await scaleOf(page) - fitted) < 1e-3);
+  await page.click(".rbchat-modal-fit");
+  assert.ok(Math.abs(await scaleOf(page) - fitted) < 1e-3);
+  assert.match(await page.getAttribute(".rbchat-modal-zoom button:nth-child(2)", "data-tip"), /Zoom in · \+/);
+  await page.close();
+});
+
+test("Ctrl and the wheel zoom about the pointer, and the plain wheel moves the picture", async () => {
+  const page = await expanded();
+  const fitted = await scaleOf(page);
+  const a = await page.$eval('dialog.rbchat-modal svg a[aria-label="Build"]', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await page.mouse.move(a.x, a.y);
+  await page.keyboard.down("Control"); await page.mouse.wheel(0, -100); await page.keyboard.up("Control");
+  assert.ok(await scaleOf(page) > fitted, "zoomed in");
+  const b = await page.$eval('dialog.rbchat-modal svg a[aria-label="Build"]', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  assert.ok(Math.abs(a.x - b.x) < 1.5 && Math.abs(a.y - b.y) < 1.5, `the point under the pointer stays: ${JSON.stringify([a, b])}`);
+  const before = await shiftOf(page);
+  await page.mouse.wheel(0, 50);
+  const after = await shiftOf(page);
+  assert.ok(Math.abs(after.y - (before.y - 50)) < 0.01 && Math.abs(after.x - before.x) < 0.01, "the plain wheel pans");
+  await page.close();
+});
+
+test("a drag moves the picture and follows no link; a still press on a node follows its link", async () => {
+  const page = await expanded();
+  const node = await page.$eval('dialog.rbchat-modal svg a[aria-label="Build"]', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  const before = await shiftOf(page);
+  await page.mouse.move(node.x, node.y); await page.mouse.down();
+  await page.mouse.move(node.x + 40, node.y + 30, { steps: 5 }); await page.mouse.up();
+  const after = await shiftOf(page);
+  assert.ok(Math.abs(after.x - before.x - 40) < 1.5 && Math.abs(after.y - before.y - 30) < 1.5, JSON.stringify([before, after]));
+  assert.equal(new URL(page.url()).pathname, "/", "the drag followed no link");
+  await page.$eval("dialog.rbchat-modal svg", () => {});
+  await Promise.all([page.waitForURL(/\/model\//), page.mouse.click(node.x + 40, node.y + 30)]);
+  assert.match(page.url(), /\/model\/\?stage=expanded#processes\/delivery\/phases\/build$/);
+  await page.close();
+});
+
+test("two fingers pinch the picture on a phone", async () => {
+  const page = await expanded({ width: 390, height: 844 });
+  const fitted = await scaleOf(page);
+  await page.$eval("dialog.rbchat-modal .rbchat-diagram-box", (box) => {
+    const r = box.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const ev = (type, id, x) => box.dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: "touch", clientX: x, clientY: cy, bubbles: true, isPrimary: id === 1 }));
+    ev("pointerdown", 1, cx - 20); ev("pointerdown", 2, cx + 20);
+    ev("pointermove", 1, cx - 40); ev("pointermove", 2, cx + 40);
+    ev("pointerup", 1, cx - 40); ev("pointerup", 2, cx + 40);
+  });
+  const k = await scaleOf(page);
+  assert.ok(k > fitted * 1.5, `pinched out: ${fitted} to ${k}`);
+  await page.close();
+});
+
+test("closing gives the page its picture back as it was, unzoomed and scrolling", async () => {
+  const page = await expanded();
+  await page.keyboard.press("+");
+  await page.keyboard.press("Escape");
+  // The close event is queued, so the wait is for the box being back in its figure.
+  await page.waitForFunction(() => document.querySelector(".rbchat-diagram .rbchat-diagram-box svg") && !document.querySelector("dialog.rbchat-modal[open]"));
+  const back = await page.$eval(".rbchat-diagram .rbchat-diagram-box", (box) => ({ cls: box.className, transform: box.querySelector("svg").style.transform, overflow: getComputedStyle(box).overflow }));
+  assert.deepEqual(back, { cls: "rbchat-diagram-box", transform: "", overflow: "auto" });
+  await page.close();
+});
+
+test("a theme change while zoomed keeps the view the visitor left", async () => {
+  const page = await expanded();
+  await page.keyboard.press("+");
+  const k = await scaleOf(page);
+  await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+  await page.waitForFunction(() => getComputedStyle(document.querySelector("dialog.rbchat-modal svg a rect, dialog.rbchat-modal svg a path, dialog.rbchat-modal svg a polygon")).fill !== "rgb(23, 26, 33)");
+  await page.waitForFunction((want) => Math.abs(new DOMMatrix(getComputedStyle(document.querySelector("dialog.rbchat-modal svg")).transform).a - want) < 1e-3, k);
+  await page.close();
+});
+
+test("a page's picture is fitted to its column, and a click on it outside a node opens it to be read", async () => {
+  state.mermaid = true;
+  const { page } = await built({ width: 700, height: 800 });
+  await page.$eval("figure[data-diagram]", (f) => f.scrollIntoView());
+  await page.waitForSelector("figure[data-diagram] svg");
+  const size = await page.$eval("figure[data-diagram] .rbchat-diagram-box", (box) => ({ box: box.clientWidth, svg: box.querySelector("svg").getBoundingClientRect().width, scroll: box.scrollWidth }));
+  assert.ok(size.svg <= size.box + 0.5 && size.scroll <= size.box, JSON.stringify(size));
+  const r = await page.$eval("figure[data-diagram] .rbchat-diagram-box svg", (svg) => { const b = svg.getBoundingClientRect(); return { x: b.left + 2, y: b.top + 2 }; });
+  await page.mouse.click(r.x, r.y);
+  await page.waitForSelector("dialog.rbchat-modal[open] svg");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector("figure[data-diagram] .rbchat-diagram-box svg") && !document.querySelector("dialog.rbchat-modal[open]"));
+  const back = await page.$eval("figure[data-diagram] .rbchat-diagram-box", (box) => ({ w: box.querySelector("svg").style.width, fits: box.querySelector("svg").getBoundingClientRect().width <= box.clientWidth + 0.5 }));
+  assert.deepEqual(back, { w: "", fits: true });
+  await page.close();
+});
+
