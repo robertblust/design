@@ -79,6 +79,11 @@ test("a value ending They never still stops the build, naming it", () => {
   assert.throws(() => into(data), /values\/they/);
 });
 
+test("a line that only starts with the letters of never is not a never line", () => {
+  const nevertheless = value("nevertheless", "Onward", "We nevertheless ship.");
+  assert.throws(() => neverOf(nevertheless), /values\/nevertheless/);
+});
+
 test("neverOf reads the last paragraph of the first section, not the last section", () => {
   const twoSection = {
     id: "values/two", type: "value", name: "Sea", tagline: "Sea tagline.", path: "model/values/two.md",
