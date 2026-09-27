@@ -76,6 +76,54 @@ test("writePrinciples writes a $& in a section's text as itself", () => {
   assert.equal(page.split("<!-- principles:start -->").length - 1, 1, "one start marker, not two");
 });
 
+import { valuesOf, slugOf } from "../lib/render/principles.mjs";
+
+const princInto = (data, opts = {}) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-princ-"));
+  fs.mkdirSync(path.join(dir, "principles"), { recursive: true });
+  const file = path.join(dir, "principles", "index.html");
+  fs.writeFileSync(file, "<div>\n    <!-- principles:start -->\n    old\n    <!-- principles:end -->\n</div>\n");
+  writePrinciples(data, { check: false, root: dir, ...opts });
+  return fs.readFileSync(file, "utf8");
+};
+
+test("each value is an article with its slug as an id", () => {
+  const page = princInto(PRINCIPLES_FIXTURE);
+  assert.match(page, /<article class="value" id="a">/);
+  assert.match(page, /<article class="value" id="b">/);
+  assert.equal(slugOf("values/decide-well"), "decide-well");
+  assert.deepEqual(valuesOf(PRINCIPLES_FIXTURE).map((v) => v.id), ["values/a", "values/b"]);
+});
+
+test("without German the page renders as before: no data-de on the model's words, the one-language note", () => {
+  const page = princInto(PRINCIPLES_FIXTURE);
+  assert.ok(!/<h3 data-de/.test(page), "a value name carries no German");
+  assert.ok(page.includes("in the one language it is written in"), "the untranslated note");
+});
+
+test("with German every model string carries its data-de, and the note says the German is held to the English", () => {
+  const de = (en) => "DE:" + en;
+  const page = princInto(PRINCIPLES_FIXTURE, { de });
+  assert.match(page, /<h3 data-de="DE:Ay">Ay<\/h3>/);
+  assert.match(page, /<p class="tagline" data-de="DE:Ay tagline\.">Ay tagline\.<\/p>/);
+  assert.match(page, /<p data-de="DE:Ay body\.">Ay body\.<\/p>/);
+  assert.match(page, /<p class="lede" data-de="DE:First para wrapped\.">/);
+  assert.match(page, /<h2 data-de="DE:What it means">What it means<\/h2>/);
+  assert.ok(page.includes("The model is written in English"), "the translated note");
+  assert.ok(!page.includes("in the one language it is written in"));
+});
+
+test("German markup inside data-de is single-quoted and its text escaped", () => {
+  const data = { ...PRINCIPLES_FIXTURE, entities: PRINCIPLES_FIXTURE.entities.map((e) => e.id !== "values/a" ? e
+    : { ...e, tagline: "A & b" }) };
+  const page = princInto(data, { de: (en) => en === "A & b" ? "«A» & `c` \"d\" <e>" : "x" });
+  assert.ok(page.includes(`data-de="«A» &amp;amp; <code class='mono'>c</code> &quot;d&quot; &amp;lt;e&amp;gt;"`), page);
+});
+
+test("a missing German string stops the build, with the caller's message", () => {
+  assert.throws(() => princInto(PRINCIPLES_FIXTURE, { de: () => { throw new Error("no German for: Ay"); } }), /no German for: Ay/);
+});
+
 // ── the team board ────────────────────────────────────────────────────────────────────
 import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
 import { writeSurfaces } from "../lib/render/surfaces.mjs";
