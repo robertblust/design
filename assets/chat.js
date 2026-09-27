@@ -326,7 +326,10 @@
   function once(text){ return text.replace(TWICE_BOLD, "**$1**").replace(TWICE_PLAIN, "$1$2"); }
   // Blocks, line by line: a table needs its delimiter row before it is a table, so one still
   // arriving is a paragraph until its second line lands; a list is consecutive items; the rest
-  // is paragraphs split at blank lines.
+  // is paragraphs split at blank lines. The model sometimes leaves a blank line between two rows
+  // of one table, and the rows after it, with no header of their own, would run together as one
+  // paragraph of pipes; so a blank line inside a table is skipped when a row follows it that
+  // does not open a table of its own.
   function md(text){
     if (!text) return "";
     var lines = esc(once(text)).split(/\r?\n/), out = "", i = 0, n = lines.length;
@@ -335,7 +338,12 @@
       if (!line.trim()) { i++; continue; }
       if (ROW.test(line) && i + 1 < n && DELIM.test(lines[i + 1])) {
         var head = cells(line); i += 2; var rows = [];
-        while (i < n && ROW.test(lines[i])) { rows.push(cells(lines[i])); i++; }
+        for (;;) {
+          while (i < n && ROW.test(lines[i])) { rows.push(cells(lines[i])); i++; }
+          var j = i; while (j < n && !lines[j].trim()) j++;
+          if (j === i || j === n || !ROW.test(lines[j]) || (j + 1 < n && DELIM.test(lines[j + 1]))) break;
+          i = j;
+        }
         out += "<table><thead><tr>" + head.map(function(c){ return "<th>" + c + "</th>"; }).join("") + "</tr></thead><tbody>"
           + rows.map(function(r){ return "<tr>" + r.map(function(c){ return "<td>" + c + "</td>"; }).join("") + "</tr>"; }).join("") + "</tbody></table>";
         continue;

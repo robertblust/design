@@ -47,6 +47,15 @@ test("a table with no delimiter row is prose, and a half-typed table is prose un
   assert.equal(md("| a | b |\n| ---"), "<p>| a | b | | ---</p>");
 });
 
+test("a blank line between two rows keeps the table, and a table after a blank line is its own", () => {
+  const one = "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody></table>";
+  assert.equal(md("| a | b |\n| --- | --- |\n| 1 | 2 |\n\n| 3 | 4 |"), one);
+  assert.equal(md("| a | b |\n| --- | --- |\n| 1 | 2 |\n\n\n| 3 | 4 |\n\nafter"), one + "<p>after</p>");
+  assert.equal(md("| a | b |\n| --- | --- |\n| 1 | 2 |\n\n| c | d |\n| --- | --- |\n| 3 | 4 |"),
+    "<table><thead><tr><th>a</th><th>b</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>"
+    + "<table><thead><tr><th>c</th><th>d</th></tr></thead><tbody><tr><td>3</td><td>4</td></tr></tbody></table>");
+});
+
 test("a cell whose every line is an item is a list, and any other cell keeps its lines as lines", () => {
   const row = (c) => md(`| a | b |\n| --- | --- |\n| x | ${c} |`).replace(/^.*<td>x<\/td><td>/, "").replace(/<\/td>.*$/, "");
   assert.equal(row("- one<br>- **two**"), "<ul><li>one</li><li><strong>two</strong></li></ul>");
