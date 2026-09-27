@@ -480,15 +480,20 @@
       // below reading. A concept carries no attributes or methods, so its class has no empty bars.
       flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
       // `strict` alone still lets DOMPurify pass an `<img src>` through a label; a label writes
-      // only `b` and `br`, so an image is never a label and would be a request to another host,
-      // which "no request leaves the page's origin" promises never happens.
+      // only `b`, `br` and `small`, so an image is never a label and would be a request to
+      // another host, which "no request leaves the page's origin" promises never happens.
       dompurifyConfig: { FORBID_TAGS: ["img"] },
       themeVariables: {
         fontFamily: font, fontSize: "13px", background: v("--ground"),
         primaryColor: v("--raise"), mainBkg: v("--raise"), secondaryColor: v("--press"), tertiaryColor: v("--ground"),
         primaryTextColor: v("--ink"), textColor: v("--ink"), nodeTextColor: v("--ink"), classText: v("--ink"),
-        // A node is a link, and every link in the family is --c-mid.
-        primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"), edgeLabelBackground: v("--ground")
+        // A node is a link, and every link in the family is --c-mid; its own text color is set
+        // in chat.css instead, scoped to a linked node, because this variable also colors an
+        // edge label's text and an unlinked overflow bubble's, which stay --ink.
+        primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"),
+        // An edge label's own background: Mermaid draws it from this one variable in every
+        // diagram kind this file uses, so the panel's raise reaches it without a CSS rule.
+        edgeLabelBackground: v("--raise")
       }
     };
   }
