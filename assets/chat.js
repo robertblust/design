@@ -536,6 +536,10 @@
   // host but the page's own is asked. `figures` are the pictures drawn, redrawn when the theme
   // changes and relabeled when the language does.
   var mermaidLoad = null, figures = [], drawCount = 0;
+  // The dialog Expand opens, the stage's own pattern (assets/stage.js `expand()`): one <dialog>,
+  // made once per page, that a figure's picture box moves into and back out of — never a copy —
+  // so the same element and the links Mermaid drew into it keep working on both sides of the move.
+  var modal = null, modalBody = null, modalCap = null, modalClose = null, modalFig = null, modalMark = null;
   var Q_TIMEOUT = 8000;
 
   function loadMermaid(){
@@ -557,7 +561,9 @@
   // Each node becomes a link to where the cite line would send it. Mermaid's own click lines
   // are off under `strict`, and the host writes none; the widget links from `nodes`.
   function drawFigure(fig){
-    var box = fig.querySelector(".rbchat-diagram-box"), d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
+    // fig.rbBox, not a query, because while the dialog holds this figure the box is not
+    // inside it: a theme change redraws into the box wherever it currently stands.
+    var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
       m.initialize(mermaidConfig(tokenReader()));
       return m.render(id, oriented(d.mermaid, (log && log.clientWidth) || window.innerWidth));
@@ -582,20 +588,77 @@
     });
   }
   function labelFigure(fig){
-    var s = strings(langNow()).diagram, open = fig.classList.contains("rbchat-diagram-open"), b = fig.querySelector(".rbchat-diagram-full");
-    fig.querySelector("figcaption span").textContent = diagramCaption(fig.rbDiagram, langNow());
-    b.textContent = open ? "×" : "⤢"; b.setAttribute("aria-label", open ? s.shut : s.expand); b.setAttribute("data-tip", open ? s.shut : s.expand);
+    var s = strings(langNow()).diagram, b = fig.querySelector(".rbchat-diagram-full");
+    var caption = diagramCaption(fig.rbDiagram, langNow());
+    fig.querySelector("figcaption span").textContent = caption;
+    // The control always reads as Expand: what it opens is a dialog now, and the × that
+    // closes it lives on the dialog, not here, so the button never toggles.
+    b.textContent = "⤢"; b.setAttribute("aria-label", s.expand); b.setAttribute("data-tip", s.expand);
     // A figure that fell back to its source carries the failure sentence too, and a language
     // switch has to reach it exactly as it reaches the caption and the control.
     var failed = fig.querySelector(".rbchat-diagram-failed");
     if (failed) failed.textContent = s.failed;
+    // The dialog holds this figure's box while it is open, so a language switch has to reach
+    // its caption and its × exactly as it reaches the figure's own.
+    if (modal && modalFig === fig) {
+      modalCap.textContent = caption;
+      // The note names the key that also closes the dialog, as the stage's own × does, so a
+      // visitor who reads it before clicking learns the shortcut too.
+      modalClose.setAttribute("aria-label", s.shut); modalClose.setAttribute("data-tip", s.shut + " · Esc");
+    }
   }
-  function toggleFigure(fig){ fig.classList.toggle("rbchat-diagram-open"); labelFigure(fig); }
+  // Built once, on the first Expand, and reused by every figure on the page after that — only
+  // one picture can be looked at full size at a time, which is all a visitor needs.
+  function ensureModal(){
+    if (modal) return modal;
+    modal = el("dialog", "rbchat-modal");
+    var head = el("div", "rbchat-modal-head");
+    // The dialog names itself by the caption it holds, since a picture's Expand is the only
+    // way in: no other text sits above the box to give it a name of its own.
+    modalCap = el("span"); modalCap.id = "rbchat-modal-cap";
+    modal.setAttribute("aria-labelledby", "rbchat-modal-cap");
+    modalClose = el("button", "rbchat-modal-close"); modalClose.type = "button"; modalClose.textContent = "×";
+    modalClose.addEventListener("click", function(){ modal.close(); });
+    head.appendChild(modalCap); head.appendChild(modalClose);
+    modalBody = el("div", "rbchat-modal-body");
+    modal.appendChild(head); modal.appendChild(modalBody);
+    // Appended to document.body: the top layer a native dialog opens into needs no z-index to
+    // sit above a panel pinned to the corner of the same page.
+    document.body.appendChild(modal);
+    // A click on the backdrop lands with the dialog itself as the event target — nothing else
+    // is there to hit — which is what tells it apart from a click on the box it holds.
+    modal.addEventListener("click", function(ev){ if (ev.target === modal) modal.close(); });
+    // One handler for every way the dialog closes — ×, Escape, backdrop click — because all
+    // three end in the native "close" event. The box goes back in front of the marker Expand
+    // left, which puts it exactly where it was whatever else the turn grew around it.
+    modal.addEventListener("close", function(){
+      var fig = modalFig;
+      if (fig && modalMark && modalMark.parentNode) {
+        modalMark.parentNode.insertBefore(fig.rbBox, modalMark);
+        modalMark.parentNode.removeChild(modalMark);
+      }
+      modalFig = null; modalMark = null;
+      if (fig) labelFigure(fig);
+    });
+    return modal;
+  }
+  function expandFigure(fig){
+    ensureModal();
+    // A comment left where the box stood is not a claim about anything the page contains, so
+    // it cannot be wrong about where to put the box back, whatever else sits around it by then.
+    modalMark = document.createComment("rbchat-diagram");
+    fig.rbBox.parentNode.insertBefore(modalMark, fig.rbBox);
+    modalBody.appendChild(fig.rbBox);
+    modalFig = fig;
+    labelFigure(fig);
+    modal.showModal();
+  }
   function figure(d){
     var fig = el("figure", "rbchat-diagram"), cap = el("figcaption"), full = el("button", "rbchat-diagram-full");
-    full.type = "button"; full.addEventListener("click", function(){ toggleFigure(fig); });
+    full.type = "button"; full.addEventListener("click", function(){ expandFigure(fig); });
     cap.appendChild(el("span")); cap.appendChild(full);
-    fig.appendChild(cap); fig.appendChild(el("div", "rbchat-diagram-box"));
+    fig.rbBox = el("div", "rbchat-diagram-box");
+    fig.appendChild(cap); fig.appendChild(fig.rbBox);
     fig.rbDiagram = d;
     figures = figures.filter(function(f){ return document.documentElement.contains(f); });
     figures.push(fig);
@@ -762,11 +825,15 @@
     panel.appendChild(grip);
     panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(fullNote); panel.appendChild(form);
     document.body.appendChild(panel);
-    // A picture opened full screen takes Escape first, and the panel stays open behind it.
+    // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
+    // this keydown, not before: while a modal dialog is still open the panel must not close
+    // behind it too. The guard asks the document rather than naming this page's own `modal`,
+    // because a modal dialog is what the family opens everywhere, and a page carrying the
+    // stage's own dialog as well needs Escape kept from the panel by that one too.
     document.addEventListener("keydown", function(e){
       if (e.key !== "Escape" || panel.hidden) return;
-      var open = panel.querySelector(".rbchat-diagram-open");
-      if (open) toggleFigure(open); else close();
+      if (document.querySelector("dialog[open]")) return;
+      close();
     });
     sizing();
     applyStoredSize();
@@ -916,6 +983,9 @@
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
           else if (name === "diagram" && data && typeof data.mermaid === "string") {
             // The last picture a message brings is the one drawn: a second replaces the first.
+            // Where the dialog holds the figure being replaced, it is closed first, or it would
+            // go on showing a box about to be torn out from under it.
+            if (modal && modalFig === fig) modal.close();
             picture = data;
             if (fig && fig.parentNode) fig.parentNode.removeChild(fig);
             fig = figure(data);
