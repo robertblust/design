@@ -81,6 +81,44 @@ test("an answer with no picture never fetches Mermaid", async () => {
   await page.close();
 });
 
+test("a linked node's name is the link color, its type line quiet and smaller, in both themes", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .nodeLabel small");
+  const read = () => page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => {
+    const small = el.querySelector("small");
+    return { color: getComputedStyle(el).color, titleSize: parseFloat(getComputedStyle(el).fontSize), smallColor: getComputedStyle(small).color, smallSize: parseFloat(getComputedStyle(small).fontSize) };
+  });
+  const dark = await read();
+  assert.equal(dark.color, "rgb(127, 163, 216)", "the node's name is --c-mid");
+  assert.equal(dark.smallColor, "rgb(138, 139, 134)", "the type line is --dim");
+  assert.ok(dark.smallSize < dark.titleSize, `the type line is smaller: ${dark.smallSize} vs ${dark.titleSize}`);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".rbchat-diagram svg a .nodeLabel")).color === "rgb(58, 109, 166)");
+  const light = await read();
+  assert.equal(light.smallColor, "rgb(95, 96, 88)", "the type line follows the light theme's dim too");
+  await page.close();
+});
+
+test("hovering or focusing a node underlines its name", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .nodeLabel");
+  const before = await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).textDecorationLine);
+  assert.equal(before, "none");
+  await page.hover(".rbchat-diagram svg a");
+  const hovered = await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).textDecorationLine);
+  assert.equal(hovered, "underline");
+  await page.close();
+});
+
+test("an edge label's text is dim and its background is off the panel's own ground", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .edgeLabel");
+  const edge = await page.$eval(".rbchat-diagram svg .edgeLabel", (el) => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
+  assert.equal(edge.color, "rgb(138, 139, 134)", "the edge label's text is --dim");
+  assert.notEqual(edge.background, "rgb(12, 14, 19)", "no longer the old ground the label sat on");
+  await page.close();
+});
+
 test("a title holding markup and arrows is drawn as its text", async () => {
   const { page } = await asked([["diagram", PICTURES.odd], ["text", { text: "Loop." }]]);
   await page.waitForSelector(".rbchat-diagram svg");
