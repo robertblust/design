@@ -115,14 +115,36 @@ test("a linked node's name is the link color, its type line quiet and smaller, i
   await page.close();
 });
 
-test("hovering or focusing a node underlines its name", async () => {
+test("hovering or focusing a node underlines its name alone, never its type line", async () => {
   const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
-  await page.waitForSelector(".rbchat-diagram svg a .nodeLabel");
-  const before = await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).textDecorationLine);
-  assert.equal(before, "none");
+  await page.waitForSelector(".rbchat-diagram svg a .rbchat-node-name");
+  const read = () => page.$eval(".rbchat-diagram svg a", (a) => ({
+    name: getComputedStyle(a.querySelector(".rbchat-node-name")).textDecorationLine,
+    label: getComputedStyle(a.querySelector(".nodeLabel")).textDecorationLine
+  }));
+  const before = await read();
+  assert.equal(before.name, "none");
+  assert.equal(before.label, "none");
   await page.hover(".rbchat-diagram svg a");
-  const hovered = await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).textDecorationLine);
-  assert.equal(hovered, "underline");
+  const hovered = await read();
+  assert.equal(hovered.name, "underline");
+  assert.equal(hovered.label, "none", "the label itself, and so the type line inside it, is not under a propagated underline");
+  await page.close();
+});
+
+test("a node's name span holds the title alone, never the type line above it", async () => {
+  const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .rbchat-node-name");
+  const text = await page.$eval(".rbchat-diagram svg a .rbchat-node-name", (el) => el.textContent);
+  assert.equal(text, "Concept A");
+  await page.close();
+});
+
+test("a class diagram's node, with no type line, gets one name span around its whole title", async () => {
+  const { page } = await asked([["diagram", PICTURES.concepts], ["text", { text: "Concepts." }]]);
+  await page.waitForSelector(".rbchat-diagram svg a .rbchat-node-name");
+  const text = await page.$eval(".rbchat-diagram svg a .rbchat-node-name", (el) => el.textContent);
+  assert.equal(text, "Billing period");
   await page.close();
 });
 
