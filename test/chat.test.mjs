@@ -31,6 +31,17 @@ test("the subset renders, and everything is escaped first", () => {
   assert.equal(md(""), "");
 });
 
+test("a name written twice, the same words bold and again in parentheses, is written once", () => {
+  assert.equal(md("verweist auf den **Master** (Master)."), "<p>verweist auf den <strong>Master</strong>.</p>");
+  assert.equal(md("Die Konzepte **Company of one** (Company of one) und **Beleg** (Evidence)."), "<p>Die Konzepte <strong>Company of one</strong> und <strong>Beleg</strong> (Evidence).</p>");
+  assert.equal(md("Shape (Shape), Spec (Spec): Plan (Plan)"), "<p>Shape, Spec: Plan</p>");
+  assert.equal(md("| MLOps (MLOps) | x |\n| --- | --- |\n| **CI/CD** (CI/CD) | y |"), "<table><thead><tr><th>MLOps</th><th>x</th></tr></thead><tbody><tr><td><strong>CI/CD</strong></td><td>y</td></tr></tbody></table>");
+  assert.equal(md("- **Plan** (Plan)"), "<ul><li><strong>Plan</strong></li></ul>");
+  // Only the same words: a rendering or another case stays, and a name not in bold folds only
+  // where a name begins, since the words before "Plan (Plan)" may be a rendering, Business Plan.
+  assert.equal(md("**Plan** (plan) and Business Plan (Plan) and **Planung** (Plan)"), "<p><strong>Plan</strong> (plan) and Business Plan (Plan) and <strong>Planung</strong> (Plan)</p>");
+});
+
 test("a table with no delimiter row is prose, and a half-typed table is prose until it closes", () => {
   assert.equal(md("| a | b |"), "<p>| a | b |</p>");
   assert.equal(md("| a | b |\n| ---"), "<p>| a | b | | ---</p>");
