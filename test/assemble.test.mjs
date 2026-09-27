@@ -43,6 +43,7 @@ const FILE_PARTS = {
     ["team", () => null],
     ["surfaces", () => null],
     ["index", () => null],
+    ["home", () => null],
   ],
   "page.js": [
     ["language", () => "page"],
@@ -168,7 +169,7 @@ test("every assembled file opens with a comment naming each block it holds and t
   const versions = JSON.parse(fs.readFileSync(path.join(PKG, "versions.json"), "utf8"));
   const expected = {
     "tokens.css": ["tokens"],
-    "page.css": ["reset", "link", "header", "title", "lines", "footer", "principles", "team", "surfaces", "index"],
+    "page.css": ["reset", "link", "header", "title", "lines", "footer", "principles", "team", "surfaces", "index", "home"],
     "page.js": ["lang", "theme", "navFit"],
     "deck.css": ["link", "lockup", "transport"],
     "deck.js": ["theme", "runtime", "fit"],

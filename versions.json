@@ -20,5 +20,6 @@
   "modelCard": "v2",
   "lines": "v2",
   "index": "v2",
-  "link": "v1"
+  "link": "v1",
+  "home": "v1"
 }
