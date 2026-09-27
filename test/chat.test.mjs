@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, oriented } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -480,6 +480,45 @@ test("the new-conversation control is an arrow come back round with a note, not 
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
   assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after\{content:attr\(data-tip\)/, "the note is not drawn");
   assert.match(css, /\.rbchat-new:focus-visible::after/, "the note does not show on keyboard focus");
+});
+
+test("Mermaid is configured strict, from the tokens, and never from an empty one", () => {
+  const tokens = { "--ground": "#FAF9F5", "--raise": "#F2F0EA", "--ink": "#16181D", "--dim": "#5F6058", "--c-mid": "#3A6DA6", "--press": "#E7ECF4", font: '"Instrument Sans", sans-serif' };
+  const c = mermaidConfig((n) => tokens[n]);
+  assert.deepEqual([c.startOnLoad, c.securityLevel, c.theme, c.look], [false, "strict", "base", "classic"]);
+  assert.deepEqual([c.flowchart.useMaxWidth, c.class.useMaxWidth, c.class.hideEmptyMembersBox], [false, false, true]);
+  assert.deepEqual([c.themeVariables.primaryColor, c.themeVariables.primaryTextColor, c.themeVariables.primaryBorderColor, c.themeVariables.lineColor, c.themeVariables.background], ["#F2F0EA", "#16181D", "#3A6DA6", "#5F6058", "#FAF9F5"]);
+  assert.equal(c.fontFamily, '"Instrument Sans", sans-serif');
+  assert.ok(c.dompurifyConfig.FORBID_TAGS.includes("img"), "an <img> label would be a request to another host");
+  const bare = mermaidConfig(() => "  ");
+  assert.equal(bare.themeVariables.primaryColor, "#171A21", "an undefined token falls back to the dark theme's value");
+  assert.match(bare.fontFamily, /sans-serif/);
+});
+
+test("a node is found by the id Mermaid gives it, in either kind of diagram, and a name that is no node finds nothing", () => {
+  const svg = { querySelectorAll: () => [{ id: "rbchat-diagram-3-flowchart-n1-1" }, { id: "rbchat-diagram-3-flowchart-n10-10" }, { id: "rbchat-diagram-4-classId-n2-7" }] };
+  assert.equal(nodeElement(svg, "n1").id, "rbchat-diagram-3-flowchart-n1-1");
+  assert.equal(nodeElement(svg, "n10").id, "rbchat-diagram-3-flowchart-n10-10");
+  assert.equal(nodeElement(svg, "n2").id, "rbchat-diagram-4-classId-n2-7");
+  assert.equal(nodeElement(svg, "n3"), null);
+  assert.equal(nodeElement(svg, "n1.*"), null, "a name is a node's name, never a pattern");
+  assert.equal(nodeElement(null, "n1"), null);
+});
+
+test("a flow runs top to bottom in a panel narrower than a phone's, and nothing else changes", () => {
+  const flow = 'flowchart LR\n  n0["A"]\n  n0 --> n1';
+  assert.equal(oriented(flow, 390), 'flowchart TB\n  n0["A"]\n  n0 --> n1');
+  assert.equal(oriented(flow, 760), flow);
+  assert.equal(oriented(flow, 0), flow, "an unmeasured panel keeps the host's direction");
+  assert.equal(oriented("classDiagram\n  class n0[\"A\"]", 390), "classDiagram\n  class n0[\"A\"]");
+});
+
+test("the caption names the shape in the page's language, then what it was drawn of", () => {
+  assert.equal(diagramCaption({ shape: "process", title: "Delivery" }, "en"), "Process · Delivery");
+  assert.equal(diagramCaption({ shape: "concepts", title: null }, "en"), "Concepts");
+  assert.equal(diagramCaption({ shape: "neighborhood", title: "Claim" }, "de"), "Verbindungen · Claim");
+  assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "neighborhood", "process", "shut"]);
 });
 
 test("any element carrying data-chat-open opens the panel, and the header says so", () => {

@@ -1,0 +1,39 @@
+{
+ "process": {
+  "shape": "process",
+  "title": "Delivery",
+  "mermaid": "flowchart LR\n  n0[\"<b>Specify</b><br/>Backend Engineer\"]\n  n1[\"<b>Build</b><br/>Backend Engineer, Reviewer\"]\n  n2[\"<b>Release</b><br/>Reviewer\"]\n  n0 -->|\"Reviewer\"| n1\n  n1 -->|\"Reviewer\"| n2",
+  "nodes": [
+   { "node": "n0", "id": "processes/delivery/phases/specify", "title": "Specify", "type": "phase" },
+   { "node": "n1", "id": "processes/delivery/phases/build", "title": "Build", "type": "phase" },
+   { "node": "n2", "id": "processes/delivery/phases/release", "title": "Release", "type": "phase" }
+  ],
+  "omitted": 0
+ },
+ "odd": {
+  "shape": "neighborhood",
+  "title": "Loop",
+  "mermaid": "flowchart LR\n  n0[\"A #quot;quoted#quot; #lt;b#gt;bold#lt;/b#gt; #35;1 --#gt; [x] {y} (z) | pipe ; semi & amp<br/>Exec #lt;A#gt;\"]\n  n1[\"B\"]\n  n0 -->|\"gate #quot;x#quot; #lt;y#gt; #35;z | w\"| n1\n  more[\"+3: Evidence.Skill\"]\n  n0 -.- more",
+  "nodes": [
+   { "node": "n0", "id": "concepts/odd", "title": "odd", "type": "concept" },
+   { "node": "n1", "id": "concepts/b", "title": "B", "type": "concept" }
+  ],
+  "omitted": 3
+ },
+ "concepts": {
+  "shape": "concepts",
+  "title": null,
+  "mermaid": "classDiagram\n  class n0[\"Billing period\"]\n  class n1[\"Contract\"]\n  class n2[\"Credit note\"]\n  class n3[\"Customer\"]\n  class n4[\"Invoice\"]\n  class n5[\"Invoice line\"]\n  class n6[\"Pricing rule\"]\n  class n7[\"Usage record\"]\n  n1 --> n3 : one, signing customer\n  n1 --> n3 : maybe one, paying customer\n  n1 --> n6 : one to many, terms\n  n2 --> n4 : one, corrected invoice\n  n2 --> n5 : one to many, lines\n  n4 --> n0 : one\n  n4 --> n3 : one, billed customer\n  n4 --> n5 : one to many, lines\n  n5 --> n6 : one, rule\n  n5 --> n7 : many, usage read\n  n7 --> n1 : one",
+  "nodes": [
+   { "node": "n0", "id": "concepts/billing-period", "title": "Billing period", "type": "concept" },
+   { "node": "n1", "id": "concepts/contract", "title": "Contract", "type": "concept" },
+   { "node": "n2", "id": "concepts/credit-note", "title": "Credit note", "type": "concept" },
+   { "node": "n3", "id": "concepts/customer", "title": "Customer", "type": "concept" },
+   { "node": "n4", "id": "concepts/invoice", "title": "Invoice", "type": "concept" },
+   { "node": "n5", "id": "concepts/invoice-line", "title": "Invoice line", "type": "concept" },
+   { "node": "n6", "id": "concepts/pricing-rule", "title": "Pricing rule", "type": "concept" },
+   { "node": "n7", "id": "concepts/usage-record", "title": "Usage record", "type": "concept" }
+  ],
+  "omitted": 0
+ }
+}

@@ -23,9 +23,9 @@ test("names exactly the groups this release ships", () => {
   assert.deepEqual([...GROUP_NAMES].sort(), ["chat", "files", "fonts", "stage"]);
 });
 
-test("the chat group carries the widget's script and stylesheet, and the Octicon's license", () => {
+test("the chat group carries the widget's script and stylesheet, the Octicon's license, and Mermaid with its license", () => {
   const dests = GROUPS.chat.map(([, to]) => to).sort();
-  assert.deepEqual(dests, ["chat.css", "chat.js", "octicons.LICENSE.txt"]);
+  assert.deepEqual(dests, ["chat.css", "chat.js", "mermaid.LICENSE.txt", "mermaid.min.js", "octicons.LICENSE.txt"]);
 });
 
 test("every listed source file exists in the package", () => {
@@ -88,6 +88,7 @@ test("every third-party file travels in a group beside its license", () => {
     "fonts/PlexMono-600.woff2": "fonts/PlexMono.LICENSE.txt",
     "d3.v7.min.js": "d3.LICENSE.txt",
     "chat.js": "octicons.LICENSE.txt",
+    "mermaid.min.js": "mermaid.LICENSE.txt",
   };
   for (const [name, pairs] of Object.entries(GROUPS)) {
     if (name === "files") continue;

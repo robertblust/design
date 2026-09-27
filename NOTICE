@@ -14,6 +14,12 @@ copy, and a site that takes a group is a copy.
   Copyright 2010-2023 Mike Bostock
   License: ISC, in assets/d3.LICENSE.txt
 
+- assets/mermaid.min.js, unmodified
+  Upstream: Mermaid 12.0.0, dist/mermaid.min.js — https://mermaid.js.org
+  Copyright (c) 2014 - 2022 Knut Sveidqvist
+  License: MIT, in assets/mermaid.LICENSE.txt. The bundle carries the notices of the packages
+  it includes inline, under "Bundled license information".
+
 - assets/fonts/Bricolage-var.woff2, subset to the characters the sites use
   Upstream: Bricolage Grotesque — https://github.com/ateliertriay/bricolage
   Copyright 2022 The Bricolage Grotesque Project Authors
