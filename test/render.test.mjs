@@ -215,6 +215,11 @@ test("each process's picture sits under its tagline and before its head rail, in
   });
 });
 
+test("a site whose model is drawn elsewhere names that page, and the picture links there", () => {
+  const diagram = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [] });
+  assert.ok(regionOf(renderTeamInto(TEAM_FIXTURE, { diagram, model: "../" })).includes('<figure class="rbchat-diagram" data-diagram data-model="../">'));
+});
+
 test("no title can close the script a picture's JSON sits in", () => {
   const diagram = () => ({ title: "</script><b>x", mermaid: "flowchart LR", nodes: [] });
   const html = regionOf(renderTeamInto(TEAM_FIXTURE, { diagram }));
