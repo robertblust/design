@@ -36,6 +36,7 @@
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
 //   rbChat.unasked(list, messages)     the titles no visitor message in the conversation has asked
 //   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them
+//   rbChat.follow(cites, items, messages, lang, random)  the three after an answer about one type, or null
 //   rbChat.mermaidConfig(read)         Mermaid's configuration, from the tokens `read` gives
 //   rbChat.nodeElement(svg, node)      the group Mermaid drew a node as, or null
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
@@ -44,7 +45,9 @@
 // An empty conversation, once the panel is shown, may offer three questions as a way in, three
 // of the site's own model's entities of type `question`, picked at random each time the panel
 // opens on nothing, and every finished answer offers three more the conversation has not asked
-// yet, so a visitor who liked the first answer has somewhere to go next. `data-questions` names a same-origin path to that model, the file `card.js`
+// yet, so a visitor who liked the first answer has somewhere to go next. Where that answer cited
+// entities of one type only, the three follow it instead: the type's schema, the first cited
+// entity's neighbors, and a question of the model's that rests on that entity or its type. `data-questions` names a same-origin path to that model, the file `card.js`
 // and `stage.js` already read the same way, asked once and cached for the page's life; a tag
 // without it offers none and asks nothing. Nothing here ever reaches the chat host — the one
 // runtime call this family's pages make to a service of their own is still the POST on send,
@@ -63,6 +66,7 @@
       notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
       questions: "Questions to start with", next: "Questions to ask next",
+      follow: { schema: "Show me the schema of {type}", neighbors: "Show me the neighbors of {title}" },
       cut: "… the answer stopped at its length limit.",
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
@@ -90,6 +94,7 @@
       notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       questions: "Fragen für den Einstieg", next: "Weitere Fragen",
+      follow: { schema: "Zeig mir das Schema von {type}", neighbors: "Zeig mir die Nachbarn von {title}" },
       cut: "… die Antwort endete an ihrer Längengrenze.",
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
@@ -429,6 +434,33 @@
     return chosen.concat(pick(rest, Math.max(0, (Number(n) || 0) - chosen.length), rnd));
   }
 
+  // The three after an answer that cited entities of one type only, T, the first of them E: T's
+  // schema and E's neighbors, which the chat draws as pictures when asked in these words, then a
+  // question of the model's that rests on E, else one that rests on anything of type T, else
+  // any. The type is written as its own name in both languages, as the chat writes it. Each is
+  // offered only where no visitor message asked it and it fits the box; a chip left out that
+  // way is filled from spread() over the questions still open, so three show wherever three
+  // exist. An answer with no cite, or cites of more than one type, follows nothing: null, and
+  // the caller offers spread() as before. `items` are the model's questions, each with the ids
+  // and types of what it rests on.
+  function follow(cites, items, messages, lang, random){
+    var rnd = typeof random === "function" ? random : Math.random;
+    var cs = (cites || []).filter(function(c){ return c && typeof c.id === "string" && typeof c.type === "string" && c.type; });
+    if (!cs.length || cs.some(function(c){ return c.type !== cs[0].type; })) return null;
+    var type = cs[0].type, e = cs[0], s = strings(lang).follow;
+    var own = [s.schema.replace("{type}", type), s.neighbors.replace("{title}", e.title || e.id)];
+    var chosen = unasked(own, messages).filter(function(t){ return t.length <= LIMIT; });
+    var titles = (items || []).filter(function(q){ return q && typeof q.title === "string"; }).map(function(q){ return q.title; });
+    var open = unasked(titles, messages);
+    var rest = (items || []).filter(function(q){ return q && open.indexOf(q.title) !== -1 && chosen.indexOf(q.title) === -1; });
+    var on = function(test){ return rest.filter(function(q){ return (q.rests || []).some(test); }).map(function(q){ return q.title; }); };
+    var third = pick(on(function(r){ return r.id === e.id; }), 1, rnd);
+    if (!third.length) third = pick(on(function(r){ return r.type === type; }), 1, rnd);
+    chosen = chosen.concat(third);
+    rest = rest.filter(function(q){ return chosen.indexOf(q.title) === -1; });
+    return chosen.concat(spread(rest, Math.max(0, 3 - chosen.length), rnd));
+  }
+
   // Where an open conversation lives while the visitor reads on. A page is a document, so
   // following a link throws the panel and everything in it away, and a visitor who asked a
   // question and clicked the answer's link lost the conversation. `sessionStorage` is the tab:
@@ -547,7 +579,7 @@
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -736,9 +768,15 @@
           return r.json().then(function(j){
             clearTimeout(timer);
             var entities = j && Array.isArray(j.entities) ? j.entities : [];
+            var types = {}, rests = {};
+            entities.forEach(function(e){ if (e && typeof e.id === "string") types[e.id] = e.type; });
+            (j && Array.isArray(j.edges) ? j.edges : []).forEach(function(g){
+              if (!g || types[g.from] !== "question" || typeof g.via !== "string" || g.via.indexOf("Rests on.") !== 0) return;
+              (rests[g.from] = rests[g.from] || []).push({ id: g.to, type: types[g.to] || null });
+            });
             return entities
               .filter(function(e){ return e && e.type === "question" && typeof e.name === "string" && e.name.length > 0; })
-              .map(function(e){ return { id: typeof e.id === "string" ? e.id : null, title: e.name, kind: e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null }; })
+              .map(function(e){ return { id: typeof e.id === "string" ? e.id : null, title: e.name, kind: e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null, rests: rests[e.id] || [] }; })
               .filter(function(q){ return q.title.length <= LIMIT; });
           });
         })
@@ -766,8 +804,10 @@
   // answer on its way, the last message an answer or none at all, the conversation short of its
   // limit — and checked again once the fetch lands, since a visitor may have typed and sent by
   // then. A title the conversation already asked is left out, so the three after an answer are
-  // never the question it answered. A second call while chips are already up does nothing — the
-  // race is two opens before the one fetch resolves, not two different sets.
+  // never the question it answered. After an answer about one type the three follow it, as
+  // follow() picks them; a site whose model offers no question offers no chip of either sort.
+  // A second call while chips are already up does nothing — the race is two opens before the
+  // one fetch resolves, not two different sets.
   function canOffer(){
     return !busy && messages.length < TURNS && (!messages.length || messages[messages.length - 1].role === "assistant");
   }
@@ -775,8 +815,10 @@
     if (!canOffer()) return;
     questions(function(list){
       if (!canOffer() || qBox) return;
+      if (!list.length) return;
       var open = unasked(list.map(function(q){ return q.title; }), messages);
-      var picked = spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
+      var last = turns[turns.length - 1];
+      var picked = (last && last.role === "assistant" && follow(last.cites, list, messages, langNow())) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
       qNext = messages.length > 0;
       qBox = el("div", "rbchat-questions");

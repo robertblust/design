@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -364,6 +364,69 @@ test("the widget keeps each question's kind from the model file and offers throu
   assert.match(offer, /spread\(/, "the chips are not picked across kinds");
 });
 
+// follow() is what makes the three after an answer about one type follow that answer: its
+// type's schema, its first entity's neighbors, and a question resting on that entity or type.
+const R = (title, kind, ...rests) => ({ title, kind, rests: rests.map(([id, type]) => ({ id, type })) });
+const FOLLOW_QS = [
+  R("On CG?", "A", ["experiences/cg", "experience"]),
+  R("On another experience?", "B", ["experiences/other", "experience"]),
+  R("On a skill?", "C", ["skills/java", "skill"]),
+  R("On nothing?", "D")
+];
+const CG = { id: "experiences/cg", title: "CompanyGraph", type: "experience" };
+
+test("follow offers the type's schema, the entity's neighbors and a question resting on the entity", () => {
+  assert.deepEqual(follow([CG], FOLLOW_QS, [], "en"), ["Show me the schema of experience", "Show me the neighbors of CompanyGraph", "On CG?"]);
+});
+
+test("follow writes the first two in German with the type under its own name", () => {
+  assert.deepEqual(follow([CG], FOLLOW_QS, [], "de").slice(0, 2), ["Zeig mir das Schema von experience", "Zeig mir die Nachbarn von CompanyGraph"]);
+});
+
+test("follow takes a question resting on the type when none rests on the entity, and any question when none rests on the type", () => {
+  const noCg = FOLLOW_QS.slice(1);
+  for (let i = 0; i < 50; i++) assert.equal(follow([CG], noCg, [], "en")[2], "On another experience?");
+  const got = follow([CG], [R("On a skill?", "C", ["skills/java", "skill"])], [], "en");
+  assert.deepEqual(got, ["Show me the schema of experience", "Show me the neighbors of CompanyGraph", "On a skill?"]);
+});
+
+test("follow names the first cited entity when several of one type are cited", () => {
+  const other = { id: "experiences/other", title: "Other", type: "experience" };
+  assert.deepEqual(follow([other, CG], FOLLOW_QS, [], "en").slice(1), ["Show me the neighbors of Other", "On another experience?"]);
+});
+
+test("follow is null with no cite, or with cites of more than one type", () => {
+  assert.equal(follow([], FOLLOW_QS, [], "en"), null);
+  assert.equal(follow(undefined, FOLLOW_QS, [], "en"), null);
+  assert.equal(follow([CG, { id: "skills/java", title: "Java", type: "skill" }], FOLLOW_QS, [], "en"), null);
+  assert.equal(follow([{ id: "x", title: "X" }], FOLLOW_QS, [], "en"), null, "a cite without a type follows nothing");
+});
+
+test("follow leaves out what the conversation asked and fills from the questions still open", () => {
+  const messages = [{ role: "user", content: "Show me the schema of experience" }, { role: "assistant", content: "…" }, { role: "user", content: " On CG? " }];
+  const got = follow([CG], FOLLOW_QS, messages, "en");
+  assert.equal(got.length, 3);
+  assert.equal(got[0], "Show me the neighbors of CompanyGraph");
+  assert.equal(got[1], "On another experience?", "the type's question steps in for the entity's asked one");
+  assert.ok(!got.includes("On CG?") && !got.includes("Show me the schema of experience"));
+  assert.equal(new Set(got).size, 3);
+});
+
+test("follow leaves out a neighbors chip too long for the box", () => {
+  const long = { id: "x", title: "x".repeat(1000), type: "experience" };
+  const got = follow([long], FOLLOW_QS, [], "en");
+  assert.ok(got.every((t) => t.length <= 1000));
+  assert.equal(got.length, 3);
+});
+
+test("the widget keeps what each question rests on and offers follow() after an answer about one type", () => {
+  const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
+  assert.match(fn, /g\.via\.indexOf\("Rests on\."\) !== 0/, "a question's rests-on edges are not read");
+  const offer = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
+  assert.match(offer, /follow\(last\.cites, list, messages, langNow\(\)\)/, "the chips do not follow the last answer");
+  assert.match(offer, /!list\.length\) return;/, "a site with no question still offers chips");
+});
+
 test("an answer's question titles are linked from the chips' own list, and only once the panel is shown", () => {
   const fn = src.slice(src.indexOf("function linkQuestions(body)"), src.indexOf("function canOffer()"));
   assert.match(fn, /if \(!QUESTIONS\) return;/, "a tag without data-questions still reads something");
@@ -392,7 +455,7 @@ test("a title is a question entity's name, filtered to a non-empty string no lon
   assert.match(fn, /Array\.isArray\(j\.entities\)/, "a body without an entities array is not read as no questions");
   assert.match(fn, /e\.type === "question"/, "a title is not drawn from an entity of type question");
   assert.match(fn, /typeof e\.name === "string" && e\.name\.length > 0/, "an empty or non-string name is not filtered out");
-  assert.match(fn, /map\(function\(e\)\{ return \{ id: typeof e\.id === "string" \? e\.id : null, title: e\.name, kind: e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null \}; \}\)/, "the title is not the entity's own name, kept with its id and its kind");
+  assert.match(fn, /map\(function\(e\)\{ return \{ id: typeof e\.id === "string" \? e\.id : null, title: e\.name, kind: e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null, rests: rests\[e\.id\] \|\| \[\] \}; \}\)/, "the title is not the entity's own name, kept with its id, its kind and what it rests on");
   assert.match(fn, /filter\(function\(q\)\{ return q\.title\.length <= LIMIT; \}\)/, "a title longer than the send limit is not dropped");
 });
 
