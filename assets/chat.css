@@ -108,8 +108,8 @@
   .rbchat-grip{display:none}
 }
 /* A picture the host drew, under the answer and above the cite line: at its own size in a box
-   that scrolls, captioned in the page's language, each node a link. Opened full screen it
-   covers the page and the panel stays behind it. */
+   that scrolls, captioned in the page's language, each node a link. Expand moves the box into
+   the dialog below, the stage's own pattern, and the panel stays open behind it. */
 .rbchat-diagram{margin:.6rem 0 0;padding:.5rem 0 0;border-top:1px solid var(--rule)}
 .rbchat-diagram figcaption{display:flex;align-items:center;gap:.5rem;margin:0 0 .4rem;font-size:.8rem;color:var(--dim)}
 .rbchat-diagram figcaption span{margin-right:auto}
@@ -128,6 +128,31 @@
 .rbchat-diagram-box a:hover :is(rect,polygon,path),.rbchat-diagram-box a:focus-visible :is(rect,polygon,path){stroke-width:2px}
 .rbchat-diagram-failed{margin:0;font-size:.85rem}
 .rbchat-diagram-box pre{margin:.3rem 0 0;white-space:pre-wrap;font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--ink)}
-.rbchat-diagram-open{position:fixed;inset:0;z-index:70;margin:0;padding:1rem max(1rem,env(safe-area-inset-right)) 1rem max(1rem,env(safe-area-inset-left));
-  background:var(--ground);border:0;display:flex;flex-direction:column}
-.rbchat-diagram-open .rbchat-diagram-box{flex:1}
+/* The dialog Expand opens: a dimmed backdrop, a bordered box, a × in the corner, closed by
+   Escape or a backdrop click, mirroring assets/stage.css's dialog.modal. Its own copy because
+   a chat page loads no stage.css. */
+dialog.rbchat-modal{width:min(1500px,96vw); height:min(92vh,1000px);
+  max-width:96vw; max-height:92vh; padding:1rem 1.2rem 1.2rem;
+  margin:auto; border:1.5px solid var(--c-mid); border-radius:12px;
+  background:var(--raise); color:var(--ink); flex-direction:column}
+dialog.rbchat-modal[open]{display:flex}
+/* The dialog holds focus itself once opened, so that no control is lit before a visitor has
+   touched anything; it is a container, and a container draws no ring. */
+dialog.rbchat-modal:focus, dialog.rbchat-modal:focus-visible{outline:none}
+dialog.rbchat-modal::backdrop{background:rgba(0,0,0,.6)}
+@keyframes rbchatModalIn{ from{opacity:0} to{opacity:1} }
+dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
+@media (prefers-reduced-motion: reduce){
+  dialog.rbchat-modal[open]{animation:none}
+}
+.rbchat-modal-head{flex:0 0 auto; display:flex; align-items:center; padding-right:2.4rem;
+  font-size:.8rem; color:var(--dim)}
+.rbchat-modal-close{position:absolute; top:.6rem; right:.6rem; width:2.2rem; height:2.2rem;
+  display:flex; align-items:center; justify-content:center;
+  font:inherit; font-size:1.3rem; line-height:1; background:none; border:0;
+  border-radius:6px; color:var(--dim); cursor:pointer}
+.rbchat-modal-close:hover, .rbchat-modal-close:focus-visible{color:var(--c-mid)}
+/* The box takes whatever height the head leaves and scrolls both ways, the same rule
+   .rbchat-diagram-box carries on the page. */
+.rbchat-modal-body{flex:1 1 auto; min-height:0; margin-top:.8rem}
+.rbchat-modal-body .rbchat-diagram-box{height:100%}
