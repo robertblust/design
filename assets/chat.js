@@ -30,6 +30,10 @@
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
 //   rbChat.unasked(list, messages)     the titles no visitor message in the conversation has asked
 //   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them
+//   rbChat.mermaidConfig(read)         Mermaid's configuration, from the tokens `read` gives
+//   rbChat.nodeElement(svg, node)      the group Mermaid drew a node as, or null
+//   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
+//   rbChat.oriented(source, width)     a flow turned top to bottom in a panel narrower than a phone's
 //
 // An empty conversation, once the panel is shown, may offer three questions as a way in, three
 // of the site's own model's entities of type `question`, picked at random each time the panel
@@ -57,6 +61,7 @@
       full: "This conversation has reached twenty messages.", fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -83,6 +88,7 @@
       full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -452,7 +458,53 @@
     } catch (e) {}
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread };
+  // ─── The picture ──────────────────────────────────────────────────────────────────────────
+  // A diagram the host drew arrives whole, as Mermaid source with each node named by the entity
+  // it is, and is drawn under the answer by Mermaid, vendored beside this file. The colors are
+  // the tokens', read when the picture is drawn, so it follows the theme; a token a page does
+  // not define falls back to the dark theme's value, since Mermaid derives its shades from
+  // real colors and an empty one would stop the drawing.
+  var DARK = { "--ground": "#0C0E13", "--raise": "#171A21", "--ink": "#EFEDE8", "--dim": "#8A8B86", "--c-mid": "#7FA3D8", "--press": "#1b2231" };
+  function mermaidConfig(read){
+    function v(name){ var x = String(read(name) || "").trim(); return x || DARK[name]; }
+    var font = String(read("font") || "").trim() || "ui-sans-serif, system-ui, sans-serif";
+    return {
+      // The classic look is flat, as the family draws: the default draws shadows and gradients.
+      startOnLoad: false, securityLevel: "strict", theme: "base", look: "classic", fontFamily: font,
+      // At its own size in a box that scrolls: fitted to a bubble, a wide picture's words shrink
+      // below reading. A concept carries no attributes or methods, so its class has no empty bars.
+      flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
+      themeVariables: {
+        fontFamily: font, fontSize: "13px", background: v("--ground"),
+        primaryColor: v("--raise"), mainBkg: v("--raise"), secondaryColor: v("--press"), tertiaryColor: v("--ground"),
+        primaryTextColor: v("--ink"), textColor: v("--ink"), nodeTextColor: v("--ink"), classText: v("--ink"),
+        // A node is a link, and every link in the family is --c-mid.
+        primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"), edgeLabelBackground: v("--ground")
+      }
+    };
+  }
+  // Where Mermaid put a node in its SVG: a group whose id ends in the node's name and a number,
+  // after `classId` in a class diagram and `flowchart` in a flowchart. The one place that knows
+  // it, so a Mermaid release that names them otherwise is fixed here and nowhere else.
+  function nodeElement(svg, node){
+    if (!svg || !/^n\d+$/.test(String(node))) return null;
+    var re = new RegExp("-(?:classId|flowchart)-" + node + "-\\d+$"), all = svg.querySelectorAll("g[id]");
+    for (var i = 0; i < all.length; i++) if (re.test(all[i].id)) return all[i];
+    return null;
+  }
+  // A flow drawn left to right is wider than a phone: in a narrow panel it runs top to bottom.
+  // Only the direction changes; every node and arrow is the host's.
+  var NARROW = 560;
+  function oriented(source, width){
+    return width && width < NARROW ? String(source).replace(/^flowchart LR\b/, "flowchart TB") : source;
+  }
+  // The caption: the shape in the page's language, then what the host drew it of.
+  function diagramCaption(d, lang){
+    var name = strings(lang).diagram[d && d.shape] || "";
+    return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
+  }
+
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, oriented: oriented };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
