@@ -113,7 +113,7 @@ test("hovering or focusing a node underlines its name", async () => {
 test("an edge label's text is dim and its background is off the panel's own ground", async () => {
   const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
   await page.waitForSelector(".rbchat-diagram svg .edgeLabel");
-  const edge = await page.$eval(".rbchat-diagram svg .edgeLabel", (el) => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
+  const edge = await page.$eval(".rbchat-diagram svg span.edgeLabel", (el) => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
   assert.equal(edge.color, "rgb(138, 139, 134)", "the edge label's text is --dim");
   assert.notEqual(edge.background, "rgb(12, 14, 19)", "no longer the old ground the label sat on");
   await page.close();
@@ -146,8 +146,8 @@ test("a caption and its control follow the page's language", async () => {
 });
 
 test("Expand opens a dialog modal holding the picture, its node links intact", async () => {
-  const p = PICTURES.process;
-  const { page } = await asked([["diagram", p], ["text", { text: "Delivery." }]]);
+  const p = PICTURES.typed;
+  const { page } = await asked([["diagram", p], ["text", { text: "Neighborhood." }]]);
   await page.waitForSelector(".rbchat-diagram svg");
   await page.click(".rbchat-diagram-full");
   await page.waitForSelector("dialog.rbchat-modal[open] svg");
@@ -155,6 +155,9 @@ test("Expand opens a dialog modal holding the picture, its node links intact", a
     const href = await page.$eval(`dialog.rbchat-modal svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
     assert.equal(href, `/model/?stage=expanded#${n.id}`);
   }
+  const label = await page.$eval("dialog.rbchat-modal svg a .nodeLabel", (el) => ({ color: getComputedStyle(el).color, smallColor: getComputedStyle(el.querySelector("small")).color }));
+  assert.equal(label.color, "rgb(127, 163, 216)", "the node's name is still --c-mid in the moved box");
+  assert.equal(label.smallColor, "rgb(138, 139, 134)", "its type line is still --dim in the moved box");
   await page.close();
 });
 
