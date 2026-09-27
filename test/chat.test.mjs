@@ -489,6 +489,7 @@ test("Mermaid is configured strict, from the tokens, and never from an empty one
   assert.deepEqual([c.flowchart.useMaxWidth, c.class.useMaxWidth, c.class.hideEmptyMembersBox], [false, false, true]);
   assert.deepEqual([c.themeVariables.primaryColor, c.themeVariables.primaryTextColor, c.themeVariables.primaryBorderColor, c.themeVariables.lineColor, c.themeVariables.background], ["#F2F0EA", "#16181D", "#3A6DA6", "#5F6058", "#FAF9F5"]);
   assert.equal(c.fontFamily, '"Instrument Sans", sans-serif');
+  assert.ok(c.dompurifyConfig.FORBID_TAGS.includes("img"), "an <img> label would be a request to another host");
   const bare = mermaidConfig(() => "  ");
   assert.equal(bare.themeVariables.primaryColor, "#171A21", "an undefined token falls back to the dark theme's value");
   assert.match(bare.fontFamily, /sans-serif/);

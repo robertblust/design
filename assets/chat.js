@@ -477,6 +477,10 @@
       // At its own size in a box that scrolls: fitted to a bubble, a wide picture's words shrink
       // below reading. A concept carries no attributes or methods, so its class has no empty bars.
       flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
+      // `strict` alone still lets DOMPurify pass an `<img src>` through a label; a label writes
+      // only `b` and `br`, so an image is never a label and would be a request to another host,
+      // which "no request leaves the page's origin" promises never happens.
+      dompurifyConfig: { FORBID_TAGS: ["img"] },
       themeVariables: {
         fontFamily: font, fontSize: "13px", background: v("--ground"),
         primaryColor: v("--raise"), mainBkg: v("--raise"), secondaryColor: v("--press"), tertiaryColor: v("--ground"),
@@ -554,13 +558,14 @@
     var box = fig.querySelector(".rbchat-diagram-box"), d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
       m.initialize(mermaidConfig(tokenReader()));
-      return m.render(id, oriented(d.mermaid, log ? log.clientWidth : window.innerWidth));
+      return m.render(id, oriented(d.mermaid, (log && log.clientWidth) || window.innerWidth));
     }).then(function(out){
       box.innerHTML = out.svg;
       var svg = box.querySelector("svg");
-      (d.nodes || []).forEach(function(n){
+      (Array.isArray(d.nodes) ? d.nodes : []).forEach(function(n){
+        if (!n || !n.id) return;
         var g = nodeElement(svg, n.node);
-        if (!g || !n.id) return;
+        if (!g) return;
         var a = document.createElementNS("http://www.w3.org/2000/svg", "a");
         a.setAttribute("href", link(MODEL, n.id));
         a.setAttribute("aria-label", n.title || n.id);
@@ -578,6 +583,10 @@
     var s = strings(langNow()).diagram, open = fig.classList.contains("rbchat-diagram-open"), b = fig.querySelector(".rbchat-diagram-full");
     fig.querySelector("figcaption span").textContent = diagramCaption(fig.rbDiagram, langNow());
     b.textContent = open ? "×" : "⤢"; b.setAttribute("aria-label", open ? s.shut : s.expand); b.setAttribute("data-tip", open ? s.shut : s.expand);
+    // A figure that fell back to its source carries the failure sentence too, and a language
+    // switch has to reach it exactly as it reaches the caption and the control.
+    var failed = fig.querySelector(".rbchat-diagram-failed");
+    if (failed) failed.textContent = s.failed;
   }
   function toggleFigure(fig){ fig.classList.toggle("rbchat-diagram-open"); labelFigure(fig); }
   function figure(d){
@@ -939,12 +948,15 @@
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
       body.innerHTML = md(t.content); ans.appendChild(body);
       var cites = t.cites || [];
+      // The same gate send() applies to a picture arriving live: a stored turn from before this
+      // gate existed, or one a bug wrote otherwise, keeps no picture rather than throwing.
+      var diagram = t.diagram && typeof t.diagram.mermaid === "string" ? t.diagram : null;
       nameLinks(body, (t.names || []).concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
-      if (t.diagram) ans.appendChild(figure(t.diagram));
+      if (diagram) ans.appendChild(figure(diagram));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: t.diagram || null });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
     });
     // A conversation read back at its length is as full as one that reached it here.
     if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }

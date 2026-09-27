@@ -132,3 +132,40 @@ test("where Mermaid cannot be fetched, the source stands in with a sentence", as
   assert.match(await page.textContent(".rbchat-diagram-failed"), /could not be drawn/);
   await page.close();
 });
+
+// Spec §5's other failure case: Mermaid loads but the source it is given does not render. The
+// same fallback runs, and drawFigure's catch cleans up the leftover element Mermaid leaves in
+// the body outside the box — the id it was asked to render into, and that id with a leading
+// `d`. Without that cleanup line the leftover stands loose in the body: this test fails if the
+// cleanup line is removed (verified by hand, see the report).
+const MALFORMED = { shape: "process", title: "Broken", mermaid: "flowchart LR\n  n0[[[ -->", nodes: [{ node: "n0", id: "concepts/broken", title: "Broken", type: "concept" }], omitted: 0 };
+
+test("a source Mermaid cannot render falls back to it, with no leftover element in the body", async () => {
+  const { page } = await asked([["diagram", MALFORMED], ["text", { text: "Broken." }]]);
+  await page.waitForSelector(".rbchat-diagram-failed");
+  assert.equal(await page.textContent(".rbchat-diagram pre"), MALFORMED.mermaid);
+  const leftover = await page.$$eval("body > [id^='drbchat-diagram-'], body > [id^='rbchat-diagram-']", (els) => els.length);
+  assert.equal(leftover, 0, "Mermaid's leftover error graphic was not cleaned up");
+  await page.close();
+});
+
+test("the failure sentence follows the page's language too", async () => {
+  const { page } = await asked([["diagram", MALFORMED], ["text", { text: "Broken." }]]);
+  await page.waitForSelector(".rbchat-diagram-failed");
+  await page.evaluate(() => { document.documentElement.lang = "de"; });
+  await page.waitForFunction(() => document.querySelector(".rbchat-diagram-failed").textContent === "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle.");
+  await page.close();
+});
+
+test("a null entry among a picture's nodes is skipped, and the real nodes still draw as links", async () => {
+  const withNull = { ...PICTURES.process, nodes: [PICTURES.process.nodes[0], null, PICTURES.process.nodes[2]] };
+  const { page } = await asked([["diagram", withNull], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  for (const n of [PICTURES.process.nodes[0], PICTURES.process.nodes[2]]) {
+    const href = await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
+    assert.equal(href, `/model/?stage=expanded#${n.id}`);
+  }
+  const links = await page.$$eval(".rbchat-diagram svg a", (els) => els.length);
+  assert.equal(links, 2, "only the two real nodes became links");
+  await page.close();
+});
