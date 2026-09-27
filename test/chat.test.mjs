@@ -508,7 +508,7 @@ test("unasked drops every title a visitor message asked, trimmed, and keeps the 
 test("chips are offered only where the visitor can ask next, and a second race does not double them", () => {
   const can = src.slice(src.indexOf("function canOffer()"), src.indexOf("function offerQuestions()"));
   assert.match(can, /!busy/, "chips are offered while an answer is still on its way");
-  assert.match(can, /messages\.length < TURNS/, "chips are offered on a conversation at its limit");
+  assert.doesNotMatch(can, /messages\.length </, "chips are still held back at a conversation length");
   assert.match(can, /messages\[messages\.length - 1\]\.role === "assistant"/, "chips are offered after a message that has no answer yet");
   const fn = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
   assert.match(fn, /if \(!canOffer\(\)\) return;/, "chips are offered without asking whether the visitor can ask next");
@@ -520,7 +520,7 @@ test("chips are offered only where the visitor can ask next, and a second race d
 
 test("a finished answer and a restored open panel offer the next three", () => {
   const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(ENDPOINT,"));
-  assert.match(finish, /if \(refocus\(window\)\) input\.focus\(\); offerQuestions\(\); \}/, "a finished answer short of the limit offers no next questions");
+  assert.match(finish, /if \(refocus\(window\)\) input\.focus\(\); offerQuestions\(\);\n/, "a finished answer offers no next questions");
   assert.match(src, /if \(was\.open\) \{ panel\.hidden = false; button\.hidden = true; offerQuestions\(\); linkWaiting\(\); \}/, "a panel restored open offers no next questions");
 });
 
@@ -542,7 +542,7 @@ test("a message clears the chips, and reopening or resetting an empty conversati
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
   assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; settle\(\); input\.focus\(\); keep\(\); offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set before offering a fresh one");
-  assert.match(src, /qBox = null; fullNote\.hidden = true;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
+  assert.match(src, /qBox = null;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
 });
 
 // The bug the review found: closing and reopening an empty conversation showed the same three
@@ -681,4 +681,14 @@ test("every bubble that shows a kept turn carries its turn, and one that lost it
   assert.equal((send.match(/messages\.pop\(\); turns\.pop\(\); keep\(\);/g) || []).length, 0, "a failed message still pops without unmarking its bubble");
   const restore = src.slice(src.indexOf("(function restore(){"));
   assert.equal((restore.match(/setAttribute\("data-turn", turns\.length\)/g) || []).length, 2, "a restored bubble carries no turn");
+});
+
+// The server reads the last eight turns and gives the model seven, so the widget sends seven: the
+// model's input is the same as for the whole conversation, and a long one never reaches 64 KB.
+test("a conversation has no length limit, and only the tail the server reads is sent", () => {
+  assert.match(src, /var LIMIT = 1000, SENT = 7,/, "the tail sent is not the seven turns the server reads");
+  assert.match(src, /body: JSON\.stringify\(\{ messages: messages\.slice\(-SENT\), lang: langNow\(\) \}\)/, "the whole conversation is sent");
+  assert.doesNotMatch(src, /TURNS|fullNote|rbchat-full/, "a conversation still stops at a length");
+  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  assert.doesNotMatch(css, /rbchat-full|rbchat-fresh/, "the full note's style is still shipped");
 });
