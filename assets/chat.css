@@ -93,10 +93,8 @@
 .rbchat-gh svg{width:14px;height:14px;vertical-align:-2px}
 .rbchat-gh:hover,.rbchat-gh:focus-visible{color:var(--ink);outline:none}
 .rbchat-gh:focus-visible{box-shadow:0 0 0 2px var(--press)}
-.rbchat-full{margin:0;padding:.5rem 1rem;font-size:.85rem;color:var(--dim);border-top:1px solid var(--rule);display:flex;justify-content:space-between;align-items:center;gap:.6rem}
-.rbchat-full[hidden]{display:none}
-.rbchat-fresh,.rbchat-send{font:inherit;font-size:.9rem;padding:.45rem .85rem;border-radius:8px;border:1px solid var(--c-mid);background:var(--c-mid);color:var(--ground);cursor:pointer}
-.rbchat-fresh:disabled,.rbchat-send:disabled{opacity:.55;cursor:default}
+.rbchat-send{font:inherit;font-size:.9rem;padding:.45rem .85rem;border-radius:8px;border:1px solid var(--c-mid);background:var(--c-mid);color:var(--ground);cursor:pointer}
+.rbchat-send:disabled{opacity:.55;cursor:default}
 .rbchat-form{display:flex;gap:.5rem;padding:.6rem 1rem;border-top:1px solid var(--rule);background:var(--raise)}
 .rbchat-form textarea{flex:1;resize:none;font:inherit;font-size:.95rem;padding:.5rem .6rem;border-radius:8px;border:1px solid var(--rule);background:var(--ground);color:var(--ink)}
 .rbchat-form textarea:focus-visible{outline:2px solid var(--c-mid);outline-offset:1px}

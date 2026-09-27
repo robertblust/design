@@ -57,7 +57,11 @@
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
 (function(){
-  var LIMIT = 1000, TURNS = 20, TIMEOUT = 90000;
+  // SENT is the tail of the conversation the server reads: its last eight turns, less the
+  // assistant turn that would open them, since a conversation ends with the visitor. Sending only
+  // that tail gives the model exactly what the whole would give it, so a conversation runs as long
+  // as the visitor likes and the request stays far under the server's 64 KB, however long it runs.
+  var LIMIT = 1000, SENT = 7, TIMEOUT = 90000;
 
   var STRINGS = {
     en: {
@@ -68,7 +72,7 @@
       questions: "Questions to start with", next: "Questions to ask next",
       follow: { schema: "Show me the schema of {title} ({type})", neighbors: "Show me the neighbors of {title}" },
       cut: "… the answer stopped at its length limit.",
-      full: "This conversation has reached twenty messages.", fresh: "New conversation",
+      fresh: "New conversation",
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", failed: "The diagram could not be drawn; this is its source." },
@@ -96,7 +100,7 @@
       questions: "Fragen für den Einstieg", next: "Weitere Fragen",
       follow: { schema: "Zeig mir das Schema von {title} ({type})", neighbors: "Zeig mir die Nachbarn von {title}" },
       cut: "… die Antwort endete an ihrer Längengrenze.",
-      full: "Dieses Gespräch hat zwanzig Nachrichten erreicht.", fresh: "Neues Gespräch",
+      fresh: "Neues Gespräch",
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
@@ -633,7 +637,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, fullNote = null, title = null, closeBtn = null, grip = null, newBtn = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null;
   // The place a restore owes the visitor, held until the log is shown and every picture above it
   // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
   // the log is where they put it, and place() reads it there.
@@ -851,15 +855,14 @@
 
   // Three of them, tappable, at the end of the log: under whatever the empty panel already
   // shows, or under the answer just finished. Offered only where the visitor can ask next — no
-  // answer on its way, the last message an answer or none at all, the conversation short of its
-  // limit — and checked again once the fetch lands, since a visitor may have typed and sent by
-  // then. A title the conversation already asked is left out, so the three after an answer are
+  // answer on its way, the last message an answer or none at all — and checked again once the
+  // fetch lands, since a visitor may have typed and sent by then. A title the conversation already asked is left out, so the three after an answer are
   // never the question it answered. After an answer about one type the three follow it, as
   // follow() picks them; a site whose model offers no question offers no chip of either sort.
   // A second call while chips are already up does nothing — the race is two opens before the
   // one fetch resolves, not two different sets.
   function canOffer(){
-    return !busy && messages.length < TURNS && (!messages.length || messages[messages.length - 1].role === "assistant");
+    return !busy && (!messages.length || messages[messages.length - 1].role === "assistant");
   }
   function offerQuestions(){
     if (!canOffer()) return;
@@ -912,7 +915,6 @@
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
-    fullNote.querySelector("span").textContent = s.full; fullNote.querySelector("button").textContent = s.fresh;
     if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
   }
   relabel();
@@ -923,11 +925,10 @@
     panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.setAttribute("aria-labelledby", "rbchat-title"); panel.hidden = true;
     var head = el("header", "rbchat-head");
     title = el("h2"); title.id = "rbchat-title"; closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
-    // Starting over had one door, the note at the twenty-message limit, and a visitor whose
-    // question had wandered had to fill the conversation up to reach it. The header carries it
-    // instead, beside the way out, and only once there is something to clear: an empty panel
-    // shows no control for emptying it. It is the same reset the note's button calls, so the
-    // turns, the log and the tab's copy go together; the panel's size stays, being a choice
+    // Starting over is the header's one door, beside the way out, and only once there is
+    // something to clear: an empty panel shows no control for emptying it. A conversation has no
+    // length at which it must start over, so this is the only door; its reset takes the turns,
+    // the log and the tab's copy together; the panel's size stays, being a choice
     // about this tab's reading rather than part of the conversation.
     newBtn = el("button", "rbchat-new"); newBtn.type = "button"; newBtn.hidden = true;
     // The glyph is an arrow come back round, not a plus: a plus beside the cross read as "add",
@@ -941,7 +942,6 @@
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
     log = el("div", "rbchat-log");
     ["wheel", "pointerdown", "keydown", "touchstart"].forEach(function(k){ log.addEventListener(k, function(){ reading = null; }, { passive: true }); });
-    fullNote = el("p", "rbchat-full"); fullNote.hidden = true; fullNote.appendChild(el("span")); var fresh = el("button", "rbchat-fresh"); fresh.type = "button"; fresh.addEventListener("click", reset); fullNote.appendChild(fresh);
     var form = el("form", "rbchat-form");
     input = el("textarea"); input.rows = 2; input.maxLength = LIMIT;
     input.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); } });
@@ -955,7 +955,7 @@
     // the panel is the whole screen and there is nothing to size.
     grip = el("div", "rbchat-grip"); grip.tabIndex = 0; grip.setAttribute("role", "separator"); grip.setAttribute("aria-orientation", "vertical");
     panel.appendChild(grip);
-    panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(fullNote); panel.appendChild(form);
+    panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(form);
     document.body.appendChild(panel);
     // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
     // this keydown, not before: while a modal dialog is still open the panel must not close
@@ -1028,7 +1028,7 @@
   // two opens ahead of the one fetch landing still share it rather than asking twice.
   function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; settle(); input.focus(); keep(); offerQuestions(); linkWaiting(); }
   function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; qBox = null; fullNote.hidden = true; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
+  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1097,10 +1097,9 @@
       ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
-      if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
-      else { input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); offerQuestions(); }
+      input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); offerQuestions();
     }
-    fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages, lang: langNow() }) })
+    fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages.slice(-SENT), lang: langNow() }) })
       .then(function(r){
         if (r.status !== 200) {
           // The body is read for its code and, on the three limits, the moment the limit
@@ -1180,8 +1179,6 @@
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
     });
-    // A conversation read back at its length is as full as one that reached it here.
-    if (messages.length >= TURNS) { fullNote.hidden = false; input.disabled = true; sendBtn.disabled = true; }
     if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); linkWaiting(); }
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight; settle();
