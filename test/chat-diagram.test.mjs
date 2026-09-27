@@ -123,6 +123,7 @@ test("hovering or focusing a node underlines its name alone, never its type line
     label: getComputedStyle(a.querySelector(".nodeLabel")).textDecorationLine
   }));
   const before = await read();
+  assert.equal(await page.$eval(".rbchat-diagram svg a .rbchat-node-name", (el) => getComputedStyle(el).color), "rgb(127, 163, 216)", "the wrapped name is --c-mid, not Mermaid's span color");
   assert.equal(before.name, "none");
   assert.equal(before.label, "none");
   await page.hover(".rbchat-diagram svg a");
