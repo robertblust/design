@@ -48,7 +48,7 @@ test("it opens with the head, the title and the close, holds the body, and gives
   assert.deepEqual(s, { open: true, title: "graph · Shape", holds: true, named: true });
   await p.evaluate(() => window.h.close());
   assert.equal(await p.evaluate(() => document.getElementById("home").firstElementChild.id), "thing");
-  assert.equal(await p.evaluate(() => document.querySelector("dialog.rbmodal").open), false);
+  assert.equal(await p.evaluate(() => !!document.querySelector("dialog.rbmodal[open]")), false);
   await close();
 });
 
@@ -60,10 +60,10 @@ test("the close says Close · Esc, in German too, and Escape and the backdrop cl
   await p.evaluate(() => { document.documentElement.lang = "de"; });
   await p.waitForFunction(() => document.querySelector(".rbmodal-close").getAttribute("data-tip") === "Schliessen · Esc");
   await p.keyboard.press("Escape");
-  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal").open);
+  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal[open]"));
   await openThing(p);
   await p.mouse.click(4, 4);
-  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal").open);
+  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal[open]"));
   await close();
 });
 
@@ -153,5 +153,38 @@ test("a kind names what the modal holds, as a class on it", async () => {
   const { p, close } = await page();
   await p.evaluate(() => { window.h = rbModal.open({ kind: "graph", title: "t", body: document.getElementById("thing") }); });
   assert.equal(await p.$eval("dialog.rbmodal", (d) => d.classList.contains("rbmodal-graph")), true);
+  await close();
+});
+
+test("a modal made for one showing leaves nothing behind once it closes", async () => {
+  const { p, close } = await page();
+  for (let i = 0; i < 3; i++) { await openThing(p); await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector("dialog.rbmodal[open]")); }
+  assert.equal(await p.evaluate(() => document.querySelectorAll("dialog.rbmodal").length), 0);
+  await close();
+});
+
+test("a keyed modal reopened at once after its handle closed it stays open and keeps the page held", async () => {
+  const { p, close } = await page();
+  await p.evaluate(() => { const body = document.getElementById("thing"); const h = rbModal.open({ key: "k", title: "t", body }); h.close(); window.h = rbModal.open({ key: "k", title: "t", body }); });
+  await p.waitForTimeout(100);
+  assert.deepEqual(await p.evaluate(() => [document.querySelector("dialog.rbmodal").open, getComputedStyle(document.documentElement).overflow]), [true, "hidden"]);
+  await close();
+});
+
+// A styled scrollbar takes room on every platform, as a desk without overlay scrollbars
+// draws one, in a browser not told to hide scrollbars as headless Chromium is by default, so
+// there is a bar whose room the modal has to keep.
+test("holding the page keeps the room its scrollbar took, so the page does not shift sideways", async () => {
+  const shown = await chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+  const p = await (await shown.newContext({ viewport: { width: 1600, height: 1100 } })).newPage();
+  const close = () => shown.close();
+  await p.goto(base + "/");
+  await p.waitForFunction(() => [...document.styleSheets].some((s) => s.href && s.href.endsWith("/modal.css")));
+  await p.addStyleTag({ content: "::-webkit-scrollbar{width:15px;background:#222}" });
+  const bar = await p.evaluate(() => window.innerWidth - document.documentElement.clientWidth);
+  assert.ok(bar > 0, "the page shows no scrollbar, so the test shows nothing");
+  const before = await p.evaluate(() => document.getElementById("home").getBoundingClientRect().width);
+  await openThing(p);
+  assert.equal(await p.evaluate(() => document.getElementById("home").getBoundingClientRect().width), before);
   await close();
 });

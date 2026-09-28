@@ -550,3 +550,34 @@ test("a page's own picture opened full screen is drawn in the terminal's colors,
   await page.waitForFunction((was) => { const a = document.querySelector("figure[data-diagram] svg a"); return a && getComputedStyle(a.querySelector("rect, path, polygon")).fill === was; }, onPage);
   await page.close();
 });
+
+test("a second Expand while the modal is still on its way opens one modal, not two", async () => {
+  const page = await browser.newPage();
+  await page.route("**/modal.js", async (r) => { await new Promise((w) => setTimeout(w, 700)); await r.continue(); });
+  state.mermaid = true;
+  await page.goto(base + "/built");
+  await page.waitForSelector(".rbchat-diagram-full", { state: "attached" });
+  await page.evaluate(() => { const b = document.querySelector(".rbchat-diagram-full"); b.click(); b.click(); });
+  await page.waitForSelector("dialog.rbmodal[open]");
+  await page.waitForTimeout(500);
+  assert.equal(await page.evaluate(() => document.querySelectorAll("dialog.rbmodal").length), 1);
+  assert.equal(await page.evaluate(() => document.querySelectorAll("dialog.rbmodal[open] .rbmodal-controls button").length > 0), true, "the open modal has its zoom");
+  await page.close();
+});
+
+test("a modal another script has loaded is used only once its stylesheet has arrived", async () => {
+  const page = await browser.newPage();
+  await page.addInitScript(() => {
+    window.rbModal = { labels() {}, ready: new Promise((r) => { window.readyNow = r; }),
+      open() { window.opened = (window.opened || 0) + 1; const d = document.createElement("dialog"); document.body.appendChild(d); return { el: d, title() {}, close() {} }; } };
+  });
+  state.mermaid = true;
+  await page.goto(base + "/built");
+  await page.waitForSelector(".rbchat-diagram-full", { state: "attached" });
+  await page.$eval(".rbchat-diagram-full", (b) => b.click());
+  await page.waitForTimeout(300);
+  assert.equal(await page.evaluate(() => window.opened || 0), 0, "opened before the stylesheet arrived");
+  await page.evaluate(() => window.readyNow());
+  await page.waitForFunction(() => window.opened === 1);
+  await page.close();
+});

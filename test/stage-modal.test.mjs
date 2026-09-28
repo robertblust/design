@@ -5,12 +5,15 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { chromium } from "playwright";
 import { modelPage, stageFiles } from "./fixtures/stage-page.mjs";
+import { STAGE_CHECKS } from "../verify/stage.mjs";
 
 let server, base, browser;
 before(async () => {
   server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
-    const files = { "/model/": ["text/html", modelPage()], ...stageFiles() };
+    // /site/ is the page in a column as a site lays it out, so Expand has room to widen it,
+    // which the site checks below hold it to.
+    const files = { "/model/": ["text/html", modelPage()], "/site/": ["text/html", modelPage({ extra: "<style>main{max-width:1100px;margin:0 auto}</style>" })], ...stageFiles() };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]);
@@ -66,4 +69,47 @@ test("the page behind the expanded stage does not scroll", async () => {
   await p.waitForSelector("dialog.rbmodal[open]");
   assert.equal(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden");
   await close();
+});
+
+// The checks every site runs on its model page, run here on the fixture, so a change that
+// would turn the three sites red on their next re-pin turns this suite red first.
+for (const name of ["graph", "divider"]) {
+  test(`the site check "${name}" passes on a model page whose Expand opens the one modal`, { timeout: 60000 }, async () => {
+    const { p, close } = await page("/site/");
+    assert.equal(await STAGE_CHECKS[name](p, { absolute: base + "/site/" }) ?? null, null);
+    await close();
+  });
+}
+
+test("the modal's title follows the page's language while it is open", async () => {
+  const { p, close } = await page("/model/#concepts/guest");
+  await p.click("#expand");
+  await p.waitForSelector("dialog.rbmodal[open]");
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => document.querySelector("dialog.rbmodal .rbmodal-title").textContent === "Graph · Guest");
+  await close();
+});
+
+test("Expand opened and closed again and again keeps one modal", async () => {
+  const { p, close } = await page("/model/#concepts/guest");
+  for (let i = 0; i < 3; i++) { await p.click("#expand"); await p.waitForSelector("dialog.rbmodal[open]"); await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector("dialog.rbmodal[open]")); }
+  assert.equal(await p.evaluate(() => document.querySelectorAll("dialog.rbmodal").length), 1);
+  await close();
+});
+
+test("where modal.js cannot be fetched, Expand still opens the stage, in the page's own dialog", async () => {
+  const context = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
+  const p = await context.newPage();
+  await p.route("**/modal.js", (r) => r.abort());
+  await p.goto(base + "/model/#concepts/guest");
+  await p.waitForSelector("#fig g.n");
+  const before = await order(p);
+  await p.click("#expand");
+  await p.waitForSelector("dialog#stagemodal[open]", { timeout: 5000 });
+  assert.equal(await p.evaluate(() => document.getElementById("stagemodal").contains(document.getElementById("fig"))), true);
+  await p.keyboard.press("Escape");
+  // The page's own dialog gives the stage back on its close event, a task after it closes.
+  await p.waitForFunction(() => document.querySelector(".figure-section").firstElementChild.id === "stagehead");
+  assert.deepEqual(await order(p), before);
+  await context.close();
 });

@@ -258,3 +258,13 @@ test("the graph over a picture's full screen is a second modal, and closing it l
   assert.equal(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden");
   await close();
 });
+
+test("where modal.js cannot be fetched, a link into the graph still leads to it, as the whole page", async () => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await context.newPage();
+  await p.route("**/modal.js", (r) => r.abort());
+  await p.goto(base + "/timeline/");
+  await p.click("#plain");
+  await p.waitForURL(/\/model\/\?stage=expanded#concepts\/guest$/, { timeout: 5000 });
+  await context.close();
+});

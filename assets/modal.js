@@ -40,13 +40,21 @@
   // ─── The page behind ──────────────────────────────────────────────────────────────────────
   // The dimmed page says the modal has the attention, so the page does not scroll under it:
   // the root is held while any modal is open, and given back its place when the last one closes.
+  // A page that shows a scrollbar keeps the room it took, so the page does not shift sideways
+  // when the bar goes; a page drawn with overlay scrollbars has no room to keep.
   var held = 0, was = null;
   function hold(){
-    if (held++ === 0) { was = { y: window.scrollY, x: window.scrollX, overflow: document.documentElement.style.overflow }; document.documentElement.style.overflow = "hidden"; }
+    if (held++ === 0) {
+      var root = document.documentElement, bar = window.innerWidth - root.clientWidth;
+      was = { y: window.scrollY, x: window.scrollX, overflow: root.style.overflow, pad: root.style.paddingRight };
+      if (bar > 0) root.style.paddingRight = (parseFloat(getComputedStyle(root).paddingRight) || 0) + bar + "px";
+      root.style.overflow = "hidden";
+    }
   }
   function release(){
     if (held > 0 && --held === 0 && was) {
       document.documentElement.style.overflow = was.overflow;
+      document.documentElement.style.paddingRight = was.pad;
       window.scrollTo(was.x, was.y); was = null;
     }
   }
@@ -57,8 +65,8 @@
   function labels(){ all.forEach(label); }
   if (window.MutationObserver) new MutationObserver(labels).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
-  function make(){
-    var m = { marks: [], onClose: null, opener: null, shown: false };
+  function make(key){
+    var m = { key: key || null, marks: [], onClose: null, opener: null, shown: false };
     m.el = document.createElement("dialog"); m.el.className = "rbmodal";
     // A container, not a control: showModal() would otherwise focus the ×, and a page nobody
     // has clicked yet paints that focus as a ring, so the first thing seen is the way out, lit.
@@ -71,16 +79,21 @@
     head.appendChild(m.title); head.appendChild(m.controls); head.appendChild(m.x);
     m.el.appendChild(head); m.el.appendChild(m.body);
     m.el.setAttribute("aria-labelledby", m.title.id);
-    m.x.addEventListener("click", function(){ m.el.close(); });
+    // Every way out, the ×, Escape, the backdrop and the handle, closes and settles at once, so
+    // whatever the modal took is back in its place the moment the modal is gone. Escape is
+    // taken from the browser for that: its own close lands a task later.
+    m.x.addEventListener("click", function(){ shut(m); });
     // A click on the backdrop lands on the dialog itself, nothing else being there to hit.
-    m.el.addEventListener("click", function(ev){ if (ev.target === m.el) m.el.close(); });
-    // One way out for all of them, the ×, Escape and the backdrop: the native close event. It
-    // fires a moment after the dialog closes, so a close asked for by its handle settles at once
-    // and the event finds nothing left to do.
-    m.el.addEventListener("close", function(){ settle(m); });
+    m.el.addEventListener("click", function(ev){ if (ev.target === m.el) shut(m); });
+    m.el.addEventListener("cancel", function(ev){ ev.preventDefault(); shut(m); });
+    // Any other close still settles, once the browser says so, unless the modal was opened again
+    // in the meantime.
+    m.el.addEventListener("close", function(){ if (!m.el.open) settle(m); });
     document.body.appendChild(m.el); all.push(m); label(m);
     return m;
   }
+
+  function shut(m){ if (m.el.open) m.el.close(); settle(m); }
 
   // Everything the modal took is given back: the nodes to their places, the page its scrolling,
   // the caller its turn, and the focus to what opened it. Once per showing.
@@ -91,11 +104,13 @@
     var then = m.onClose, back = m.opener; m.onClose = null; m.opener = null;
     if (then) then();
     if (back && back.focus && document.documentElement.contains(back)) back.focus({ preventScroll: true });
+    // A modal made for one showing goes with it; a keyed one waits for its next.
+    if (!m.key) { if (m.el.parentNode) m.el.parentNode.removeChild(m.el); all.splice(all.indexOf(m), 1); }
   }
 
   function open(o){
     o = o || {};
-    var m = o.key && keyed[o.key] ? keyed[o.key] : make();
+    var m = o.key && keyed[o.key] ? keyed[o.key] : make(o.key);
     if (o.key) keyed[o.key] = m;
     // What the modal holds, named on it, so a page's rules and its tests can tell two apart.
     m.el.className = "rbmodal" + (o.kind ? " rbmodal-" + o.kind : "");
@@ -116,7 +131,7 @@
     return {
       el: m.el,
       title: function(t){ m.title.textContent = t; },
-      close: function(){ if (m.el.open) m.el.close(); settle(m); }
+      close: function(){ shut(m); }
     };
   }
 

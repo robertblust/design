@@ -802,16 +802,17 @@ function rbStage(data) {
     return modalLoad;
   }
   function graphTitle(n){ return t("graphHead").replace("{title}", n ? n.label : ""); }
+  // Where the modal cannot be fetched, the stage still expands, into the page's own dialog.
   function expand(){
     if (EMBED) return expandEmbedded();
     return loadModal().then(function(M){
       if (modalHandle) return;
-      modalHandle = M.open({ kind: "graph", title: graphTitle(focused), body: [stageHead, stageEl], opener: expandBtn,
+      modalHandle = M.open({ key: "stage", kind: "graph", title: graphTitle(focused), body: [stageHead, stageEl], opener: expandBtn,
         onClose: function(){ modalHandle = null; setCard(storedCard(), false); refit(); } });
       // The stage has changed boxes, so it changes memories with it.
       setCard(storedCard(), false);
       refit();
-    });
+    }, function(){ if (!modalHandle && !modal.open) expandEmbedded(); });
   }
   function expandEmbedded(){
     // Drop the marker where the stage stands before taking it away, so close has somewhere
@@ -889,7 +890,7 @@ function rbStage(data) {
 
   // The site's language toggle rewrites every [data-de] node and sets <html lang>; the two
   // eyebrows and the folder card are built here, after that pass, so they follow the flag.
-  new MutationObserver(function(){ if (focused) { render(); showCard(focused); renderHist(); } })
+  new MutationObserver(function(){ if (focused) { render(); showCard(focused); renderHist(); if (modalHandle) modalHandle.title(graphTitle(focused)); } })
     .observe(document.documentElement, { attributes:true, attributeFilter:["lang"] });
 
   // ── the divider ───────────────────────────────────────────────────────────────────────
@@ -910,7 +911,9 @@ function rbStage(data) {
   // differs for the same reason.
   var CARD = { page: { key: "stage-card" }, modal: { key: "stage-card-modal" } };
   var CARD_MIN = 280, CANVAS_MIN = 320;
-  function cardMode(){ return modal.contains(stageEl) ? CARD.modal : CARD.page; }
+  // The stage is in a modal when the one modal holds it on the model page, or #stagemodal
+  // when the page is embedded; either way it is the wider box with a memory of its own.
+  function cardMode(){ return modalHandle || modal.contains(stageEl) ? CARD.modal : CARD.page; }
   // Nothing stored means half the box, not a fixed width: the two panes start equal and the
   // reader decides from there. It is computed from the box in hand rather than carried as a
   // number, so the page and the dialog each open even without either knowing the other's size.

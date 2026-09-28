@@ -897,7 +897,9 @@
   var modalLoad = null;
   function loadModal(){
     window.rbModalWords = window.rbModalWords || { en: strings("en").modalClose, de: strings("de").modalClose };
-    if (window.rbModal) return Promise.resolve(window.rbModal);
+    // A modal another script has fetched, stage.js on the model page, is used once its
+    // stylesheet has arrived too, so a picture is fitted to the modal it will be seen in.
+    if (window.rbModal) return window.rbModal.ready.then(function(){ return window.rbModal; });
     if (!modalLoad) modalLoad = new Promise(function(resolve, reject){
       var sc = document.createElement("script"); sc.src = new URL("modal.js", tag.src).href;
       sc.onload = function(){ if (window.rbModal) window.rbModal.ready.then(function(){ resolve(window.rbModal); }); else reject(new Error("modal.js set no rbModal")); };
@@ -907,11 +909,16 @@
     });
     return modalLoad;
   }
+  // One Expand at a time: a second press while the modal is still on its way is the same one.
+  var figPending = false;
   function expandFigure(fig){
+    if (figPending || modalFig) return;
+    figPending = true;
     loadModal().then(function(M){
+      figPending = false;
       var own = !(fig.closest && fig.closest(".rbchat"));
       modalFig = fig;
-      modalHandle = M.open({ kind: "diagram", title: diagramCaption(fig.rbDiagram, langNow()), body: fig.rbBox, controls: zoomControls(), opener: document.activeElement,
+      modalHandle = M.open({ key: "diagram", kind: "diagram", title: diagramCaption(fig.rbDiagram, langNow()), body: fig.rbBox, controls: zoomControls(), opener: document.activeElement,
         onClose: function(){
           var was = modalFig; modalFig = null; modalHandle = null; viewDrop();
           if (was) { if (own && !was.rbWaiting) drawFigure(was); labelFigure(was); }
@@ -923,7 +930,7 @@
       if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); }
       else if (own) drawFigure(fig);
       viewOpen(fig.rbBox);
-    });
+    }, function(){ figPending = false; });
   }
 
   // ─── The zoom ─────────────────────────────────────────────────────────────────────────────
@@ -1182,6 +1189,7 @@
   }
   function lookOf(){ return { type: "rb-graph-look", theme: document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark", lang: langNow() }; }
   function tellGraph(m){ if (graphFrame && graphFrame.contentWindow) graphFrame.contentWindow.postMessage(m, location.origin); }
+  // Where the modal cannot be fetched, the link leads where it points, to the whole model page.
   function openGraph(id, title, opener){
     loadModal().then(function(M){
       ensureGraph();
@@ -1193,7 +1201,7 @@
       else graphQueue = id;
       // The keyboard goes into the graph on every open, so its keys walk the trail at once.
       if (graphReady) graphFrame.focus();
-    });
+    }, function(){ location.href = link(MODEL, id); });
   }
   function graphOpen(){ return !!(graphHandle && graphHandle.el.open); }
   window.addEventListener("message", function(ev){
