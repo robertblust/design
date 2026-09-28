@@ -230,7 +230,9 @@ test("on the model page itself a link into the graph moves its own stage", async
   await p.waitForSelector("#fig g.n");
   await p.click("#self");
   await p.waitForFunction(() => location.hash === "#concepts/merge");
-  assert.equal(await p.$("dialog.rbmodal-graph"), null, "the model page opened a graph over itself");
+  // The page's own stage moves into the one modal; no frame of the model page opens over it.
+  assert.equal(await p.evaluate(() => !!document.querySelector("iframe.rbchat-graph-frame")), false, "the model page opened a graph over itself");
+  await p.waitForSelector("dialog.rbmodal-graph[open] #fig");
   await context.close();
 });
 

@@ -139,7 +139,8 @@ test("a page opened on its own with embed in its address is an ordinary page", a
   const context = await browser.newContext();
   const p = await context.newPage();
   await p.goto(base + "/model/?stage=expanded&embed#concepts/guest");
-  await p.waitForSelector("#stagemodal[open]");
+  // An ordinary page expands into the family's one modal, not the frame's #stagemodal.
+  await p.waitForSelector("dialog.rbmodal[open]");
   assert.equal(await p.evaluate(() => document.documentElement.hasAttribute("data-embed")), false, "a top-level page traps the visitor in its stage");
   await context.close();
 });
