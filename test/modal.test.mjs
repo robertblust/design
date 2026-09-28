@@ -139,3 +139,10 @@ test("it is the model page's size on a desk and a sheet on a phone", async () =>
   assert.deepEqual(q, { w: 390, h: 844 });
   await phone.close();
 });
+
+test("a kind names what the modal holds, as a class on it", async () => {
+  const { p, close } = await page();
+  await p.evaluate(() => { window.h = rbModal.open({ kind: "graph", title: "t", body: document.getElementById("thing") }); });
+  assert.equal(await p.$eval("dialog.rbmodal", (d) => d.classList.contains("rbmodal-graph")), true);
+  await close();
+});

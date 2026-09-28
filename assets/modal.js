@@ -5,7 +5,7 @@
 // No page links this file: chat.js and stage.js fetch it from beside themselves on the first
 // open, and it links modal.css from beside itself, so a visitor who opens nothing loads neither.
 //
-//   rbModal.open({ key, title, body, controls, opener, onClose }) → { el, title(text), close() }
+//   rbModal.open({ key, kind, title, body, controls, opener, onClose }) → { el, title(text), close() }
 //   rbModal.labels()                   every close relabeled in the page's language
 //   rbModal.ready                      settles once modal.css has arrived
 //
@@ -97,6 +97,8 @@
     o = o || {};
     var m = o.key && keyed[o.key] ? keyed[o.key] : make();
     if (o.key) keyed[o.key] = m;
+    // What the modal holds, named on it, so a page's rules and its tests can tell two apart.
+    m.el.className = "rbmodal" + (o.kind ? " rbmodal-" + o.kind : "");
     // The page's place is taken before anything leaves it, since what leaves shifts it.
     var first = !m.shown;
     if (first) { m.shown = true; hold(); }

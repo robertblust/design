@@ -105,7 +105,7 @@
       help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
-      graph: { head: "graph · {title}", page: "model page ↗", close: "Close the graph", failed: "The graph could not be drawn here; the model page has it." },
+      graph: { head: "graph · {title}", failed: "The graph could not be drawn here; the model page has it." },
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
@@ -150,7 +150,7 @@
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
-      graph: { head: "Graph · {title}", page: "Modellseite ↗", close: "Graph schliessen", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
+      graph: { head: "Graph · {title}", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
@@ -911,7 +911,7 @@
     loadModal().then(function(M){
       var own = !(fig.closest && fig.closest(".rbchat"));
       modalFig = fig;
-      modalHandle = M.open({ title: diagramCaption(fig.rbDiagram, langNow()), body: fig.rbBox, controls: zoomControls(), opener: document.activeElement,
+      modalHandle = M.open({ kind: "diagram", title: diagramCaption(fig.rbDiagram, langNow()), body: fig.rbBox, controls: zoomControls(), opener: document.activeElement,
         onClose: function(){
           var was = modalFig; modalFig = null; modalHandle = null; viewDrop();
           if (was) { if (own && !was.rbWaiting) drawFigure(was); labelFigure(was); }
@@ -1143,20 +1143,22 @@
   var EMBEDDED = document.documentElement.hasAttribute("data-embed");
 
   // ─── The graph ────────────────────────────────────────────────────────────────────────────
-  // A link into the model opens the model page's own stage over the page, in a dialog like a
-  // picture's Expand, rather than taking the visitor to the page, on every page that loads this
-  // file, whether or not it offers the chat. The page is
-  // embedded: it draws its stage alone and keeps its history to itself (see stage.js), so the
-  // chat page's address and its Back stay the visitor's. The frame is made on the first open;
-  // a later open moves its focus by message, queued until the frame says it is ready.
-  var graph = null, graphFrame = null, graphTitle = null, graphPage = null, graphReady = false, graphQueue = null, graphOpener = null;
-  // The name of the place the graph stands on, which heads the dialog in the page's language,
+  // A link into the model opens the model page's own stage over the page, in the family's one
+  // modal, rather than taking the visitor to the page, on every page that loads this file,
+  // whether or not it offers the chat. The page is embedded: it draws its stage alone and keeps
+  // its history to itself (see stage.js), so the chat page's address and its Back stay the
+  // visitor's. The frame is made on the first open and lives in a keyed modal for the page's
+  // life, since moving an iframe reloads it; a later open moves its focus by message, queued
+  // until the frame says it is ready.
+  var graph = null, graphFrame = null, graphHandle = null, graphReady = false, graphQueue = null;
+  // The name of the place the graph stands on, which titles the modal in the page's language,
   // and the wait for a frame that never says it is ready: its model file failed, or is empty.
   var graphName = "", graphWait = null, GRAPH_WAIT = 6000, graphFailed = null;
   function setGraphTitle(name){
     graphName = name;
     var head = strings(langNow()).graph.head.replace("{title}", name);
-    graphTitle.textContent = head; graphFrame.setAttribute("title", head);
+    if (graphHandle) graphHandle.title(head);
+    if (graphFrame) graphFrame.setAttribute("title", head);
   }
   function graphFails(on){
     if (graphFailed) { graphFailed.parentNode.removeChild(graphFailed); graphFailed = null; }
@@ -1168,50 +1170,41 @@
   }
   function ensureGraph(){
     if (graph) return;
-    var s = strings(langNow());
-    graph = el("dialog", "rbchat-graph"); graph.setAttribute("aria-labelledby", "rbchat-graph-title");
-    var head = el("div", "rbchat-graph-head");
-    graphTitle = el("span", "rbchat-graph-title"); graphTitle.id = "rbchat-graph-title";
-    graphPage = el("a", "rbchat-graph-page", s.graph.page);
-    var shut = el("button", "rbchat-graph-close", "×"); shut.type = "button"; shut.setAttribute("aria-label", s.graph.close); shut.setAttribute("data-tip", s.graph.close + " · Esc");
-    shut.addEventListener("click", function(){ graph.close(); });
-    head.appendChild(graphTitle); head.appendChild(graphPage); head.appendChild(shut);
+    // What the modal holds for the graph: the frame, and the line that says when it failed.
+    graph = el("div", "rbchat-graph");
     graphFrame = el("iframe", "rbchat-graph-frame");
     // A frame that has loaded and still not said it is ready never will: its model file failed.
     graphFrame.addEventListener("load", function(){
       clearTimeout(graphWait);
       if (graphFrame.getAttribute("src") && !graphReady) graphWait = setTimeout(function(){ if (!graphReady) graphFails(true); }, GRAPH_WAIT);
     });
-    graph.appendChild(head); graph.appendChild(graphFrame);
-    graph.addEventListener("click", function(ev){ if (ev.target === graph) graph.close(); });
-    graph.addEventListener("close", function(){ if (graphOpener && graphOpener.focus) graphOpener.focus(); graphOpener = null; });
-    document.body.appendChild(graph);
+    graph.appendChild(graphFrame);
   }
   function lookOf(){ return { type: "rb-graph-look", theme: document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark", lang: langNow() }; }
   function tellGraph(m){ if (graphFrame && graphFrame.contentWindow) graphFrame.contentWindow.postMessage(m, location.origin); }
   function openGraph(id, title, opener){
-    ensureGraph();
-    var s = strings(langNow());
-    graphOpener = opener || document.activeElement;
-    setGraphTitle(title || id);
-    graphFails(false);
-    graphPage.href = link(MODEL, id);
-    if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
-    else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
-    else graphQueue = id;
-    if (!graph.open) graph.showModal();
-    // The keyboard goes into the graph on every open, so its keys walk the trail at once.
-    if (graphReady) graphFrame.focus();
+    loadModal().then(function(M){
+      ensureGraph();
+      graphHandle = M.open({ key: "graph", kind: "graph", title: "", body: graph, opener: opener || document.activeElement });
+      setGraphTitle(title || id);
+      graphFails(false);
+      if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
+      else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
+      else graphQueue = id;
+      // The keyboard goes into the graph on every open, so its keys walk the trail at once.
+      if (graphReady) graphFrame.focus();
+    });
   }
+  function graphOpen(){ return !!(graphHandle && graphHandle.el.open); }
   window.addEventListener("message", function(ev){
     if (ev.origin !== location.origin || !graphFrame || ev.source !== graphFrame.contentWindow || !ev.data) return;
     if (ev.data.type === "rb-graph-ready") {
       graphReady = true; clearTimeout(graphWait); graphFails(false); tellGraph(lookOf());
       if (graphQueue) { tellGraph({ type: "rb-graph-focus", id: graphQueue }); graphQueue = null; }
-      if (graph && graph.open) graphFrame.focus();
+      if (graphOpen()) graphFrame.focus();
     }
     else if (ev.data.type === "rb-graph-at" && typeof ev.data.title === "string" && ev.data.title) setGraphTitle(ev.data.title);
-    else if (ev.data.type === "rb-graph-close" && graph && graph.open) graph.close();
+    else if (ev.data.type === "rb-graph-close" && graphOpen()) graphHandle.close();
   });
   if (window.MutationObserver) new MutationObserver(function(){ if (graphReady) tellGraph(lookOf()); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "lang"] });
@@ -1233,11 +1226,8 @@
   // The graph's words follow the page's language on a page with no chat to relabel them.
   function relabelGraph(){
     if (!graph) return;
-    var s = strings(langNow());
     if (graphName) setGraphTitle(graphName);
-    if (graphFailed) graphFailed.textContent = s.graph.failed;
-    graphPage.textContent = s.graph.page;
-    var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
+    if (graphFailed) graphFailed.textContent = strings(langNow()).graph.failed;
   }
   if (window.MutationObserver) new MutationObserver(relabelGraph).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 

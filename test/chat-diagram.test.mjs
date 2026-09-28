@@ -478,7 +478,7 @@ test("a drag moves the picture and follows no link; a still press on a node open
   // A still press is a click on the node's link, and a link into the model from the chat opens
   // the graph over the page rather than leaving it.
   await page.mouse.click(node.x + 40, node.y + 30);
-  await page.waitForSelector("dialog.rbchat-graph[open]");
+  await page.waitForSelector("dialog.rbmodal-graph[open]");
   assert.equal(new URL(page.url()).pathname, "/", "the press left the page");
   assert.match(await page.$eval("iframe.rbchat-graph-frame", (f) => f.getAttribute("src")), /\/model\/\?stage=expanded&embed#processes\/delivery\/phases\/build$/);
   await page.close();

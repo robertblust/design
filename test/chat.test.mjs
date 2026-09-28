@@ -842,7 +842,9 @@ test("the versions line and the graph's head exist in both languages", () => {
   assert.equal(strings("de").versions, "Meta-Modell {core} · Modell {sha}");
   assert.equal(strings("en").versionsModel, "model {sha}");
   assert.equal(strings("de").versionsModel, "Modell {sha}");
-  for (const l of ["en", "de"]) for (const k of ["head", "page", "close"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
+  for (const l of ["en", "de"]) for (const k of ["head", "failed"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
+  // The modal knows nothing of the model page, and its close is the one modal's own.
+  for (const l of ["en", "de"]) for (const k of ["page", "close"]) assert.equal(strings(l).graph[k], undefined, l + ".graph." + k);
 });
 
 // WCAG relative luminance and contrast, from two #RRGGBB values.
@@ -884,4 +886,11 @@ test("a link names a place in the graph where it resolves to the model page, exp
   assert.equal(graphTarget("/model/?stage=expanded#x", "/model/", "https://blust.ch/model/"), null, "the model page itself moves its own stage");
   assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/"), null);
   assert.equal(graphTarget(null, "/model/", here), null);
+});
+
+test("no dialog but the one modal is drawn, and it names no model page", () => {
+  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  assert.doesNotMatch(src, /el\("dialog"|createElement\("dialog"\)/, "chat.js still draws a dialog of its own");
+  assert.doesNotMatch(src, /rbchat-graph-page|model page \u2197|model page ↗/, "the graph's modal still names the model page");
+  assert.doesNotMatch(css, /dialog\.rbchat-graph|dialog\.rbchat-modal/, "chat.css still styles a dialog of its own");
 });
