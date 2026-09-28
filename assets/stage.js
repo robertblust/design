@@ -1023,6 +1023,25 @@ function rbStage(data) {
     if (EMBED) { modal.tabIndex = -1; modal.focus({ preventScroll: true }); }
   }
 
+  // A link on this page to this page's own stage — a name in the chat's answer, a node in a
+  // picture — is the same request, answered in place. Followed, it would load the page again,
+  // since its address carries ?stage=expanded where this one has taken it out: the page goes
+  // blank, the chat draws itself back, and the visitor sees it flicker. The hash moves the
+  // focus as the stage's own clicks do, onto the trail and into the tab's history.
+  if (!EMBED) {
+    document.addEventListener("click", function(ev){
+      if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      var a = ev.target && ev.target.closest && ev.target.closest("a[href], a[*|href]");
+      if (!a) return;
+      var to;
+      try { to = new URL(a.getAttribute("href") || a.getAttribute("xlink:href"), document.baseURI); } catch (err) { return; }
+      if (to.origin !== location.origin || to.pathname !== location.pathname || !/(^|&)stage=expanded(&|$)/.test(to.search.slice(1))) return;
+      ev.preventDefault();
+      if (to.hash !== location.hash) location.hash = to.hash;
+      expand();
+    });
+  }
+
   // The parent moves the focus and hands over its theme and language; nothing but a message from
   // this page's own origin is read. A focus by message pushes on the trail as a click does.
   if (EMBED) {
