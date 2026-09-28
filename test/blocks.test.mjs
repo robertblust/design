@@ -442,3 +442,19 @@ test("the header contract tightens the row under data-nav=tight and keeps the li
   assert.match(css, /:root\[data-nav="tight"\] \.navlinks\{gap:1\.2rem\}/);
   assert.doesNotMatch(css, /:root\[data-nav="tight"\] \.navlinks\{display:none/);
 });
+
+// verify/design.mjs measures the header on every site's pages and no test here runs it on one,
+// so a header contract that changed the bar's padding left the check expecting the old
+// value, green here and red on all three sites. The two are held to each other in words.
+test("the design check's header measurements are the header contract's", () => {
+  const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
+  const check = fs.readFileSync(path.join(PKG, "verify/design.mjs"), "utf8");
+  const pad = css.match(/\.shell > header:has\(> \.bar\)\{padding-top:([\d.]+)rem; padding-bottom:([\d.]+)rem\}/);
+  assert.ok(pad, "the header contract no longer sets the bar's padding where this reads it");
+  const floor = css.match(/header > \.bar\{min-height:(\d+)px\}/);
+  assert.ok(floor, "the header contract no longer sets the row's floor where this reads it");
+  const px = (rem) => `${Math.round(parseFloat(rem) * 16 * 100) / 100}px`;
+  assert.ok(check.includes(`want("header padding-top", got.padTop, "${px(pad[1])}")`), "verify/design.mjs expects another padding-top");
+  assert.ok(check.includes(`want("header padding-bottom", got.padBottom, "${px(pad[2])}")`), "verify/design.mjs expects another padding-bottom");
+  assert.ok(check.includes(`want("the bar's min-height", got.barMin, "${floor[1]}px")`), "verify/design.mjs expects another floor");
+});
