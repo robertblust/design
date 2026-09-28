@@ -85,7 +85,7 @@
 
   var STRINGS = {
     en: {
-      open: "Ask the model", close: "Close", send: "Send", title: "Ask the model", size: "Resize the chat",
+      open: "Ask the model", close: "Close", title: "Ask the model", size: "Resize the chat",
       placeholder: "Ask about the model…", waiting: "Asking…",
       notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
@@ -133,7 +133,7 @@
     // German: drafts for the translator of conventions/TRANSLATOR.md, to be made from the
     // reviewed English.
     de: {
-      open: "Das Modell fragen", close: "Schliessen", send: "Senden", title: "Das Modell fragen", size: "Grösse des Chats ändern",
+      open: "Das Modell fragen", close: "Schliessen", title: "Das Modell fragen", size: "Grösse des Chats ändern",
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
       notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
@@ -1247,7 +1247,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null, say = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null, say = null;
   // The place a restore owes the visitor, held until the log is shown and every picture above it
   // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
   // the log is where they put it, and place() reads it there.
@@ -1545,7 +1545,7 @@
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
     title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.modalClose); closeBtn.textContent = "×";
-    input.placeholder = s.prompt; sendBtn.setAttribute("aria-label", s.send); keysLine();
+    input.placeholder = s.prompt; keysLine();
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     writeNotice();
@@ -1600,11 +1600,12 @@
     log = el("div", "rbchat-log");
     ["wheel", "pointerdown", "keydown", "touchstart"].forEach(function(k){ log.addEventListener(k, function(){ reading = null; }, { passive: true }); });
     var form = el("form", "rbchat-form");
-    // The command line: a prompt, the field, and a ↵ that only a touch screen shows. A phone
-    // keyboard's return key sends as Enter does, but a thumb looks for a button to tap. The
-    // field opens at one row and grows to four as the visitor writes more.
+    // The command line: a prompt and the field, and no button. Enter sends, on a desk and on a
+    // phone alike, where the keyboard's return key is labeled for it by `enterkeyhint`; a ↵
+    // beside the field was one more thing on a narrow line doing what that key already does.
+    // The field opens at one row and grows to four as the visitor writes more.
     var p = el("span", "rbchat-p", "\u203a"); p.setAttribute("aria-hidden", "true");
-    input = el("textarea"); input.rows = 1; input.maxLength = LIMIT;
+    input = el("textarea"); input.rows = 1; input.maxLength = LIMIT; input.enterKeyHint = "send";
     input.addEventListener("keydown", function(e){
       // An Enter that confirms an input method's composition belongs to the composition.
       if (e.isComposing || e.keyCode === 229) return;
@@ -1614,8 +1615,7 @@
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); }
     });
     input.addEventListener("input", grow);
-    sendBtn = el("button", "rbchat-send", "\u21b5"); sendBtn.type = "submit";
-    form.appendChild(p); form.appendChild(input); form.appendChild(sendBtn);
+    form.appendChild(p); form.appendChild(input);
     keysEl = el("p", "rbchat-keys");
     // What a screen reader is told once an answer is whole: the answer arrives in one piece,
     // already in the log, so the log itself would announce nothing.
@@ -1701,9 +1701,24 @@
   // shown again, so every open draws a fresh random three rather than repeating what closing the
   // panel left behind. It only drops the box the DOM holds — `qList`/`qFetch` are untouched, so
   // two opens ahead of the one fetch landing still share it rather than asking twice.
-  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; if (!introEl) intro(!messages.length); settle(); input.focus(); keep(); if (messages.length) offerQuestions(); linkWaiting(); }
+  // On a phone the panel is the screen, and the screen is what the visual viewport says it is.
+  // An open keyboard shrinks that and not the layout viewport, so a panel sized to `100dvh`
+  // ran on under the keyboard and the browser scrolled the page to show the field, taking the
+  // title bar and its close button off the top. The panel follows the visual viewport instead:
+  // its top where the visible area starts, its height what is visible, so the bar stays at the
+  // top and the command line sits on the keyboard. Where there is no `visualViewport` the
+  // stylesheet's `100dvh` stands.
+  var vv = window.visualViewport, PHONE = window.matchMedia ? window.matchMedia("(max-width:600px)") : null;
+  function fit(){
+    if (!panel || panel.hidden || !vv || !PHONE) return;
+    if (!PHONE.matches) { panel.style.removeProperty("--rbchat-top"); panel.style.removeProperty("--rbchat-h"); return; }
+    panel.style.setProperty("--rbchat-top", vv.offsetTop + "px");
+    panel.style.setProperty("--rbchat-h", vv.height + "px");
+  }
+  if (vv) { vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); }
+  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; fit(); if (!introEl) intro(!messages.length); settle(); input.focus(); keep(); if (messages.length) offerQuestions(); linkWaiting(); }
   function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ reading = null; reqGen++; if (stopRequest) { stopRequest(); stopRequest = null; } messages = []; turns = []; log.innerHTML = ""; introEl = null; introPick = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
+  function reset(){ reading = null; reqGen++; if (stopRequest) { stopRequest(); stopRequest = null; } messages = []; turns = []; log.innerHTML = ""; introEl = null; introPick = null; menuRows = []; qBox = null; busy = false; input.disabled = false; intro(true); input.focus(); keep(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1736,7 +1751,7 @@
     mine.textContent = text; mine.setAttribute("data-turn", turns.length - 1);
     // A message that goes unanswered leaves the conversation, and its bubble stops naming a turn.
     function unsend(){ messages.pop(); turns.pop(); mine.removeAttribute("data-turn"); keep(); }
-    input.value = ""; busy = true; input.disabled = true; sendBtn.disabled = true;
+    input.value = ""; busy = true; input.disabled = true;
     // Nothing of the answer is drawn until the stream ends: the spinner stands for the whole
     // wait, counting the seconds, and the finished answer arrives in one piece. The answer's
     // element is made now and filled as the stream comes, but joins the log only in finish().
@@ -1767,7 +1782,7 @@
       if (!acc.trim()) {
         if (ans.parentNode) ans.parentNode.removeChild(ans);
         unsend();
-        busy = false; input.disabled = false; sendBtn.disabled = false;
+        busy = false; input.disabled = false;
         refuse("internal");
         return;
       }
@@ -1800,7 +1815,7 @@
       ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
-      input.disabled = false; sendBtn.disabled = false; if (refocus(window)) input.focus(); offerQuestions();
+      input.disabled = false; if (refocus(window)) input.focus(); offerQuestions();
     }
     fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages.slice(-SENT), lang: langNow() }) })
       .then(function(r){
@@ -1813,7 +1828,7 @@
               if (gen !== reqGen) return;
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
-              busy = false; input.disabled = false; sendBtn.disabled = false;
+              busy = false; input.disabled = false;
               refuse(got.code, got.retryAt);
             });
         }
@@ -1834,7 +1849,7 @@
               clearTimeout(timer); stopSpin();
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
-              busy = false; input.disabled = false; sendBtn.disabled = false;
+              busy = false; input.disabled = false;
               refuse(code || "internal", at);
               return;
             }
@@ -1847,7 +1862,7 @@
         if (gen !== reqGen) return;
         if (ans.parentNode) ans.parentNode.removeChild(ans);
         if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { unsend(); }
-        busy = false; input.disabled = false; sendBtn.disabled = false;
+        busy = false; input.disabled = false;
         refuse("network");
       });
   }

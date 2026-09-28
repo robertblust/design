@@ -1,4 +1,4 @@
-  /* ─── header contract · v16 · shared ──────────────────────────────────
+  /* ─── header contract · v17 · shared ──────────────────────────────────
      One row, three sites, and no stylesheet between them — a deck opens from file://, so
      this is a copy, generated from @robertblust/design. Editing it here has no effect — the
      next `npm run design` overwrites it. Change it in the package.
@@ -33,10 +33,36 @@
                     goes looking for it.
        · height     The language control sets it. The theme control matches it rather than
                     carrying a height of its own.
+       · sticky     The row stays at the top of the window as the page scrolls, drawn as the
+                    modal's head: the terminal's top color from edge to edge.
 
      `navOrder`, `headerBaseline` and `mobileNav` in this repo's verify suite assert all of
      it. They cannot see the other two repositories: that is what the version is for.
   */
+  /* The header stays on screen. A reader deep in a long page reaches the nav, the language and
+     the theme without scrolling back, on every page of the three sites. It is drawn as the one
+     modal's head and the chat's title bar are drawn — the terminal's `--t-top`, edge to edge,
+     the row close to its edges — so every bar the family puts at the top of something is the
+     same bar. The band is a `border-image` outset: it paints past the shell sideways and
+     nowhere else, adds no sideways scroll, and clips nothing, so the menu panel that hangs
+     below the row on a phone still shows; a `box-shadow` band would need a `clip-path` that
+     cuts it off.
+
+     The sticky box is the `.shell` around the header, not the header: every page wraps its
+     header in a shell of its own that ends with it, and a sticky element only sticks inside its
+     parent, which for the header is a box one row tall. `:has(> header > .bar)` picks that
+     shell out, and leaves alone the chat panel's title bar, a `header` too, and a deck's page,
+     which carries none of this row. The header's own padding gives way to the bar's, and the
+     air the page had above its title comes back as a margin under the bar.
+     `scroll-padding-top` keeps an anchor honest: a `#section` link lands under the bar, not
+     behind it. */
+  .shell:has(> header > .bar){position:sticky; top:0; z-index:40; margin-bottom:1.5rem;
+      background:var(--t-top); border-image:linear-gradient(var(--t-top) 0 0) fill 0 / / 0 100vmax}
+  .shell > header:has(> .bar){padding-top:.6rem; padding-bottom:.6rem}
+  /* One height, whether the row holds the links or the menu button: the button's 40px is the
+     row's floor, so the bar does not grow as a narrowing window collapses the nav. */
+  header > .bar{min-height:40px}
+  html:has(header > .bar){scroll-padding-top:5rem}
   /* `align-items:center`, not the default `stretch`: a stretched link is a box the height of
      the whole row with its text at the top, which put the words above the language control
      beside them. Centered, each box is its own height and one line runs through every text. */
