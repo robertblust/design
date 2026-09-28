@@ -13,7 +13,7 @@ const TOKENS = `:root{--ground:#0C0E13;--raise:#171A21;--rule:#232833;--ink:#EFE
 :root[data-theme="light"]{--ground:#FAF9F5;--raise:#F2F0EA;--rule:#DFDCD3;--ink:#16181D;--dim:#5F6058;--c-mid:#3A6DA6;--press:#E7ECF4}
 body{background:var(--ground);color:var(--ink);margin:0}`;
 
-export function modelPage({ chat = false } = {}) {
+export function modelPage({ chat = false, extra = "" } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script>${BOOT}</script>
 <style>${TOKENS}</style>
@@ -41,7 +41,7 @@ export function modelPage({ chat = false } = {}) {
       <button type="button" class="close" id="modalclose" aria-label="Close">×</button>
     </dialog>
   </section>
-  <section><p>More of the page.</p></section>
+  <section><p>More of the page.</p>${extra}</section>
 </main>
 <footer id="sitefooter"><p class="derived">Generated from <a id="srclink" data-src="model" href="#">the model</a> at <span id="srccommit"></span></p></footer>
 <script>window.rbPage = { applyLang: function(l){ document.documentElement.setAttribute("data-applied", l); } };</script>

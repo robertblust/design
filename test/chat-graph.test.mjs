@@ -16,6 +16,11 @@ const PICTURE = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "d
 PICTURE.nodes[0].id = ID_A; PICTURE.nodes[0].title = "Guest";
 const CHAT = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
 <body><p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
+// A page of the site with a plain link into the graph, as a timeline card writes one, with the
+// chat's tag naming an endpoint or not; and a link on the model page itself.
+const PLAIN = (chat) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+<body><p>A card: <a id="plain" href="../model/?stage=expanded#${ID_A}">Guest</a></p><script src="/chat.js" ${chat ? 'data-chat="/chat" ' : ""}data-model="/model/" defer></script></body></html>`;
+const SELF = `<a id="self" href="/model/?stage=expanded#${ID_B}">Merge</a>`;
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 const EVENTS = [["text", { text: "A Guest is resolved before any merge happens." }], ["names", { names: [{ id: ID_A, title: "Guest" }] }],
   ["cite", { id: ID_B, title: "Merge", url: "https://github.com/o/r/blob/abc1234def/concepts/merge.md" }], ["diagram", PICTURE], ["done", { spent: 1 }]];
@@ -25,7 +30,8 @@ before(async () => {
   server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(EVENTS)); return; }
-    const files = { "/": ["text/html", CHAT], "/model/": ["text/html", modelPage()], "/mermaid.min.js": ["text/javascript", fs.readFileSync(path.join(PKG, "assets", "mermaid.min.js"))], ...stageFiles() };
+    const files = { "/": ["text/html", CHAT], "/model/": ["text/html", modelPage({ chat: true, extra: SELF })],
+      "/timeline/": ["text/html", PLAIN(true)], "/talks/": ["text/html", PLAIN(false)], "/mermaid.min.js": ["text/javascript", fs.readFileSync(path.join(PKG, "assets", "mermaid.min.js"))], ...stageFiles() };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     const send = () => { res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]); };
@@ -198,4 +204,31 @@ test("the dialog is named by its head, and the head follows the focus and the la
   await p.evaluate(() => { document.documentElement.lang = "de"; });
   await p.waitForFunction((t) => document.querySelector(".rbchat-graph-title").textContent === t.replace(/^graph/, "Graph"), to);
   await close();
+});
+
+// ─── One rule for every page: the graph opens on the page ────────────────────────────────
+for (const [where, address] of [["with a chat", "/timeline/"], ["whose tag names no chat", "/talks/"]]) {
+  test(`a plain link into the graph on a page ${where} opens it on the page`, async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await context.newPage();
+    await p.goto(base + address);
+    const before = await p.evaluate(() => history.length);
+    await p.click("#plain");
+    await p.waitForSelector("dialog.rbchat-graph[open]");
+    await focusIs(p, "concepts / guest");
+    assert.equal(await p.evaluate(() => location.pathname), address);
+    assert.equal(await p.evaluate(() => history.length), before);
+    await context.close();
+  });
+}
+
+test("on the model page itself a link into the graph moves its own stage", async () => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await context.newPage();
+  await p.goto(base + "/model/");
+  await p.waitForSelector("#fig g.n");
+  await p.click("#self");
+  await p.waitForFunction(() => location.hash === "#concepts/merge");
+  assert.equal(await p.$("dialog.rbchat-graph"), null, "the model page opened a graph over itself");
+  await context.close();
 });

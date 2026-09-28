@@ -60,6 +60,7 @@
 //   rbChat.versionsOf(file)            the model file's core, commit and repository, or null
 //   rbChat.graphHref(model, id)        the embedded graph's address
 //   rbChat.entityOf(href, model)       the entity a link into the model names, or null
+//   rbChat.graphTarget(href, model, here)  the place a link on any page names in the graph, or null
 //
 // An empty conversation, once the panel is shown, offers three questions as a way in in its
 // intro, three of the site's own model's entities of type `question`, picked at random for that
@@ -467,6 +468,19 @@
     var id = decodeURIComponent(at.slice(hash + 1));
     return id || null;
   }
+  // The place in the graph a link on any page of the site names: an address that resolves, on
+  // this site, to the model page with its stage expanded and a place after the hash. The model
+  // page itself names none, since its own stage is right there to move.
+  function graphTarget(href, model, here){
+    if (!href || !model || !here) return null;
+    try {
+      var to = new URL(href, here), page = new URL(model, here), at = new URL(here);
+      if (to.origin !== at.origin || to.pathname !== page.pathname || page.pathname === at.pathname) return null;
+      if (!/(^|&)stage=expanded(&|$)/.test(to.search.slice(1))) return null;
+      var id = decodeURIComponent(to.hash.slice(1));
+      return id || null;
+    } catch (e) { return null; }
+  }
   // What the chat answers from, read from the model file it already fetched: the core the model
   // is written in, and the model's repository at one commit.
   function versionsOf(file){
@@ -760,7 +774,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1143,14 +1157,14 @@
   if (window.MutationObserver) new MutationObserver(function(){ figures.forEach(labelFigure); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
-  if (!tag.dataset.chat) return;
-  // An embedded page is the chat's own graph, inside the chat's dialog on another page: it takes
-  // no chat of its own.
-  if (document.documentElement.hasAttribute("data-embed")) return;
+  // An embedded page is the graph itself, inside the dialog on another page: it opens no graph
+  // and takes no chat of its own.
+  var EMBEDDED = document.documentElement.hasAttribute("data-embed");
 
   // ─── The graph ────────────────────────────────────────────────────────────────────────────
-  // A link into the model from the chat opens the model page's own stage over the page, in a
-  // dialog like a picture's Expand, rather than taking the visitor to the page. The page is
+  // A link into the model opens the model page's own stage over the page, in a dialog like a
+  // picture's Expand, rather than taking the visitor to the page, on every page that loads this
+  // file, whether or not it offers the chat. The page is
   // embedded: it draws its stage alone and keeps its history to itself (see stage.js), so the
   // chat page's address and its Back stay the visitor's. The frame is made on the first open;
   // a later open moves its focus by message, queued until the frame says it is ready.
@@ -1220,20 +1234,34 @@
   });
   if (window.MutationObserver) new MutationObserver(function(){ if (graphReady) tellGraph(lookOf()); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "lang"] });
-  // Any link into the model inside the chat, whether a name, a cite title or a picture's node,
-  // on the panel or in the picture's full screen, opens the graph instead of leaving the page.
-  // A modified click (a new tab) is left to the browser.
+  // Every link into the graph on this page opens it here, the one rule for every page: a name,
+  // a cite title or a node in the chat, a card on the timeline, a node in a page's own picture or
+  // in any picture opened full screen, a link in a post. Any address that resolves to the model
+  // page with its stage expanded counts, whatever page wrote it and however relative; the model
+  // page itself moves its own stage instead, and a modified click (a new tab) is the browser's.
+  // An embedded page is the graph itself, and opens none.
   document.addEventListener("click", function(ev){
-    if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
-    var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
-    // A picture in the full-screen dialog opens the graph only when the chat drew it: a page's own
-    // picture, like the team page's, is already on a page of the site.
-    if (!a || !(a.closest(".rbchat") || (a.closest("dialog.rbchat-modal") && modalFig && modalFig.closest && modalFig.closest(".rbchat")))) return;
-    var id = entityOf(a.getAttribute("href") || a.getAttribute("xlink:href"), MODEL);
+    if (EMBEDDED || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    var a = ev.target && ev.target.closest && ev.target.closest("a[href], a[*|href]");
+    if (!a) return;
+    var id = graphTarget(a.getAttribute("href") || a.getAttribute("xlink:href"), MODEL, document.baseURI);
     if (!id) return;
     ev.preventDefault();
     openGraph(id, a.getAttribute("aria-label") || a.textContent.trim(), a);
   });
+  // The graph's words follow the page's language on a page with no chat to relabel them.
+  function relabelGraph(){
+    if (!graph) return;
+    var s = strings(langNow());
+    if (graphName) setGraphTitle(graphName);
+    if (graphFailed) graphFailed.textContent = s.graph.failed;
+    graphPage.textContent = s.graph.page;
+    var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
+  }
+  if (window.MutationObserver) new MutationObserver(relabelGraph).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+
+  if (!tag.dataset.chat || EMBEDDED) return;
+
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
@@ -1542,12 +1570,6 @@
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     writeNotice();
-    if (graph) {
-      if (graphName) setGraphTitle(graphName);
-      if (graphFailed) graphFailed.textContent = s.graph.failed;
-      graphPage.textContent = s.graph.page;
-      var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
-    }
     if (log) {
       var heads = log.querySelectorAll(".rbchat-done");
       for (var h = 0; h < heads.length; h++) heads[h].lastChild.textContent = " " + s.answered;

@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -861,7 +861,25 @@ test("the answer card keeps the answer's text, links and rail readable in both p
   }
 });
 
-test("the graph opens only from a picture the chat drew, not from a page's own picture opened full screen", () => {
-  const fn = src.slice(src.indexOf("// Any link into the model inside the chat"), src.indexOf("// Any link into the model inside the chat") + 1400);
-  assert.match(fn, /modalFig && modalFig\.closest && modalFig\.closest\("\.rbchat"\)/, "a page's own picture opened full screen opens the graph");
+test("every link into the graph opens it on the page, from anywhere on it, and a page's own picture too", () => {
+  const i = src.indexOf("// Every link into the graph on this page");
+  assert.ok(i > 0 && i < src.indexOf("if (!tag.dataset.chat"), "the graph opener waits for a chat, so a page without one leaves");
+  const fn = src.slice(i, i + 1400);
+  assert.doesNotMatch(fn, /closest\("\.rbchat"\)/, "only a link inside the chat opens the graph");
+  assert.match(fn, /graphTarget\(/, "the link is not read as a place in the graph");
+});
+
+test("a link names a place in the graph where it resolves to the model page, expanded, from any other page of the site", () => {
+  const here = "https://blust.ch/timeline/";
+  assert.equal(graphTarget("../model/?stage=expanded#people/rob", "/model/", here), "people/rob");
+  assert.equal(graphTarget("/model/?stage=expanded#skills/java%20programming", "/model/", here), "skills/java programming");
+  assert.equal(graphTarget("https://blust.ch/model/?lang=de&stage=expanded#x", "/model/", here), "x");
+  assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/team/"), "identity");
+  assert.equal(graphTarget("../model/#people/rob", "/model/", here), null, "a link that does not ask for the stage expanded");
+  assert.equal(graphTarget("../model/?stage=expanded", "/model/", here), null, "no place named");
+  assert.equal(graphTarget("https://example.org/model/?stage=expanded#x", "/model/", here), null, "another site");
+  assert.equal(graphTarget("/blog/?stage=expanded#x", "/model/", here), null, "another page");
+  assert.equal(graphTarget("/model/?stage=expanded#x", "/model/", "https://blust.ch/model/"), null, "the model page itself moves its own stage");
+  assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/"), null);
+  assert.equal(graphTarget(null, "/model/", here), null);
 });
