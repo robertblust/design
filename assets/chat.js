@@ -1273,7 +1273,8 @@
         var t = strings(langNow()), rows = tryRows(f, langNow());
         groups.appendChild(el("p", "rbchat-label", t.tryLabel));
         menu(groups, rows, 0);
-        var picked = spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3).map(function(q){ return [q.title]; });
+        // spread() gives back titles, as the menu after an answer uses them.
+        var picked = spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3).map(function(t){ return [t]; });
         if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
         // A restored conversation has moved past the intro: its menus are spent, and the rows a
         // number picks stay those of the menu after the last answer.

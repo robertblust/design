@@ -123,6 +123,7 @@ test("a fresh conversation opens on the lockup, the hello, the notice and six nu
   assert.deepEqual(s.rows.slice(0, 3), ["1 Show me the meta-model", "2 Walk me through the Answering process", "3 List the KPIs as a table"]);
   assert.equal(s.gets, 3, "only the Try rows say what comes back");
   assert.deepEqual(s.rows.slice(3).map((r) => r.slice(0, 2)), ["4 ", "5 ", "6 "]);
+  assert.deepEqual(s.rows.slice(3).map((r) => r.slice(2)).sort(), ["How does the chat answer a question?", "Which rules does every instance pass?", "What is an owner?"].sort(), "the model's questions are drawn without their titles");
   assert.match(s.keys, /1-6 pick/);
   await close();
 });
@@ -173,7 +174,7 @@ test("the intro follows a language switch, rows and keys included", async () => 
   await close();
 });
 
-const ANSWER = [["text", { text: "An **owner** is the entity another is nested under.\n\n- one\n- two\n\n| Owner | Owns |\n| --- | --- |\n| process | step |" }],
+const ANSWER = [["text", { text: "An **owner** is the entity another is nested under.\n\n- one owner\n- two\n\n| Owner | Owns |\n| --- | --- |\n| process | step |" }],
   ["cite", { id: "concepts/owner", title: "owner", url: "https://github.com/o/r/blob/3f2a1c9e0b/concepts/owner.md" }],
   ["done", { model: null, spent: 1, dayLeft: 1 }]];
 
@@ -201,6 +202,7 @@ test("a slow answer shows only the spinner, counting, until the stream ends, the
       head: a.querySelector(".rbchat-done").textContent,
       strong: !!a.querySelector(".rbchat-body strong"),
       list: a.querySelectorAll(".rbchat-body ul li").length,
+      itemLines: (() => { const li = a.querySelector(".rbchat-body ul li"); return Math.round(li.getBoundingClientRect().height / parseFloat(getComputedStyle(li).lineHeight)); })(),
       table: !!a.querySelector(".rbchat-body table"),
       cite: a.querySelector(".rbchat-cites a.rbchat-cite").textContent,
       model: a.querySelector(".rbchat-model").textContent,
@@ -213,6 +215,7 @@ test("a slow answer shows only the spinner, counting, until the stream ends, the
   assert.equal(done.head, "✓ answered");
   assert.equal(done.strong, true);
   assert.equal(done.list, 2);
+  assert.equal(done.itemLines, 1, "a list item holding a link breaks into a line per piece");
   assert.equal(done.table, true);
   assert.equal(done.cite, "owner");
   assert.match(done.model, /^model 3f2a1c9 · \d+s$/);
