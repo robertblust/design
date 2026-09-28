@@ -22,7 +22,9 @@ const page = (body) => `<!doctype html><html lang="en" data-theme="dark"><head><
 
 // Enough questions that a fresh pick of three differs from the last one more often than not.
 const QUESTIONS = Array.from({ length: 12 }, (_, i) => ({ id: `question/q${i}`, type: "question", name: `Question number ${i}?`, fields: {} }));
-const MODEL = JSON.stringify({ entities: QUESTIONS, edges: [] });
+// Processes, so the intro's Try rows pick one, and a commit, so it draws its versions line.
+const PROCESSES = Array.from({ length: 6 }, (_, i) => ({ id: `process/p${i}`, type: "process", name: `Process ${i}`, fields: {} }));
+const MODEL = JSON.stringify({ entities: [...QUESTIONS, ...PROCESSES], edges: [], commit: "0123456789abcdef0123456789abcdef01234567", repo: "example/model", core: "0.1.0" });
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 let slow = false, server, base, browser;
 
@@ -72,5 +74,31 @@ test("the questions offered after an answer come back with the conversation, the
   await p.waitForTimeout(1800);
   assert.equal(await p.$$eval(".rbchat-next", (n) => n.length), 1);
   assert.deepEqual(await rows(p), offered);
+  await context.close();
+});
+
+const intro = (p) => p.$eval(".rbchat-intro", (i) => ({ rows: [...i.querySelectorAll("button")].map((b) => b.textContent.trim()), versions: !!i.querySelector(".rbchat-versions") }));
+
+test("the intro comes back whole with the conversation, the same picks and nothing drawn late", async () => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await context.newPage();
+  slow = false;
+  await p.goto(base + "/");
+  await p.click(".rbchat-open");
+  await p.waitForSelector(".rbchat-intro .rbchat-versions");
+  await p.fill(".rbchat textarea", "What is this?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-next button");
+  const first = await intro(p);
+  assert.equal(first.versions, true);
+  slow = true;
+  await p.goto(base + "/other/", { waitUntil: "domcontentloaded" });
+  await p.waitForFunction(() => document.querySelector(".rbchat") && !document.querySelector(".rbchat").hidden);
+  const height = await p.$eval(".rbchat-log", (l) => l.scrollHeight);
+  assert.deepEqual(await intro(p), first, "the intro was not drawn whole with the conversation");
+  // The slow model file lands, and the log does not move.
+  await p.waitForTimeout(1800);
+  assert.equal(await p.$eval(".rbchat-log", (l) => l.scrollHeight), height, "something was drawn into the log after the page showed");
+  assert.deepEqual(await intro(p), first);
   await context.close();
 });
