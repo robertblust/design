@@ -4,8 +4,7 @@
    picture, draws in the terminal's colors without a second copy of its own rules. */
 dialog.rbmodal{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel);
   width:min(1500px,96vw);height:min(92vh,1000px);max-width:96vw;max-height:92vh;padding:0;margin:auto;box-sizing:border-box;
-  border:1.5px solid var(--t-edge);border-radius:12px;background:var(--t-bg);color:var(--t-ink);overflow:hidden;
-  font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55}
+  border:1.5px solid var(--t-edge);border-radius:12px;background:var(--t-bg);color:var(--t-ink);overflow:hidden}
 dialog.rbmodal[open]{display:flex;flex-direction:column}
 dialog.rbmodal::backdrop{background:rgba(0,0,0,.6)}
 /* A container draws no ring: modal.js focuses the dialog, not the ×, on open. */
@@ -13,8 +12,9 @@ dialog.rbmodal:focus,dialog.rbmodal:focus-visible{outline:none}
 @keyframes rbmodalIn{from{opacity:0}to{opacity:1}}
 dialog.rbmodal[open]{animation:rbmodalIn .15s ease-out}
 @media (prefers-reduced-motion:reduce){dialog.rbmodal[open]{animation:none}}
-/* The head bar: the title, what the content brings to the head, then the close. */
-.rbmodal-head{flex:0 0 auto;display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem .6rem 1.2rem;background:var(--t-top)}
+/* The head bar: the title, what the content brings to the head, then the close, in the
+   terminal's mono. What the body holds keeps the page's own face, as the stage's card does. */
+.rbmodal-head{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55;flex:0 0 auto;display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem .6rem 1.2rem;background:var(--t-top)}
 .rbmodal-title{margin-right:auto;min-width:0;color:var(--t-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rbmodal-controls{display:flex;align-items:center;gap:.3rem}
 .rbmodal-controls:empty{display:none}

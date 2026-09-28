@@ -12,7 +12,7 @@ import { TERMINAL } from "./fixtures/terminal.mjs";
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
 const PAGE = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>${TERMINAL} body{margin:0;background:#0C0E13;color:#EFEDE8}</style></head>
+<style>${TERMINAL} body{margin:0;background:#0C0E13;color:#EFEDE8;font-family:"Page Face",serif}</style></head>
 <body><div id="home"><p id="thing">A thing</p><p id="other">Another</p></div><button id="opener">Open</button>
 <div style="height:4000px">A long page.</div><script src="/modal.js"></script></body></html>`;
 let server, base, browser;
@@ -138,6 +138,15 @@ test("it is the model page's size on a desk and a sheet on a phone", async () =>
   const q = await phone.p.$eval("dialog.rbmodal", (d) => { const b = d.getBoundingClientRect(); return { w: Math.round(b.width), h: Math.round(b.height) }; });
   assert.deepEqual(q, { w: 390, h: 844 });
   await phone.close();
+});
+
+test("the head is the terminal's mono, and what the modal holds keeps the page's own face", async () => {
+  const { p, close } = await page();
+  await openThing(p);
+  const f = await p.evaluate(() => ({ head: getComputedStyle(document.querySelector(".rbmodal-title")).fontFamily, body: getComputedStyle(document.getElementById("thing")).fontFamily }));
+  assert.match(f.head, /Plex Mono/);
+  assert.match(f.body, /Page Face/, "the stage's card on the model page would turn mono");
+  await close();
 });
 
 test("a kind names what the modal holds, as a class on it", async () => {
