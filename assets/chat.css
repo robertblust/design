@@ -14,13 +14,13 @@
    defined again inside the panel from the terminal's, so every rule below that reads a token,
    and Mermaid, which reads them from the figure, draws in the terminal's colors with no second
    copy of each rule. Dark by default and light where the page is, as the tokens are. */
-.rbchat,dialog.rbchat-modal.rbchat-term{--t-bg:#0E141C;--t-top:#161E29;--t-dot:#2B3645;--t-ink:#D5DCE6;--t-dim:#8793A3;--t-accent:#7FA3D8;--t-strong:#FFFFFF;
+.rbchat,dialog.rbchat-modal.rbchat-term,dialog.rbchat-graph{--t-card:#141D29;--t-bg:#0E141C;--t-top:#161E29;--t-dot:#2B3645;--t-ink:#D5DCE6;--t-dim:#8793A3;--t-accent:#7FA3D8;--t-strong:#FFFFFF;
   --t-good:#86C79A;--t-bad:#E0705E;--t-line:#243041;--t-sel:#18263A;--t-edge:#2B3645}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) :is(.rbchat,dialog.rbchat-modal.rbchat-term){--t-bg:#FDFCF9;--t-top:#EFECE5;--t-dot:#D6D1C6;--t-ink:#1D232C;--t-dim:#676152;
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) :is(.rbchat,dialog.rbchat-modal.rbchat-term,dialog.rbchat-graph){--t-card:#F3F1EB;--t-bg:#FDFCF9;--t-top:#EFECE5;--t-dot:#D6D1C6;--t-ink:#1D232C;--t-dim:#676152;
   --t-accent:#3A6DA6;--t-strong:#0C0E13;--t-good:#2E7A45;--t-bad:#B3412E;--t-line:#E3DFD6;--t-sel:#E7ECF4;--t-edge:#CFC9BC}}
-:root[data-theme="light"] :is(.rbchat,dialog.rbchat-modal.rbchat-term){--t-bg:#FDFCF9;--t-top:#EFECE5;--t-dot:#D6D1C6;--t-ink:#1D232C;--t-dim:#676152;
+:root[data-theme="light"] :is(.rbchat,dialog.rbchat-modal.rbchat-term,dialog.rbchat-graph){--t-card:#F3F1EB;--t-bg:#FDFCF9;--t-top:#EFECE5;--t-dot:#D6D1C6;--t-ink:#1D232C;--t-dim:#676152;
   --t-accent:#3A6DA6;--t-strong:#0C0E13;--t-good:#2E7A45;--t-bad:#B3412E;--t-line:#E3DFD6;--t-sel:#E7ECF4;--t-edge:#CFC9BC}
-dialog.rbchat-modal.rbchat-term{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel)}
+dialog.rbchat-modal.rbchat-term,dialog.rbchat-graph{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel)}
 .rbchat{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel);
   position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:61;
   width:min(31rem,calc(100vw - 2rem));height:min(46rem,calc(100vh - 2rem));display:flex;flex-direction:column;
@@ -74,8 +74,9 @@ dialog.rbchat-modal.rbchat-term{--ground:var(--t-bg);--raise:var(--t-top);--rule
 .rbchat-spin{margin:.3rem 0 0;color:var(--t-dim)}
 .rbchat-frame{display:inline-block;width:1ch;color:var(--t-accent)}
 /* A finished answer, as the tooling prints a finished step: a rail in the terminal's green and a
-   head line with the tick. It has no animation of any kind. */
-.rbchat-assistant{margin:.4rem 0 0 .35rem;padding:.05rem 0 .15rem .85rem;border-left:1.5px solid var(--t-good)}
+   head line with the tick, on a card a step lighter than the terminal, so the one thing the model
+   wrote stands apart from the question and the menus around it. It has no animation of any kind. */
+.rbchat-assistant{margin:.4rem 0 0 .35rem;padding:.55rem .9rem .55rem .95rem;border-left:1.5px solid var(--t-good);background:var(--t-card);border-radius:0 8px 8px 0}
 .rbchat-done{margin:0 0 .35rem;color:var(--t-dim)}
 .rbchat-tick{color:var(--t-good)}
 /* The answer's text reads as it always has: the page's own face, dim as every page's prose is,
@@ -269,3 +270,20 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
 .rbchat-help-k{color:var(--t-accent)}
 /* Heard, not seen: the finished answer, said once to a screen reader. */
 .rbchat-say,.rbchat-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+/* What the chat answers from, dim as the host line above it; its links are the page's own. */
+.rbchat-versions{display:block;font-size:.8rem;color:var(--t-dim)}
+/* The graph, over the page as a picture's full screen is: the model page's own stage, embedded, in
+   a dialog of the terminal's colors, a sheet on a phone. */
+dialog.rbchat-graph{width:min(1200px,94vw);height:min(820px,90vh);max-width:94vw;max-height:90vh;padding:0;margin:auto;
+  border:1.5px solid var(--t-edge);border-radius:12px;background:var(--t-bg);color:var(--t-ink);overflow:hidden;flex-direction:column;
+  font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem}
+dialog.rbchat-graph[open]{display:flex}
+dialog.rbchat-graph::backdrop{background:rgba(0,0,0,.6)}
+.rbchat-graph-head{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem .6rem 1.2rem;background:var(--t-top)}
+.rbchat-graph-title{margin-right:auto;color:var(--t-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbchat-graph-page{color:var(--t-dim);text-decoration:none;padding:.15rem .4rem;border-radius:5px}
+.rbchat-graph-close{position:relative;border:0;background:none;color:var(--t-dim);font:inherit;font-size:1rem;line-height:1;cursor:pointer;padding:.15rem .4rem;border-radius:5px}
+.rbchat-graph-page:hover,.rbchat-graph-page:focus-visible,.rbchat-graph-close:hover,.rbchat-graph-close:focus-visible{color:var(--t-ink);outline:1.5px solid var(--t-accent)}
+.rbchat-graph-frame{flex:1;width:100%;border:0;background:var(--t-bg)}
+@media (max-width:860px){dialog.rbchat-graph{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}}
+.rbchat-graph-failed{margin:0;padding:.8rem 1.2rem;color:var(--t-dim);border-bottom:1px solid var(--t-line)}

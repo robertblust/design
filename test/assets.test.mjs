@@ -192,8 +192,14 @@ test("the stage carries a history control that acts on the browser's history and
   const js = asset("assets/stage.js"), css = asset("assets/stage.css");
   assert.match(js, /hist\.className = "history"/, "stage.js does not build the control");
   assert.match(js, /stageHead\.insertBefore\(hist, expandBtn\)/, "the control is not placed between the path and Expand");
-  for (const call of ["history.back()", "history.forward()", "history.go(-pos)"]) assert.ok(js.includes(call), `stage.js lacks ${call}`);
-  assert.ok(!/\bfocus\(trailNode|focus\(nodeById\(trail/.test(js), "the control focuses a node itself instead of moving the browser");
+  for (const call of ["history.back()", "history.forward()", "history.go(delta)"]) assert.ok(js.includes(call), `stage.js lacks ${call}`);
+  // On a page the control moves the browser and nothing else. Embedded in the chat's dialog it
+  // may not: the tab's history is the visitor's, so there the trail is the history, and step()
+  // is the one place that focuses a trail entry itself, behind the embed flag.
+  const stepFn = js.slice(js.indexOf("function step(delta){"), js.indexOf("hFirst.addEventListener"));
+  assert.match(stepFn, /^function step\(delta\)\{\n\s+if \(!EMBED\) \{ if \(delta === -1\) history\.back\(\); else if \(delta === 1\) history\.forward\(\); else history\.go\(delta\); return; \}/, "on a page the control does not move the browser first");
+  assert.ok(!/\bfocus\(trailNode|focus\(nodeById\(trail/.test(js.replace(stepFn, "")), "the control focuses a node itself outside the embedded stage");
+  for (const k of ["hFirst", "hBack", "hNext"]) assert.ok(!new RegExp(k + "\\.addEventListener\\([^\\n]*history\\.").test(js), k + " moves the history directly rather than through step()");
   assert.match(js, /aria-disabled/, "a side with nowhere to go is disabled for real, which drops the focus");
   assert.ok(!/hFirst\.disabled|hBack\.disabled|hNext\.disabled/.test(js), "a button uses the disabled attribute");
   assert.match(js, /ev\.key === "ArrowLeft"/, "Left is not bound"); assert.match(js, /ev\.key === "ArrowRight"/, "Right is not bound");

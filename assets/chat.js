@@ -57,6 +57,10 @@
 //   rbChat.commitOf(cites)             the commit the answer was read at, or null
 //   rbChat.seconds(ms)                 the spinner's count
 //   rbChat.rangeOf(n)                  the rows a number picks, as the keys line names them
+//   rbChat.versionsOf(file)            the model file's core, commit and repository, or null
+//   rbChat.graphHref(model, id)        the embedded graph's address
+//   rbChat.entityOf(href, model)       the entity a link into the model names, or null
+//   rbChat.graphTarget(href, model, here)  the place a link on any page names in the graph, or null
 //
 // An empty conversation, once the panel is shown, offers three questions as a way in in its
 // intro, three of the site's own model's entities of type `question`, picked at random for that
@@ -100,6 +104,8 @@
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
       help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
+      versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
+      graph: { head: "graph · {title}", page: "model page ↗", close: "Close the graph", failed: "The graph could not be drawn here; the model page has it." },
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
@@ -142,6 +148,8 @@
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
+      versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
+      graph: { head: "Graph · {title}", page: "Modellseite ↗", close: "Graph schliessen", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
@@ -449,6 +457,36 @@
     if (cut >= 0) base = base.slice(0, cut);
     return base + (base.indexOf("?") >= 0 ? "&" : "?") + "stage=expanded#" + id;
   }
+  // The graph's own address: the model link, embedded, so the page draws the stage alone.
+  function graphHref(model, id){ return link(model, id).replace("?stage=expanded#", "?stage=expanded&embed#").replace("&stage=expanded#", "&stage=expanded&embed#"); }
+  // The entity a link into the model names, read back from the address link() wrote; null for
+  // any address that is not one, so a link to anywhere else is left to the browser.
+  function entityOf(href, model){
+    var base = model, cut = base.indexOf("#"); if (cut >= 0) base = base.slice(0, cut);
+    var at = String(href || ""), hash = at.indexOf("#");
+    if (hash < 0 || at.slice(0, hash) !== base + (base.indexOf("?") >= 0 ? "&" : "?") + "stage=expanded") return null;
+    var id = decodeURIComponent(at.slice(hash + 1));
+    return id || null;
+  }
+  // The place in the graph a link on any page of the site names: an address that resolves, on
+  // this site, to the model page with its stage expanded and a place after the hash. The model
+  // page itself names none, since its own stage is right there to move.
+  function graphTarget(href, model, here){
+    if (!href || !model || !here) return null;
+    try {
+      var to = new URL(href, here), page = new URL(model, here), at = new URL(here);
+      if (to.origin !== at.origin || to.pathname !== page.pathname || page.pathname === at.pathname) return null;
+      if (!/(^|&)stage=expanded(&|$)/.test(to.search.slice(1))) return null;
+      var id = decodeURIComponent(to.hash.slice(1));
+      return id || null;
+    } catch (e) { return null; }
+  }
+  // What the chat answers from, read from the model file it already fetched: the core the model
+  // is written in, and the model's repository at one commit.
+  function versionsOf(file){
+    if (!file || typeof file.commit !== "string" || !file.commit || typeof file.repo !== "string" || !file.repo) return null;
+    return { core: typeof file.core === "string" && file.core ? file.core : null, commit: file.commit, sha: file.commit.slice(0, 7), repo: file.repo };
+  }
 
   // Whether the cursor goes back to the input after an answer or a refusal. On a touch screen
   // focusing the input opens the keyboard over the answer the visitor is about to read, a
@@ -736,7 +774,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1119,7 +1157,111 @@
   if (window.MutationObserver) new MutationObserver(function(){ figures.forEach(labelFigure); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
-  if (!tag.dataset.chat) return;
+  // An embedded page is the graph itself, inside the dialog on another page: it opens no graph
+  // and takes no chat of its own.
+  var EMBEDDED = document.documentElement.hasAttribute("data-embed");
+
+  // ─── The graph ────────────────────────────────────────────────────────────────────────────
+  // A link into the model opens the model page's own stage over the page, in a dialog like a
+  // picture's Expand, rather than taking the visitor to the page, on every page that loads this
+  // file, whether or not it offers the chat. The page is
+  // embedded: it draws its stage alone and keeps its history to itself (see stage.js), so the
+  // chat page's address and its Back stay the visitor's. The frame is made on the first open;
+  // a later open moves its focus by message, queued until the frame says it is ready.
+  var graph = null, graphFrame = null, graphTitle = null, graphPage = null, graphReady = false, graphQueue = null, graphOpener = null;
+  // The name of the place the graph stands on, which heads the dialog in the page's language,
+  // and the wait for a frame that never says it is ready: its model file failed, or is empty.
+  var graphName = "", graphWait = null, GRAPH_WAIT = 6000, graphFailed = null;
+  function setGraphTitle(name){
+    graphName = name;
+    var head = strings(langNow()).graph.head.replace("{title}", name);
+    graphTitle.textContent = head; graphFrame.setAttribute("title", head);
+  }
+  function graphFails(on){
+    if (graphFailed) { graphFailed.parentNode.removeChild(graphFailed); graphFailed = null; }
+    if (!on) return;
+    graphFailed = el("p", "rbchat-graph-failed", strings(langNow()).graph.failed);
+    graph.insertBefore(graphFailed, graphFrame);
+    // The next open tries again from the start.
+    graphFrame.removeAttribute("src"); graphReady = false;
+  }
+  function ensureGraph(){
+    if (graph) return;
+    var s = strings(langNow());
+    graph = el("dialog", "rbchat-graph"); graph.setAttribute("aria-labelledby", "rbchat-graph-title");
+    var head = el("div", "rbchat-graph-head");
+    graphTitle = el("span", "rbchat-graph-title"); graphTitle.id = "rbchat-graph-title";
+    graphPage = el("a", "rbchat-graph-page", s.graph.page);
+    var shut = el("button", "rbchat-graph-close", "×"); shut.type = "button"; shut.setAttribute("aria-label", s.graph.close); shut.setAttribute("data-tip", s.graph.close + " · Esc");
+    shut.addEventListener("click", function(){ graph.close(); });
+    head.appendChild(graphTitle); head.appendChild(graphPage); head.appendChild(shut);
+    graphFrame = el("iframe", "rbchat-graph-frame");
+    // A frame that has loaded and still not said it is ready never will: its model file failed.
+    graphFrame.addEventListener("load", function(){
+      clearTimeout(graphWait);
+      if (graphFrame.getAttribute("src") && !graphReady) graphWait = setTimeout(function(){ if (!graphReady) graphFails(true); }, GRAPH_WAIT);
+    });
+    graph.appendChild(head); graph.appendChild(graphFrame);
+    graph.addEventListener("click", function(ev){ if (ev.target === graph) graph.close(); });
+    graph.addEventListener("close", function(){ if (graphOpener && graphOpener.focus) graphOpener.focus(); graphOpener = null; });
+    document.body.appendChild(graph);
+  }
+  function lookOf(){ return { type: "rb-graph-look", theme: document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark", lang: langNow() }; }
+  function tellGraph(m){ if (graphFrame && graphFrame.contentWindow) graphFrame.contentWindow.postMessage(m, location.origin); }
+  function openGraph(id, title, opener){
+    ensureGraph();
+    var s = strings(langNow());
+    graphOpener = opener || document.activeElement;
+    setGraphTitle(title || id);
+    graphFails(false);
+    graphPage.href = link(MODEL, id);
+    if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
+    else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
+    else graphQueue = id;
+    if (!graph.open) graph.showModal();
+    // The keyboard goes into the graph on every open, so its keys walk the trail at once.
+    if (graphReady) graphFrame.focus();
+  }
+  window.addEventListener("message", function(ev){
+    if (ev.origin !== location.origin || !graphFrame || ev.source !== graphFrame.contentWindow || !ev.data) return;
+    if (ev.data.type === "rb-graph-ready") {
+      graphReady = true; clearTimeout(graphWait); graphFails(false); tellGraph(lookOf());
+      if (graphQueue) { tellGraph({ type: "rb-graph-focus", id: graphQueue }); graphQueue = null; }
+      if (graph && graph.open) graphFrame.focus();
+    }
+    else if (ev.data.type === "rb-graph-at" && typeof ev.data.title === "string" && ev.data.title) setGraphTitle(ev.data.title);
+    else if (ev.data.type === "rb-graph-close" && graph && graph.open) graph.close();
+  });
+  if (window.MutationObserver) new MutationObserver(function(){ if (graphReady) tellGraph(lookOf()); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "lang"] });
+  // Every link into the graph on this page opens it here, the one rule for every page: a name,
+  // a cite title or a node in the chat, a card on the timeline, a node in a page's own picture or
+  // in any picture opened full screen, a link in a post. Any address that resolves to the model
+  // page with its stage expanded counts, whatever page wrote it and however relative; the model
+  // page itself moves its own stage instead, and a modified click (a new tab) is the browser's.
+  // An embedded page is the graph itself, and opens none.
+  document.addEventListener("click", function(ev){
+    if (EMBEDDED || ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    var a = ev.target && ev.target.closest && ev.target.closest("a[href], a[*|href]");
+    if (!a) return;
+    var id = graphTarget(a.getAttribute("href") || a.getAttribute("xlink:href"), MODEL, document.baseURI);
+    if (!id) return;
+    ev.preventDefault();
+    openGraph(id, a.getAttribute("aria-label") || a.textContent.trim(), a);
+  });
+  // The graph's words follow the page's language on a page with no chat to relabel them.
+  function relabelGraph(){
+    if (!graph) return;
+    var s = strings(langNow());
+    if (graphName) setGraphTitle(graphName);
+    if (graphFailed) graphFailed.textContent = s.graph.failed;
+    graphPage.textContent = s.graph.page;
+    var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
+  }
+  if (window.MutationObserver) new MutationObserver(relabelGraph).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+
+  if (!tag.dataset.chat || EMBEDDED) return;
+
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
@@ -1137,7 +1279,7 @@
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
   // opening an empty conversation, which is all that tells its two names apart.
-  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {} };
+  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {}, versions: null };
   var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
@@ -1171,7 +1313,7 @@
             // of each type the model holds, so a row never names what the model does not have.
             var counts = {};
             entities.forEach(function(e){ if (e && typeof e.type === "string") counts[e.type] = (counts[e.type] || 0) + 1; });
-            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts };
+            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts, versions: versionsOf(j) };
             (j && Array.isArray(j.edges) ? j.edges : []).forEach(function(g){
               if (!g || types[g.from] !== "question" || typeof g.via !== "string" || g.via.indexOf("Rests on.") !== 0) return;
               (rests[g.from] = rests[g.from] || []).push({ id: g.to, type: types[g.to] || null });
@@ -1304,6 +1446,20 @@
         menu(groups, rows, 0);
         var picked = introPick.questions.map(function(q){ return [q]; });
         if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
+        // What the chat answers from, under the lockup: the core the model is written in and the
+        // model at its commit, each linked to exactly that on GitHub.
+        if (f.versions) {
+          var v = f.versions, t2 = strings(langNow()), line = el("span", "rbchat-versions");
+          var words = (v.core ? t2.versions : t2.versionsModel).split(/(\{core\}|\{sha\})/);
+          words.forEach(function(w){
+            if (w === "{core}") { var a1 = el("a", null, v.core); a1.href = "https://github.com/" + v.repo + "/tree/" + v.commit + "/meta/core"; line.appendChild(a1); }
+            else if (w === "{sha}") { var a2 = el("a", null, v.sha); a2.href = "https://github.com/" + v.repo + "/tree/" + v.commit; line.appendChild(a2); }
+            else if (w) line.appendChild(document.createTextNode(w));
+          });
+          var word = introEl.querySelector(".rbchat-word");
+          if (word) word.appendChild(line); else introEl.insertBefore(line, introEl.querySelector(".rbchat-hello").nextSibling);
+          line.classList.add("rbchat-on");
+        }
         // A restored conversation has moved past the intro: its menus are spent, and the rows a
         // number picks stay those of the menu after the last answer.
         if (messages.length) spendIntro(); else { menuRows = rows.concat(picked).map(function(r){ return r[0]; }); keysLine(); }

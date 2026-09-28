@@ -456,7 +456,7 @@ test("Ctrl and the wheel zoom about the pointer, and the plain wheel moves the p
   await page.close();
 });
 
-test("a drag moves the picture and follows no link; a still press on a node follows its link", async () => {
+test("a drag moves the picture and follows no link; a still press on a node opens the graph on it", async () => {
   const page = await expanded();
   const node = await page.$eval('dialog.rbchat-modal svg a[aria-label="Build"]', (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
   const before = await shiftOf(page);
@@ -466,8 +466,12 @@ test("a drag moves the picture and follows no link; a still press on a node foll
   assert.ok(Math.abs(after.x - before.x - 40) < 1.5 && Math.abs(after.y - before.y - 30) < 1.5, JSON.stringify([before, after]));
   assert.equal(new URL(page.url()).pathname, "/", "the drag followed no link");
   await page.$eval("dialog.rbchat-modal svg", () => {});
-  await Promise.all([page.waitForURL(/\/model\//), page.mouse.click(node.x + 40, node.y + 30)]);
-  assert.match(page.url(), /\/model\/\?stage=expanded#processes\/delivery\/phases\/build$/);
+  // A still press is a click on the node's link, and a link into the model from the chat opens
+  // the graph over the page rather than leaving it.
+  await page.mouse.click(node.x + 40, node.y + 30);
+  await page.waitForSelector("dialog.rbchat-graph[open]");
+  assert.equal(new URL(page.url()).pathname, "/", "the press left the page");
+  assert.match(await page.$eval("iframe.rbchat-graph-frame", (f) => f.getAttribute("src")), /\/model\/\?stage=expanded&embed#processes\/delivery\/phases\/build$/);
   await page.close();
 });
 

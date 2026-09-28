@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -799,7 +799,7 @@ test("every new sentence exists in both languages", () => {
 
 test("the one read of the model file also keeps its process names and how many of each type it holds", () => {
   const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
-  assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts \};/, "the process names are not kept");
+  assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts, versions: versionsOf\(j\) \};/, "the process names are not kept");
   assert.match(fn, /if \(e && typeof e\.type === "string"\) counts\[e\.type\] = \(counts\[e\.type\] \|\| 0\) \+ 1;/, "the counts per type are not kept");
   assert.match(src, /function facts\(cb\)\{ questions\(function\(\)\{ cb\(qFacts\); \}\); \}/, "facts() does not share the one fetch");
   assert.equal((src.match(/fetch\(QUESTIONS/g) || []).length, 1, "the model file is read twice");
@@ -816,4 +816,70 @@ test("the pick range names the rows a number picks, and none when there are none
   assert.equal(rangeOf(0), "");
   assert.equal(rangeOf(1), "1");
   assert.equal(rangeOf(6), "1-6");
+});
+
+test("the versions are the model file's core, commit and repository, and none without a commit or a repository", () => {
+  assert.deepEqual(versionsOf({ commit: "1d1b4e646fe21686bf854e6b464cf94c9a34d3dd", repo: "robertblust/mental-model", core: "0.46.0" }),
+    { core: "0.46.0", commit: "1d1b4e646fe21686bf854e6b464cf94c9a34d3dd", sha: "1d1b4e6", repo: "robertblust/mental-model" });
+  assert.deepEqual(versionsOf({ commit: "1d1b4e646fe2", repo: "r/m" }), { core: null, commit: "1d1b4e646fe2", sha: "1d1b4e6", repo: "r/m" });
+  assert.equal(versionsOf({ repo: "r/m" }), null);
+  assert.equal(versionsOf({ commit: "abc1234" }), null);
+  assert.equal(versionsOf(null), null);
+  assert.deepEqual(versionsOf({ commit: "abc1234def", repo: "r/m", core: 46 }).core, null);
+});
+
+test("the graph's address is the model link with embed, and a model link gives back its entity", () => {
+  assert.equal(graphHref("/model/", "people/rob"), "/model/?stage=expanded&embed#people/rob");
+  assert.equal(graphHref("/", "identity"), "/?stage=expanded&embed#identity");
+  assert.equal(entityOf("/model/?stage=expanded#people/rob", "/model/"), "people/rob");
+  assert.equal(entityOf("https://example.org/model/?stage=expanded#x", "/model/"), null);
+  assert.equal(entityOf("/model/", "/model/"), null);
+  assert.equal(entityOf("/?stage=expanded#concepts/owner%20x", "/"), "concepts/owner x");
+});
+
+test("the versions line and the graph's head exist in both languages", () => {
+  assert.equal(strings("en").versions, "meta-model {core} · model {sha}");
+  assert.equal(strings("de").versions, "Meta-Modell {core} · Modell {sha}");
+  assert.equal(strings("en").versionsModel, "model {sha}");
+  assert.equal(strings("de").versionsModel, "Modell {sha}");
+  for (const l of ["en", "de"]) for (const k of ["head", "page", "close"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
+});
+
+// WCAG relative luminance and contrast, from two #RRGGBB values.
+const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+test("the answer card keeps the answer's text, links and rail readable in both palettes", () => {
+  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  const blocks = [...css.matchAll(/--t-card:(#[0-9A-Fa-f]{6})[^}]*/g)].map((m) => m[0]);
+  assert.equal(blocks.length >= 2, true, "the card is not defined in both palettes");
+  for (const b of blocks) {
+    const v = (k) => (new RegExp("--t-" + k + ":(#[0-9A-Fa-f]{6})").exec(b) || [])[1];
+    const card = v("card");
+    assert.ok(contrast(v("dim"), card) >= 4.5, "dim prose on the card: " + contrast(v("dim"), card).toFixed(2));
+    assert.ok(contrast(v("accent"), card) >= 4.5, "links on the card: " + contrast(v("accent"), card).toFixed(2));
+    assert.ok(contrast(v("good"), card) >= 3, "the rail on the card: " + contrast(v("good"), card).toFixed(2));
+  }
+});
+
+test("every link into the graph opens it on the page, from anywhere on it, and a page's own picture too", () => {
+  const i = src.indexOf("// Every link into the graph on this page");
+  assert.ok(i > 0 && i < src.indexOf("if (!tag.dataset.chat"), "the graph opener waits for a chat, so a page without one leaves");
+  const fn = src.slice(i, i + 1400);
+  assert.doesNotMatch(fn, /closest\("\.rbchat"\)/, "only a link inside the chat opens the graph");
+  assert.match(fn, /graphTarget\(/, "the link is not read as a place in the graph");
+});
+
+test("a link names a place in the graph where it resolves to the model page, expanded, from any other page of the site", () => {
+  const here = "https://blust.ch/timeline/";
+  assert.equal(graphTarget("../model/?stage=expanded#people/rob", "/model/", here), "people/rob");
+  assert.equal(graphTarget("/model/?stage=expanded#skills/java%20programming", "/model/", here), "skills/java programming");
+  assert.equal(graphTarget("https://blust.ch/model/?lang=de&stage=expanded#x", "/model/", here), "x");
+  assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/team/"), "identity");
+  assert.equal(graphTarget("../model/#people/rob", "/model/", here), null, "a link that does not ask for the stage expanded");
+  assert.equal(graphTarget("../model/?stage=expanded", "/model/", here), null, "no place named");
+  assert.equal(graphTarget("https://example.org/model/?stage=expanded#x", "/model/", here), null, "another site");
+  assert.equal(graphTarget("/blog/?stage=expanded#x", "/model/", here), null, "another page");
+  assert.equal(graphTarget("/model/?stage=expanded#x", "/model/", "https://blust.ch/model/"), null, "the model page itself moves its own stage");
+  assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/"), null);
+  assert.equal(graphTarget(null, "/model/", here), null);
 });

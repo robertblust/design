@@ -18,6 +18,18 @@
 function rbStage(data) {
   if (!data.entities) return;             // the artifact is empty until the site's build has written it
 
+  // Embedded (theme-boot sets the flag from `?embed`): another page's dialog holds this one, the
+  // chat's graph. The stage then opens expanded, keeps its history to itself rather than in the
+  // tab's, where the visitor's Back would walk a graph they had closed, and talks to its parent
+  // in four same-origin messages: it says `rb-graph-ready` and `rb-graph-close`, and takes
+  // `rb-graph-focus` and `rb-graph-look`.
+  var EMBED = document.documentElement.hasAttribute("data-embed");
+  function tell(type, extra){
+    if (!EMBED || window.parent === window) return;
+    var m = { type: type }; for (var k in extra || {}) m[k] = extra[k];
+    window.parent.postMessage(m, location.origin);
+  }
+
   // Which folder of the model repository the data this page named was generated from. The page
   // says so on #srclink, because the page is the thing that knows: the example page reads
   // `example/`, the model page `core/`, and the script only pins the commit.
@@ -508,9 +520,18 @@ function rbStage(data) {
     hLcd.lastChild.textContent = String(trail.length).padStart(2, "0");
   }
   function offRoad(ev){ return ev.currentTarget.getAttribute("aria-disabled") === "true"; }
-  hFirst.addEventListener("click", function(ev){ if (!offRoad(ev) && pos > 0) { expect = 0; history.go(-pos); } });
-  hBack.addEventListener("click", function(ev){ if (!offRoad(ev)) history.back(); });
-  hNext.addEventListener("click", function(ev){ if (!offRoad(ev)) history.forward(); });
+  // One move along the history: the browser's own on a page, the trail itself when embedded.
+  function step(delta){
+    if (!EMBED) { if (delta === -1) history.back(); else if (delta === 1) history.forward(); else history.go(delta); return; }
+    var to = pos + delta;
+    if (to < 0 || to >= trail.length) return;
+    pos = to;
+    focus(nodeById(trail[pos]) || nRoot(), true);
+    renderHist();
+  }
+  hFirst.addEventListener("click", function(ev){ if (!offRoad(ev) && pos > 0) { if (!EMBED) expect = 0; step(-pos); } });
+  hBack.addEventListener("click", function(ev){ if (!offRoad(ev)) step(-1); });
+  hNext.addEventListener("click", function(ev){ if (!offRoad(ev)) step(1); });
   // The deck's keys: Left is back, Right is next, Home is first. The deck binds them to the
   // document and nothing else lives there; a prose page has a header, a language control,
   // links and the drag handle, so here they yield to anything that already uses the key —
@@ -520,9 +541,9 @@ function rbStage(data) {
     if (ev.defaultPrevented || ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
     var el = ev.target;
     if (el && el.closest && el.closest("input, textarea, select, [contenteditable=''], [contenteditable='true']")) return;
-    if (ev.key === "ArrowLeft") { if (pos > 0) { history.back(); ev.preventDefault(); } }
-    else if (ev.key === "ArrowRight") { if (pos < trail.length - 1) { history.forward(); ev.preventDefault(); } }
-    else if (ev.key === "Home") { if (pos > 0) { expect = 0; history.go(-pos); ev.preventDefault(); } }
+    if (ev.key === "ArrowLeft") { if (pos > 0) { step(-1); ev.preventDefault(); } }
+    else if (ev.key === "ArrowRight") { if (pos < trail.length - 1) { step(1); ev.preventDefault(); } }
+    else if (ev.key === "Home") { if (pos > 0) { if (!EMBED) expect = 0; step(-pos); ev.preventDefault(); } }
   });
   // The trail learns from the address, never from a click directly: whichever way the
   // address moved — this control, the browser's buttons, a typed hash — the same reading
@@ -771,7 +792,9 @@ function rbStage(data) {
   }
   expandBtn.addEventListener("click", expand);
   var closeBtn = document.getElementById("modalclose");
-  closeBtn.addEventListener("click", function(){ modal.close(); });
+  closeBtn.addEventListener("click", function(){ if (EMBED) { tell("rb-graph-close"); return; } modal.close(); });
+  // Embedded, Escape asks the parent to close its dialog, and this one stays open for the next.
+  modal.addEventListener("cancel", function(ev){ if (EMBED) { ev.preventDefault(); tell("rb-graph-close"); } });
   // Both controls carry the family's note, the box the transport already shows, so every
   // control on the stage answers a pointer the same way. The cross names its key as well,
   // because Escape closes the dialog too and nothing else on the page says so.
@@ -784,7 +807,7 @@ function rbStage(data) {
   // Escape is native to <dialog> and needs no handler here. A click on the backdrop lands
   // with the dialog itself as the event target — nothing else is there to hit — which is
   // what tells it apart from a click on the content the dialog contains.
-  modal.addEventListener("click", function(ev){ if (ev.target === modal) modal.close(); });
+  modal.addEventListener("click", function(ev){ if (ev.target === modal && !EMBED) modal.close(); });
   // One handler for every way the dialog closes — ×, Escape, backdrop click — because all
   // three end in the native "close" event. Both go back in front of the marker, in order,
   // which puts them exactly where they were whatever else the page has around them.
@@ -816,11 +839,13 @@ function rbStage(data) {
       if (hash) { trail = trail.slice(0, pos + 1); trail.push(key); pos = trail.length - 1; pending = key; }
       else trail[pos] = key;
     }
-    if (hash) location.hash = hash;
+    if (hash) { if (EMBED) { pending = null; history.replaceState(null, "", location.pathname + location.search + hash); } else location.hash = hash; }
     else if (location.hash) { try { history.replaceState(null, "", location.pathname + location.search); } catch (err) { location.hash = ""; } }
     render();
     showCard(n);
     renderHist();
+    // The parent names the dialog after the place the visitor stands, wherever they walked.
+    tell("rb-graph-at", { title: n.label });
   }
 
   document.getElementById("recenter").addEventListener("click", function(){
@@ -948,7 +973,7 @@ function rbStage(data) {
   // the parameter back out of the address, the way it takes lang and theme: Expand leaves the
   // URL alone, and a page that has read the request should look no different from one that
   // was expanded by hand. The hash stays, since the focus is a place and has an address.
-  if (/[?&]stage=expanded(&|$)/.test(location.search)) {
+  if (EMBED || /[?&]stage=expanded(&|$)/.test(location.search)) {
     try {
       var q = location.search.replace(/([?&])stage=expanded(&|$)/, "$1").replace(/[?&]$/, "");
       history.replaceState(null, "", location.pathname + q + location.hash);
@@ -960,6 +985,43 @@ function rbStage(data) {
     // a container draws no ring.
     modal.tabIndex = -1;
     modal.focus({ preventScroll: true });
+  }
+
+  // The parent moves the focus and hands over its theme and language; nothing but a message from
+  // this page's own origin is read. A focus by message pushes on the trail as a click does.
+  if (EMBED) {
+    window.addEventListener("message", function(ev){
+      if (ev.origin !== location.origin || !ev.data || typeof ev.data.type !== "string") return;
+      if (ev.data.type === "rb-graph-focus") {
+        focus(nodeById(String(ev.data.id || "")) || nRoot());
+        // The keys walk the trail from here, whichever open this is.
+        modal.focus({ preventScroll: true });
+      }
+      else if (ev.data.type === "rb-graph-look") {
+        if (ev.data.theme === "light") document.documentElement.setAttribute("data-theme", "light");
+        else document.documentElement.removeAttribute("data-theme");
+        if (ev.data.lang === "de" || ev.data.lang === "en") {
+          document.documentElement.lang = ev.data.lang;
+          // The page's own static text, the recenter control's word among it, follows as the
+          // page's language control would make it.
+          if (window.rbPage && typeof window.rbPage.applyLang === "function") window.rbPage.applyLang(ev.data.lang);
+        }
+      }
+    });
+    // A link inside the graph. One to another place in it moves the focus, since a hash would
+    // write to the tab's history; one out of it leaves as the whole tab, the family's rule that
+    // nothing opens a new one, and never as this frame, where a site that refuses to be framed
+    // would leave the dialog showing an error.
+    document.addEventListener("click", function(ev){
+      if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+      var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+      if (!a) return;
+      var href = a.getAttribute("href");
+      ev.preventDefault();
+      if (href.charAt(0) === "#") { focus(nodeById(decodeURIComponent(href.slice(1))) || nRoot()); return; }
+      window.top.location.href = a.href;
+    });
+    tell("rb-graph-ready");
   }
 }
 
