@@ -1,0 +1,7 @@
+{
+  "pins": [
+    { "kind": "conventions", "file": "conventions.json", "repo": "robertblust/conventions" }
+  ],
+  "verify": ["npm test"],
+  "release": ["npm version {version} --no-git-tag-version"]
+}
