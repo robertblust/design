@@ -92,7 +92,7 @@ test("a picture of the schemas links each type to its schema's file and is capti
   // A type reads as a link like any node, and a multiplicity is an edge label, dim like the field.
   assert.equal(await page.$eval(".rbchat-diagram svg a .nodeLabel", (el) => getComputedStyle(el).color), "rgb(127, 163, 216)");
   const many = await page.$$eval(".rbchat-diagram svg .edgeLabel p", (els) => els.filter((el) => /^\d/.test(el.textContent.trim())).map((el) => getComputedStyle(el).color));
-  assert.ok(many.length > 0 && many.every((c) => c === "rgb(138, 139, 134)"), String(many));
+  assert.ok(many.length > 0 && many.every((c) => c === "rgb(135, 147, 163)"), String(many));
   await page.close();
 });
 
@@ -112,12 +112,12 @@ test("a linked node's name is the link color, its type line quiet and smaller, i
   });
   const dark = await read();
   assert.equal(dark.color, "rgb(127, 163, 216)", "the node's name is --c-mid");
-  assert.equal(dark.smallColor, "rgb(138, 139, 134)", "the type line is --dim");
+  assert.equal(dark.smallColor, "rgb(135, 147, 163)", "the type line is the terminal's dim");
   assert.ok(dark.smallSize < dark.titleSize, `the type line is smaller: ${dark.smallSize} vs ${dark.titleSize}`);
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.waitForFunction(() => getComputedStyle(document.querySelector(".rbchat-diagram svg a .nodeLabel")).color === "rgb(58, 109, 166)");
   const light = await read();
-  assert.equal(light.smallColor, "rgb(95, 96, 88)", "the type line follows the light theme's dim too");
+  assert.equal(light.smallColor, "rgb(103, 97, 82)", "the type line follows the light terminal's dim too");
   await page.close();
 });
 
@@ -159,7 +159,7 @@ test("an edge label's text is dim and its background is off the panel's own grou
   const { page } = await asked([["diagram", PICTURES.typed], ["text", { text: "Neighborhood." }]]);
   await page.waitForSelector(".rbchat-diagram svg .edgeLabel");
   const edge = await page.$eval(".rbchat-diagram svg span.edgeLabel", (el) => ({ color: getComputedStyle(el).color, background: getComputedStyle(el).backgroundColor }));
-  assert.equal(edge.color, "rgb(138, 139, 134)", "the edge label's text is --dim");
+  assert.equal(edge.color, "rgb(135, 147, 163)", "the edge label's text is the terminal's dim");
   assert.notEqual(edge.background, "rgb(12, 14, 19)", "no longer the old ground the label sat on");
   await page.close();
 });
@@ -176,9 +176,9 @@ test("a title holding markup and arrows is drawn as its text", async () => {
 test("the picture is drawn again in the theme the page switches to", async () => {
   const { page } = await asked([["diagram", PICTURES.process], ["text", { text: "Delivery." }]]);
   await page.waitForSelector(".rbchat-diagram svg a");
-  assert.equal(await nodeFill(page), "rgb(23, 26, 33)");
+  assert.equal(await nodeFill(page), "rgb(22, 30, 41)");
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
-  await page.waitForFunction(() => { const a = document.querySelector(".rbchat-diagram svg a"); return a && getComputedStyle(a.querySelector("rect, path, polygon")).fill === "rgb(242, 240, 234)"; });
+  await page.waitForFunction(() => { const a = document.querySelector(".rbchat-diagram svg a"); return a && getComputedStyle(a.querySelector("rect, path, polygon")).fill === "rgb(239, 236, 229)"; });
   await page.close();
 });
 
@@ -202,7 +202,7 @@ test("Expand opens a dialog modal holding the picture, its node links intact", a
   }
   const label = await page.$eval("dialog.rbchat-modal svg a .nodeLabel", (el) => ({ color: getComputedStyle(el).color, smallColor: getComputedStyle(el.querySelector("small")).color }));
   assert.equal(label.color, "rgb(127, 163, 216)", "the node's name is still --c-mid in the moved box");
-  assert.equal(label.smallColor, "rgb(138, 139, 134)", "its type line is still --dim in the moved box");
+  assert.equal(label.smallColor, "rgb(135, 147, 163)", "its type line is still the terminal's dim in the moved box");
   await page.close();
 });
 
@@ -300,9 +300,9 @@ test("a theme change while the dialog is open redraws the picture inside it", as
   await page.click(".rbchat-diagram-full");
   await page.waitForSelector("dialog.rbchat-modal[open] svg a");
   const fill = () => page.$eval("dialog.rbchat-modal svg a", (a) => getComputedStyle(a.querySelector("rect, path, polygon")).fill);
-  assert.equal(await fill(), "rgb(23, 26, 33)");
+  assert.equal(await fill(), "rgb(22, 30, 41)");
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
-  await page.waitForFunction(() => { const a = document.querySelector("dialog.rbchat-modal svg a"); return a && getComputedStyle(a.querySelector("rect, path, polygon")).fill === "rgb(242, 240, 234)"; });
+  await page.waitForFunction(() => { const a = document.querySelector("dialog.rbchat-modal svg a"); return a && getComputedStyle(a.querySelector("rect, path, polygon")).fill === "rgb(239, 236, 229)"; });
   await page.close();
 });
 
@@ -502,7 +502,7 @@ test("a theme change while zoomed keeps the view the visitor left", async () => 
   await page.keyboard.press("+");
   const k = await scaleOf(page);
   await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
-  await page.waitForFunction(() => getComputedStyle(document.querySelector("dialog.rbchat-modal svg a rect, dialog.rbchat-modal svg a path, dialog.rbchat-modal svg a polygon")).fill !== "rgb(23, 26, 33)");
+  await page.waitForFunction(() => getComputedStyle(document.querySelector("dialog.rbchat-modal svg a rect, dialog.rbchat-modal svg a path, dialog.rbchat-modal svg a polygon")).fill !== "rgb(22, 30, 41)");
   await page.waitForFunction((want) => Math.abs(new DOMMatrix(getComputedStyle(document.querySelector("dialog.rbchat-modal svg")).transform).a - want) < 1e-3, k);
   await page.close();
 });

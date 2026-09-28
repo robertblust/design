@@ -759,8 +759,8 @@
     });
     return mermaidLoad;
   }
-  function tokenReader(){
-    var root = getComputedStyle(document.documentElement), body = document.body ? getComputedStyle(document.body) : null;
+  function tokenReader(at){
+    var root = getComputedStyle(at || document.documentElement), body = document.body ? getComputedStyle(document.body) : null;
     return function(name){ return name === "font" ? (body ? body.fontFamily : "") : root.getPropertyValue(name); };
   }
   // Each node becomes a link to where the cite line would send it. Mermaid's own click lines
@@ -772,7 +772,7 @@
     // inside it: a theme change redraws into the box wherever it currently stands.
     var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
-      m.initialize(mermaidConfig(tokenReader()));
+      m.initialize(mermaidConfig(tokenReader(fig.isConnected ? fig : null)));
       // The width the picture is drawn for: an answer's is the log's, which the chat gives it,
       // and a page's the figure's own.
       return m.render(id, oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth));
@@ -884,6 +884,9 @@
     fig.rbBox.parentNode.insertBefore(modalMark, fig.rbBox);
     modalBody.appendChild(fig.rbBox);
     modalFig = fig;
+    // An answer's picture keeps the terminal's colors when it is opened full screen, since
+    // Mermaid drew it from them; a page's own picture keeps the page's.
+    modal.classList.toggle("rbchat-term", !!(fig.closest && fig.closest(".rbchat")));
     labelFigure(fig);
     modal.showModal();
     // A page's picture not yet scrolled to is drawn now, and the view waits for it.
@@ -1110,7 +1113,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null;
   // The place a restore owes the visitor, held until the log is shown and every picture above it
   // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
   // the log is where they put it, and place() reads it there.
@@ -1244,8 +1247,8 @@
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
-    title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
-    input.placeholder = s.placeholder; sendBtn.textContent = s.send;
+    title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
+    input.placeholder = s.prompt; sendBtn.setAttribute("aria-label", s.send); keysLine();
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
@@ -1255,9 +1258,23 @@
   // The language control swaps <html lang>; every string follows on the next tick.
   if (window.MutationObserver) new MutationObserver(relabel).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
+  // The rows a bare number picks: the menu standing last. Empty until a menu is drawn.
+  var menuRows = [];
+  function grow(){ input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 4 * parseFloat(getComputedStyle(input).lineHeight || 20)) + "px"; }
+  // The keys line under the prompt, as the tooling prints its hints; the pick key only while a menu stands.
+  function keysLine(){
+    if (!keysEl) return;
+    var k = strings(langNow()).keys;
+    var parts = [k.send, k.last].concat(menuRows.length ? [k.pick.replace("{n}", menuRows.length)] : []).concat([k.help]);
+    keysEl.textContent = parts.join("  \u00b7  ");
+  }
+
   function build(){
-    panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.setAttribute("aria-labelledby", "rbchat-title"); panel.hidden = true;
+    panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.hidden = true;
     var head = el("header", "rbchat-head");
+    // The terminal's title bar, as /cli/ draws its .term: three dots, then the page's host.
+    var dots = el("span", "rbchat-dots"); dots.setAttribute("aria-hidden", "true");
+    dots.appendChild(el("i")); dots.appendChild(el("i")); dots.appendChild(el("i"));
     title = el("h2"); title.id = "rbchat-title"; closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
     // Starting over is the header's one door, beside the way out, and only once there is
     // something to clear: an empty panel shows no control for emptying it. A conversation has no
@@ -1270,17 +1287,23 @@
     // and for a keyboard, which a bare glyph never did.
     newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12a7 7 0 1 0 2.05-4.95L5 9M5 5v4h4"/></svg>';
     newBtn.addEventListener("click", reset);
-    head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
+    head.appendChild(dots); head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
     notice = el("p", "rbchat-notice");
     // No aria-live here: the log used to re-announce the growing answer on every token. The
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
     log = el("div", "rbchat-log");
     ["wheel", "pointerdown", "keydown", "touchstart"].forEach(function(k){ log.addEventListener(k, function(){ reading = null; }, { passive: true }); });
     var form = el("form", "rbchat-form");
-    input = el("textarea"); input.rows = 2; input.maxLength = LIMIT;
+    // The command line: a prompt, the field, and a ↵ that only a touch screen shows, where the
+    // keyboard's return key breaks a line rather than sending. It opens at one row and grows
+    // to four as the visitor writes more.
+    var p = el("span", "rbchat-p", "\u203a"); p.setAttribute("aria-hidden", "true");
+    input = el("textarea"); input.rows = 1; input.maxLength = LIMIT;
     input.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); } });
-    sendBtn = el("button", "rbchat-send"); sendBtn.type = "submit";
-    form.appendChild(input); form.appendChild(sendBtn);
+    input.addEventListener("input", grow);
+    sendBtn = el("button", "rbchat-send", "\u21b5"); sendBtn.type = "submit";
+    form.appendChild(p); form.appendChild(input); form.appendChild(sendBtn);
+    keysEl = el("p", "rbchat-keys");
     form.addEventListener("submit", function(e){ e.preventDefault(); send(); });
     // The corner that sizes the panel. The panel is pinned to the bottom right, so the top left
     // corner is the one that can move without moving the panel: dragging it out makes the panel
@@ -1289,7 +1312,7 @@
     // the panel is the whole screen and there is nothing to size.
     grip = el("div", "rbchat-grip"); grip.tabIndex = 0; grip.setAttribute("role", "separator"); grip.setAttribute("aria-orientation", "vertical");
     panel.appendChild(grip);
-    panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(form);
+    panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(form); panel.appendChild(keysEl);
     document.body.appendChild(panel);
     // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
     // this keydown, not before: while a modal dialog is still open the panel must not close
