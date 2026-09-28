@@ -804,3 +804,10 @@ test("the one read of the model file also keeps its process names and how many o
   assert.match(src, /function facts\(cb\)\{ questions\(function\(\)\{ cb\(qFacts\); \}\); \}/, "facts() does not share the one fetch");
   assert.equal((src.match(/fetch\(QUESTIONS/g) || []).length, 1, "the model file is read twice");
 });
+
+test("the command line's words are settled before anything is pushed or sent", () => {
+  const fn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  const cmdAt = fn.indexOf("var cmd = command(typed);"), pushAt = fn.indexOf("messages.push(");
+  assert.ok(cmdAt > 0 && pushAt > cmdAt, "a command is pushed as a message before it is recognized");
+  assert.match(fn, /var text = picked\(typed, menuRows\);/, "a number does not pick from the standing menu");
+});

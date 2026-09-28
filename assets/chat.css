@@ -260,3 +260,6 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
 .rbchat-intro:not(.rbchat-still) .rbchat-lock svg > :not(.rbchat-on){opacity:0}
 .rbchat-intro .rbchat-on{transition:opacity .2s ease}
 @media (prefers-reduced-motion:reduce){.rbchat-intro *{transition:none!important;opacity:1!important}}
+.rbchat-help{margin:.4rem 0 0;color:var(--t-dim)}
+.rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
+.rbchat-help-k{color:var(--t-accent)}

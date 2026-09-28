@@ -1207,6 +1207,17 @@
     parent.appendChild(m);
     return m;
   }
+  // The keys and commands, printed into the log as the tooling prints its usage.
+  function help(){
+    var s = strings(langNow()), box = el("div", "rbchat-help");
+    s.help.forEach(function(r){
+      var line = el("p");
+      line.appendChild(el("span", "rbchat-help-k", r[0].replace("{n}", String(menuRows.length || 1))));
+      line.appendChild(el("span", "rbchat-help-d", r[1]));
+      box.appendChild(line);
+    });
+    log.appendChild(box); log.scrollTop = log.scrollHeight;
+  }
   // A column whose cells are all numbers aligns right, in figures of one width.
   function numberColumns(root){
     var tables = root.querySelectorAll("table");
@@ -1406,7 +1417,12 @@
     // to four as the visitor writes more.
     var p = el("span", "rbchat-p", "\u203a"); p.setAttribute("aria-hidden", "true");
     input = el("textarea"); input.rows = 1; input.maxLength = LIMIT;
-    input.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); } });
+    input.addEventListener("keydown", function(e){
+      if (e.key === "ArrowUp" && !input.value) {
+        for (var i = messages.length - 1; i >= 0; i--) if (messages[i].role === "user") { e.preventDefault(); input.value = messages[i].content; grow(); return; }
+      }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); }
+    });
     input.addEventListener("input", grow);
     sendBtn = el("button", "rbchat-send", "\u21b5"); sendBtn.type = "submit";
     form.appendChild(p); form.appendChild(input); form.appendChild(sendBtn);
@@ -1506,8 +1522,13 @@
 
   function send(){
     if (busy) return;
-    var text = input.value.trim();
-    if (!text) return;
+    var typed = input.value.trim();
+    if (!typed) return;
+    // The command line's own words never reach the host and never become a turn.
+    var cmd = command(typed);
+    if (cmd === "new") { input.value = ""; reset(); return; }
+    if (cmd === "help") { input.value = ""; help(); return; }
+    var text = picked(typed, menuRows);
     if (text.length > LIMIT) { refuse("too_long"); return; }
     // The menus above stay, dimmed, and their rows still send; the next answer draws its own.
     spend(); qBox = null;

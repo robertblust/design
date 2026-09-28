@@ -260,3 +260,40 @@ test("the next questions are a numbered menu, and the intro's menu dims once a q
   assert.equal(s.sent, "Show me the meta-model");
   await close();
 });
+
+test("a bare number sends its row, /help prints the keys, /new starts over, and none of them is sent as typed", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, split: false, fail: false, asked: [] });
+  const { p, close } = await tab();
+  await open(p);
+  await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+  await p.fill("section.rbchat textarea", "/help");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-help");
+  assert.equal(reply.asked.length, 0, "/help reached the host");
+  assert.match(await p.$eval(".rbchat-help", (h) => h.textContent), /\/new/);
+  await p.fill("section.rbchat textarea", "1");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  assert.equal(reply.asked.length, 1);
+  assert.equal(reply.asked[0].messages.at(-1).content, "Show me the meta-model", "the number was sent instead of its row");
+  await p.fill("section.rbchat textarea", "/new");
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(() => !document.querySelector(".rbchat-user") && document.querySelector(".rbchat-intro"));
+  assert.equal(reply.asked.length, 1, "/new reached the host");
+  await close();
+});
+
+test("a number with no such row is sent as typed, and ↑ brings back the last question", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, split: false, fail: false, asked: [] });
+  const { p, close } = await tab();
+  await open(p);
+  await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+  await p.fill("section.rbchat textarea", "9");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  assert.equal(reply.asked[0].messages.at(-1).content, "9");
+  await p.focus("section.rbchat textarea");
+  await p.keyboard.press("ArrowUp");
+  assert.equal(await p.$eval("section.rbchat textarea", (t) => t.value), "9");
+  await close();
+});
