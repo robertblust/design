@@ -1536,7 +1536,7 @@
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
-    title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
+    title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.modalClose); closeBtn.textContent = "×";
     input.placeholder = s.prompt; sendBtn.setAttribute("aria-label", s.send); keysLine();
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }

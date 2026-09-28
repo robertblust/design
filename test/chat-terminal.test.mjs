@@ -186,6 +186,17 @@ test("the intro follows a language switch, rows and keys included", async () => 
   await close();
 });
 
+test("the panel's close says its key, as the modal's does, and follows the language", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  const tip = () => p.$eval(".rbchat-close", (b) => [b.getAttribute("data-tip"), b.getAttribute("aria-label")]);
+  assert.deepEqual(await tip(), ["Close \u00b7 Esc", "Close"]);
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => document.querySelector(".rbchat-close").getAttribute("data-tip") !== "Close \u00b7 Esc");
+  assert.deepEqual(await tip(), ["Schliessen \u00b7 Esc", "Schliessen"]);
+  await close();
+});
+
 const ANSWER = [["text", { text: "An **owner** is the entity another is nested under.\n\n- one owner\n- two\n\n| Owner | Owns |\n| --- | --- |\n| process | step |" }],
   ["cite", { id: "concepts/owner", title: "owner", url: "https://github.com/o/r/blob/3f2a1c9e0b/concepts/owner.md" }],
   ["done", { model: null, spent: 1, dayLeft: 1 }]];
