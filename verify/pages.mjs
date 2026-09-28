@@ -628,22 +628,37 @@ export function pageChecks({ SITE, BASE }) {
     // Both languages, because the rendered DOM is only ever one of them and the longer
     // language is the one that breaks — which is the second half of why this went unseen.
     //
+    // The same sweep holds the bar to one height. It stays on screen as the page scrolls, and
+    // a bar that grew or shrank as the nav collapsed would move everything under it at a width
+    // a visitor cannot predict; the menu button's 40px is the row's floor, and every width and
+    // language must land on the same number.
+    //
     // One page load. Resizing and toggling the language are both client-side, so this costs
     // reloads it does not take.
     async headerFits(page, spec) {
-      const problems = [];
+      const problems = [], heights = new Map();
       const langs = await page.evaluate(() => (document.getElementById("lde") ? ["en", "de"] : ["en"]));
       for (const lang of langs) {
         if (lang === "de") { await page.click("#lde"); await page.waitForTimeout(120); }
         for (const width of [360, 641, 800, 1000, 1001, 1100, 1280, 1600]) {
           await page.setViewportSize({ width, height: 800 });
           await page.waitForTimeout(60);
-          const bad = await page.evaluate(() => {
-            const seen = (el) => el && el.getClientRects().length > 0;
+          const { bad, height } = await page.evaluate(() => {
             const bar = document.querySelector(".bar");
+            const height = bar ? Math.round(bar.parentElement.getBoundingClientRect().height) : null;
+            return { bad: fits(bar), height };
+            function fits(bar){
+            const seen = (el) => el && el.getClientRects().length > 0;
             if (!bar) return "there is no bar";
-            const rows = new Set([...bar.children].filter(seen)
-              .map((el) => Math.round(el.getBoundingClientRect().top))).size;
+            // A second row is a child that starts below where another ends. Rounded tops were
+            // the first reading, and a row centered in a taller bar put its items a third of a
+            // pixel apart, either side of a rounding edge, and read as two rows.
+            // Collapsed, `nav` is `display:contents` and draws no box of its own; its children
+            // are the bar's items then, and a check that read only the bar's own children saw
+            // the brand alone on every phone.
+            const items = (el) => getComputedStyle(el).display === "contents" ? [...el.children].flatMap(items) : [el];
+            const boxes = [...bar.children].flatMap(items).filter(seen).map((el) => el.getBoundingClientRect());
+            const rows = boxes.some((a) => boxes.some((o) => a.top >= o.bottom - 1)) ? 2 : 1;
             const burger = seen(document.querySelector(".burger"));
             if (rows > 1) return `the bar is ${rows} rows`;
             if (document.documentElement.scrollWidth > window.innerWidth) return "the page scrolls sideways";
@@ -653,10 +668,14 @@ export function pageChecks({ SITE, BASE }) {
             if (burger && links) return "the button and the links are both on the row";
             if (!burger && !links) return "neither the button nor the links are on the row";
             return null;
+            }
           });
           if (bad) problems.push(`${lang} at ${width}px: ${bad}`);
+          if (height !== null) heights.set(`${lang} at ${width}px`, height);
         }
       }
+      if (new Set(heights.values()).size > 1)
+        problems.push("the header is not one height: " + [...heights].map(([k, h]) => `${h}px ${k}`).join(", "));
       if (langs.includes("de")) { await page.click("#len"); await page.waitForTimeout(120); }
       await page.setViewportSize({ width: spec.width || 1280, height: 800 });
       return problems.length ? problems.join("; ") : null;

@@ -1037,10 +1037,12 @@ test("headerFits looks for a wrapped bar, at both languages and across the width
   // for as long as there were five nav items. mobileNav reads sideways scroll and the
   // wordmark's height; navOrder reads the order. A wrapped bar shows in neither.
   const src = pageChecks(OPTS).headerFits.toString().replace(/\/\/.*$/gm, "");
-  assert.match(src, /getBoundingClientRect\(\)\.top/, "it does not read where each child sits");
+  assert.match(src, /a\.top >= o\.bottom - 1/, "it does not read whether a child starts below another");
+  assert.match(src, /display === "contents"/, "it reads only the bar's own children, and a collapsed nav draws no box of its own");
   assert.match(src, /rows > 1/, "it does not fail on a bar that has wrapped");
   assert.match(src, /"de"/, "it never toggles to the longer language, which is the one that breaks");
   for (const w of [641, 1000, 1001]) assert.ok(src.includes(String(w)), `it never measures ${w}px`);
+  assert.match(src, /new Set\(heights\.values\(\)\)\.size > 1/, "it does not hold the sticky bar to one height across the widths");
 });
 
 test("the header contract collapses on a measurement, not on a width", () => {
