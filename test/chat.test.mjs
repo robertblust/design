@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -545,16 +545,16 @@ test("the chip container carries an accessible name from the strings, in both la
   assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", qNext \? s\.next : s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
 });
 
-test("a chip's label is set with textContent, and activating it sends exactly its title", () => {
-  assert.match(src, /el\("button", "rbchat-q", t\)/, "a chip's label is not textContent, through el()");
-  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = t; send\(\); \}\)/, "a chip does not send its own title through send()");
+test("a row's label is set with textContent, and activating it sends exactly its question", () => {
+  assert.match(src, /b\.appendChild\(el\("span", "rbchat-q", it\[0\]\)\);/, "a row's label is not textContent, through el()");
+  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = it\[0\]; send\(\); \}\)/, "a row does not send its own question through send()");
 });
 
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
-  assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
-  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; settle\(\); input\.focus\(\); keep\(\); offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set before offering a fresh one");
-  assert.match(src, /qBox = null;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
+  assert.match(sendFn, /spend\(\); qBox = null;/, "send() does not dim the menus it moves past, or lets the next answer reuse the old one");
+  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
+  assert.match(src, /introEl = null; introPick = null; menuRows = \[\]; qBox = null;.*intro\(true\);/, "reset() does not clear the stale menus and play a fresh intro");
 });
 
 // The bug the review found: closing and reopening an empty conversation showed the same three
@@ -707,4 +707,113 @@ test("a conversation has no length limit, and only the tail the server reads is 
   assert.doesNotMatch(src, /TURNS|fullNote|rbchat-full/, "a conversation still stops at a length");
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
   assert.doesNotMatch(css, /rbchat-full|rbchat-fresh/, "the full note's style is still shipped");
+});
+
+// ─── The terminal's pure parts ─────────────────────────────────────────────────────────────
+// A stub of the header each site writes: `<a class="brand"><svg>…</svg><b>Company<span>Graph</span></b></a>`.
+function brandDoc(first, accent){
+  const svg = { tagName: "svg" };
+  const span = accent === null ? null : { textContent: accent };
+  const b = { textContent: first + (accent || ""), querySelector: (q) => q === "span" ? span : null };
+  const a = { querySelector: (q) => q === "svg" ? svg : q === "b" ? b : null };
+  return { svg, doc: { querySelector: (q) => q === "header a.brand" ? a : null } };
+}
+
+test("the lockup is the header's own mark and name, split where the page splits it", () => {
+  const cg = brandDoc("Company", "Graph");
+  assert.deepEqual(lockupOf(cg.doc), { mark: cg.svg, first: "Company", accent: "Graph" });
+  const rb = brandDoc("Robert ", "Blust");
+  assert.deepEqual(lockupOf(rb.doc), { mark: rb.svg, first: "Robert ", accent: "Blust" });
+  const plain = brandDoc("Acme", null);
+  assert.deepEqual(lockupOf(plain.doc), { mark: plain.svg, first: "Acme", accent: "" });
+});
+
+test("a page without a brand in its header has no lockup", () => {
+  assert.equal(lockupOf({ querySelector: () => null }), null);
+  assert.equal(lockupOf({}), null);
+});
+
+test("only the three slash commands are commands, whatever their case and spaces", () => {
+  assert.equal(command("/new"), "new");
+  assert.equal(command("  /CLEAR "), "new");
+  assert.equal(command("/help"), "help");
+  for (const t of ["/newer", "new", "/ new", "/help me", "", null, undefined]) assert.equal(command(t), null, String(t));
+});
+
+test("a bare number picks its row, and anything else is sent as typed", () => {
+  const rows = ["Show me the meta-model", "Walk me through the Answering process", "What is an owner?"];
+  assert.equal(picked("1", rows), rows[0]);
+  assert.equal(picked(" 3 ", rows), rows[2]);
+  assert.equal(picked("0", rows), "0");
+  assert.equal(picked("4", rows), "4");
+  assert.equal(picked("2", []), "2");
+  assert.equal(picked("2", null), "2");
+  assert.equal(picked("2 please", rows), "2 please");
+  assert.equal(picked("  What is an owner?  ", rows), "What is an owner?");
+});
+
+test("the Try rows are the meta-model, a process the model holds, and a list it holds three of", () => {
+  const facts = { processes: ["Answering"], counts: { role: 4, kpi: 5, product: 1 } };
+  assert.deepEqual(tryRows(facts, "en", () => 0), [
+    ["Show me the meta-model", "a diagram of the types and how they refer to each other"],
+    ["Walk me through the Answering process", "its steps as a flow, the loops back included"],
+    ["List the KPIs as a table", "one row each, every name a link into the model"]
+  ]);
+  assert.deepEqual(tryRows(facts, "de", () => 0).map((r) => r[0]),
+    ["Zeig mir das Meta-Modell", "Zeig mir den Prozess Answering Schritt für Schritt", "Liste die KPIs als Tabelle"]);
+});
+
+test("a model without a process or a long enough list leaves those rows out, and no model leaves the meta-model alone", () => {
+  assert.deepEqual(tryRows({ processes: [], counts: { kpi: 2, role: 3 } }, "en", () => 0).map((r) => r[0]),
+    ["Show me the meta-model", "List the roles as a table"]);
+  assert.deepEqual(tryRows(null, "en").map((r) => r[0]), ["Show me the meta-model"]);
+  assert.deepEqual(tryRows({}, "en").map((r) => r[0]), ["Show me the meta-model"]);
+});
+
+test("the commit is the first cite URL's blob segment, cut to seven, and no URL means none", () => {
+  assert.equal(commitOf([{ url: null }, { url: "https://github.com/o/r/blob/3f2a1c9e0b1d/x.md" }]), "3f2a1c9");
+  assert.equal(commitOf([{ url: "https://github.com/o/r/tree/main/x" }]), null);
+  assert.equal(commitOf([]), null);
+  assert.equal(commitOf(undefined), null);
+});
+
+test("the spinner's seconds are whole seconds, and none before the first", () => {
+  assert.equal(seconds(0), "");
+  assert.equal(seconds(999), "");
+  assert.equal(seconds(1000), "1s");
+  assert.equal(seconds(10400), "10s");
+});
+
+test("every new sentence exists in both languages", () => {
+  for (const lang of ["en", "de"]) {
+    const s = strings(lang);
+    for (const k of ["hello", "helloHost", "sub", "bar", "prompt", "asking", "answered", "model", "tryLabel"]) assert.ok(s[k], `${lang}.${k}`);
+    assert.equal(s.hello.length, 2);
+    assert.equal(s.helloHost.length, 2);
+    for (const k of ["send", "last", "pick", "help"]) assert.ok(s.keys[k], `${lang}.keys.${k}`);
+    assert.equal(s.help.length, 4);
+    for (const k of ["metaModel", "metaModelGets", "process", "processGets", "list", "listGets"]) assert.ok(s.try[k], `${lang}.try.${k}`);
+    for (const t of ["kpi", "role", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
+  }
+});
+
+test("the one read of the model file also keeps its process names and how many of each type it holds", () => {
+  const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
+  assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts \};/, "the process names are not kept");
+  assert.match(fn, /if \(e && typeof e\.type === "string"\) counts\[e\.type\] = \(counts\[e\.type\] \|\| 0\) \+ 1;/, "the counts per type are not kept");
+  assert.match(src, /function facts\(cb\)\{ questions\(function\(\)\{ cb\(qFacts\); \}\); \}/, "facts() does not share the one fetch");
+  assert.equal((src.match(/fetch\(QUESTIONS/g) || []).length, 1, "the model file is read twice");
+});
+
+test("the command line's words are settled before anything is pushed or sent", () => {
+  const fn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  const cmdAt = fn.indexOf("var cmd = command(typed);"), pushAt = fn.indexOf("messages.push(");
+  assert.ok(cmdAt > 0 && pushAt > cmdAt, "a command is pushed as a message before it is recognized");
+  assert.match(fn, /var text = picked\(typed, menuRows\);/, "a number does not pick from the standing menu");
+});
+
+test("the pick range names the rows a number picks, and none when there are none", () => {
+  assert.equal(rangeOf(0), "");
+  assert.equal(rangeOf(1), "1");
+  assert.equal(rangeOf(6), "1-6");
 });

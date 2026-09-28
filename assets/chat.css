@@ -1,6 +1,7 @@
-/* The chat: a button at the foot of the page and the panel it opens. Colors and faces are the
-   tokens', so the widget follows the theme where an image could not; the accent is --c-mid,
-   what every control in the family is. The panel is a sheet on a phone, a card on a desk. */
+/* The chat: a button at the foot of the page and the panel it opens. The button's colors and
+   face are the tokens', so it follows the theme where an image could not; the accent is --c-mid,
+   what every control in the family is. The panel is the tooling's terminal, below, a sheet on a
+   phone and a card on a desk. */
 .rbchat-open{position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:60;
   display:inline-flex;align-items:center;gap:.5rem;padding:.6rem .95rem;border-radius:999px;
   border:1px solid var(--rule);background:var(--raise);color:var(--ink);cursor:pointer;
@@ -8,30 +9,50 @@
 .rbchat-open svg{color:var(--c-mid)}
 .rbchat-open:hover,.rbchat-open:focus-visible{border-color:var(--c-mid);outline:none}
 .rbchat-open:focus-visible{box-shadow:0 0 0 3px var(--press)}
-.rbchat{position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:61;
-  width:min(26rem,calc(100vw - 2rem));height:min(70vh,40rem);display:flex;flex-direction:column;
-  background:var(--ground);color:var(--ink);border:1px solid var(--rule);border-radius:14px;
-  box-shadow:0 18px 60px var(--deck-drop);overflow:hidden}
+/* The chat is the tooling's terminal, as companygraph.io's /cli/ draws its .term. Its colors are
+   its own and not the page's, because a terminal is not a page surface. The page's tokens are
+   defined again inside the panel from the terminal's, so every rule below that reads a token,
+   and Mermaid, which reads them from the figure, draws in the terminal's colors with no second
+   copy of each rule. Dark by default and light where the page is, as the tokens are. */
+.rbchat,dialog.rbchat-modal.rbchat-term{--t-bg:#0E141C;--t-top:#161E29;--t-dot:#2B3645;--t-ink:#D5DCE6;--t-dim:#8793A3;--t-accent:#7FA3D8;--t-strong:#FFFFFF;
+  --t-good:#86C79A;--t-bad:#E0705E;--t-line:#243041;--t-sel:#18263A;--t-edge:#2B3645}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) :is(.rbchat,dialog.rbchat-modal.rbchat-term){--t-bg:#FDFCF9;--t-top:#EFECE5;--t-dot:#D6D1C6;--t-ink:#1D232C;--t-dim:#676152;
+  --t-accent:#3A6DA6;--t-strong:#0C0E13;--t-good:#2E7A45;--t-bad:#B3412E;--t-line:#E3DFD6;--t-sel:#E7ECF4;--t-edge:#CFC9BC}}
+:root[data-theme="light"] :is(.rbchat,dialog.rbchat-modal.rbchat-term){--t-bg:#FDFCF9;--t-top:#EFECE5;--t-dot:#D6D1C6;--t-ink:#1D232C;--t-dim:#676152;
+  --t-accent:#3A6DA6;--t-strong:#0C0E13;--t-good:#2E7A45;--t-bad:#B3412E;--t-line:#E3DFD6;--t-sel:#E7ECF4;--t-edge:#CFC9BC}
+dialog.rbchat-modal.rbchat-term{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel)}
+.rbchat{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel);
+  position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:61;
+  width:min(31rem,calc(100vw - 2rem));height:min(46rem,calc(100vh - 2rem));display:flex;flex-direction:column;
+  background:var(--t-bg);color:var(--t-ink);border:1.5px solid var(--t-edge);border-radius:12px;
+  box-shadow:0 18px 60px var(--deck-drop);overflow:hidden;
+  font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55}
 .rbchat[hidden]{display:none}
-/* The corner that sizes the panel: the top left one, the only corner that can move while the
-   panel stays pinned to the bottom right. It is the stage gutter's manners in a corner — drag,
-   arrow keys when focused, double-click back to the default — and it shows the cursor a reader
-   already reads as "pull me". */
+/* The corner that sizes the panel: the top left, the one corner that can move while the panel
+   stays pinned to the bottom right. Drag, arrow keys when focused, double-click back to the default. */
 .rbchat-grip{position:absolute;top:0;left:0;width:18px;height:18px;z-index:2;cursor:nwse-resize;
-  border-top:2px solid var(--rule);border-left:2px solid var(--rule);border-top-left-radius:14px;
-  background:none;touch-action:none}
-.rbchat-grip:hover,.rbchat-grip.dragging{border-color:var(--c-mid)}
-.rbchat-grip:focus-visible{outline:2px solid var(--c-mid);outline-offset:2px}
-.rbchat-head{display:flex;align-items:center;gap:.4rem;padding:.75rem 1rem;border-bottom:1px solid var(--rule);background:var(--raise)}
-.rbchat-head h2{margin:0;margin-right:auto;font-family:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;font-weight:700;letter-spacing:-.02em;font-size:1.05rem}
-.rbchat-close{border:0;background:none;color:var(--dim);font-size:1.4rem;line-height:1;cursor:pointer;padding:.2rem .4rem;border-radius:6px}
-/* Starting over, beside the way out and quieter than it: the same ink as the close cross, an
-   arrow come back round rather than a word, held a little apart from the cross so the two are
-   not one control, and gone whenever there is no conversation to clear. */
-.rbchat-new{border:0;background:none;color:var(--dim);line-height:0;cursor:pointer;padding:.3rem;border-radius:6px;margin-left:auto;margin-right:.35rem}
+  border-top:2px solid var(--t-dot);border-left:2px solid var(--t-dot);border-top-left-radius:12px;background:none;touch-action:none}
+.rbchat-grip:hover,.rbchat-grip.dragging{border-color:var(--t-accent)}
+.rbchat-grip:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px}
+.rbchat-head{display:flex;align-items:center;gap:.45rem;padding:.6rem .8rem .6rem 1.2rem;background:var(--t-top)}
+.rbchat-dots{display:flex;gap:.45rem}
+.rbchat-dots i{width:.7rem;height:.7rem;border-radius:50%;background:var(--t-dot)}
+.rbchat-head h2{margin:0 auto 0 .5rem;font:inherit;font-size:.78rem;font-weight:400;color:var(--t-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbchat-close{border:0;background:none;color:var(--t-dim);font:inherit;font-size:1rem;line-height:1;cursor:pointer;padding:.15rem .4rem;border-radius:5px}
+.rbchat-new{border:0;background:none;color:var(--t-dim);line-height:0;cursor:pointer;padding:.3rem;border-radius:5px;margin-left:auto;margin-right:.2rem}
 .rbchat-new[hidden]{display:none}
-.rbchat-new:hover,.rbchat-new:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
-.rbchat-close:hover,.rbchat-close:focus-visible{color:var(--ink);outline:2px solid var(--c-mid);outline-offset:2px}
+.rbchat-new:hover,.rbchat-new:focus-visible,.rbchat-close:hover,.rbchat-close:focus-visible{color:var(--t-ink);outline:1.5px solid var(--t-accent);outline-offset:1px}
+/* The command line: the prompt, the field in the terminal's strong ink, and the keys under it. */
+.rbchat-form{display:flex;align-items:flex-start;gap:.6em;padding:.55rem 1.1rem .1rem;border-top:1px solid var(--t-line)}
+.rbchat-p{color:var(--t-accent);font-weight:600;line-height:1.55;padding-top:.05rem}
+.rbchat-form textarea{flex:1;min-width:0;resize:none;border:0;background:none;padding:0;margin:0;outline:none;
+  font:inherit;font-size:.85rem;line-height:1.55;color:var(--t-strong);caret-color:var(--t-accent)}
+.rbchat-form textarea::placeholder{color:var(--t-dim)}
+.rbchat-form textarea:disabled{opacity:.6}
+.rbchat-send{display:none;border:1px solid var(--t-line);background:none;color:var(--t-accent);font:inherit;font-size:.9rem;line-height:1;padding:.25rem .5rem;border-radius:5px;cursor:pointer}
+.rbchat-send:disabled{opacity:.5;cursor:default}
+@media (pointer:coarse){.rbchat-send{display:inline-block}}
+.rbchat-keys{margin:0;padding:.2rem 1.1rem .55rem;font-size:.72rem;color:var(--t-dim);white-space:pre-wrap}
 /* The note under a header control: what the family's .tip says on a chip, in the same box, drawn
    by the stylesheet because card.js is not on every page the chat is. It hangs below and to the
    left of its button, since the panel clips above its header and the buttons sit at its right
@@ -44,48 +65,52 @@
 .rbchat-new:hover::after,.rbchat-new:focus-visible::after,.rbchat-close:hover::after,.rbchat-close:focus-visible::after{opacity:1;transform:none}
 @media (hover:none){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{display:none}}
 @media (prefers-reduced-motion:reduce){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{transition:none}}
-.rbchat-notice{margin:0;padding:.6rem 1rem;font-size:.8rem;line-height:1.4;color:var(--dim);border-bottom:1px solid var(--rule)}
 .rbchat-notice code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.95em;color:var(--ink)}
-.rbchat-log{flex:1;overflow-y:auto;padding:.75rem 1rem;display:flex;flex-direction:column;gap:.6rem;font-size:.95rem;line-height:1.5}
-.rbchat-msg{max-width:92%;padding:.55rem .8rem;border-radius:12px;overflow-wrap:anywhere}
-.rbchat-user{align-self:flex-end;background:var(--press);color:var(--ink);white-space:pre-wrap}
-/* An answer is running prose, so it is dim as every page's prose and the card's are, with a
-   code token in ink as .cbody p code in stage.css; the visitor's own words stay ink, as typed. */
-.rbchat-assistant{align-self:flex-start;background:var(--raise);border:1px solid var(--rule);color:var(--dim)}
-.rbchat-refusal{align-self:center;color:var(--dim);font-size:.88rem;font-style:italic}
-/* The way in, offered under an empty log: quiet chips in the same border-and-text form a
-   card's skill chips take, .cbody .chips a in stage.css, so an offer reads as an offer and not
-   as an answer already given. They wrap rather than push the panel wider. */
-.rbchat-questions{display:flex;flex-wrap:wrap;gap:.4rem}
-.rbchat-q{font:inherit;font-size:.86rem;line-height:1.3;padding:.4rem .7rem;border-radius:8px;
-  border:1px solid var(--rule);background:none;color:var(--c-mid);cursor:pointer;text-align:left;
-  max-width:100%;white-space:normal;overflow-wrap:anywhere}
-.rbchat-q:hover,.rbchat-q:focus-visible{border-color:var(--c-mid)}
-.rbchat-q:focus-visible{outline:2px solid var(--c-mid);outline-offset:2px}
+.rbchat-log{flex:1;overflow-y:auto;padding:1rem 1.1rem .5rem;display:flex;flex-direction:column;gap:.15rem}
+.rbchat-msg{overflow-wrap:anywhere}
+/* A question is a prompt line, in the terminal's strong ink. */
+.rbchat-user{margin-top:1rem;color:var(--t-strong);white-space:pre-wrap}
+.rbchat-user::before{content:"\203a  ";color:var(--t-accent)}
+.rbchat-spin{margin:.3rem 0 0;color:var(--t-dim)}
+.rbchat-frame{display:inline-block;width:1ch;color:var(--t-accent)}
+/* A finished answer, as the tooling prints a finished step: a rail in the terminal's green and a
+   head line with the tick. It has no animation of any kind. */
+.rbchat-assistant{margin:.4rem 0 0 .35rem;padding:.05rem 0 .15rem .85rem;border-left:1.5px solid var(--t-good)}
+.rbchat-done{margin:0 0 .35rem;color:var(--t-dim)}
+.rbchat-tick{color:var(--t-good)}
+/* The answer's text reads as it always has: the page's own face, dim as every page's prose is,
+   a bold run in the strong ink and a link in the accent. Everything around it is mono. */
+.rbchat-body{font-family:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:.95rem;line-height:1.5;color:var(--t-dim)}
 .rbchat-body p{margin:0 0 .6rem}.rbchat-body p:last-child{margin-bottom:0}
-.rbchat-body ul,.rbchat-body ol{margin:0 0 .6rem 1.2rem;padding:0}
-.rbchat-body li::marker{color:var(--c-weak)}
-.rbchat-body code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--press);padding:.05em .3em;border-radius:4px;color:var(--ink)}
-.rbchat-body table{border-collapse:collapse;margin:.2rem 0 .6rem;font-size:.9em;display:block;overflow-x:auto;max-width:100%}
-/* A cell breaks a word only where the word cannot fit. The bubble's `anywhere` would let a
-   column shrink to a letter's width, so a short first column read "Grou p"; `break-word` leaves
-   a column as wide as its longest word and still breaks an address too long for the panel. */
-.rbchat-body th,.rbchat-body td{border:1px solid var(--rule);padding:.3rem .5rem;text-align:left;vertical-align:top;overflow-wrap:break-word}
-.rbchat-body th{background:var(--press);font-weight:600}
-/* A list in a cell is the cell's content, not a block beside it: no margin of its own, a
-   narrower indent than the body's lists, and items that sit as close as the cell's lines do. */
-.rbchat-body td ul,.rbchat-body td ol{margin:0;padding-left:1rem}
-.rbchat-body td li+li{margin-top:.15rem}
-.rbchat-wait{margin:0;color:var(--dim);font-style:italic}
-.rbchat-wait::after{content:"";display:inline-block;width:1.2em;text-align:left;animation:rbchat-dots 1.2s steps(4,end) infinite}
-@keyframes rbchat-dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
-@media (prefers-reduced-motion:reduce){.rbchat-wait::after{animation:none;content:"\2026"}}
+.rbchat-body strong{color:var(--t-strong)}
+.rbchat-body code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--t-sel);padding:.05em .3em;border-radius:4px;color:var(--t-ink)}
+/* A list's marker is dim, never the accent: in the terminal an accent number is a row to pick. */
+.rbchat-body ul,.rbchat-body ol{list-style:none;margin:0 0 .6rem;padding:0}
+.rbchat-body ol{counter-reset:rbchat-n}
+.rbchat-body li{position:relative;padding-left:2.2ch;margin:.12rem 0}
+.rbchat-body ul > li::before{position:absolute;left:0;content:"\00b7";color:var(--t-dim);font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-weight:600}
+.rbchat-body ol > li{counter-increment:rbchat-n}
+.rbchat-body ol > li::before{position:absolute;left:0;content:counter(rbchat-n) ".";color:var(--t-dim);font-family:"Plex Mono",ui-monospace,Menlo,monospace}
+/* A table stays in mono whatever the answer's face: columns are what a terminal draws best. */
+.rbchat-body table{border-collapse:collapse;margin:.2rem 0 .6rem;display:block;overflow-x:auto;max-width:100%;
+  font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--t-ink)}
+.rbchat-body th{color:var(--t-dim);font-weight:400;text-align:left;border-bottom:1px solid var(--t-line);padding:.15rem .8rem .25rem 0;vertical-align:top}
+/* A cell breaks a word only where the word cannot fit: `anywhere` would let a column shrink to
+   a letter's width; `break-word` leaves a column as wide as its longest word. */
+.rbchat-body td{padding:.2rem .8rem .2rem 0;vertical-align:top;border-bottom:1px dotted var(--t-line);overflow-wrap:break-word}
+.rbchat-body tbody tr:hover td{background:var(--t-sel)}
+.rbchat-body td:first-child a{white-space:nowrap}
+.rbchat-body td br ~ *,.rbchat-body td li + li{color:var(--t-dim)}
+.rbchat-body td ul,.rbchat-body td ol{margin:0;padding:0}
+.rbchat-refusal{margin-top:.4rem;color:var(--t-bad)}
+.rbchat-model{margin:.1rem 0 0;font-size:.74rem;color:var(--t-dim)}
+.rbchat-body .rbchat-num{text-align:right;font-variant-numeric:tabular-nums}
 /* One link style, the family's: a link in the answer or the notice has no class, so the page's
    `link` block draws it. A cited title carries one, so it takes the same treatment here by
    hand, the interactive blue and a line only under the pointer. */
 .rbchat-cites a.rbchat-cite{color:var(--c-mid);text-decoration:none;border-bottom:1px solid transparent}
 .rbchat-cites a.rbchat-cite:hover,.rbchat-cites a.rbchat-cite:focus-visible{border-bottom-color:var(--c-mid)}
-.rbchat-cites{margin:.5rem 0 0;font-size:.82rem;line-height:1.7;color:var(--dim)}
+.rbchat-cites{margin:.5rem 0 0;font-size:.78rem;line-height:1.7;color:var(--t-dim)}
 /* The site's icon at the head of the line, once, and GitHub's mark after each title: quiet
    until pointed at, and both sized so the line stays one line on a phone. */
 .rbchat-from{width:16px;height:16px;vertical-align:-3px;margin-right:.4rem}
@@ -93,11 +118,6 @@
 .rbchat-gh svg{width:14px;height:14px;vertical-align:-2px}
 .rbchat-gh:hover,.rbchat-gh:focus-visible{color:var(--ink);outline:none}
 .rbchat-gh:focus-visible{box-shadow:0 0 0 2px var(--press)}
-.rbchat-send{font:inherit;font-size:.9rem;padding:.45rem .85rem;border-radius:8px;border:1px solid var(--c-mid);background:var(--c-mid);color:var(--ground);cursor:pointer}
-.rbchat-send:disabled{opacity:.55;cursor:default}
-.rbchat-form{display:flex;gap:.5rem;padding:.6rem 1rem;border-top:1px solid var(--rule);background:var(--raise)}
-.rbchat-form textarea{flex:1;resize:none;font:inherit;font-size:.95rem;padding:.5rem .6rem;border-radius:8px;border:1px solid var(--rule);background:var(--ground);color:var(--ink)}
-.rbchat-form textarea:focus-visible{outline:2px solid var(--c-mid);outline-offset:1px}
 @media (max-width:600px){
   /* A phone's panel is the screen, so there is nothing to size and no corner to do it with;
      the width and height the grip may have written are overridden here rather than cleared,
@@ -208,3 +228,44 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
   dialog.rbchat-modal{width:100vw; max-width:100vw; height:100dvh; max-height:100dvh;
                        margin:0; border:0; border-radius:0; padding:.5rem}
 }
+/* The intro: the lockup as /cli/ prints its banner, a hello, the notice as a comment, and the menus. */
+.rbchat-intro{display:flex;flex-direction:column}
+.rbchat-lock{display:flex;align-items:center;gap:1rem;margin:.2rem 0 .9rem .2rem}
+.rbchat-lock svg{width:4em;height:4em;flex:0 0 auto;color:var(--t-accent)}
+/* blust.ch's mark draws its plate and letters by class, as the header's own rules do. */
+.rbchat-lock .plate{fill:var(--raise);stroke:var(--rule);stroke-width:1.5}
+.rbchat-lock .rb{fill:var(--c-mid)}
+.rbchat-word{display:flex;flex-direction:column;font-size:1.05rem;line-height:1.35}
+.rbchat-first{color:var(--t-strong);font-weight:600}
+.rbchat-accent{color:var(--t-accent);font-weight:600}
+.rbchat-sub{font-size:.8rem;color:var(--t-dim)}
+.rbchat-hello{margin:0 0 .5rem}
+.rbchat-h2{color:var(--t-dim)}
+.rbchat-notice{margin:0 0 .9rem;color:var(--t-dim)}
+.rbchat-notice::before{content:"# "}
+.rbchat-label{margin:.5rem 0 0;color:var(--t-dim)}
+.rbchat-prompt-line{margin:.6rem 0 0;color:var(--t-strong)}
+.rbchat-menu{display:flex;flex-direction:column}
+.rbchat-row{all:unset;display:grid;grid-template-columns:1.6em 1fr;padding:.22rem .45rem;margin:0 -.45rem;border-radius:5px;cursor:pointer;overflow-wrap:anywhere}
+.rbchat-row .rbchat-n{color:var(--t-accent)}
+.rbchat-row .rbchat-q{color:var(--t-ink)}
+.rbchat-row .rbchat-g{grid-column:2;color:var(--t-dim)}
+.rbchat-row:hover,.rbchat-row:focus-visible{background:var(--t-sel)}
+.rbchat-row:hover .rbchat-q{color:var(--t-accent)}
+.rbchat-row:focus-visible{outline:1.5px solid var(--t-accent)}
+.rbchat-spent .rbchat-row{opacity:.55}
+/* Played: each piece stands still until its moment. Finished, or for reduced motion, all stand. */
+.rbchat-intro:not(.rbchat-still) :is(.rbchat-sub,.rbchat-h1,.rbchat-h2,.rbchat-notice,.rbchat-label,.rbchat-row,.rbchat-prompt-line):not(.rbchat-on){opacity:0}
+.rbchat-intro:not(.rbchat-still) .rbchat-lock svg > :not(.rbchat-on){opacity:0}
+.rbchat-intro .rbchat-on{transition:opacity .2s ease}
+/* Reduced motion draws the intro finished at once, so nothing waits to fade in; a spent menu
+   still dims. */
+@media (prefers-reduced-motion:reduce){.rbchat-intro *{transition:none!important}}
+.rbchat-cur{display:inline-block;width:.6em;height:1.1em;vertical-align:-.2em;background:var(--t-ink);animation:rbchat-blink 1.1s steps(1) infinite}
+@keyframes rbchat-blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.rbchat-cur{animation:none}}
+.rbchat-help{margin:.4rem 0 0;color:var(--t-dim)}
+.rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
+.rbchat-help-k{color:var(--t-accent)}
+/* Heard, not seen: the finished answer, said once to a screen reader. */
+.rbchat-say,.rbchat-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

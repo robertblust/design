@@ -13,10 +13,14 @@
 // this closure and in the tab's own `sessionStorage`, under the key
 // `chat`, so that following a link does not throw it away; it goes when the tab goes, and it
 // reaches no server but the one the tag names. The answer
-// arrives as server-sent events and is rendered as it comes, through a Markdown subset the
+// arrives as server-sent events, is gathered until the stream ends while a spinner counts the
+// seconds, and is then drawn whole, through a Markdown subset the
 // model is told to write and nothing outside it — paragraphs, emphasis, code spans, lists,
 // tables, with a bare URL made clickable — after every character has been escaped, so text that
 // looks like markup stays text.
+// The panel is drawn as the tooling's terminal: a fresh conversation opens on the page's own
+// lockup, a hello and numbered menus, a question prints at a prompt, and the command line takes a
+// number, /new, /clear, /help and the up arrow, none of which reaches the chat host.
 // A picture the host drew arrives as its own event and is drawn under the answer by Mermaid,
 // fetched from beside this file the first time one arrives; each node links where the cite
 // line would, or a type to its schema's file where the host names one, and the picture is kept
@@ -46,10 +50,17 @@
 //   rbChat.nodeElement(svg, node)      the group Mermaid drew a node as, or null
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
 //   rbChat.oriented(source, width)     a flow turned top to bottom in a panel narrower than a phone's
+//   rbChat.lockupOf(doc)               the header's mark and name, split as the page splits it, or null
+//   rbChat.command(text)               "new", "help" or null, for the command line's own words
+//   rbChat.picked(text, rows)          the row a bare number picks, or the text as typed
+//   rbChat.tryRows(facts, lang, random)  the intro's asks, each with what comes back
+//   rbChat.commitOf(cites)             the commit the answer was read at, or null
+//   rbChat.seconds(ms)                 the spinner's count
+//   rbChat.rangeOf(n)                  the rows a number picks, as the keys line names them
 //
-// An empty conversation, once the panel is shown, may offer three questions as a way in, three
-// of the site's own model's entities of type `question`, picked at random each time the panel
-// opens on nothing, and every finished answer offers three more the conversation has not asked
+// An empty conversation, once the panel is shown, offers three questions as a way in in its
+// intro, three of the site's own model's entities of type `question`, picked at random for that
+// conversation, and every finished answer offers three more the conversation has not asked
 // yet, so a visitor who liked the first answer has somewhere to go next. Where that answer cited
 // entities of one type only, the three follow it instead: the type's schema, the first cited
 // entity's neighbors, and a question of the model's that rests on that entity or its type. `data-questions` names a same-origin path to that model, the file `card.js`
@@ -57,7 +68,7 @@
 // without it offers none and asks nothing. Nothing here ever reaches the chat host — the one
 // runtime call this family's pages make to a service of their own is still the POST on send,
 // unmoved by any of this — and a read that 404s, times out, answers something that is not JSON,
-// or names no question reads the same as one that named none: no chips, nothing else different.
+// or names no question reads the same as one that named none: no questions, nothing else different.
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
@@ -78,6 +89,23 @@
       follow: { schema: "Show me the schema of {title} ({type})", neighbors: "Show me the neighbors of {title}" },
       cut: "… the answer stopped at its length limit.",
       fresh: "New conversation",
+      // The terminal: the intro, the prompt, the spinner, the head of a finished answer, and
+      // the keys and commands the command line takes. {name} is the lockup's text, {host} the
+      // page's own host.
+      hello: ["Hello. I answer from {name}’s model, and link", "every entity I name back to where it is written."],
+      helloHost: ["Hello. I answer from the model of {host}, and link", "every entity I name back to where it is written."],
+      sub: "chat · {host}", bar: "ask · {host}",
+      prompt: "Type a question, a number, or /help",
+      asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
+      keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
+      help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
+      tryLabel: "Try", askNext: "Ask next",
+      try: {
+        metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
+        process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
+        list: "List {list} as a table", listGets: "one row each, every name a link into the model",
+        lists: { kpi: "the KPIs", role: "the roles", product: "the products", decision: "the decisions", value: "the values" }
+      },
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
@@ -106,6 +134,20 @@
       follow: { schema: "Zeig mir das Schema von {title} ({type})", neighbors: "Zeig mir die Nachbarn von {title}" },
       cut: "… die Antwort endete an ihrer Längengrenze.",
       fresh: "Neues Gespräch",
+      hello: ["Hallo. Ich antworte aus dem Modell von {name}", "und verlinke jede Entität, die ich nenne."],
+      helloHost: ["Hallo. Ich antworte aus dem Modell von {host}", "und verlinke jede Entität, die ich nenne."],
+      sub: "Chat · {host}", bar: "fragen · {host}",
+      prompt: "Frage, Nummer oder /help tippen",
+      asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
+      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
+      tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
+      try: {
+        metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
+        process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
+        list: "Liste {list} als Tabelle", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
+        lists: { kpi: "die KPIs", role: "die Rollen", product: "die Produkte", decision: "die Entscheidungen", value: "die Werte" }
+      },
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
@@ -642,7 +684,59 @@
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed };
+  // ─── The terminal ─────────────────────────────────────────────────────────────────────────
+  // The lockup the intro opens on is the page's own, as its header draws it: every site writes
+  // `<a class="brand"><svg>…</svg><b>Company<span>Graph</span></b></a>`, so the tag needs no
+  // attribute to name it. The accent is the span; the first half is what comes before it, its
+  // trailing space kept, since blust.ch writes "Robert <span>Blust</span>".
+  function lockupOf(doc){
+    var a = doc && doc.querySelector && doc.querySelector("header a.brand");
+    var svg = a && a.querySelector("svg"), b = a && a.querySelector("b");
+    if (!svg || !b) return null;
+    var span = b.querySelector("span"), accent = span ? span.textContent : "";
+    return { mark: svg, first: b.textContent.slice(0, b.textContent.length - accent.length), accent: accent };
+  }
+  // The three words the command line keeps for itself. They never reach the host.
+  function command(text){
+    var t = String(text == null ? "" : text).trim().toLowerCase();
+    return t === "/new" || t === "/clear" ? "new" : t === "/help" ? "help" : null;
+  }
+  // A number alone picks that row of the menu standing last, as the tooling takes "Pick 1-5";
+  // a number with no such row, or anything else, is sent as the visitor typed it.
+  function picked(text, rows){
+    var t = String(text == null ? "" : text).trim();
+    if (!/^\d{1,2}$/.test(t) || !rows) return t;
+    var i = +t - 1;
+    return i >= 0 && i < rows.length ? rows[i] : t;
+  }
+  // The Try rows: what the chat is built to answer, each with what comes back. The meta-model
+  // always; a process only where the model holds one, picked at random; a list only of a kind
+  // the model holds at least three of, the first in this order, so no row names what is not there.
+  var LIST_TYPES = ["kpi", "role", "product", "decision", "value"];
+  function tryRows(facts, lang, random){
+    var t = strings(lang).try, rows = [[t.metaModel, t.metaModelGets]];
+    var ps = facts && Array.isArray(facts.processes) ? facts.processes : [];
+    if (ps.length) rows.push([t.process.replace("{name}", pick(ps, 1, random)[0]), t.processGets]);
+    var counts = facts && facts.counts || {};
+    for (var i = 0; i < LIST_TYPES.length; i++) {
+      if ((counts[LIST_TYPES[i]] || 0) >= 3) { rows.push([t.list.replace("{list}", t.lists[LIST_TYPES[i]]), t.listGets]); break; }
+    }
+    return rows;
+  }
+  // The commit the answer was read at: the first cite whose URL names one.
+  function commitOf(cites){
+    for (var i = 0; cites && i < cites.length; i++) {
+      var m = cites[i] && typeof cites[i].url === "string" && /\/blob\/([0-9a-f]{7,40})\//.exec(cites[i].url);
+      if (m) return m[1].slice(0, 7);
+    }
+    return null;
+  }
+  // The spinner's count: whole seconds, and nothing in the first, so a quick answer shows none.
+  function seconds(ms){ var n = Math.floor(ms / 1000); return n > 0 ? n + "s" : ""; }
+  // The rows a number picks, as the keys line and /help name them: none, one, or a range.
+  function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
+
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -678,8 +772,8 @@
     });
     return mermaidLoad;
   }
-  function tokenReader(){
-    var root = getComputedStyle(document.documentElement), body = document.body ? getComputedStyle(document.body) : null;
+  function tokenReader(at){
+    var root = getComputedStyle(at || document.documentElement), body = document.body ? getComputedStyle(document.body) : null;
     return function(name){ return name === "font" ? (body ? body.fontFamily : "") : root.getPropertyValue(name); };
   }
   // Each node becomes a link to where the cite line would send it. Mermaid's own click lines
@@ -691,7 +785,7 @@
     // inside it: a theme change redraws into the box wherever it currently stands.
     var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
-      m.initialize(mermaidConfig(tokenReader()));
+      m.initialize(mermaidConfig(tokenReader(fig.isConnected ? fig : null)));
       // The width the picture is drawn for: an answer's is the log's, which the chat gives it,
       // and a page's the figure's own.
       return m.render(id, oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth));
@@ -803,6 +897,9 @@
     fig.rbBox.parentNode.insertBefore(modalMark, fig.rbBox);
     modalBody.appendChild(fig.rbBox);
     modalFig = fig;
+    // An answer's picture keeps the terminal's colors when it is opened full screen, since
+    // Mermaid drew it from them; a page's own picture keeps the page's.
+    modal.classList.toggle("rbchat-term", !!(fig.closest && fig.closest(".rbchat")));
     labelFigure(fig);
     modal.showModal();
     // A page's picture not yet scrolled to is drawn now, and the view waits for it.
@@ -1029,7 +1126,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null, say = null;
   // The place a restore owes the visitor, held until the log is shown and every picture above it
   // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
   // the log is where they put it, and place() reads it there.
@@ -1040,7 +1137,7 @@
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
   // opening an empty conversation, which is all that tells its two names apart.
-  var qList = null, qFetch = null, qBox = null, qNext = false;
+  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {} };
   var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
@@ -1070,6 +1167,11 @@
             var entities = j && Array.isArray(j.entities) ? j.entities : [];
             var types = {}, rests = {};
             entities.forEach(function(e){ if (e && typeof e.id === "string") types[e.id] = e.type; });
+            // The same read gives the Try rows their facts: the processes by name, and how many
+            // of each type the model holds, so a row never names what the model does not have.
+            var counts = {};
+            entities.forEach(function(e){ if (e && typeof e.type === "string") counts[e.type] = (counts[e.type] || 0) + 1; });
+            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts };
             (j && Array.isArray(j.edges) ? j.edges : []).forEach(function(g){
               if (!g || types[g.from] !== "question" || typeof g.via !== "string" || g.via.indexOf("Rests on.") !== 0) return;
               (rests[g.from] = rests[g.from] || []).push({ id: g.to, type: types[g.to] || null });
@@ -1084,6 +1186,9 @@
     }
     qFetch.then(function(list){ qList = list; cb(list); });
   }
+  // The Try rows' facts, from the one fetch questions() makes: a tag without data-questions, or
+  // a read that failed, leaves them empty, and the rows fall back to the meta-model alone.
+  function facts(cb){ questions(function(){ cb(qFacts); }); }
 
   // The questions are entities too, and an answer names them by title: asked what the model
   // answers, the chat reads the titles off its prompt rather than a tool, so no answer's names
@@ -1099,6 +1204,155 @@
   }
   function linkWaiting(){ unlinked.splice(0).forEach(linkQuestions); }
 
+  // A numbered menu, as the tooling prints one: each row a button that sends its question, the
+  // number in the accent because a number is what the command line picks it by, and under a Try
+  // row, dim, what comes back. The rows drawn last are the ones a bare number picks.
+  function menu(parent, items, start){
+    var m = el("div", "rbchat-menu");
+    items.forEach(function(it, i){
+      var b = el("button", "rbchat-row"); b.type = "button";
+      b.appendChild(el("span", "rbchat-n", String(start + i + 1)));
+      b.appendChild(el("span", "rbchat-q", it[0]));
+      if (it[1]) b.appendChild(el("span", "rbchat-g", it[1]));
+      b.addEventListener("click", function(){ input.value = it[0]; send(); });
+      m.appendChild(b);
+    });
+    parent.appendChild(m);
+    return m;
+  }
+  // The keys and commands, printed into the log as the tooling prints its usage.
+  function help(){
+    var s = strings(langNow()), box = el("div", "rbchat-help");
+    s.help.forEach(function(r){
+      // The pick line only while a menu stands: with none, there is nothing a number picks.
+      if (r[0] === "{range}" && !menuRows.length) return;
+      var line = el("p");
+      line.appendChild(el("span", "rbchat-help-k", r[0].replace("{range}", rangeOf(menuRows.length))));
+      line.appendChild(el("span", "rbchat-help-d", r[1]));
+      box.appendChild(line);
+    });
+    log.appendChild(box); log.scrollTop = log.scrollHeight;
+  }
+  // An answer's head and commit lines, written from the strings, and written again by relabel()
+  // when the language switches; a restored answer has no timing, so its line names the commit alone.
+  function doneLine(){ var h = el("p", "rbchat-done"); h.appendChild(el("span", "rbchat-tick", "\u2713")); h.appendChild(document.createTextNode(" " + strings(langNow()).answered)); return h; }
+  function modelText(sha, secs){ var m = strings(langNow()).model; return (secs ? m.replace("{secs}", secs) : m.replace(/ \u00b7 \{secs\}s$/, "")).replace("{sha}", sha); }
+  function modelLine(sha, secs){ var l = el("p", "rbchat-model", modelText(sha, secs)); l.setAttribute("data-sha", sha); if (secs) l.setAttribute("data-secs", secs); return l; }
+  // A column whose cells are all numbers aligns right, in figures of one width.
+  function numberColumns(root){
+    var tables = root.querySelectorAll("table");
+    for (var t = 0; t < tables.length; t++) {
+      var rows = tables[t].querySelectorAll("tbody tr"), n = rows.length && rows[0].children.length;
+      for (var c = 0; c < n; c++) {
+        var all = rows.length > 0;
+        for (var r = 0; r < rows.length && all; r++) all = /^[\d\s.,'\u2019%+\-]+$/.test((rows[r].children[c] || {}).textContent || "");
+        if (!all) continue;
+        var cells = tables[t].querySelectorAll("tr > :nth-child(" + (c + 1) + ")");
+        for (var k = 0; k < cells.length; k++) cells[k].classList.add("rbchat-num");
+      }
+    }
+  }
+  // A menu the conversation has moved past stays, dimmed, and its rows still send.
+  function spend(){ var ms = log.querySelectorAll(".rbchat-menu"); for (var i = 0; i < ms.length; i++) ms[i].classList.add("rbchat-spent"); }
+
+  // The intro: the page's lockup, a hello, the notice as a comment, then two numbered groups,
+  // the asks the chat is built for with what each brings back, and three of the model's own
+  // questions. It opens every conversation and stays at the top of the log once it starts.
+  // Played on a fresh conversation, drawn finished on a restored one, a reduced-motion visitor
+  // or a key pressed while it plays. The text is in the DOM whole from the start, so a screen
+  // reader reads it whole; only the name is typed, and it carries its text as a label meanwhile.
+  // `introRun` names the intro now drawn, so a late fetch fills only its own; `playRun` names
+  // the play, so finishing it cancels the steps still to come and nothing else.
+  var introEl = null, introRun = 0, playRun = 0;
+  // What the intro drew at random, kept for its conversation, so a language switch redraws the
+  // same process and questions in the other language rather than drawing again.
+  var introPick = null;
+  function intro(play){
+    introRun++;
+    var mine = introRun, s = strings(langNow()), lock = lockupOf(document);
+    var host = location.host, name = lock ? (lock.first + lock.accent).trim() : "";
+    introEl = el("div", "rbchat-intro");
+    if (lock) {
+      var l = el("div", "rbchat-lock"), mark = lock.mark.cloneNode(true), word = el("div", "rbchat-word"), n = el("span", "rbchat-name");
+      mark.setAttribute("aria-hidden", "true"); unclash(mark);
+      // The name is said whole, once, while its two halves are typed where only eyes read them.
+      var first = el("b", "rbchat-first"), accent = el("b", "rbchat-accent");
+      first.setAttribute("aria-hidden", "true"); accent.setAttribute("aria-hidden", "true");
+      n.appendChild(el("span", "rbchat-sr", name)); n.appendChild(first); n.appendChild(accent);
+      word.appendChild(n); word.appendChild(el("span", "rbchat-sub", s.sub.replace("{host}", host)));
+      l.appendChild(mark); l.appendChild(word); introEl.appendChild(l);
+    }
+    var hello = el("p", "rbchat-hello"), lines = lock ? s.hello : s.helloHost;
+    hello.appendChild(el("span", "rbchat-h1", lines[0].replace("{name}", name).replace("{host}", host)));
+    hello.appendChild(el("br"));
+    hello.appendChild(el("span", "rbchat-h2", lines[1]));
+    introEl.appendChild(hello);
+    notice = el("p", "rbchat-notice"); introEl.appendChild(notice); writeNotice();
+    var groups = el("div", "rbchat-groups"); introEl.appendChild(groups);
+    var promptLine = el("p", "rbchat-prompt-line", "› " + s.prompt + " ");
+    // The block cursor waits here while the intro plays, and hands over to the command line.
+    promptLine.appendChild(el("span", "rbchat-cur")); introEl.appendChild(promptLine);
+    log.insertBefore(introEl, log.firstChild);
+    if (!play || still()) finishIntro();
+    facts(function(f){
+      questions(function(list){
+        if (mine !== introRun || !introEl) return;
+        var t = strings(langNow());
+        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3) };
+        var rows = tryRows({ processes: introPick.processes, counts: f.counts }, langNow());
+        groups.appendChild(el("p", "rbchat-label", t.tryLabel));
+        menu(groups, rows, 0);
+        var picked = introPick.questions.map(function(q){ return [q]; });
+        if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
+        // A restored conversation has moved past the intro: its menus are spent, and the rows a
+        // number picks stay those of the menu after the last answer.
+        if (messages.length) spendIntro(); else { menuRows = rows.concat(picked).map(function(r){ return r[0]; }); keysLine(); }
+        if (!introEl.classList.contains("rbchat-still")) playIntro();
+      });
+    });
+  }
+  function spendIntro(){ var ms = introEl.querySelectorAll(".rbchat-menu"); for (var i = 0; i < ms.length; i++) ms[i].classList.add("rbchat-spent"); }
+  // A cloned mark keeps its ids, which the header's own copy already holds; each is given a
+  // name of its own, and every reference inside the clone, url(#id) or #id, follows it.
+  function unclash(svg){
+    var map = {}, withId = svg.querySelectorAll("[id]");
+    for (var i = 0; i < withId.length; i++) { map[withId[i].id] = "rbchat-" + withId[i].id; withId[i].id = map[withId[i].id]; }
+    if (!withId.length) return;
+    var all = svg.querySelectorAll("*");
+    for (var j = 0; j < all.length; j++) {
+      for (var k = 0; k < all[j].attributes.length; k++) {
+        var at = all[j].attributes[k], v = at.value;
+        var w = v.replace(/url\(#([^)]+)\)/g, function(m, id){ return map[id] ? "url(#" + map[id] + ")" : m; }).replace(/^#(.+)$/, function(m, id){ return map[id] ? "#" + map[id] : m; });
+        if (w !== v) all[j].setAttribute(at.name, w);
+      }
+    }
+  }
+  function still(){ return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  function finishIntro(){
+    if (!introEl) return;
+    playRun++;
+    introEl.classList.add("rbchat-still");
+    var cur = introEl.querySelector(".rbchat-cur"); if (cur) cur.parentNode.removeChild(cur);
+    var lock = lockupOf(document);
+    if (lock) { introEl.querySelector(".rbchat-first").textContent = lock.first; introEl.querySelector(".rbchat-accent").textContent = lock.accent; }
+  }
+  // About a second: the mark's parts 35 ms apart, the name typed at 22 ms a character, then
+  // the hello, the notice and each row coming in 30 ms apart, as /cli/'s menu prints.
+  function playIntro(){
+    var mine = ++playRun, steps = [], lock = lockupOf(document), at = 0;
+    var parts = introEl.querySelectorAll(".rbchat-lock svg > *");
+    for (var i = 0; i < parts.length; i++) (function(x){ steps.push([at += 35, function(){ x.classList.add("rbchat-on"); }]); })(parts[i]);
+    if (lock) {
+      var f = introEl.querySelector(".rbchat-first"), a = introEl.querySelector(".rbchat-accent");
+      Array.from(lock.first).forEach(function(c){ steps.push([at += 22, function(){ f.textContent += c; }]); });
+      Array.from(lock.accent).forEach(function(c){ steps.push([at += 22, function(){ a.textContent += c; }]); });
+    }
+    var ins = introEl.querySelectorAll(".rbchat-sub, .rbchat-h1, .rbchat-h2, .rbchat-notice, .rbchat-label, .rbchat-row, .rbchat-prompt-line");
+    for (var j = 0; j < ins.length; j++) (function(x){ steps.push([at += 30, function(){ x.classList.add("rbchat-on"); }]); })(ins[j]);
+    steps.push([at + 30, finishIntro]);
+    steps.forEach(function(s){ setTimeout(function(){ if (mine === playRun) s[1](); }, s[0]); });
+  }
+
   // Three of them, tappable, at the end of the log: under whatever the empty panel already
   // shows, or under the answer just finished. Offered only where the visitor can ask next — no
   // answer on its way, the last message an answer or none at all — and checked again once the
@@ -1111,6 +1365,7 @@
     return !busy && (!messages.length || messages[messages.length - 1].role === "assistant");
   }
   function offerQuestions(){
+    if (!messages.length) return;
     if (!canOffer()) return;
     questions(function(list){
       if (!canOffer() || qBox) return;
@@ -1120,16 +1375,13 @@
       var picked = (last && last.role === "assistant" && follow(last.cites, list, messages, langNow())) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
       qNext = messages.length > 0;
-      qBox = el("div", "rbchat-questions");
+      qBox = el("div", "rbchat-next");
       qBox.setAttribute("role", "group");
       qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
-      picked.forEach(function(t){
-        var b = el("button", "rbchat-q", t);
-        b.type = "button";
-        b.addEventListener("click", function(){ input.value = t; send(); });
-        qBox.appendChild(b);
-      });
+      qBox.appendChild(el("p", "rbchat-label", strings(langNow()).askNext));
+      menu(qBox, picked.map(function(t){ return [t]; }), 0);
       log.appendChild(qBox);
+      menuRows = picked.slice(); keysLine();
       if (qNext && !reading) log.scrollTop = log.scrollHeight; else settle();
     });
   }
@@ -1151,24 +1403,50 @@
   });
   document.body.appendChild(button);
 
+  // The notice, in the intro now, as a comment line: where the message goes, and the privacy page.
+  function writeNotice(){ if (!notice) return; var s = strings(langNow()); notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>"; }
   function relabel(){
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
-    title.textContent = s.title; closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
-    input.placeholder = s.placeholder; sendBtn.textContent = s.send;
+    title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
+    input.placeholder = s.prompt; sendBtn.setAttribute("aria-label", s.send); keysLine();
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
-    notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
+    writeNotice();
+    if (log) {
+      var heads = log.querySelectorAll(".rbchat-done");
+      for (var h = 0; h < heads.length; h++) heads[h].lastChild.textContent = " " + s.answered;
+      var lines = log.querySelectorAll(".rbchat-model");
+      for (var m = 0; m < lines.length; m++) lines[m].textContent = modelText(lines[m].getAttribute("data-sha"), lines[m].getAttribute("data-secs"));
+      var labels = log.querySelectorAll(".rbchat-next > .rbchat-label");
+      for (var b = 0; b < labels.length; b++) labels[b].textContent = s.askNext;
+    }
+    // A language switch redraws the intro in the new language, finished, where the log holds one.
+    if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
     if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
   }
   relabel();
   // The language control swaps <html lang>; every string follows on the next tick.
   if (window.MutationObserver) new MutationObserver(relabel).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
+  // The rows a bare number picks: the menu standing last. Empty until a menu is drawn.
+  var menuRows = [];
+  function grow(){ input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 4 * parseFloat(getComputedStyle(input).lineHeight || 20)) + "px"; }
+  // The keys line under the prompt, as the tooling prints its hints; the pick key only while a menu stands.
+  function keysLine(){
+    if (!keysEl) return;
+    var k = strings(langNow()).keys;
+    var parts = [k.send, k.last].concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
+    keysEl.textContent = parts.join("  \u00b7  ");
+  }
+
   function build(){
-    panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.setAttribute("aria-labelledby", "rbchat-title"); panel.hidden = true;
+    panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.hidden = true;
     var head = el("header", "rbchat-head");
+    // The terminal's title bar, as /cli/ draws its .term: three dots, then the page's host.
+    var dots = el("span", "rbchat-dots"); dots.setAttribute("aria-hidden", "true");
+    dots.appendChild(el("i")); dots.appendChild(el("i")); dots.appendChild(el("i"));
     title = el("h2"); title.id = "rbchat-title"; closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
     // Starting over is the header's one door, beside the way out, and only once there is
     // something to clear: an empty panel shows no control for emptying it. A conversation has no
@@ -1181,17 +1459,32 @@
     // and for a keyboard, which a bare glyph never did.
     newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12a7 7 0 1 0 2.05-4.95L5 9M5 5v4h4"/></svg>';
     newBtn.addEventListener("click", reset);
-    head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
-    notice = el("p", "rbchat-notice");
+    head.appendChild(dots); head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
     // No aria-live here: the log used to re-announce the growing answer on every token. The
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
     log = el("div", "rbchat-log");
     ["wheel", "pointerdown", "keydown", "touchstart"].forEach(function(k){ log.addEventListener(k, function(){ reading = null; }, { passive: true }); });
     var form = el("form", "rbchat-form");
-    input = el("textarea"); input.rows = 2; input.maxLength = LIMIT;
-    input.addEventListener("keydown", function(e){ if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); } });
-    sendBtn = el("button", "rbchat-send"); sendBtn.type = "submit";
-    form.appendChild(input); form.appendChild(sendBtn);
+    // The command line: a prompt, the field, and a ↵ that only a touch screen shows. A phone
+    // keyboard's return key sends as Enter does, but a thumb looks for a button to tap. The
+    // field opens at one row and grows to four as the visitor writes more.
+    var p = el("span", "rbchat-p", "\u203a"); p.setAttribute("aria-hidden", "true");
+    input = el("textarea"); input.rows = 1; input.maxLength = LIMIT;
+    input.addEventListener("keydown", function(e){
+      // An Enter that confirms an input method's composition belongs to the composition.
+      if (e.isComposing || e.keyCode === 229) return;
+      if (e.key === "ArrowUp" && !input.value) {
+        for (var i = messages.length - 1; i >= 0; i--) if (messages[i].role === "user") { e.preventDefault(); input.value = messages[i].content; grow(); return; }
+      }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : send(); }
+    });
+    input.addEventListener("input", grow);
+    sendBtn = el("button", "rbchat-send", "\u21b5"); sendBtn.type = "submit";
+    form.appendChild(p); form.appendChild(input); form.appendChild(sendBtn);
+    keysEl = el("p", "rbchat-keys");
+    // What a screen reader is told once an answer is whole: the answer arrives in one piece,
+    // already in the log, so the log itself would announce nothing.
+    say = el("p", "rbchat-say"); say.setAttribute("aria-live", "polite");
     form.addEventListener("submit", function(e){ e.preventDefault(); send(); });
     // The corner that sizes the panel. The panel is pinned to the bottom right, so the top left
     // corner is the one that can move without moving the panel: dragging it out makes the panel
@@ -1200,7 +1493,7 @@
     // the panel is the whole screen and there is nothing to size.
     grip = el("div", "rbchat-grip"); grip.tabIndex = 0; grip.setAttribute("role", "separator"); grip.setAttribute("aria-orientation", "vertical");
     panel.appendChild(grip);
-    panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(form);
+    panel.appendChild(head); panel.appendChild(log); panel.appendChild(form); panel.appendChild(keysEl); panel.appendChild(say);
     document.body.appendChild(panel);
     // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
     // this keydown, not before: while a modal dialog is still open the panel must not close
@@ -1212,6 +1505,8 @@
       if (document.querySelector("dialog[open]")) return;
       close();
     });
+    // A key or a pointer anywhere in the panel finishes an intro still playing.
+    ["pointerdown", "keydown"].forEach(function(k){ panel.addEventListener(k, function(){ if (introEl && !introEl.classList.contains("rbchat-still")) finishIntro(); }, true); });
     sizing();
     applyStoredSize();
     relabel();
@@ -1271,9 +1566,9 @@
   // shown again, so every open draws a fresh random three rather than repeating what closing the
   // panel left behind. It only drops the box the DOM holds — `qList`/`qFetch` are untouched, so
   // two opens ahead of the one fetch landing still share it rather than asking twice.
-  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; settle(); input.focus(); keep(); offerQuestions(); linkWaiting(); }
+  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; if (!introEl) intro(!messages.length); settle(); input.focus(); keep(); if (messages.length) offerQuestions(); linkWaiting(); }
   function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
+  function reset(){ reading = null; reqGen++; if (stopRequest) { stopRequest(); stopRequest = null; } messages = []; turns = []; log.innerHTML = ""; introEl = null; introPick = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1281,14 +1576,23 @@
   // every call site re-enables the form before calling this, so the box is never focused
   // while disabled. The moment the server named, if any, comes with the code and ends the
   // sentence.
-  function refuse(code, retryAt){ bubble("refusal").textContent = refusalText(code, retryAt, Date.now(), langNow()); if (panel && !panel.hidden && refocus(window)) input.focus(); }
+  function refuse(code, retryAt){ bubble("refusal").textContent = "\u2717 " + refusalText(code, retryAt, Date.now(), langNow()); keysLine(); if (panel && !panel.hidden && refocus(window)) input.focus(); }
 
+  // The request on its way, so starting over can end it: `reqGen` names the latest, and a
+  // request that is no longer it touches nothing when it answers, fails or times out.
+  var reqGen = 0, stopRequest = null;
   function send(){
     if (busy) return;
-    var text = input.value.trim();
-    if (!text) return;
+    var typed = input.value.trim();
+    if (!typed) return;
+    // The command line's own words never reach the host and never become a turn.
+    var cmd = command(typed);
+    if (cmd === "new") { input.value = ""; reset(); return; }
+    if (cmd === "help") { input.value = ""; help(); return; }
+    var text = picked(typed, menuRows);
     if (text.length > LIMIT) { refuse("too_long"); return; }
-    hideQuestions();
+    // The menus above stay, dimmed, and their rows still send; the next answer draws its own.
+    spend(); qBox = null;
     reading = null;
     var s = strings(langNow());
     messages.push({ role: "user", content: text });
@@ -1298,21 +1602,29 @@
     // A message that goes unanswered leaves the conversation, and its bubble stops naming a turn.
     function unsend(){ messages.pop(); turns.pop(); mine.removeAttribute("data-turn"); keep(); }
     input.value = ""; busy = true; input.disabled = true; sendBtn.disabled = true;
-    var ans = bubble("assistant"), body = el("div", "rbchat-body"), wait = el("p", "rbchat-wait", s.waiting);
-    // Streaming, from the moment the request goes out until finish() has the whole answer.
-    ans.setAttribute("aria-busy", "true");
-    ans.appendChild(wait); ans.appendChild(body);
+    // Nothing of the answer is drawn until the stream ends: the spinner stands for the whole
+    // wait, counting the seconds, and the finished answer arrives in one piece. The answer's
+    // element is made now and filled as the stream comes, but joins the log only in finish().
+    var ans = el("div", "rbchat-msg rbchat-assistant"), body = el("div", "rbchat-body"), t0 = Date.now();
+    var wait = el("p", "rbchat-spin"), frame = el("span", "rbchat-frame", "|"), secs = el("span", "rbchat-secs");
+    wait.appendChild(frame); wait.appendChild(document.createTextNode(" " + s.asking + "\u2026 ")); wait.appendChild(secs);
+    log.appendChild(wait); log.scrollTop = log.scrollHeight;
+    var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
+    ans.appendChild(body);
     var acc = "", cites = [], names = [], cut = false, picture = null, fig = null;
-    function render(){ body.innerHTML = md(acc); log.scrollTop = log.scrollHeight; }
+    function render(){ body.innerHTML = md(acc); numberColumns(body); }
+    function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
     // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
     // the request goes out, the controller aborts it, and the abort reaches the existing
     // .catch below exactly as a network failure does.
     var ac = new AbortController();
     var timer = setTimeout(function(){ ac.abort(); }, TIMEOUT);
+    var gen = ++reqGen;
+    stopRequest = function(){ clearTimeout(timer); stopSpin(); ac.abort(); };
     function finish(){
       clearTimeout(timer);
-      if (wait.parentNode) wait.parentNode.removeChild(wait);
+      stopSpin();
       // An answer with no text is not a turn: pushing an empty assistant message would break
       // the server's alternating-turns rule on the visitor's next message, so this is a
       // refusal instead, and the exchange leaves no trace in the conversation. Whitespace
@@ -1325,9 +1637,13 @@
         return;
       }
       if (cut) acc += "\n\n" + strings(langNow()).cut;
-      ans.removeAttribute("aria-busy");
-      ans.setAttribute("aria-live", "polite");
       render();
+      var head = doneLine();
+      ans.insertBefore(head, body);
+      log.appendChild(ans);
+      // The picture is drawn once the answer is in the log, since it is drawn for the log's width.
+      if (picture) { fig = figure(picture); ans.insertBefore(fig, body.nextSibling); }
+      ans.setAttribute("aria-live", "polite");
       // Once, on the finished answer: the names are linked in the text the visitor reads, not
       // in the Markdown, so nothing about the answer itself changes and the next render — a
       // language switch, a redraw — would simply do it again.
@@ -1337,6 +1653,13 @@
       nameLinks(body, names.concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
+      var sha = commitOf(cites);
+      if (sha) ans.appendChild(modelLine(sha, String(Math.max(1, Math.round((Date.now() - t0) / 1000)))));
+      log.scrollTop = log.scrollHeight;
+      // Emptied first and filled a moment later, so the same words twice are still said twice.
+      say.textContent = ""; var said = body.textContent;
+      setTimeout(function(){ if (say) say.textContent = said; }, 60);
+      stopRequest = null;
       messages.push({ role: "assistant", content: acc });
       turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture });
       ans.setAttribute("data-turn", turns.length - 1);
@@ -1351,7 +1674,8 @@
           // lifts; a body that cannot be read refuses by the status alone and names no moment.
           return r.json().then(function(j){ var e = j && j.error; return { code: (e && e.code) || "internal", retryAt: e && e.retryAt }; }, function(){ return { code: r.status === 413 ? "too_much" : "internal" }; })
             .then(function(got){
-              clearTimeout(timer);
+              clearTimeout(timer); stopSpin();
+              if (gen !== reqGen) return;
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1359,24 +1683,20 @@
             });
         }
         return readEvents(r, function(name, data){
-          if (name === "text") { if (wait.parentNode) wait.parentNode.removeChild(wait); acc += data.text || ""; render(); }
+          if (gen !== reqGen) return;
+          if (name === "text") acc += data.text || "";
           else if (name === "cite") cites.push(data);
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
           else if (name === "diagram" && data && typeof data.mermaid === "string") {
             // The last picture a message brings is the one drawn: a second replaces the first.
-            // Where the dialog holds the figure being replaced, it is closed first, or it would
-            // go on showing a box about to be torn out from under it.
-            if (modal && modalFig === fig) modal.close();
+            // It is drawn in finish(), with the rest of the answer.
             picture = data;
-            if (fig && fig.parentNode) fig.parentNode.removeChild(fig);
-            fig = figure(data);
-            ans.insertBefore(fig, body.nextSibling);
           }
           else if (name === "done") cut = !!data.cut;
           else if (name === "error") {
             var code = data && data.error && data.error.code, at = data && data.error && data.error.retryAt;
             if (!acc.trim()) {
-              clearTimeout(timer);
+              clearTimeout(timer); stopSpin();
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1385,10 +1705,11 @@
             }
             acc += "\n\n" + refusalText(code, at, Date.now(), langNow());
           }
-        }).then(function(){ if (busy) finish(); });
+        }).then(function(){ if (gen === reqGen && busy) finish(); });
       })
       .catch(function(){
-        clearTimeout(timer);
+        clearTimeout(timer); stopSpin();
+        if (gen !== reqGen) return;
         if (ans.parentNode) ans.parentNode.removeChild(ans);
         if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { unsend(); }
         busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1407,12 +1728,16 @@
     var was = stored();
     if (!was || !was.turns || !was.turns.length) return;
     if (!panel) build();
+    // Only a panel restored open shows its intro now; a closed one gets it from open(), since
+    // the intro reads the model file and that read waits for the panel.
     reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
     was.turns.forEach(function(t){
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
       ans.setAttribute("data-turn", turns.length);
-      body.innerHTML = md(t.content); ans.appendChild(body);
+      body.innerHTML = md(t.content); numberColumns(body);
+      var head = doneLine();
+      ans.appendChild(head); ans.appendChild(body);
       var cites = t.cites || [];
       // The same gate send() applies to a picture arriving live: a stored turn from before this
       // gate existed, or one a bug wrote otherwise, keeps no picture rather than throwing.
@@ -1421,9 +1746,15 @@
       linkQuestions(body);
       if (diagram) ans.appendChild(figure(diagram));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
+      // A restored answer has no timing to name, so its line names the commit alone.
+      var sha = commitOf(cites);
+      if (sha) ans.appendChild(modelLine(sha, null));
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
     });
+    // After the turns, so the intro knows the conversation has moved past it, whether its
+    // menus are filled now or once the model file is read.
+    if (was.open) intro(false);
     if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); linkWaiting(); }
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight; settle();
