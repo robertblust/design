@@ -42,9 +42,6 @@
   font:inherit;font-size:.85rem;line-height:1.55;color:var(--t-strong);caret-color:var(--t-accent)}
 .rbchat-form textarea::placeholder{color:var(--t-dim)}
 .rbchat-form textarea:disabled{opacity:.6}
-.rbchat-send{display:none;border:1px solid var(--t-line);background:none;color:var(--t-accent);font:inherit;font-size:.9rem;line-height:1;padding:.25rem .5rem;border-radius:5px;cursor:pointer}
-.rbchat-send:disabled{opacity:.5;cursor:default}
-@media (pointer:coarse){.rbchat-send{display:inline-block}}
 .rbchat-keys{margin:0;padding:.2rem 1.1rem .55rem;font-size:.72rem;color:var(--t-dim);white-space:pre-wrap}
 /* The note under a header control: what the family's .tip says on a chip, in the same box, drawn
    by the stylesheet because card.js is not on every page the chat is. It hangs below and to the
@@ -115,9 +112,16 @@
 @media (max-width:600px){
   /* A phone's panel is the screen, so there is nothing to size and no corner to do it with;
      the width and height the grip may have written are overridden here rather than cleared,
-     because a window that grows past this breakpoint should find the size still remembered. */
-  .rbchat{right:0;bottom:0;width:100vw!important;height:100dvh!important;border-radius:0;border:0}
+     because a window that grows past this breakpoint should find the size still remembered.
+     It is pinned to the visible area, which chat.js measures, so the title bar stays at the
+     top of the screen with the keyboard open rather than riding up with the page. The panel
+     is a `<section>`, and a page's own margin on its sections would push a top-anchored panel
+     down by that much. */
+  .rbchat{top:var(--rbchat-top,0);right:0;bottom:auto;margin:0;width:100vw!important;height:var(--rbchat-h,100dvh)!important;border-radius:0;border:0}
   .rbchat-grip{display:none}
+  /* The page under a full-screen panel holds still, so a swipe in the panel moves only the
+     conversation. */
+  html:has(.rbchat:not([hidden])), html:has(.rbchat:not([hidden])) body{overflow:hidden}
 }
 /* A picture the host drew, under the answer and above the cite line: at its own size in a box
    that scrolls, captioned in the page's language, each node a link. Expand moves the box into

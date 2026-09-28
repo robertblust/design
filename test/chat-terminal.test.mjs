@@ -13,7 +13,9 @@ const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
 
 const BRAND = `<header><a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"><rect x="2" y="6.75" width="10.5" height="10.5" rx="1.5"/><rect x="4.75" y="9.5" width="5" height="5" fill="currentColor" stroke="none"/><path d="M12.5 12 h4.5"/><rect x="17" y="9.5" width="5" height="5" fill="currentColor" stroke="none"/></svg><b>Company<span>Graph</span></b></a></header>`;
-const page = (header) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head>
+// `section{margin-top}` stands in for a site's own spacing between sections, which the panel, a
+// section itself, must not take.
+const page = (header) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL} section{margin-top:4rem}</style><link rel="stylesheet" href="/chat.css"></head>
 <body>${header}<p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" data-questions="/model.json" defer></script></body></html>`;
 const MODEL = { commit: "ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f", repo: "companygraph/mental-model", core: "0.46.0", entities: [
   { id: "processes/answering", type: "process", name: "Answering" },
@@ -89,7 +91,8 @@ test("the panel is a terminal window: three dots, the host in the bar, a prompt 
       prompt: panel.querySelector(".rbchat-form .rbchat-p").textContent,
       keys: panel.querySelector(".rbchat-keys").textContent,
       mono: getComputedStyle(panel).fontFamily,
-      send: getComputedStyle(panel.querySelector(".rbchat-send")).display
+      send: panel.querySelectorAll("button[type=submit], .rbchat-send").length,
+      hint: panel.querySelector(".rbchat-form textarea").enterKeyHint
     };
   });
   assert.equal(s.dots, 3);
@@ -99,14 +102,28 @@ test("the panel is a terminal window: three dots, the host in the bar, a prompt 
   assert.match(s.keys, /enter send/);
   assert.match(s.keys, /\/help/);
   assert.match(s.mono, /Plex Mono/);
-  assert.equal(s.send, "none", "the send button shows on a fine pointer");
+  assert.equal(s.send, 0, "Enter sends; the command line carries no button");
+  assert.equal(s.hint, "send");
   await close();
 });
 
-test("a touch screen keeps a send button beside the prompt", async () => {
-  const { p, close } = await tab("/", { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+// A phone's width without `isMobile`: the fixture page carries no viewport meta, and an emulated
+// phone would lay it out at 980px, past the breakpoint the panel changes at.
+test("on a phone the panel fills the visible area, its bar at the top, and the page under it holds still", async () => {
+  const { p, close } = await tab("/", { hasTouch: true, viewport: { width: 390, height: 844 } });
   await open(p);
-  assert.notEqual(await p.$eval(".rbchat-send", (b) => getComputedStyle(b).display), "none");
+  const s = await p.evaluate(() => {
+    const panel = document.querySelector("section.rbchat"), r = panel.getBoundingClientRect(), vv = window.visualViewport;
+    return { top: r.top, height: Math.round(r.height), vh: Math.round(vv.height), bar: panel.querySelector(".rbchat-head").getBoundingClientRect().top,
+      send: panel.querySelectorAll("button[type=submit], .rbchat-send").length, scroll: getComputedStyle(document.body).overflow,
+      measured: panel.style.getPropertyValue("--rbchat-h") };
+  });
+  assert.equal(s.top, 0);
+  assert.equal(s.height, s.vh);
+  assert.equal(s.measured, s.vh + "px", "the height is the visual viewport's, measured, not the stylesheet's 100dvh");
+  assert.equal(s.bar, 0);
+  assert.equal(s.send, 0, "a phone has no send button either; its return key sends");
+  assert.equal(s.scroll, "hidden");
   await close();
 });
 

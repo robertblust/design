@@ -108,8 +108,8 @@ test("a stream that uses CRLF line endings is read the same as LF, even when a \
 test("every code has a sentence in both languages, and the language falls back to English", () => {
   const codes = ["too_long", "busy", "over_day", "over_month", "closed", "host_down", "foreign", "bad_request", "internal", "network"];
   for (const lang of ["en", "de"]) for (const c of codes) assert.equal(typeof strings(lang).refusal[c], "string", `${lang} ${c}`);
-  assert.equal(strings("fr").send, strings("en").send);
-  assert.notEqual(strings("de").send, strings("en").send);
+  assert.equal(strings("fr").close, strings("en").close);
+  assert.notEqual(strings("de").close, strings("en").close);
 });
 
 test("a cite opens the entity expanded, with the id's slash as it is, since the stage reads the hash raw", () => {
@@ -553,7 +553,7 @@ test("a row's label is set with textContent, and activating it sends exactly its
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(sendFn, /spend\(\); qBox = null;/, "send() does not dim the menus it moves past, or lets the next answer reuse the old one");
-  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
+  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; fit\(\); if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
   assert.match(src, /introEl = null; introPick = null; menuRows = \[\]; qBox = null;.*intro\(true\);/, "reset() does not clear the stale menus and play a fresh intro");
 });
 
