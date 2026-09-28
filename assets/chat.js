@@ -1144,6 +1144,9 @@
     .observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
   if (!tag.dataset.chat) return;
+  // An embedded page is the chat's own graph, inside the chat's dialog on another page: it takes
+  // no chat of its own.
+  if (document.documentElement.hasAttribute("data-embed")) return;
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
