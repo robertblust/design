@@ -20,8 +20,8 @@ The owner, looking at the graph over a page, asked for one modal. The graph's di
 - **The API:** `window.rbModal.open({ title, body, controls, opener, onClose })`.
   - `body` is the node the modal shows, moved in and not copied, and moved back to where it stood on close.
   - `controls` is an optional node for the head, placed between the title and the ×.
-  - `rbModal.title(text)` changes the title while the modal is open.
-  - `rbModal.close()` closes it.
+  - `open` returns a handle for that modal: `title(text)` changes its title while it is open, and `close()` closes it. Two modals can be open at once, so each is addressed by its own handle.
+  - `key` names a modal that is kept and reused, so a body that must never move, the graph's iframe, which a move would reload, stays inside it for the page's life.
 - **One at a time, except the graph over a picture.** A second `open` while a modal is open stacks it, which is the one case the family has: the graph opened from a node in a picture's full screen. Closing the top modal returns to the one beneath.
 
 **The look** is the graph dialog's, in the terminal's palette, dark by default and light where the page is light:
