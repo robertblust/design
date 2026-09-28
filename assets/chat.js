@@ -1191,6 +1191,98 @@
   }
   function linkWaiting(){ unlinked.splice(0).forEach(linkQuestions); }
 
+  // A numbered menu, as the tooling prints one: each row a button that sends its question, the
+  // number in the accent because a number is what the command line picks it by, and under a Try
+  // row, dim, what comes back. The rows drawn last are the ones a bare number picks.
+  function menu(parent, items, start){
+    var m = el("div", "rbchat-menu");
+    items.forEach(function(it, i){
+      var b = el("button", "rbchat-row"); b.type = "button";
+      b.appendChild(el("span", "rbchat-n", String(start + i + 1)));
+      b.appendChild(el("span", "rbchat-q", it[0]));
+      if (it[1]) b.appendChild(el("span", "rbchat-g", it[1]));
+      b.addEventListener("click", function(){ input.value = it[0]; send(); });
+      m.appendChild(b);
+    });
+    parent.appendChild(m);
+    return m;
+  }
+  // A menu the conversation has moved past stays, dimmed, and its rows still send.
+  function spend(){ var ms = log.querySelectorAll(".rbchat-menu"); for (var i = 0; i < ms.length; i++) ms[i].classList.add("rbchat-spent"); }
+
+  // The intro: the page's lockup, a hello, the notice as a comment, then two numbered groups,
+  // the asks the chat is built for with what each brings back, and three of the model's own
+  // questions. It opens every conversation and stays at the top of the log once it starts.
+  // Played on a fresh conversation, drawn finished on a restored one, a reduced-motion visitor
+  // or a key pressed while it plays. The text is in the DOM whole from the start, so a screen
+  // reader reads it whole; only the name is typed, and it carries its text as a label meanwhile.
+  // `introRun` names the intro now drawn, so a late fetch fills only its own; `playRun` names
+  // the play, so finishing it cancels the steps still to come and nothing else.
+  var introEl = null, introRun = 0, playRun = 0;
+  function intro(play){
+    introRun++;
+    var mine = introRun, s = strings(langNow()), lock = lockupOf(document);
+    var host = location.host, name = lock ? (lock.first + lock.accent).trim() : "";
+    introEl = el("div", "rbchat-intro");
+    if (lock) {
+      var l = el("div", "rbchat-lock"), mark = lock.mark.cloneNode(true), word = el("div", "rbchat-word"), n = el("span", "rbchat-name");
+      mark.setAttribute("aria-hidden", "true");
+      n.setAttribute("aria-label", name);
+      n.appendChild(el("b", "rbchat-first")); n.appendChild(el("b", "rbchat-accent"));
+      word.appendChild(n); word.appendChild(el("span", "rbchat-sub", s.sub.replace("{host}", host)));
+      l.appendChild(mark); l.appendChild(word); introEl.appendChild(l);
+    }
+    var hello = el("p", "rbchat-hello"), lines = lock ? s.hello : s.helloHost;
+    hello.appendChild(el("span", "rbchat-h1", lines[0].replace("{name}", name).replace("{host}", host)));
+    hello.appendChild(el("br"));
+    hello.appendChild(el("span", "rbchat-h2", lines[1]));
+    introEl.appendChild(hello);
+    notice = el("p", "rbchat-notice"); introEl.appendChild(notice); writeNotice();
+    var groups = el("div", "rbchat-groups"); introEl.appendChild(groups);
+    introEl.appendChild(el("p", "rbchat-prompt-line", "› " + s.prompt));
+    log.insertBefore(introEl, log.firstChild);
+    if (!play || still()) finishIntro();
+    facts(function(f){
+      questions(function(list){
+        if (mine !== introRun || !introEl) return;
+        var t = strings(langNow()), rows = tryRows(f, langNow());
+        groups.appendChild(el("p", "rbchat-label", t.tryLabel));
+        menu(groups, rows, 0);
+        var picked = spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3).map(function(q){ return [q.title]; });
+        if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
+        // A restored conversation has moved past the intro: its menus are spent, and the rows a
+        // number picks stay those of the menu after the last answer.
+        if (messages.length) spendIntro(); else { menuRows = rows.concat(picked).map(function(r){ return r[0]; }); keysLine(); }
+        if (!introEl.classList.contains("rbchat-still")) playIntro();
+      });
+    });
+  }
+  function spendIntro(){ var ms = introEl.querySelectorAll(".rbchat-menu"); for (var i = 0; i < ms.length; i++) ms[i].classList.add("rbchat-spent"); }
+  function still(){ return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+  function finishIntro(){
+    if (!introEl) return;
+    playRun++;
+    introEl.classList.add("rbchat-still");
+    var lock = lockupOf(document);
+    if (lock) { introEl.querySelector(".rbchat-first").textContent = lock.first; introEl.querySelector(".rbchat-accent").textContent = lock.accent; }
+  }
+  // About a second: the mark's parts 35 ms apart, the name typed at 22 ms a character, then
+  // the hello, the notice and each row coming in 30 ms apart, as /cli/'s menu prints.
+  function playIntro(){
+    var mine = ++playRun, steps = [], lock = lockupOf(document), at = 0;
+    var parts = introEl.querySelectorAll(".rbchat-lock svg > *");
+    for (var i = 0; i < parts.length; i++) (function(x){ steps.push([at += 35, function(){ x.classList.add("rbchat-on"); }]); })(parts[i]);
+    if (lock) {
+      var f = introEl.querySelector(".rbchat-first"), a = introEl.querySelector(".rbchat-accent");
+      Array.from(lock.first).forEach(function(c){ steps.push([at += 22, function(){ f.textContent += c; }]); });
+      Array.from(lock.accent).forEach(function(c){ steps.push([at += 22, function(){ a.textContent += c; }]); });
+    }
+    var ins = introEl.querySelectorAll(".rbchat-sub, .rbchat-h1, .rbchat-h2, .rbchat-notice, .rbchat-label, .rbchat-row, .rbchat-prompt-line");
+    for (var j = 0; j < ins.length; j++) (function(x){ steps.push([at += 30, function(){ x.classList.add("rbchat-on"); }]); })(ins[j]);
+    steps.push([at + 30, finishIntro]);
+    steps.forEach(function(s){ setTimeout(function(){ if (mine === playRun) s[1](); }, s[0]); });
+  }
+
   // Three of them, tappable, at the end of the log: under whatever the empty panel already
   // shows, or under the answer just finished. Offered only where the visitor can ask next — no
   // answer on its way, the last message an answer or none at all — and checked again once the
@@ -1203,6 +1295,7 @@
     return !busy && (!messages.length || messages[messages.length - 1].role === "assistant");
   }
   function offerQuestions(){
+    if (!messages.length) return;
     if (!canOffer()) return;
     questions(function(list){
       if (!canOffer() || qBox) return;
@@ -1243,6 +1336,8 @@
   });
   document.body.appendChild(button);
 
+  // The notice, in the intro now, as a comment line: where the message goes, and the privacy page.
+  function writeNotice(){ if (!notice) return; var s = strings(langNow()); notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>"; }
   function relabel(){
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
@@ -1251,7 +1346,9 @@
     input.placeholder = s.prompt; sendBtn.setAttribute("aria-label", s.send); keysLine();
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
-    notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>";
+    writeNotice();
+    // A language switch redraws the intro in the new language, finished, where the log holds one.
+    if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
     if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
   }
   relabel();
@@ -1288,7 +1385,6 @@
     newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12a7 7 0 1 0 2.05-4.95L5 9M5 5v4h4"/></svg>';
     newBtn.addEventListener("click", reset);
     head.appendChild(dots); head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
-    notice = el("p", "rbchat-notice");
     // No aria-live here: the log used to re-announce the growing answer on every token. The
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
     log = el("div", "rbchat-log");
@@ -1312,7 +1408,7 @@
     // the panel is the whole screen and there is nothing to size.
     grip = el("div", "rbchat-grip"); grip.tabIndex = 0; grip.setAttribute("role", "separator"); grip.setAttribute("aria-orientation", "vertical");
     panel.appendChild(grip);
-    panel.appendChild(head); panel.appendChild(notice); panel.appendChild(log); panel.appendChild(form); panel.appendChild(keysEl);
+    panel.appendChild(head); panel.appendChild(log); panel.appendChild(form); panel.appendChild(keysEl);
     document.body.appendChild(panel);
     // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
     // this keydown, not before: while a modal dialog is still open the panel must not close
@@ -1324,6 +1420,8 @@
       if (document.querySelector("dialog[open]")) return;
       close();
     });
+    // A key or a pointer anywhere in the panel finishes an intro still playing.
+    ["pointerdown", "keydown"].forEach(function(k){ panel.addEventListener(k, function(){ if (introEl && !introEl.classList.contains("rbchat-still")) finishIntro(); }, true); });
     sizing();
     applyStoredSize();
     relabel();
@@ -1383,9 +1481,9 @@
   // shown again, so every open draws a fresh random three rather than repeating what closing the
   // panel left behind. It only drops the box the DOM holds — `qList`/`qFetch` are untouched, so
   // two opens ahead of the one fetch landing still share it rather than asking twice.
-  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; settle(); input.focus(); keep(); offerQuestions(); linkWaiting(); }
+  function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; if (!introEl) intro(!messages.length); settle(); input.focus(); keep(); if (messages.length) offerQuestions(); linkWaiting(); }
   function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; input.focus(); keep(); offerQuestions(); }
+  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; introEl = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1519,6 +1617,7 @@
     var was = stored();
     if (!was || !was.turns || !was.turns.length) return;
     if (!panel) build();
+    intro(false);
     reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
     was.turns.forEach(function(t){
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }

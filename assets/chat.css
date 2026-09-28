@@ -224,3 +224,34 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
   dialog.rbchat-modal{width:100vw; max-width:100vw; height:100dvh; max-height:100dvh;
                        margin:0; border:0; border-radius:0; padding:.5rem}
 }
+/* The intro: the lockup as /cli/ prints its banner, a hello, the notice as a comment, and the menus. */
+.rbchat-intro{display:flex;flex-direction:column}
+.rbchat-lock{display:flex;align-items:center;gap:1rem;margin:.2rem 0 .9rem .2rem}
+.rbchat-lock svg{width:4em;height:4em;flex:0 0 auto;color:var(--t-accent)}
+/* blust.ch's mark draws its plate and letters by class, as the header's own rules do. */
+.rbchat-lock .plate{fill:var(--raise);stroke:var(--rule);stroke-width:1.5}
+.rbchat-lock .rb{fill:var(--c-mid)}
+.rbchat-word{display:flex;flex-direction:column;font-size:1.05rem;line-height:1.35}
+.rbchat-first{color:var(--t-strong);font-weight:600}
+.rbchat-accent{color:var(--t-accent);font-weight:600}
+.rbchat-sub{font-size:.8rem;color:var(--t-dim)}
+.rbchat-hello{margin:0 0 .5rem}
+.rbchat-h2{color:var(--t-dim)}
+.rbchat-notice{margin:0 0 .9rem;color:var(--t-dim)}
+.rbchat-notice::before{content:"# "}
+.rbchat-label{margin:.5rem 0 0;color:var(--t-dim)}
+.rbchat-prompt-line{margin:.6rem 0 0;color:var(--t-strong)}
+.rbchat-menu{display:flex;flex-direction:column}
+.rbchat-row{all:unset;display:grid;grid-template-columns:1.6em 1fr;padding:.22rem .45rem;margin:0 -.45rem;border-radius:5px;cursor:pointer;overflow-wrap:anywhere}
+.rbchat-row .rbchat-n{color:var(--t-accent)}
+.rbchat-row .rbchat-q{color:var(--t-ink)}
+.rbchat-row .rbchat-g{grid-column:2;color:var(--t-dim)}
+.rbchat-row:hover,.rbchat-row:focus-visible{background:var(--t-sel)}
+.rbchat-row:hover .rbchat-q{color:var(--t-accent)}
+.rbchat-row:focus-visible{outline:1.5px solid var(--t-accent)}
+.rbchat-spent .rbchat-row{opacity:.55}
+/* Played: each piece stands still until its moment. Finished, or for reduced motion, all stand. */
+.rbchat-intro:not(.rbchat-still) :is(.rbchat-sub,.rbchat-h1,.rbchat-h2,.rbchat-notice,.rbchat-label,.rbchat-row,.rbchat-prompt-line):not(.rbchat-on){opacity:0}
+.rbchat-intro:not(.rbchat-still) .rbchat-lock svg > :not(.rbchat-on){opacity:0}
+.rbchat-intro .rbchat-on{transition:opacity .2s ease}
+@media (prefers-reduced-motion:reduce){.rbchat-intro *{transition:none!important;opacity:1!important}}

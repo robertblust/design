@@ -553,8 +553,8 @@ test("a chip's label is set with textContent, and activating it sends exactly it
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
   assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
-  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; settle\(\); input\.focus\(\); keep\(\); offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set before offering a fresh one");
-  assert.match(src, /qBox = null;.*offerQuestions\(\); \}/, "reset() does not clear the stale box and offer a fresh set");
+  assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
+  assert.match(src, /introEl = null; menuRows = \[\]; qBox = null;.*intro\(true\);/, "reset() does not clear the stale menus and play a fresh intro");
 });
 
 // The bug the review found: closing and reopening an empty conversation showed the same three

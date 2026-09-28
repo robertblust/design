@@ -86,7 +86,6 @@ test("the panel is a terminal window: three dots, the host in the bar, a prompt 
   assert.equal(s.prompt, "›");
   assert.match(s.keys, /enter send/);
   assert.match(s.keys, /\/help/);
-  assert.doesNotMatch(s.keys, /pick/, "the pick key shows with no menu standing");
   assert.match(s.mono, /Plex Mono/);
   assert.equal(s.send, "none", "the send button shows on a fine pointer");
   await close();
@@ -96,5 +95,80 @@ test("a touch screen keeps a send button beside the prompt", async () => {
   const { p, close } = await tab("/", { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
   await open(p);
   assert.notEqual(await p.$eval(".rbchat-send", (b) => getComputedStyle(b).display), "none");
+  await close();
+});
+
+test("a fresh conversation opens on the lockup, the hello, the notice and six numbered rows", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro.rbchat-still .rbchat-row").length === 6);
+  const s = await p.evaluate(() => {
+    const i = document.querySelector(".rbchat-log > .rbchat-intro");
+    return {
+      first: document.querySelector(".rbchat-log").firstElementChild === i,
+      mark: !!i.querySelector(".rbchat-lock svg"),
+      name: i.querySelector(".rbchat-lock .rbchat-name").textContent,
+      hello: i.querySelector(".rbchat-hello").textContent,
+      notice: i.querySelector(".rbchat-notice").textContent,
+      rows: [...i.querySelectorAll(".rbchat-row")].map((r) => r.querySelector(".rbchat-n").textContent + " " + r.querySelector(".rbchat-q").textContent),
+      gets: i.querySelectorAll(".rbchat-row .rbchat-g").length,
+      keys: document.querySelector(".rbchat-keys").textContent
+    };
+  });
+  assert.equal(s.first, true);
+  assert.equal(s.mark, true);
+  assert.equal(s.name, "CompanyGraph");
+  assert.match(s.hello, /^Hello\. I answer from CompanyGraph’s model/);
+  assert.match(s.notice, /Nothing is sent until you press send/);
+  assert.deepEqual(s.rows.slice(0, 3), ["1 Show me the meta-model", "2 Walk me through the Answering process", "3 List the KPIs as a table"]);
+  assert.equal(s.gets, 3, "only the Try rows say what comes back");
+  assert.deepEqual(s.rows.slice(3).map((r) => r.slice(0, 2)), ["4 ", "5 ", "6 "]);
+  assert.match(s.keys, /1-6 pick/);
+  await close();
+});
+
+test("the intro plays in about a second, and a key finishes it at once", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  const early = await p.$eval(".rbchat-intro", (i) => i.classList.contains("rbchat-still"));
+  assert.equal(early, false, "the intro did not play");
+  await p.keyboard.press("a");
+  assert.equal(await p.$eval(".rbchat-intro", (i) => i.classList.contains("rbchat-still")), true, "a key did not finish it");
+  await close();
+  const again = await tab();
+  await open(again.p);
+  await again.p.waitForFunction(() => document.querySelector(".rbchat-intro.rbchat-still"), null, { timeout: 2000 });
+  await again.close();
+});
+
+test("reduced motion shows the intro finished from the start", async () => {
+  const { p, close } = await tab("/", { reducedMotion: "reduce" });
+  await open(p);
+  assert.equal(await p.$eval(".rbchat-intro", (i) => i.classList.contains("rbchat-still")), true);
+  await close();
+});
+
+test("a page without a brand names its host, and a failed model file leaves the meta-model row alone", async () => {
+  const bare = await tab("/bare");
+  await open(bare.p);
+  await bare.p.waitForSelector(".rbchat-intro.rbchat-still, .rbchat-intro");
+  assert.equal(await bare.p.$(".rbchat-lock"), null);
+  assert.match(await bare.p.$eval(".rbchat-hello", (h) => h.textContent), /the model of 127\.0\.0\.1/);
+  await bare.close();
+  const broken = await tab("/broken");
+  await open(broken.p);
+  await broken.p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length >= 1);
+  assert.deepEqual(await broken.p.$$eval(".rbchat-intro .rbchat-row .rbchat-q", (q) => q.map((x) => x.textContent)), ["Show me the meta-model"]);
+  await broken.close();
+});
+
+test("the intro follows a language switch, rows and keys included", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => /^Hallo/.test(document.querySelector(".rbchat-hello").textContent));
+  assert.equal(await p.$eval(".rbchat-intro .rbchat-row .rbchat-q", (q) => q.textContent), "Zeig mir das Meta-Modell");
+  assert.match(await p.$eval(".rbchat-keys", (k) => k.textContent), /1-6 wählen/);
   await close();
 });
