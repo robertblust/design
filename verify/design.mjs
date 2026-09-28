@@ -274,6 +274,11 @@ export const DESIGN_CHECKS = {
   // that declares the right thing and renders the wrong one. Every mismatch is reported
   // at once — fixing a header one measurement per run is how you learn to hate a suite.
   //
+  // The header's padding is the sticky bar's, .6rem, as the modal's head is padded, and the
+  // row inside it stands at least the menu button's 40px, so the bar is one height at every
+  // width. The 32px this measured before is the padding the page's own `header{}` still
+  // declares, which the header contract overrides.
+  //
   // A deck has no <header> at all; it carries a transport bar instead. The check stands
   // down for that case and only that case: a page whose header merely *differs* is the
   // whole reason this exists, so `null` here means the element is absent, never wrong.
@@ -293,6 +298,7 @@ export const DESIGN_CHECKS = {
                      "." + (h.parentElement.className || "(no class)") : "(none)",
         padTop:    px(h, "paddingTop"),
         padBottom: px(h, "paddingBottom"),
+        barMin:    px(h.querySelector(".bar"), "minHeight"),
         hasBrand:  !!brand, hasSvg: !!svg, hasNav: !!nav, hasLink: !!link,
         brandGap:  px(brand, "gap"),
         svgW:      box ? Math.round(box.width  * 1e3) / 1e3 : null,
@@ -311,8 +317,9 @@ export const DESIGN_CHECKS = {
       if (actual !== expected) wrong.push(`${label} is ${actual}, expected ${expected}`);
     };
     if (!got.inShell) wrong.push(`header sits in ${got.parent}, expected a .shell`);
-    want("header padding-top", got.padTop, "32px");
-    want("header padding-bottom", got.padBottom, "32px");
+    want("header padding-top", got.padTop, "9.6px");
+    want("header padding-bottom", got.padBottom, "9.6px");
+    want("the bar's min-height", got.barMin, "40px");
     if (!got.hasBrand) wrong.push("there is no .brand in the header");
     else want(".brand gap", got.brandGap, "11.2px");
     if (!got.hasSvg) wrong.push("the .brand carries no svg mark");
