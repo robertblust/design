@@ -844,3 +844,19 @@ test("the versions line and the graph's head exist in both languages", () => {
   assert.equal(strings("de").versionsModel, "Modell {sha}");
   for (const l of ["en", "de"]) for (const k of ["head", "page", "close"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
 });
+
+// WCAG relative luminance and contrast, from two #RRGGBB values.
+const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+test("the answer card keeps the answer's text, links and rail readable in both palettes", () => {
+  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  const blocks = [...css.matchAll(/--t-card:(#[0-9A-Fa-f]{6})[^}]*/g)].map((m) => m[0]);
+  assert.equal(blocks.length >= 2, true, "the card is not defined in both palettes");
+  for (const b of blocks) {
+    const v = (k) => (new RegExp("--t-" + k + ":(#[0-9A-Fa-f]{6})").exec(b) || [])[1];
+    const card = v("card");
+    assert.ok(contrast(v("dim"), card) >= 4.5, "dim prose on the card: " + contrast(v("dim"), card).toFixed(2));
+    assert.ok(contrast(v("accent"), card) >= 4.5, "links on the card: " + contrast(v("accent"), card).toFixed(2));
+    assert.ok(contrast(v("good"), card) >= 3, "the rail on the card: " + contrast(v("good"), card).toFixed(2));
+  }
+});

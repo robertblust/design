@@ -219,7 +219,8 @@ test("a slow answer shows only the spinner, counting, until the stream ends, the
       model: a.querySelector(".rbchat-model").textContent,
       animations: document.getAnimations().filter((x) => a.contains(x.effect && x.effect.target)).length,
       face: getComputedStyle(a.querySelector(".rbchat-body p")).fontFamily,
-      tableFace: getComputedStyle(a.querySelector(".rbchat-body table")).fontFamily
+      tableFace: getComputedStyle(a.querySelector(".rbchat-body table")).fontFamily,
+      card: getComputedStyle(a).backgroundColor
     };
   });
   assert.equal(done.spin, 0, "the spinner stayed");
@@ -233,6 +234,7 @@ test("a slow answer shows only the spinner, counting, until the stream ends, the
   assert.equal(done.animations, 0, "the answer animates");
   assert.match(done.face, /Instrument Sans/, "the answer's text is not in today's face");
   assert.match(done.tableFace, /Plex Mono/, "a table is not in mono");
+  assert.equal(done.card, "rgb(20, 29, 41)", "the answer is not on its card");
   await close();
 });
 
