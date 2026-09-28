@@ -258,9 +258,14 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
 .rbchat-intro:not(.rbchat-still) :is(.rbchat-sub,.rbchat-h1,.rbchat-h2,.rbchat-notice,.rbchat-label,.rbchat-row,.rbchat-prompt-line):not(.rbchat-on){opacity:0}
 .rbchat-intro:not(.rbchat-still) .rbchat-lock svg > :not(.rbchat-on){opacity:0}
 .rbchat-intro .rbchat-on{transition:opacity .2s ease}
-@media (prefers-reduced-motion:reduce){.rbchat-intro *{transition:none!important;opacity:1!important}}
+/* Reduced motion draws the intro finished at once, so nothing waits to fade in; a spent menu
+   still dims. */
+@media (prefers-reduced-motion:reduce){.rbchat-intro *{transition:none!important}}
+.rbchat-cur{display:inline-block;width:.6em;height:1.1em;vertical-align:-.2em;background:var(--t-ink);animation:rbchat-blink 1.1s steps(1) infinite}
+@keyframes rbchat-blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.rbchat-cur{animation:none}}
 .rbchat-help{margin:.4rem 0 0;color:var(--t-dim)}
 .rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
 .rbchat-help-k{color:var(--t-accent)}
 /* Heard, not seen: the finished answer, said once to a screen reader. */
-.rbchat-say{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.rbchat-say,.rbchat-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}

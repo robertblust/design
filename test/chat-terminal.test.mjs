@@ -21,12 +21,18 @@ const MODEL = { entities: [
   { id: "questions/chat", type: "question", name: "How does the chat answer a question?" },
   { id: "questions/rules", type: "question", name: "Which rules does every instance pass?" }
 ], edges: [] };
+const MANY = { entities: [
+  ...["Answering", "Releasing", "Hiring", "Billing", "Planning"].map((n) => ({ id: "processes/" + n, type: "process", name: n })),
+  ...["A", "B", "C"].map((n) => ({ id: "kpis/" + n, type: "kpi", name: n })),
+  ...["One?", "Two?", "Three?", "Four?", "Five?", "Six?"].map((n) => ({ id: "questions/" + n, type: "question", name: n }))
+], edges: [] };
+const MARKED = `<header><a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g"><stop offset="0" stop-color="red"/></linearGradient></defs><rect id="plate" x="2" y="2" width="20" height="20" fill="url(#g)"/><use href="#plate"/></svg><b>Company<span>Graph</span></b></a></header>`;
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 
 // What the stub /chat answers: set per test. `delay` holds the whole body back, `split` sends the
 // first event at once and the rest after `delay`, as a slow stream does; `fail` drops the socket
 // after the first event.
-export const reply = { events: [], delay: 0, delays: null, split: false, fail: false, asked: [] };
+export const reply = { events: [], delay: 0, delays: null, split: false, fail: false, status: 200, body: null, asked: [] };
 let server, base, browser;
 
 before(async () => {
@@ -36,6 +42,7 @@ before(async () => {
       let body = ""; req.on("data", (c) => body += c); req.on("end", () => {
         reply.asked.push(JSON.parse(body));
         const delay = reply.delays && reply.delays.length ? reply.delays.shift() : reply.delay;
+        if (reply.status !== 200) { res.writeHead(reply.status, { "content-type": "application/json" }); res.end(JSON.stringify(reply.body)); return; }
         res.writeHead(200, { "content-type": "text/event-stream" });
         const all = sse(reply.events), first = sse(reply.events.slice(0, 1)), rest = sse(reply.events.slice(1));
         if (reply.fail) { res.write(first); setTimeout(() => res.destroy(), delay); return; }
@@ -46,6 +53,9 @@ before(async () => {
     }
     const files = { "/": ["text/html", page(BRAND)], "/bare": ["text/html", page("")], "/model.json": ["application/json", JSON.stringify(MODEL)],
       "/broken": ["text/html", page(BRAND).replace("/model.json", "/missing.json")],
+      "/noq": ["text/html", page(BRAND).replace(' data-questions="/model.json"', "")],
+      "/many": ["text/html", page(BRAND).replace("/model.json", "/many.json")], "/many.json": ["application/json", JSON.stringify(MANY)],
+      "/marked": ["text/html", page(MARKED)],
       "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")] };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
@@ -108,7 +118,7 @@ test("a fresh conversation opens on the lockup, the hello, the notice and six nu
     return {
       first: document.querySelector(".rbchat-log").firstElementChild === i,
       mark: !!i.querySelector(".rbchat-lock svg"),
-      name: i.querySelector(".rbchat-lock .rbchat-name").textContent,
+      name: [...i.querySelectorAll(".rbchat-lock .rbchat-name b")].map((b) => b.textContent).join(""),
       hello: i.querySelector(".rbchat-hello").textContent,
       notice: i.querySelector(".rbchat-notice").textContent,
       rows: [...i.querySelectorAll(".rbchat-row")].map((r) => r.querySelector(".rbchat-n").textContent + " " + r.querySelector(".rbchat-q").textContent),
@@ -365,5 +375,135 @@ test("starting over while an answer is on its way stops it: no spinner, and the 
   await p.waitForSelector(".rbchat-assistant[aria-live]", { timeout: 15000 });
   assert.equal(await p.$$eval(".rbchat-assistant", (a) => a.length), 1);
   reply.delays = null;
+  await close();
+});
+
+// ─── The minors the final review left, done ──────────────────────────────────────────────
+const wholeIntro = (p) => p.waitForFunction(() => document.querySelectorAll(".rbchat-intro.rbchat-still .rbchat-row").length >= 1);
+
+test("Enter that confirms an input method's composition does not send", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, delays: null, status: 200, asked: [] });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "こんにちは");
+  await p.$eval("section.rbchat textarea", (t) => t.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", isComposing: true, bubbles: true, cancelable: true })));
+  await p.waitForTimeout(200);
+  assert.equal(reply.asked.length, 0, "a composition's Enter was sent");
+  assert.equal(await p.$$eval(".rbchat-user", (u) => u.length), 0);
+  await close();
+});
+
+test("a restored conversation spends the intro's menus even where the tag names no model file", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, status: 200 });
+  const { p, close } = await tab("/noq");
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.reload();
+  await p.waitForSelector(".rbchat-intro .rbchat-row");
+  assert.equal(await p.$eval(".rbchat-intro .rbchat-menu", (m) => m.classList.contains("rbchat-spent")), true, "the restored intro's menu is still live");
+  await close();
+});
+
+test("the intro's prompt line carries a block cursor while it plays, and hands it over when it is done", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  assert.equal(await p.$$eval(".rbchat-intro .rbchat-prompt-line .rbchat-cur", (c) => c.length), 1, "no cursor while playing");
+  await wholeIntro(p);
+  assert.equal(await p.$$eval(".rbchat-intro .rbchat-prompt-line .rbchat-cur", (c) => c.length), 0, "the cursor stays after the intro");
+  await close();
+});
+
+test("the next menu's label is Ask next, and a language switch relabels the answers already given", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, status: 200 });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-next .rbchat-label");
+  assert.equal(await p.$eval(".rbchat-next .rbchat-label", (l) => l.textContent), "Ask next");
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => document.querySelector(".rbchat-done").textContent === "✓ beantwortet");
+  assert.match(await p.$eval(".rbchat-model", (m) => m.textContent), /^Modell 3f2a1c9/);
+  assert.equal(await p.$eval(".rbchat-next .rbchat-label", (l) => l.textContent), "Fragen Sie weiter");
+  await close();
+});
+
+test("a language switch keeps the intro's picks rather than drawing again", async () => {
+  const { p, close } = await tab("/many");
+  await open(p);
+  await wholeIntro(p);
+  const picks = () => p.$$eval(".rbchat-intro .rbchat-row .rbchat-q", (q) => q.map((x) => x.textContent));
+  const first = await picks();
+  const process = first[1].match(/Answering|Releasing|Hiring|Billing|Planning/)[0];
+  for (const lang of ["de", "en", "de", "en"]) {
+    await p.evaluate((l) => { document.documentElement.lang = l; }, lang);
+    await p.waitForFunction((l) => document.querySelector(".rbchat-intro .rbchat-row .rbchat-q").textContent === (l === "de" ? "Zeig mir das Meta-Modell" : "Show me the meta-model"), lang);
+    const now = await picks();
+    assert.ok(now[1].includes(process), `the process was drawn again: ${now[1]}`);
+    assert.deepEqual(now.slice(3), first.slice(3), "the model's questions were drawn again");
+  }
+  await close();
+});
+
+test("with reduced motion, the intro's menus still dim once the conversation moves past them", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, status: 200 });
+  const { p, close } = await tab("/", { reducedMotion: "reduce" });
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  assert.equal(await p.$eval(".rbchat-intro .rbchat-row", (r) => getComputedStyle(r).opacity), "0.55");
+  await close();
+});
+
+test("the lockup's name is read whole by a screen reader while its halves are typed", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  const s = await p.$eval(".rbchat-name", (n) => ({ said: n.querySelector(".rbchat-sr").textContent, hidden: [...n.querySelectorAll("b")].every((b) => b.getAttribute("aria-hidden") === "true") }));
+  assert.deepEqual(s, { said: "CompanyGraph", hidden: true });
+  await close();
+});
+
+test("a cloned mark carrying ids does not duplicate them, and its own references follow", async () => {
+  const { p, close } = await tab("/marked");
+  await open(p);
+  await wholeIntro(p);
+  const s = await p.evaluate(() => {
+    const clone = document.querySelector(".rbchat-lock svg");
+    const ids = [...document.querySelectorAll("[id]")].map((e) => e.id);
+    const dup = ids.filter((id, i) => ids.indexOf(id) !== i);
+    const fill = clone.querySelector("rect").getAttribute("fill"), use = clone.querySelector("use").getAttribute("href");
+    return { dup, fillOk: !!clone.querySelector(fill.slice(4, -1)), useOk: !!clone.querySelector(use) };
+  });
+  assert.deepEqual(s, { dup: [], fillOk: true, useOk: true });
+  await close();
+});
+
+test("an error in the stream after some text ends that text with the sentence, and no spinner stays", async () => {
+  Object.assign(reply, { events: [["text", { text: "Part of an answer." }], ["error", { error: { code: "internal" } }]], delay: 0, status: 200 });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  const s = await p.evaluate(() => ({ text: document.querySelector(".rbchat-assistant .rbchat-body").textContent, spin: document.querySelectorAll(".rbchat-spin").length }));
+  assert.match(s.text, /^Part of an answer\.Something went wrong on the way/);
+  assert.equal(s.spin, 0);
+  await close();
+});
+
+test("a refusal by status prints a ✗ line, draws no answer, and leaves the prompt ready", async () => {
+  Object.assign(reply, { events: [], delay: 0, status: 429, body: { error: { code: "busy" } } });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-refusal");
+  const s = await p.evaluate(() => ({ refusal: document.querySelector(".rbchat-refusal").textContent, answers: document.querySelectorAll(".rbchat-assistant").length, spin: document.querySelectorAll(".rbchat-spin").length, ready: !document.querySelector("section.rbchat textarea").disabled }));
+  assert.match(s.refusal, /^✗ Too many messages/);
+  assert.deepEqual([s.answers, s.spin, s.ready], [0, 0, true]);
+  Object.assign(reply, { status: 200, body: null });
   await close();
 });

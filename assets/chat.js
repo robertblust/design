@@ -13,10 +13,14 @@
 // this closure and in the tab's own `sessionStorage`, under the key
 // `chat`, so that following a link does not throw it away; it goes when the tab goes, and it
 // reaches no server but the one the tag names. The answer
-// arrives as server-sent events and is rendered as it comes, through a Markdown subset the
+// arrives as server-sent events, is gathered until the stream ends while a spinner counts the
+// seconds, and is then drawn whole, through a Markdown subset the
 // model is told to write and nothing outside it — paragraphs, emphasis, code spans, lists,
 // tables, with a bare URL made clickable — after every character has been escaped, so text that
 // looks like markup stays text.
+// The panel is drawn as the tooling's terminal: a fresh conversation opens on the page's own
+// lockup, a hello and numbered menus, a question prints at a prompt, and the command line takes a
+// number, /new, /clear, /help and the up arrow, none of which reaches the chat host.
 // A picture the host drew arrives as its own event and is drawn under the answer by Mermaid,
 // fetched from beside this file the first time one arrives; each node links where the cite
 // line would, or a type to its schema's file where the host names one, and the picture is kept
@@ -46,10 +50,17 @@
 //   rbChat.nodeElement(svg, node)      the group Mermaid drew a node as, or null
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
 //   rbChat.oriented(source, width)     a flow turned top to bottom in a panel narrower than a phone's
+//   rbChat.lockupOf(doc)               the header's mark and name, split as the page splits it, or null
+//   rbChat.command(text)               "new", "help" or null, for the command line's own words
+//   rbChat.picked(text, rows)          the row a bare number picks, or the text as typed
+//   rbChat.tryRows(facts, lang, random)  the intro's asks, each with what comes back
+//   rbChat.commitOf(cites)             the commit the answer was read at, or null
+//   rbChat.seconds(ms)                 the spinner's count
+//   rbChat.rangeOf(n)                  the rows a number picks, as the keys line names them
 //
-// An empty conversation, once the panel is shown, may offer three questions as a way in, three
-// of the site's own model's entities of type `question`, picked at random each time the panel
-// opens on nothing, and every finished answer offers three more the conversation has not asked
+// An empty conversation, once the panel is shown, offers three questions as a way in in its
+// intro, three of the site's own model's entities of type `question`, picked at random for that
+// conversation, and every finished answer offers three more the conversation has not asked
 // yet, so a visitor who liked the first answer has somewhere to go next. Where that answer cited
 // entities of one type only, the three follow it instead: the type's schema, the first cited
 // entity's neighbors, and a question of the model's that rests on that entity or its type. `data-questions` names a same-origin path to that model, the file `card.js`
@@ -57,7 +68,7 @@
 // without it offers none and asks nothing. Nothing here ever reaches the chat host — the one
 // runtime call this family's pages make to a service of their own is still the POST on send,
 // unmoved by any of this — and a read that 404s, times out, answers something that is not JSON,
-// or names no question reads the same as one that named none: no chips, nothing else different.
+// or names no question reads the same as one that named none: no questions, nothing else different.
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
@@ -86,9 +97,9 @@
       sub: "chat · {host}", bar: "ask · {host}",
       prompt: "Type a question, a number, or /help",
       asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
-      keys: { send: "enter send", last: "↑ last question", pick: "1-{n} pick", help: "/help" },
-      help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["1-{n}", "pick from the menu above"], ["↑", "your last question back into the line"]],
-      tryLabel: "Try",
+      keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
+      help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
+      tryLabel: "Try", askNext: "Ask next",
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
@@ -128,9 +139,9 @@
       sub: "Chat · {host}", bar: "fragen · {host}",
       prompt: "Frage, Nummer oder /help tippen",
       asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
-      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "1-{n} wählen", help: "/help" },
-      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["1-{n}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
-      tryLabel: "Probieren Sie",
+      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
+      tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
@@ -722,8 +733,10 @@
   }
   // The spinner's count: whole seconds, and nothing in the first, so a quick answer shows none.
   function seconds(ms){ var n = Math.floor(ms / 1000); return n > 0 ? n + "s" : ""; }
+  // The rows a number picks, as the keys line and /help name them: none, one, or a range.
+  function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1211,13 +1224,20 @@
   function help(){
     var s = strings(langNow()), box = el("div", "rbchat-help");
     s.help.forEach(function(r){
+      // The pick line only while a menu stands: with none, there is nothing a number picks.
+      if (r[0] === "{range}" && !menuRows.length) return;
       var line = el("p");
-      line.appendChild(el("span", "rbchat-help-k", r[0].replace("{n}", String(menuRows.length || 1))));
+      line.appendChild(el("span", "rbchat-help-k", r[0].replace("{range}", rangeOf(menuRows.length))));
       line.appendChild(el("span", "rbchat-help-d", r[1]));
       box.appendChild(line);
     });
     log.appendChild(box); log.scrollTop = log.scrollHeight;
   }
+  // An answer's head and commit lines, written from the strings, and written again by relabel()
+  // when the language switches; a restored answer has no timing, so its line names the commit alone.
+  function doneLine(){ var h = el("p", "rbchat-done"); h.appendChild(el("span", "rbchat-tick", "\u2713")); h.appendChild(document.createTextNode(" " + strings(langNow()).answered)); return h; }
+  function modelText(sha, secs){ var m = strings(langNow()).model; return (secs ? m.replace("{secs}", secs) : m.replace(/ \u00b7 \{secs\}s$/, "")).replace("{sha}", sha); }
+  function modelLine(sha, secs){ var l = el("p", "rbchat-model", modelText(sha, secs)); l.setAttribute("data-sha", sha); if (secs) l.setAttribute("data-secs", secs); return l; }
   // A column whose cells are all numbers aligns right, in figures of one width.
   function numberColumns(root){
     var tables = root.querySelectorAll("table");
@@ -1244,6 +1264,9 @@
   // `introRun` names the intro now drawn, so a late fetch fills only its own; `playRun` names
   // the play, so finishing it cancels the steps still to come and nothing else.
   var introEl = null, introRun = 0, playRun = 0;
+  // What the intro drew at random, kept for its conversation, so a language switch redraws the
+  // same process and questions in the other language rather than drawing again.
+  var introPick = null;
   function intro(play){
     introRun++;
     var mine = introRun, s = strings(langNow()), lock = lockupOf(document);
@@ -1251,9 +1274,11 @@
     introEl = el("div", "rbchat-intro");
     if (lock) {
       var l = el("div", "rbchat-lock"), mark = lock.mark.cloneNode(true), word = el("div", "rbchat-word"), n = el("span", "rbchat-name");
-      mark.setAttribute("aria-hidden", "true");
-      n.setAttribute("aria-label", name);
-      n.appendChild(el("b", "rbchat-first")); n.appendChild(el("b", "rbchat-accent"));
+      mark.setAttribute("aria-hidden", "true"); unclash(mark);
+      // The name is said whole, once, while its two halves are typed where only eyes read them.
+      var first = el("b", "rbchat-first"), accent = el("b", "rbchat-accent");
+      first.setAttribute("aria-hidden", "true"); accent.setAttribute("aria-hidden", "true");
+      n.appendChild(el("span", "rbchat-sr", name)); n.appendChild(first); n.appendChild(accent);
       word.appendChild(n); word.appendChild(el("span", "rbchat-sub", s.sub.replace("{host}", host)));
       l.appendChild(mark); l.appendChild(word); introEl.appendChild(l);
     }
@@ -1264,17 +1289,20 @@
     introEl.appendChild(hello);
     notice = el("p", "rbchat-notice"); introEl.appendChild(notice); writeNotice();
     var groups = el("div", "rbchat-groups"); introEl.appendChild(groups);
-    introEl.appendChild(el("p", "rbchat-prompt-line", "› " + s.prompt));
+    var promptLine = el("p", "rbchat-prompt-line", "› " + s.prompt + " ");
+    // The block cursor waits here while the intro plays, and hands over to the command line.
+    promptLine.appendChild(el("span", "rbchat-cur")); introEl.appendChild(promptLine);
     log.insertBefore(introEl, log.firstChild);
     if (!play || still()) finishIntro();
     facts(function(f){
       questions(function(list){
         if (mine !== introRun || !introEl) return;
-        var t = strings(langNow()), rows = tryRows(f, langNow());
+        var t = strings(langNow());
+        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3) };
+        var rows = tryRows({ processes: introPick.processes, counts: f.counts }, langNow());
         groups.appendChild(el("p", "rbchat-label", t.tryLabel));
         menu(groups, rows, 0);
-        // spread() gives back titles, as the menu after an answer uses them.
-        var picked = spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3).map(function(t){ return [t]; });
+        var picked = introPick.questions.map(function(q){ return [q]; });
         if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
         // A restored conversation has moved past the intro: its menus are spent, and the rows a
         // number picks stay those of the menu after the last answer.
@@ -1284,11 +1312,27 @@
     });
   }
   function spendIntro(){ var ms = introEl.querySelectorAll(".rbchat-menu"); for (var i = 0; i < ms.length; i++) ms[i].classList.add("rbchat-spent"); }
+  // A cloned mark keeps its ids, which the header's own copy already holds; each is given a
+  // name of its own, and every reference inside the clone, url(#id) or #id, follows it.
+  function unclash(svg){
+    var map = {}, withId = svg.querySelectorAll("[id]");
+    for (var i = 0; i < withId.length; i++) { map[withId[i].id] = "rbchat-" + withId[i].id; withId[i].id = map[withId[i].id]; }
+    if (!withId.length) return;
+    var all = svg.querySelectorAll("*");
+    for (var j = 0; j < all.length; j++) {
+      for (var k = 0; k < all[j].attributes.length; k++) {
+        var at = all[j].attributes[k], v = at.value;
+        var w = v.replace(/url\(#([^)]+)\)/g, function(m, id){ return map[id] ? "url(#" + map[id] + ")" : m; }).replace(/^#(.+)$/, function(m, id){ return map[id] ? "#" + map[id] : m; });
+        if (w !== v) all[j].setAttribute(at.name, w);
+      }
+    }
+  }
   function still(){ return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
   function finishIntro(){
     if (!introEl) return;
     playRun++;
     introEl.classList.add("rbchat-still");
+    var cur = introEl.querySelector(".rbchat-cur"); if (cur) cur.parentNode.removeChild(cur);
     var lock = lockupOf(document);
     if (lock) { introEl.querySelector(".rbchat-first").textContent = lock.first; introEl.querySelector(".rbchat-accent").textContent = lock.accent; }
   }
@@ -1334,7 +1378,7 @@
       qBox = el("div", "rbchat-next");
       qBox.setAttribute("role", "group");
       qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
-      qBox.appendChild(el("p", "rbchat-label", strings(langNow()).next));
+      qBox.appendChild(el("p", "rbchat-label", strings(langNow()).askNext));
       menu(qBox, picked.map(function(t){ return [t]; }), 0);
       log.appendChild(qBox);
       menuRows = picked.slice(); keysLine();
@@ -1370,6 +1414,14 @@
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     writeNotice();
+    if (log) {
+      var heads = log.querySelectorAll(".rbchat-done");
+      for (var h = 0; h < heads.length; h++) heads[h].lastChild.textContent = " " + s.answered;
+      var lines = log.querySelectorAll(".rbchat-model");
+      for (var m = 0; m < lines.length; m++) lines[m].textContent = modelText(lines[m].getAttribute("data-sha"), lines[m].getAttribute("data-secs"));
+      var labels = log.querySelectorAll(".rbchat-next > .rbchat-label");
+      for (var b = 0; b < labels.length; b++) labels[b].textContent = s.askNext;
+    }
     // A language switch redraws the intro in the new language, finished, where the log holds one.
     if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
     if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
@@ -1385,7 +1437,7 @@
   function keysLine(){
     if (!keysEl) return;
     var k = strings(langNow()).keys;
-    var parts = [k.send, k.last].concat(menuRows.length ? [k.pick.replace("{n}", menuRows.length)] : []).concat([k.help]);
+    var parts = [k.send, k.last].concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
     keysEl.textContent = parts.join("  \u00b7  ");
   }
 
@@ -1413,12 +1465,14 @@
     log = el("div", "rbchat-log");
     ["wheel", "pointerdown", "keydown", "touchstart"].forEach(function(k){ log.addEventListener(k, function(){ reading = null; }, { passive: true }); });
     var form = el("form", "rbchat-form");
-    // The command line: a prompt, the field, and a ↵ that only a touch screen shows, where the
-    // keyboard's return key breaks a line rather than sending. It opens at one row and grows
-    // to four as the visitor writes more.
+    // The command line: a prompt, the field, and a ↵ that only a touch screen shows. A phone
+    // keyboard's return key sends as Enter does, but a thumb looks for a button to tap. The
+    // field opens at one row and grows to four as the visitor writes more.
     var p = el("span", "rbchat-p", "\u203a"); p.setAttribute("aria-hidden", "true");
     input = el("textarea"); input.rows = 1; input.maxLength = LIMIT;
     input.addEventListener("keydown", function(e){
+      // An Enter that confirms an input method's composition belongs to the composition.
+      if (e.isComposing || e.keyCode === 229) return;
       if (e.key === "ArrowUp" && !input.value) {
         for (var i = messages.length - 1; i >= 0; i--) if (messages[i].role === "user") { e.preventDefault(); input.value = messages[i].content; grow(); return; }
       }
@@ -1514,7 +1568,7 @@
   // two opens ahead of the one fetch landing still share it rather than asking twice.
   function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; if (!introEl) intro(!messages.length); settle(); input.focus(); keep(); if (messages.length) offerQuestions(); linkWaiting(); }
   function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ reading = null; reqGen++; if (stopRequest) { stopRequest(); stopRequest = null; } messages = []; turns = []; log.innerHTML = ""; introEl = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
+  function reset(){ reading = null; reqGen++; if (stopRequest) { stopRequest(); stopRequest = null; } messages = []; turns = []; log.innerHTML = ""; introEl = null; introPick = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1584,7 +1638,7 @@
       }
       if (cut) acc += "\n\n" + strings(langNow()).cut;
       render();
-      var head = el("p", "rbchat-done"); head.appendChild(el("span", "rbchat-tick", "\u2713")); head.appendChild(document.createTextNode(" " + strings(langNow()).answered));
+      var head = doneLine();
       ans.insertBefore(head, body);
       log.appendChild(ans);
       // The picture is drawn once the answer is in the log, since it is drawn for the log's width.
@@ -1600,7 +1654,7 @@
       linkQuestions(body);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       var sha = commitOf(cites);
-      if (sha) ans.appendChild(el("p", "rbchat-model", strings(langNow()).model.replace("{sha}", sha).replace("{secs}", String(Math.max(1, Math.round((Date.now() - t0) / 1000))))));
+      if (sha) ans.appendChild(modelLine(sha, String(Math.max(1, Math.round((Date.now() - t0) / 1000)))));
       log.scrollTop = log.scrollHeight;
       // Emptied first and filled a moment later, so the same words twice are still said twice.
       say.textContent = ""; var said = body.textContent;
@@ -1676,14 +1730,13 @@
     if (!panel) build();
     // Only a panel restored open shows its intro now; a closed one gets it from open(), since
     // the intro reads the model file and that read waits for the panel.
-    if (was.open) intro(false);
     reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
     was.turns.forEach(function(t){
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
       ans.setAttribute("data-turn", turns.length);
       body.innerHTML = md(t.content); numberColumns(body);
-      var head = el("p", "rbchat-done"); head.appendChild(el("span", "rbchat-tick", "\u2713")); head.appendChild(document.createTextNode(" " + strings(langNow()).answered));
+      var head = doneLine();
       ans.appendChild(head); ans.appendChild(body);
       var cites = t.cites || [];
       // The same gate send() applies to a picture arriving live: a stored turn from before this
@@ -1695,10 +1748,13 @@
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       // A restored answer has no timing to name, so its line names the commit alone.
       var sha = commitOf(cites);
-      if (sha) ans.appendChild(el("p", "rbchat-model", strings(langNow()).model.replace(/ \u00b7 \{secs\}s$/, "").replace("{sha}", sha)));
+      if (sha) ans.appendChild(modelLine(sha, null));
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
     });
+    // After the turns, so the intro knows the conversation has moved past it, whether its
+    // menus are filled now or once the model file is read.
+    if (was.open) intro(false);
     if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); linkWaiting(); }
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight; settle();
