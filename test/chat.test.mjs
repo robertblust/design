@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -125,6 +125,18 @@ test("the cursor goes back after an answer only where there is a fine pointer, s
   assert.equal(refocus(win(true)), true);
   assert.equal(refocus(win(false)), false);
   assert.equal(refocus({}), true, "a browser without matchMedia keeps the old behavior");
+});
+
+test("asked gives the address without ?chat=open, and null where the address never asked", () => {
+  assert.equal(asked("?chat=open"), "");
+  assert.equal(asked("?chat=open&lang=de"), "?lang=de");
+  assert.equal(asked("?lang=de&chat=open"), "?lang=de");
+  assert.equal(asked("?lang=de&chat=open&theme=dark"), "?lang=de&theme=dark");
+  assert.equal(asked(""), null);
+  assert.equal(asked("?lang=de"), null);
+  assert.equal(asked("?chat=closed"), null);
+  assert.equal(asked("?chatter=open"), null, "a longer name is another parameter");
+  assert.equal(asked(undefined), null);
 });
 
 test("a bare URL in an answer is a link, its trailing punctuation is not, and one in a code span is left alone", () => {
