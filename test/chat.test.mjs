@@ -796,3 +796,11 @@ test("every new sentence exists in both languages", () => {
     for (const t of ["kpi", "role", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
   }
 });
+
+test("the one read of the model file also keeps its process names and how many of each type it holds", () => {
+  const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
+  assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts \};/, "the process names are not kept");
+  assert.match(fn, /if \(e && typeof e\.type === "string"\) counts\[e\.type\] = \(counts\[e\.type\] \|\| 0\) \+ 1;/, "the counts per type are not kept");
+  assert.match(src, /function facts\(cb\)\{ questions\(function\(\)\{ cb\(qFacts\); \}\); \}/, "facts() does not share the one fetch");
+  assert.equal((src.match(/fetch\(QUESTIONS/g) || []).length, 1, "the model file is read twice");
+});

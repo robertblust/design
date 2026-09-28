@@ -1121,7 +1121,7 @@
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
   // opening an empty conversation, which is all that tells its two names apart.
-  var qList = null, qFetch = null, qBox = null, qNext = false;
+  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {} };
   var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
@@ -1151,6 +1151,11 @@
             var entities = j && Array.isArray(j.entities) ? j.entities : [];
             var types = {}, rests = {};
             entities.forEach(function(e){ if (e && typeof e.id === "string") types[e.id] = e.type; });
+            // The same read gives the Try rows their facts: the processes by name, and how many
+            // of each type the model holds, so a row never names what the model does not have.
+            var counts = {};
+            entities.forEach(function(e){ if (e && typeof e.type === "string") counts[e.type] = (counts[e.type] || 0) + 1; });
+            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts };
             (j && Array.isArray(j.edges) ? j.edges : []).forEach(function(g){
               if (!g || types[g.from] !== "question" || typeof g.via !== "string" || g.via.indexOf("Rests on.") !== 0) return;
               (rests[g.from] = rests[g.from] || []).push({ id: g.to, type: types[g.to] || null });
@@ -1165,6 +1170,9 @@
     }
     qFetch.then(function(list){ qList = list; cb(list); });
   }
+  // The Try rows' facts, from the one fetch questions() makes: a tag without data-questions, or
+  // a read that failed, leaves them empty, and the rows fall back to the meta-model alone.
+  function facts(cb){ questions(function(){ cb(qFacts); }); }
 
   // The questions are entities too, and an answer names them by title: asked what the model
   // answers, the chat reads the titles off its prompt rather than a tool, so no answer's names
