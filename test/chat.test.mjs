@@ -860,3 +860,8 @@ test("the answer card keeps the answer's text, links and rail readable in both p
     assert.ok(contrast(v("good"), card) >= 3, "the rail on the card: " + contrast(v("good"), card).toFixed(2));
   }
 });
+
+test("the graph opens only from a picture the chat drew, not from a page's own picture opened full screen", () => {
+  const fn = src.slice(src.indexOf("// Any link into the model inside the chat"), src.indexOf("// Any link into the model inside the chat") + 1400);
+  assert.match(fn, /modalFig && modalFig\.closest && modalFig\.closest\("\.rbchat"\)/, "a page's own picture opened full screen opens the graph");
+});

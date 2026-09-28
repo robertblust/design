@@ -107,3 +107,39 @@ test("the parent's look reaches the frame", async () => {
   await f.waitForFunction(() => document.documentElement.getAttribute("data-theme") === "light" && document.documentElement.lang === "de");
   await close();
 });
+
+// ─── The final review's findings ─────────────────────────────────────────────────────────
+test("the embed flag is set even where site data is blocked", async () => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => { Object.defineProperty(window, "localStorage", { get(){ throw new DOMException("blocked", "SecurityError"); } }); });
+  const p = await context.newPage();
+  await p.goto(base + "/parent");
+  const f = await (await p.waitForSelector("#f")).contentFrame();
+  await f.waitForFunction(() => document.readyState !== "loading");
+  assert.equal(await f.evaluate(() => document.documentElement.hasAttribute("data-embed")), true);
+  await context.close();
+});
+
+test("the page's look reaches its own static text, through the page's applyLang", async () => {
+  const { p, f, close } = await parent();
+  await p.evaluate(() => document.getElementById("f").contentWindow.postMessage({ type: "rb-graph-look", theme: "dark", lang: "de" }, location.origin));
+  await f.waitForFunction(() => document.documentElement.getAttribute("data-applied") === "de");
+  await close();
+});
+
+test("the frame tells its parent where the focus is, by the node's own name", async () => {
+  const { p, close } = await parent();
+  await p.evaluate(() => document.getElementById("f").contentWindow.postMessage({ type: "rb-graph-focus", id: "nothing/here" }, location.origin));
+  await p.waitForFunction(() => window.got.some((m) => m.type === "rb-graph-at" && m.title === "GuestGraph"));
+  assert.ok(await p.evaluate(() => window.got.some((m) => m.type === "rb-graph-at" && m.title === "Guest")), "the first focus was not told");
+  await close();
+});
+
+test("a page opened on its own with embed in its address is an ordinary page", async () => {
+  const context = await browser.newContext();
+  const p = await context.newPage();
+  await p.goto(base + "/model/?stage=expanded&embed#concepts/guest");
+  await p.waitForSelector("#stagemodal[open]");
+  assert.equal(await p.evaluate(() => document.documentElement.hasAttribute("data-embed")), false, "a top-level page traps the visitor in its stage");
+  await context.close();
+});

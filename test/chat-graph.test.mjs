@@ -29,6 +29,7 @@ before(async () => {
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     const send = () => { res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]); };
+    if (url === "/model.json" && slowModel < 0) { res.writeHead(500); res.end(); return; }
     if (url === "/model.json" && slowModel) setTimeout(send, slowModel); else send();
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
@@ -137,5 +138,64 @@ test("a switch of theme or language while the graph is open reaches it, and a cl
   await p.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "rb-graph-close" }, origin: "https://elsewhere.example" })));
   await p.waitForTimeout(250);
   assert.equal(await p.$eval("dialog.rbchat-graph", (d) => d.open), true);
+  await close();
+});
+
+// ─── The final review's findings ─────────────────────────────────────────────────────────
+test("a link on the graph's card leaves as the whole tab, never as the frame, and a card's own link moves the graph", async () => {
+  const { p, close } = await answered();
+  const before = await p.evaluate(() => history.length);
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  const f = frame(p);
+  // A card's link to another entity is a place in the graph: it moves the focus and writes
+  // nothing to the tab's history.
+  await f.click('#card a[href^="#"] >> nth=0');
+  await p.waitForFunction(() => document.querySelector("iframe.rbchat-graph-frame").contentDocument.getElementById("path").textContent !== "concepts / guest");
+  assert.equal(await p.evaluate(() => history.length), before, "a card's own link wrote to the tab's history");
+  // A link out of the model follows the family's rule, the same tab: the whole tab goes, as any
+  // link on these sites does, and the frame never shows a page that refuses to be framed.
+  await p.route("https://github.com/**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>GitHub</p>" }));
+  await p.click(".rbchat-graph-close");
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  await Promise.all([p.waitForURL(/^https:\/\/github\.com\//), frame(p).click("#cfootlink a")]);
+  await close();
+});
+
+test("a model file that fails says so in the dialog rather than leaving it blank", { timeout: 40000 }, async () => {
+  const { p, close } = await answered();
+  slowModel = -1;
+  await p.click(nameLink);
+  await p.waitForSelector(".rbchat-graph-failed", { timeout: 20000 });
+  assert.match(await p.$eval(".rbchat-graph-failed", (e) => e.textContent), /could not be drawn/);
+  slowModel = 0;
+  await close();
+});
+
+test("every open puts the keyboard in the graph, so its keys walk the trail", async () => {
+  const { p, close } = await answered();
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  await p.click(".rbchat-graph-close");
+  await p.click(".rbchat-cites a.rbchat-cite");
+  await focusIs(p, "concepts / merge");
+  await p.keyboard.press("ArrowLeft");
+  await focusIs(p, "concepts / guest");
+  await close();
+});
+
+test("the dialog is named by its head, and the head follows the focus and the language", async () => {
+  const { p, close } = await answered();
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  const named = await p.evaluate(() => { const d = document.querySelector("dialog.rbchat-graph"), id = d.getAttribute("aria-labelledby"); return { byTitle: !!id && document.getElementById(id) === d.querySelector(".rbchat-graph-title"), frame: d.querySelector("iframe").getAttribute("title") }; });
+  assert.deepEqual(named, { byTitle: true, frame: "graph · Guest" });
+  const f = frame(p);
+  await f.click("#fig g.n:not(.focus):not(.ancestor) >> nth=0");
+  await p.waitForFunction(() => document.querySelector(".rbchat-graph-title").textContent !== "graph · Guest");
+  const to = await p.$eval(".rbchat-graph-title", (t) => t.textContent);
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction((t) => document.querySelector(".rbchat-graph-title").textContent === t.replace(/^graph/, "Graph"), to);
   await close();
 });

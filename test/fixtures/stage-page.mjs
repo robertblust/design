@@ -44,6 +44,7 @@ export function modelPage({ chat = false } = {}) {
   <section><p>More of the page.</p></section>
 </main>
 <footer id="sitefooter"><p class="derived">Generated from <a id="srclink" data-src="model" href="#">the model</a> at <span id="srccommit"></span></p></footer>
+<script>window.rbPage = { applyLang: function(l){ document.documentElement.setAttribute("data-applied", l); } };</script>
 <script src="/d3.v7.min.js"></script><script src="/card.js"></script><script src="/stage.js"></script>
 ${chat ? '<script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script>' : ""}
 </body></html>`;

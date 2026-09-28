@@ -104,7 +104,7 @@
       help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
-      graph: { head: "graph · {title}", page: "model page ↗", close: "Close the graph" },
+      graph: { head: "graph · {title}", page: "model page ↗", close: "Close the graph", failed: "The graph could not be drawn here; the model page has it." },
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
@@ -148,7 +148,7 @@
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
-      graph: { head: "Graph · {title}", page: "Modellseite ↗", close: "Graph schliessen" },
+      graph: { head: "Graph · {title}", page: "Modellseite ↗", close: "Graph schliessen", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
@@ -1155,17 +1155,38 @@
   // chat page's address and its Back stay the visitor's. The frame is made on the first open;
   // a later open moves its focus by message, queued until the frame says it is ready.
   var graph = null, graphFrame = null, graphTitle = null, graphPage = null, graphReady = false, graphQueue = null, graphOpener = null;
+  // The name of the place the graph stands on, which heads the dialog in the page's language,
+  // and the wait for a frame that never says it is ready: its model file failed, or is empty.
+  var graphName = "", graphWait = null, GRAPH_WAIT = 6000, graphFailed = null;
+  function setGraphTitle(name){
+    graphName = name;
+    var head = strings(langNow()).graph.head.replace("{title}", name);
+    graphTitle.textContent = head; graphFrame.setAttribute("title", head);
+  }
+  function graphFails(on){
+    if (graphFailed) { graphFailed.parentNode.removeChild(graphFailed); graphFailed = null; }
+    if (!on) return;
+    graphFailed = el("p", "rbchat-graph-failed", strings(langNow()).graph.failed);
+    graph.insertBefore(graphFailed, graphFrame);
+    // The next open tries again from the start.
+    graphFrame.removeAttribute("src"); graphReady = false;
+  }
   function ensureGraph(){
     if (graph) return;
     var s = strings(langNow());
-    graph = el("dialog", "rbchat-graph"); graph.setAttribute("aria-label", s.graph.head.replace("{title}", ""));
+    graph = el("dialog", "rbchat-graph"); graph.setAttribute("aria-labelledby", "rbchat-graph-title");
     var head = el("div", "rbchat-graph-head");
-    graphTitle = el("span", "rbchat-graph-title");
+    graphTitle = el("span", "rbchat-graph-title"); graphTitle.id = "rbchat-graph-title";
     graphPage = el("a", "rbchat-graph-page", s.graph.page);
     var shut = el("button", "rbchat-graph-close", "×"); shut.type = "button"; shut.setAttribute("aria-label", s.graph.close); shut.setAttribute("data-tip", s.graph.close + " · Esc");
     shut.addEventListener("click", function(){ graph.close(); });
     head.appendChild(graphTitle); head.appendChild(graphPage); head.appendChild(shut);
-    graphFrame = el("iframe", "rbchat-graph-frame"); graphFrame.setAttribute("title", s.graph.head.replace("{title}", ""));
+    graphFrame = el("iframe", "rbchat-graph-frame");
+    // A frame that has loaded and still not said it is ready never will: its model file failed.
+    graphFrame.addEventListener("load", function(){
+      clearTimeout(graphWait);
+      if (graphFrame.getAttribute("src") && !graphReady) graphWait = setTimeout(function(){ if (!graphReady) graphFails(true); }, GRAPH_WAIT);
+    });
     graph.appendChild(head); graph.appendChild(graphFrame);
     graph.addEventListener("click", function(ev){ if (ev.target === graph) graph.close(); });
     graph.addEventListener("close", function(){ if (graphOpener && graphOpener.focus) graphOpener.focus(); graphOpener = null; });
@@ -1177,16 +1198,24 @@
     ensureGraph();
     var s = strings(langNow());
     graphOpener = opener || document.activeElement;
-    graphTitle.textContent = s.graph.head.replace("{title}", title || id);
+    setGraphTitle(title || id);
+    graphFails(false);
     graphPage.href = link(MODEL, id);
     if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
     else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
     else graphQueue = id;
     if (!graph.open) graph.showModal();
+    // The keyboard goes into the graph on every open, so its keys walk the trail at once.
+    if (graphReady) graphFrame.focus();
   }
   window.addEventListener("message", function(ev){
     if (ev.origin !== location.origin || !graphFrame || ev.source !== graphFrame.contentWindow || !ev.data) return;
-    if (ev.data.type === "rb-graph-ready") { graphReady = true; tellGraph(lookOf()); if (graphQueue) { tellGraph({ type: "rb-graph-focus", id: graphQueue }); graphQueue = null; } }
+    if (ev.data.type === "rb-graph-ready") {
+      graphReady = true; clearTimeout(graphWait); graphFails(false); tellGraph(lookOf());
+      if (graphQueue) { tellGraph({ type: "rb-graph-focus", id: graphQueue }); graphQueue = null; }
+      if (graph && graph.open) graphFrame.focus();
+    }
+    else if (ev.data.type === "rb-graph-at" && typeof ev.data.title === "string" && ev.data.title) setGraphTitle(ev.data.title);
     else if (ev.data.type === "rb-graph-close" && graph && graph.open) graph.close();
   });
   if (window.MutationObserver) new MutationObserver(function(){ if (graphReady) tellGraph(lookOf()); })
@@ -1197,7 +1226,9 @@
   document.addEventListener("click", function(ev){
     if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
     var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
-    if (!a || !(a.closest(".rbchat") || a.closest("dialog.rbchat-modal"))) return;
+    // A picture in the full-screen dialog opens the graph only when the chat drew it: a page's own
+    // picture, like the team page's, is already on a page of the site.
+    if (!a || !(a.closest(".rbchat") || (a.closest("dialog.rbchat-modal") && modalFig && modalFig.closest && modalFig.closest(".rbchat")))) return;
     var id = entityOf(a.getAttribute("href") || a.getAttribute("xlink:href"), MODEL);
     if (!id) return;
     ev.preventDefault();
@@ -1512,6 +1543,8 @@
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     writeNotice();
     if (graph) {
+      if (graphName) setGraphTitle(graphName);
+      if (graphFailed) graphFailed.textContent = s.graph.failed;
       graphPage.textContent = s.graph.page;
       var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
     }
