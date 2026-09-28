@@ -85,15 +85,38 @@ test("the page behind stays where it was and does not scroll while a modal is op
   await close();
 });
 
-test("a second modal stacks, and the lock holds until the last one closes", async () => {
+test("a second open while one is open replaces what it shows: one dialog, the first body home, its close run, the page still held", async () => {
   const { p, close } = await page();
-  await p.evaluate(() => { window.a = rbModal.open({ title: "A", body: document.getElementById("thing") }); window.b = rbModal.open({ title: "B", body: document.getElementById("other") }); });
-  assert.equal(await p.$$eval("dialog.rbmodal[open]", (d) => d.length), 2);
-  await p.evaluate(() => window.b.close());
-  assert.equal(await p.$$eval("dialog.rbmodal[open]", (d) => d.length), 1);
-  assert.equal(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden", "the lock let go under an open modal");
-  await p.evaluate(() => window.a.close());
-  assert.notEqual(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden");
+  await p.evaluate(() => {
+    window.closes = [];
+    window.a = rbModal.open({ kind: "diagram", title: "A", body: document.getElementById("thing"), controls: Object.assign(document.createElement("button"), { id: "zoom" }), onClose: () => closes.push("A") });
+    window.b = rbModal.open({ kind: "graph", title: "B", body: document.getElementById("other") });
+  });
+  const s = await p.evaluate(() => { const d = document.querySelectorAll("dialog.rbmodal"); return { dialogs: d.length, open: document.querySelectorAll("dialog.rbmodal[open]").length, kind: d[0].className, title: d[0].querySelector(".rbmodal-title").textContent, controls: d[0].querySelector(".rbmodal-controls").children.length, home: document.getElementById("home").firstElementChild.id, holds: d[0].contains(document.getElementById("other")), closed: closes.join(), a: a.showing(), b: b.showing(), held: getComputedStyle(document.documentElement).overflow }; });
+  assert.deepEqual(s, { dialogs: 1, open: 1, kind: "rbmodal rbmodal-graph", title: "B", controls: 0, home: "thing", holds: true, closed: "A", a: false, b: true, held: "hidden" });
+  // The first handle no longer speaks for what is shown.
+  await p.evaluate(() => { a.title("stale"); a.close(); });
+  assert.deepEqual(await p.evaluate(() => [document.querySelector("dialog.rbmodal").open, document.querySelector(".rbmodal-title").textContent]), [true, "B"]);
+  // One close ends it all, and the focus goes back to what opened the first.
+  await p.keyboard.press("Escape");
+  const e = await p.evaluate(() => ({ open: document.querySelectorAll("dialog.rbmodal[open]").length, held: getComputedStyle(document.documentElement).overflow, home: [...document.getElementById("home").children].map((c) => c.id).join() }));
+  assert.deepEqual(e, { open: 0, held: "visible", home: "thing,other" });
+  await close();
+});
+
+test("a keyed body with no place of its own stays in the dialog, hidden, while something else is shown, and is not moved", async () => {
+  const { p, close } = await page();
+  const s = await p.evaluate(async () => {
+    const f = document.createElement("iframe"); f.srcdoc = "<p>x</p>"; let loads = 0; f.addEventListener("load", () => loads++);
+    rbModal.open({ key: "graph", title: "g", body: f });
+    await new Promise((r) => setTimeout(r, 200));
+    rbModal.open({ title: "picture", body: document.getElementById("thing") });
+    const hidden = getComputedStyle(f).display === "none", inside = document.querySelector("dialog.rbmodal").contains(f);
+    const h = rbModal.open({ key: "graph", title: "g again", body: f });
+    await new Promise((r) => setTimeout(r, 200));
+    return { hidden, inside, shownAgain: getComputedStyle(f).display !== "none", loads, thingHome: document.getElementById("home").contains(document.getElementById("thing")), showing: h.showing() };
+  });
+  assert.deepEqual(s, { hidden: true, inside: true, shownAgain: true, loads: 1, thingHome: true, showing: true });
   await close();
 });
 
@@ -156,10 +179,11 @@ test("a kind names what the modal holds, as a class on it", async () => {
   await close();
 });
 
-test("a modal made for one showing leaves nothing behind once it closes", async () => {
+test("the page holds one dialog however often a modal opens and closes", async () => {
   const { p, close } = await page();
   for (let i = 0; i < 3; i++) { await openThing(p); await p.keyboard.press("Escape"); await p.waitForFunction(() => !document.querySelector("dialog.rbmodal[open]")); }
-  assert.equal(await p.evaluate(() => document.querySelectorAll("dialog.rbmodal").length), 0);
+  await p.evaluate(() => { rbModal.open({ key: "x", title: "x", body: document.getElementById("thing") }).close(); });
+  assert.equal(await p.evaluate(() => document.querySelectorAll("dialog.rbmodal").length), 1);
   await close();
 });
 

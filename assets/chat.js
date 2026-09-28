@@ -1203,7 +1203,7 @@
       if (graphReady) graphFrame.focus();
     }, function(){ location.href = link(MODEL, id); });
   }
-  function graphOpen(){ return !!(graphHandle && graphHandle.el.open); }
+  function graphOpen(){ return !!(graphHandle && graphHandle.showing()); }
   window.addEventListener("message", function(ev){
     if (ev.origin !== location.origin || !graphFrame || ev.source !== graphFrame.contentWindow || !ev.data) return;
     if (ev.data.type === "rb-graph-ready") {

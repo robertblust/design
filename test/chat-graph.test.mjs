@@ -113,17 +113,32 @@ test("the dialog's × and Escape in the graph close it, focus goes back to the l
   await close();
 });
 
-test("opened from the picture's full screen, the graph sits on top and closing it leaves the picture open", async () => {
+test("a node in the picture's full screen replaces the picture with the graph, and one close gives the picture back to the answer", async () => {
   const { p, close } = await answered();
   await p.click(".rbchat-diagram-full");
   await p.waitForSelector("dialog.rbmodal-diagram[open]");
   await p.click('dialog.rbmodal-diagram svg a[aria-label="Guest"]');
   await p.waitForSelector("dialog.rbmodal-graph[open]");
   await focusIs(p, "concepts / guest");
-  assert.equal(await p.evaluate(() => { const g = document.querySelector("dialog.rbmodal-graph").getBoundingClientRect(); const top = document.elementFromPoint(g.x + g.width / 2, g.y + 20); return !!(top && top.closest("dialog.rbmodal-graph")); }), true, "the graph is not on top");
+  const s = await p.evaluate(() => ({ open: document.querySelectorAll("dialog[open]").length, back: !!document.querySelector(".rbchat-assistant .rbchat-diagram .rbchat-diagram-box svg"), zoom: document.querySelectorAll("dialog.rbmodal .rbchat-modal-fit").length }));
+  assert.deepEqual(s, { open: 1, back: true, zoom: 0 });
   await p.click("dialog.rbmodal-graph .rbmodal-close");
-  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal-graph").open);
-  assert.equal(await p.$eval("dialog.rbmodal-diagram", (d) => d.open), true, "closing the graph closed the picture");
+  await p.waitForFunction(() => !document.querySelector("dialog[open]"));
+  assert.notEqual(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden");
+  await close();
+});
+
+test("the graph's frame survives a picture shown between two opens, and is not loaded again", async () => {
+  const { p, loads, close } = await answered();
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
+  await p.click(".rbchat-diagram-full");
+  await p.waitForSelector("dialog.rbmodal-diagram[open]");
+  await p.click('dialog.rbmodal-diagram svg a[aria-label="Guest"]');
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
+  await focusIs(p, "concepts / guest");
+  assert.equal(loads.n, 1, "the frame loaded again");
   await close();
 });
 
@@ -243,19 +258,6 @@ test("the graph's modal carries no link to the model page", async () => {
   await p.waitForSelector("dialog.rbmodal-graph[open]");
   assert.equal(await p.$$eval("dialog.rbmodal-graph .rbmodal-head a", (a) => a.length), 0);
   assert.equal(await p.$eval("dialog.rbmodal-graph .rbmodal-close", (b) => b.getAttribute("data-tip")), "Close · Esc");
-  await close();
-});
-
-test("the graph over a picture's full screen is a second modal, and closing it leaves the picture open with the page still held", async () => {
-  const { p, close } = await answered();
-  await p.click(".rbchat-diagram-full");
-  await p.waitForSelector("dialog.rbmodal-diagram[open]");
-  await p.click('dialog.rbmodal-diagram svg a[aria-label="Guest"]');
-  await p.waitForSelector("dialog.rbmodal-graph[open]");
-  assert.equal(await p.$$eval("dialog.rbmodal[open]", (d) => d.length), 2);
-  await p.click("dialog.rbmodal-graph .rbmodal-close");
-  await p.waitForFunction(() => document.querySelectorAll("dialog.rbmodal[open]").length === 1);
-  assert.equal(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden");
   await close();
 });
 
