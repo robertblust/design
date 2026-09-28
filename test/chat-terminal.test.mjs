@@ -14,14 +14,14 @@ const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
 const BRAND = `<header><a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"><rect x="2" y="6.75" width="10.5" height="10.5" rx="1.5"/><rect x="4.75" y="9.5" width="5" height="5" fill="currentColor" stroke="none"/><path d="M12.5 12 h4.5"/><rect x="17" y="9.5" width="5" height="5" fill="currentColor" stroke="none"/></svg><b>Company<span>Graph</span></b></a></header>`;
 const page = (header) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
 <body>${header}<p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" data-questions="/model.json" defer></script></body></html>`;
-const MODEL = { entities: [
+const MODEL = { commit: "ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f", repo: "companygraph/mental-model", core: "0.46.0", entities: [
   { id: "processes/answering", type: "process", name: "Answering" },
   { id: "kpis/a", type: "kpi", name: "A" }, { id: "kpis/b", type: "kpi", name: "B" }, { id: "kpis/c", type: "kpi", name: "C" },
   { id: "questions/owner", type: "question", name: "What is an owner?" },
   { id: "questions/chat", type: "question", name: "How does the chat answer a question?" },
   { id: "questions/rules", type: "question", name: "Which rules does every instance pass?" }
 ], edges: [] };
-const MANY = { entities: [
+const MANY = { commit: "ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f", repo: "companygraph/mental-model", entities: [
   ...["Answering", "Releasing", "Hiring", "Billing", "Planning"].map((n) => ({ id: "processes/" + n, type: "process", name: n })),
   ...["A", "B", "C"].map((n) => ({ id: "kpis/" + n, type: "kpi", name: n })),
   ...["One?", "Two?", "Three?", "Four?", "Five?", "Six?"].map((n) => ({ id: "questions/" + n, type: "question", name: n }))
@@ -508,4 +508,26 @@ test("a refusal by status prints a ✗ line, draws no answer, and leaves the pro
   assert.deepEqual([s.answers, s.spin, s.ready], [0, 0, true]);
   Object.assign(reply, { status: 200, body: null });
   await close();
+});
+
+test("the banner names the core and the model's commit, each linked, and the model alone where the file names no core", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  await p.waitForSelector(".rbchat-versions a");
+  const s = await p.$eval(".rbchat-versions", (v) => ({ text: v.textContent, links: [...v.querySelectorAll("a")].map((a) => a.getAttribute("href")) }));
+  assert.equal(s.text, "meta-model 0.46.0 · model ffb11a5");
+  assert.deepEqual(s.links, ["https://github.com/companygraph/mental-model/tree/ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f/meta/core", "https://github.com/companygraph/mental-model/tree/ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f"]);
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => /^Meta-Modell 0\.46\.0/.test(document.querySelector(".rbchat-versions").textContent));
+  await close();
+  const many = await tab("/many");
+  await open(many.p);
+  await many.p.waitForSelector(".rbchat-versions");
+  assert.equal(await many.p.$eval(".rbchat-versions", (v) => v.textContent), "model ffb11a5");
+  await many.close();
+  const broken = await tab("/broken");
+  await open(broken.p);
+  await broken.p.waitForSelector(".rbchat-intro .rbchat-row");
+  assert.equal(await broken.p.$(".rbchat-versions"), null);
+  await broken.close();
 });

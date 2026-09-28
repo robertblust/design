@@ -1161,7 +1161,7 @@
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
   // opening an empty conversation, which is all that tells its two names apart.
-  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {} };
+  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {}, versions: null };
   var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
@@ -1195,7 +1195,7 @@
             // of each type the model holds, so a row never names what the model does not have.
             var counts = {};
             entities.forEach(function(e){ if (e && typeof e.type === "string") counts[e.type] = (counts[e.type] || 0) + 1; });
-            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts };
+            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts, versions: versionsOf(j) };
             (j && Array.isArray(j.edges) ? j.edges : []).forEach(function(g){
               if (!g || types[g.from] !== "question" || typeof g.via !== "string" || g.via.indexOf("Rests on.") !== 0) return;
               (rests[g.from] = rests[g.from] || []).push({ id: g.to, type: types[g.to] || null });
@@ -1328,6 +1328,20 @@
         menu(groups, rows, 0);
         var picked = introPick.questions.map(function(q){ return [q]; });
         if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
+        // What the chat answers from, under the lockup: the core the model is written in and the
+        // model at its commit, each linked to exactly that on GitHub.
+        if (f.versions) {
+          var v = f.versions, t2 = strings(langNow()), line = el("span", "rbchat-versions");
+          var words = (v.core ? t2.versions : t2.versionsModel).split(/(\{core\}|\{sha\})/);
+          words.forEach(function(w){
+            if (w === "{core}") { var a1 = el("a", null, v.core); a1.href = "https://github.com/" + v.repo + "/tree/" + v.commit + "/meta/core"; line.appendChild(a1); }
+            else if (w === "{sha}") { var a2 = el("a", null, v.sha); a2.href = "https://github.com/" + v.repo + "/tree/" + v.commit; line.appendChild(a2); }
+            else if (w) line.appendChild(document.createTextNode(w));
+          });
+          var word = introEl.querySelector(".rbchat-word");
+          if (word) word.appendChild(line); else introEl.insertBefore(line, introEl.querySelector(".rbchat-hello").nextSibling);
+          line.classList.add("rbchat-on");
+        }
         // A restored conversation has moved past the intro: its menus are spent, and the rows a
         // number picks stay those of the menu after the last answer.
         if (messages.length) spendIntro(); else { menuRows = rows.concat(picked).map(function(r){ return r[0]; }); keysLine(); }
