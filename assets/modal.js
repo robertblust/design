@@ -5,17 +5,19 @@
 // No page links this file: chat.js and stage.js fetch it from beside themselves on the first
 // open, and it links modal.css from beside itself, so a visitor who opens nothing loads neither.
 //
-//   rbModal.open({ key, kind, title, body, controls, opener, onClose }) → { el, title(text), close() }
-//   rbModal.labels()                   every close relabeled in the page's language
+//   rbModal.open({ key, kind, title, body, controls, opener, onClose }) → { el, showing(), title(text), close() }
+//   rbModal.labels()                   the close relabeled in the page's language
 //   rbModal.ready                      settles once modal.css has arrived
 //
+// There is one modal at a time. An open while the modal is shown replaces what it shows, the
+// graph opened from a node of a picture's full screen, so one close always ends it; the handle
+// `open` returns speaks for that showing only, and `showing()` says whether it still is.
 // `body` is a node or a list of them. A node that stands somewhere on the page is moved in, a
-// comment left where it stood, and moved back in front of that comment on close, so it lands
-// exactly where it was. A node that stands nowhere, made for the modal, stays in it. `key`
-// names a modal that is kept and reused: the graph's iframe lives in one for the page's life,
-// since moving an iframe reloads it. Two modals may be open at once, the graph over a picture,
-// and each is addressed by the handle `open` returns. The close's words are the caller's, set
-// on `window.rbModalWords` as `{ en, de }`, or these.
+// comment left where it stood, and moved back in front of that comment when it is closed or
+// replaced, so it lands exactly where it was. A node that stands nowhere, made for the modal,
+// is dropped then, unless `key` names it: a keyed node stays in the modal, hidden, to be shown
+// again, since the graph's iframe would reload if it moved. The close's words are the caller's,
+// set on `window.rbModalWords` as `{ en, de }`, or these.
 (function(){
   if (window.rbModal) return;
 
@@ -39,7 +41,7 @@
 
   // ─── The page behind ──────────────────────────────────────────────────────────────────────
   // The dimmed page says the modal has the attention, so the page does not scroll under it:
-  // the root is held while any modal is open, and given back its place when the last one closes.
+  // the root is held while the modal is open, and given back its place when it closes.
   // A page that shows a scrollbar keeps the room it took, so the page does not shift sideways
   // when the bar goes; a page drawn with overlay scrollbars has no room to keep.
   var held = 0, was = null;
@@ -60,78 +62,99 @@
   }
 
   // ─── The modal ────────────────────────────────────────────────────────────────────────────
-  var all = [], keyed = {}, count = 0;
-  function label(m){ var w = closeWord(); m.x.setAttribute("aria-label", w); m.x.setAttribute("data-tip", w); }
-  function labels(){ all.forEach(label); }
+  // One dialog for the page, made on the first open. What it shows at a time is a showing: an
+  // open while it is shown replaces the showing rather than stacking a second modal, so there
+  // is always one modal and one close. The showing replaced gives back what it took, as a
+  // close would, and hears its onClose; the page stays held and the dialog stays open.
+  var d = null, now = null, opener = null, count = 0;
+  function label(){ if (d) { var w = closeWord(); d.x.setAttribute("aria-label", w); d.x.setAttribute("data-tip", w); } }
+  function labels(){ label(); }
   if (window.MutationObserver) new MutationObserver(labels).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
-  function make(key){
-    var m = { key: key || null, marks: [], onClose: null, opener: null, shown: false };
-    m.el = document.createElement("dialog"); m.el.className = "rbmodal";
+  function make(){
+    d = {};
+    d.el = document.createElement("dialog"); d.el.className = "rbmodal";
     // A container, not a control: showModal() would otherwise focus the ×, and a page nobody
     // has clicked yet paints that focus as a ring, so the first thing seen is the way out, lit.
-    m.el.tabIndex = -1;
+    d.el.tabIndex = -1;
     var head = document.createElement("div"); head.className = "rbmodal-head";
-    m.title = document.createElement("span"); m.title.className = "rbmodal-title"; m.title.id = "rbmodal-title-" + (++count);
-    m.controls = document.createElement("div"); m.controls.className = "rbmodal-controls";
-    m.x = document.createElement("button"); m.x.type = "button"; m.x.className = "rbmodal-close"; m.x.textContent = "×";
-    m.body = document.createElement("div"); m.body.className = "rbmodal-body";
-    head.appendChild(m.title); head.appendChild(m.controls); head.appendChild(m.x);
-    m.el.appendChild(head); m.el.appendChild(m.body);
-    m.el.setAttribute("aria-labelledby", m.title.id);
-    // Every way out, the ×, Escape, the backdrop and the handle, closes and settles at once, so
+    d.title = document.createElement("span"); d.title.className = "rbmodal-title"; d.title.id = "rbmodal-title-" + (++count);
+    d.controls = document.createElement("div"); d.controls.className = "rbmodal-controls";
+    d.x = document.createElement("button"); d.x.type = "button"; d.x.className = "rbmodal-close"; d.x.textContent = "×";
+    d.body = document.createElement("div"); d.body.className = "rbmodal-body";
+    head.appendChild(d.title); head.appendChild(d.controls); head.appendChild(d.x);
+    d.el.appendChild(head); d.el.appendChild(d.body);
+    d.el.setAttribute("aria-labelledby", d.title.id);
+    // Every way out, the ×, Escape, the backdrop and a handle, closes and settles at once, so
     // whatever the modal took is back in its place the moment the modal is gone. Escape is
     // taken from the browser for that: its own close lands a task later.
-    m.x.addEventListener("click", function(){ shut(m); });
+    d.x.addEventListener("click", shut);
     // A click on the backdrop lands on the dialog itself, nothing else being there to hit.
-    m.el.addEventListener("click", function(ev){ if (ev.target === m.el) shut(m); });
-    m.el.addEventListener("cancel", function(ev){ ev.preventDefault(); shut(m); });
+    d.el.addEventListener("click", function(ev){ if (ev.target === d.el) shut(); });
+    d.el.addEventListener("cancel", function(ev){ ev.preventDefault(); shut(); });
     // Any other close still settles, once the browser says so, unless the modal was opened again
     // in the meantime.
-    m.el.addEventListener("close", function(){ if (!m.el.open) settle(m); });
-    document.body.appendChild(m.el); all.push(m); label(m);
-    return m;
+    d.el.addEventListener("close", function(){ if (!d.el.open) settle(); });
+    document.body.appendChild(d.el); label();
   }
 
-  function shut(m){ if (m.el.open) m.el.close(); settle(m); }
+  // A showing gives back what it took: a node that stood on the page goes back in front of the
+  // comment left where it stood; a node made for the modal stays in it, hidden, when it has a
+  // key to be shown by again, the graph's frame, which a move would reload, and goes otherwise.
+  function giveBack(sh){
+    sh.nodes.forEach(function(n){
+      var mark = sh.marks.get(n);
+      if (mark) { if (mark.parentNode) { mark.parentNode.insertBefore(n, mark); mark.parentNode.removeChild(mark); } }
+      else if (sh.key) n.classList.add("rbmodal-away");
+      else if (n.parentNode === d.body) d.body.removeChild(n);
+    });
+    var then = sh.onClose; sh.onClose = null;
+    if (then) then();
+  }
+
+  function shut(){ if (d && d.el.open) d.el.close(); settle(); }
 
   // Everything the modal took is given back: the nodes to their places, the page its scrolling,
-  // the caller its turn, and the focus to what opened it. Once per showing.
-  function settle(m){
-    if (!m.shown) return;
-    m.marks.forEach(function(p){ if (p[1].parentNode) { p[1].parentNode.insertBefore(p[0], p[1]); p[1].parentNode.removeChild(p[1]); } });
-    m.marks = []; m.shown = false; release();
-    var then = m.onClose, back = m.opener; m.onClose = null; m.opener = null;
-    if (then) then();
+  // the caller its turn, and the focus to what opened the modal first. Once per opening.
+  function settle(){
+    if (!now) return;
+    var sh = now; now = null;
+    giveBack(sh); release();
+    var back = opener; opener = null;
     if (back && back.focus && document.documentElement.contains(back)) back.focus({ preventScroll: true });
-    // A modal made for one showing goes with it; a keyed one waits for its next.
-    if (!m.key) { if (m.el.parentNode) m.el.parentNode.removeChild(m.el); all.splice(all.indexOf(m), 1); }
   }
 
   function open(o){
     o = o || {};
-    var m = o.key && keyed[o.key] ? keyed[o.key] : make(o.key);
-    if (o.key) keyed[o.key] = m;
-    // What the modal holds, named on it, so a page's rules and its tests can tell two apart.
-    m.el.className = "rbmodal" + (o.kind ? " rbmodal-" + o.kind : "");
+    if (!d) make();
+    var same = now && o.key && now.key === o.key;
+    if (now && !same) giveBack(now);
     // The page's place is taken before anything leaves it, since what leaves shifts it.
-    var first = !m.shown;
-    if (first) { m.shown = true; hold(); }
-    m.title.textContent = o.title || "";
-    if (o.controls && o.controls.parentNode !== m.controls) { m.controls.textContent = ""; m.controls.appendChild(o.controls); }
-    else if (!o.controls && !o.key) m.controls.textContent = "";
+    var first = !now;
+    if (first) { hold(); opener = o.opener || document.activeElement; }
+    var sh = same ? now : { key: o.key || null, nodes: [], marks: new Map(), onClose: null };
+    now = sh;
+    // What the modal holds, named on it, so a page's rules and its tests can tell two apart.
+    d.el.className = "rbmodal" + (o.kind ? " rbmodal-" + o.kind : "");
+    d.title.textContent = o.title || "";
+    if (o.controls) { if (o.controls.parentNode !== d.controls) { d.controls.textContent = ""; d.controls.appendChild(o.controls); } }
+    else if (!same) d.controls.textContent = "";
     [].concat(o.body || []).forEach(function(n){
-      if (!n || n.parentNode === m.body) return;
-      if (n.parentNode) { var mark = document.createComment("rbmodal"); n.parentNode.insertBefore(mark, n); m.marks.push([n, mark]); }
-      m.body.appendChild(n);
+      if (!n) return;
+      if (sh.nodes.indexOf(n) < 0) sh.nodes.push(n);
+      if (n.parentNode === d.body) { n.classList.remove("rbmodal-away"); return; }
+      if (n.parentNode) { var mark = document.createComment("rbmodal"); n.parentNode.insertBefore(mark, n); sh.marks.set(n, mark); }
+      d.body.appendChild(n);
     });
-    m.onClose = o.onClose || null;
-    m.opener = o.opener || document.activeElement;
-    if (first) { m.el.showModal(); m.el.focus({ preventScroll: true }); }
+    sh.onClose = o.onClose || null;
+    if (!d.el.open) { d.el.showModal(); d.el.focus({ preventScroll: true }); }
+    // A handle speaks for its own showing only: once another has replaced it, it neither
+    // retitles nor closes what the modal shows now.
     return {
-      el: m.el,
-      title: function(t){ m.title.textContent = t; },
-      close: function(){ shut(m); }
+      el: d.el,
+      showing: function(){ return now === sh && d.el.open; },
+      title: function(t){ if (now === sh) d.title.textContent = t; },
+      close: function(){ if (now === sh) shut(); }
     };
   }
 
