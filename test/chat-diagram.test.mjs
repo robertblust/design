@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { renderPicture } from "../lib/render/team.mjs";
+import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
@@ -21,7 +22,7 @@ const PAGE = `<!doctype html><html lang="en" data-theme="dark"><head><meta chars
 :root{--ground:#0C0E13;--raise:#171A21;--rule:#232833;--ink:#EFEDE8;--dim:#8A8B86;--c-mid:#7FA3D8;--press:#1b2231;--deck-drop:rgba(0,0,0,.4)}
 :root[data-theme="light"]{--ground:#FAF9F5;--raise:#F2F0EA;--rule:#DFDCD3;--ink:#16181D;--dim:#5F6058;--c-mid:#3A6DA6;--press:#E7ECF4}
 body{background:var(--ground);color:var(--ink)}
-</style><link rel="stylesheet" href="/chat.css"></head><body><p>A page.</p>
+</style><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head><body><p>A page.</p>
 <script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
 
 // A page built with a picture of its own, as the team page is: the figure writeTeam writes, far

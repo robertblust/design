@@ -1,4 +1,4 @@
-  /* ─── design tokens · v13 · {{variant}} ───────────────────────────────
+  /* ─── design tokens · v14 · {{variant}} ───────────────────────────────
      These sites share no stylesheet by design — a deck has to open from
      file:// — so this block is a copy, generated from @robertblust/design.
      Editing it here has no effect: the next `npm run design` overwrites it
@@ -71,6 +71,8 @@
        recess inside it — the aluminum body, lit. --warn follows for the same reason: it
        is deck-only chrome that must not be left for a page to restate. */
     --slab:#EDEAE2; --warn:#BC3924;
+    /* The terminal's light colors, the pair of the dark ones below. */
+    --t-card:#F3F1EB; --t-bg:#FDFCF9; --t-top:#EFECE5; --t-dot:#D6D1C6; --t-ink:#1D232C; --t-dim:#676152; --t-accent:#3A6DA6; --t-strong:#0C0E13; --t-good:#2E7A45; --t-bad:#B3412E; --t-line:#E3DFD6; --t-sel:#E7ECF4; --t-edge:#CFC9BC;
   }
   :root{
     --ground:#0C0E13; --raise:#171A21; --rule:#232833;
@@ -98,4 +100,7 @@
        dark, and so does the slab it sits in. 1.11:1 against --lcd is not a mistake here —
        both are near-black and the recess reads through the box-shadow, not raw contrast. */
     --slab:#16181d; --warn:#e0705e;
+    /* The terminal's own colors, which the chat panel and the one modal read: a terminal is
+       not a page surface, so these are not the page's tokens but a set of their own. */
+    --t-card:#141D29; --t-bg:#0E141C; --t-top:#161E29; --t-dot:#2B3645; --t-ink:#D5DCE6; --t-dim:#8793A3; --t-accent:#7FA3D8; --t-strong:#FFFFFF; --t-good:#86C79A; --t-bad:#E0705E; --t-line:#243041; --t-sel:#18263A; --t-edge:#2B3645;
   /* ─── end design tokens ─────────────────────────────────────────────── */

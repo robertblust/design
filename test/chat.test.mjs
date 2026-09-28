@@ -849,7 +849,9 @@ test("the versions line and the graph's head exist in both languages", () => {
 const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 test("the answer card keeps the answer's text, links and rail readable in both palettes", () => {
-  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  // The terminal's colors are the family's tokens, which the chat and the one modal both read.
+  assert.doesNotMatch(fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8"), /--t-bg:/, "chat.css still defines the terminal's colors itself");
+  const css = fs.readFileSync(path.join(PKG, "blocks", "tokens.css"), "utf8");
   const blocks = [...css.matchAll(/--t-card:(#[0-9A-Fa-f]{6})[^}]*/g)].map((m) => m[0]);
   assert.equal(blocks.length >= 2, true, "the card is not defined in both palettes");
   for (const b of blocks) {

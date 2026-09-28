@@ -9,16 +9,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { modelPage, stageFiles } from "./fixtures/stage-page.mjs";
+import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ID_A = "concepts/guest", ID_B = "concepts/merge";
 const PICTURE = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "diagrams.json"), "utf8")).typed;
 PICTURE.nodes[0].id = ID_A; PICTURE.nodes[0].title = "Guest";
-const CHAT = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+const CHAT = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head>
 <body><p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
 // A page of the site with a plain link into the graph, as a timeline card writes one, with the
 // chat's tag naming an endpoint or not; and a link on the model page itself.
-const PLAIN = (chat) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+const PLAIN = (chat) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head>
 <body><p>A card: <a id="plain" href="../model/?stage=expanded#${ID_A}">Guest</a></p><script src="/chat.js" ${chat ? 'data-chat="/chat" ' : ""}data-model="/model/" defer></script></body></html>`;
 const SELF = `<a id="self" href="/model/?stage=expanded#${ID_B}">Merge</a>`;
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");

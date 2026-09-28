@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { TERMINAL } from "./terminal.mjs";
 
 const PKG = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 export const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
@@ -16,7 +17,7 @@ body{background:var(--ground);color:var(--ink);margin:0}`;
 export function modelPage({ chat = false, extra = "" } = {}) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <script>${BOOT}</script>
-<style>${TOKENS}</style>
+<style>${TOKENS} ${TERMINAL}</style>
 <link rel="stylesheet" href="/stage.css">${chat ? '<link rel="stylesheet" href="/chat.css">' : ""}
 <link rel="preload" as="fetch" href="/model.json" data-stage crossorigin></head>
 <body><header id="siteheader"><p>Header</p></header>
