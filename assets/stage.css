@@ -518,8 +518,9 @@
    drawn. Visibility rather than display, because the stage's dialog sits inside the page's own
    sections and a hidden ancestor would hide it too; visibility is inherited and taken back by the
    dialog alone, whatever a site's page is made of. The dialog fills the frame, with no backdrop,
-   since the frame is already a dialog; the expand button has nothing to do there. */
+   since the frame is already a dialog. The expand button has nothing to do there, and the close is
+   the chat dialog's own, so the stage's × stands down; Escape inside the frame still closes. */
 :root[data-embed] body{visibility:hidden;overflow:hidden}
 :root[data-embed] #stagemodal{visibility:visible;box-sizing:border-box;width:100vw;height:100vh;max-width:none;max-height:none;margin:0;border:0;border-radius:0}
 :root[data-embed] #stagemodal::backdrop{background:none}
-:root[data-embed] #expand{display:none}
+:root[data-embed] #expand, :root[data-embed] #modalclose{display:none}

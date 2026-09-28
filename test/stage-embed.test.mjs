@@ -45,15 +45,16 @@ test("an embedded page shows the expanded stage alone, focused where its address
   assert.equal(await shown(f, "#sitefooter"), false, "the page's footer shows");
   assert.equal(await shown(f, "#fig"), true, "the stage does not show");
   assert.equal(await f.$eval("#expand", (b) => getComputedStyle(b).display), "none");
-  assert.equal(await f.$eval("#modalclose", (b) => { const r = b.getBoundingClientRect(); return r.right <= innerWidth && r.bottom <= innerHeight; }), true, "the stage's × falls outside the frame");
+  assert.equal(await f.$eval("#stagemodal", (d) => { const r = d.getBoundingClientRect(); return r.right <= innerWidth && r.bottom <= innerHeight; }), true, "the stage falls outside the frame");
   assert.equal(await pathOf(f), "concepts / guest");
   assert.equal(await f.evaluate(() => !!document.querySelector(".rbchat-open")), false);
   await close();
 });
 
-test("the stage's × and Escape ask the parent to close, and leave the stage open", async () => {
+test("the stage's × stands down, and its close and Escape ask the parent to close, leaving the stage open", async () => {
   const { p, f, close } = await parent();
-  await f.click("#modalclose");
+  assert.equal(await f.$eval("#modalclose", (b) => getComputedStyle(b).display), "none", "the stage shows a second close");
+  await f.$eval("#modalclose", (b) => b.click());
   await p.waitForFunction(() => window.got.filter((m) => m.type === "rb-graph-close").length === 1);
   assert.equal(await f.$eval("#stagemodal", (d) => d.open), true);
   await f.focus("#stagemodal");

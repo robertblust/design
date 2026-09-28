@@ -81,7 +81,7 @@ test("a cite title and a picture's node open it too, and a second open moves the
   await close();
 });
 
-test("the frame's × and Escape close the dialog, focus goes back to the link, and the chat page's history is untouched", async () => {
+test("the dialog's × and Escape in the graph close it, focus goes back to the link, and the chat page's history is untouched", async () => {
   const { p, close } = await answered();
   const before = await p.evaluate(() => history.length);
   await p.click(nameLink);
@@ -92,12 +92,14 @@ test("the frame's × and Escape close the dialog, focus goes back to the link, a
     await f.click("#fig g.n:not(.focus):not(.ancestor) >> nth=0");
     await f.waitForFunction((w) => document.getElementById("path").textContent !== w, was);
   }
-  await f.click("#modalclose");
+  await p.click(".rbchat-graph-close");
   await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
   assert.equal(await p.evaluate(() => history.length), before, "the graph wrote to the chat page's history");
   assert.equal(await p.evaluate(() => document.activeElement && document.activeElement.textContent), "Guest", "the focus did not go back to the link");
   await p.click(nameLink);
   await p.waitForSelector("dialog.rbchat-graph[open]");
+  // Escape where the visitor's focus is, in the graph itself: the stage asks the chat to close.
+  await frame(p).focus("#stagemodal");
   await p.keyboard.press("Escape");
   await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
   await close();
