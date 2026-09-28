@@ -78,6 +78,23 @@
       follow: { schema: "Show me the schema of {title} ({type})", neighbors: "Show me the neighbors of {title}" },
       cut: "… the answer stopped at its length limit.",
       fresh: "New conversation",
+      // The terminal: the intro, the prompt, the spinner, the head of a finished answer, and
+      // the keys and commands the command line takes. {name} is the lockup's text, {host} the
+      // page's own host.
+      hello: ["Hello. I answer from {name}’s model, and link", "every entity I name back to where it is written."],
+      helloHost: ["Hello. I answer from the model of {host}, and link", "every entity I name back to where it is written."],
+      sub: "chat · {host}", bar: "ask · {host}",
+      prompt: "Type a question, a number, or /help",
+      asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
+      keys: { send: "enter send", last: "↑ last question", pick: "1-{n} pick", help: "/help" },
+      help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["1-{n}", "pick from the menu above"], ["↑", "your last question back into the line"]],
+      tryLabel: "Try",
+      try: {
+        metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
+        process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
+        list: "List {list} as a table", listGets: "one row each, every name a link into the model",
+        lists: { kpi: "the KPIs", role: "the roles", product: "the products", decision: "the decisions", value: "the values" }
+      },
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
@@ -106,6 +123,20 @@
       follow: { schema: "Zeig mir das Schema von {title} ({type})", neighbors: "Zeig mir die Nachbarn von {title}" },
       cut: "… die Antwort endete an ihrer Längengrenze.",
       fresh: "Neues Gespräch",
+      hello: ["Hallo. Ich antworte aus dem Modell von {name}", "und verlinke jede Entität, die ich nenne."],
+      helloHost: ["Hallo. Ich antworte aus dem Modell von {host}", "und verlinke jede Entität, die ich nenne."],
+      sub: "Chat · {host}", bar: "fragen · {host}",
+      prompt: "Frage, Nummer oder /help tippen",
+      asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
+      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "1-{n} wählen", help: "/help" },
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["1-{n}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
+      tryLabel: "Probieren Sie",
+      try: {
+        metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
+        process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
+        list: "Liste {list} als Tabelle", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
+        lists: { kpi: "die KPIs", role: "die Rollen", product: "die Produkte", decision: "die Entscheidungen", value: "die Werte" }
+      },
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
@@ -642,7 +673,57 @@
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed };
+  // ─── The terminal ─────────────────────────────────────────────────────────────────────────
+  // The lockup the intro opens on is the page's own, as its header draws it: every site writes
+  // `<a class="brand"><svg>…</svg><b>Company<span>Graph</span></b></a>`, so the tag needs no
+  // attribute to name it. The accent is the span; the first half is what comes before it, its
+  // trailing space kept, since blust.ch writes "Robert <span>Blust</span>".
+  function lockupOf(doc){
+    var a = doc && doc.querySelector && doc.querySelector("header a.brand");
+    var svg = a && a.querySelector("svg"), b = a && a.querySelector("b");
+    if (!svg || !b) return null;
+    var span = b.querySelector("span"), accent = span ? span.textContent : "";
+    return { mark: svg, first: b.textContent.slice(0, b.textContent.length - accent.length), accent: accent };
+  }
+  // The three words the command line keeps for itself. They never reach the host.
+  function command(text){
+    var t = String(text == null ? "" : text).trim().toLowerCase();
+    return t === "/new" || t === "/clear" ? "new" : t === "/help" ? "help" : null;
+  }
+  // A number alone picks that row of the menu standing last, as the tooling takes "Pick 1-5";
+  // a number with no such row, or anything else, is sent as the visitor typed it.
+  function picked(text, rows){
+    var t = String(text == null ? "" : text).trim();
+    if (!/^\d{1,2}$/.test(t) || !rows) return t;
+    var i = +t - 1;
+    return i >= 0 && i < rows.length ? rows[i] : t;
+  }
+  // The Try rows: what the chat is built to answer, each with what comes back. The meta-model
+  // always; a process only where the model holds one, picked at random; a list only of a kind
+  // the model holds at least three of, the first in this order, so no row names what is not there.
+  var LIST_TYPES = ["kpi", "role", "product", "decision", "value"];
+  function tryRows(facts, lang, random){
+    var t = strings(lang).try, rows = [[t.metaModel, t.metaModelGets]];
+    var ps = facts && Array.isArray(facts.processes) ? facts.processes : [];
+    if (ps.length) rows.push([t.process.replace("{name}", pick(ps, 1, random)[0]), t.processGets]);
+    var counts = facts && facts.counts || {};
+    for (var i = 0; i < LIST_TYPES.length; i++) {
+      if ((counts[LIST_TYPES[i]] || 0) >= 3) { rows.push([t.list.replace("{list}", t.lists[LIST_TYPES[i]]), t.listGets]); break; }
+    }
+    return rows;
+  }
+  // The commit the answer was read at: the first cite whose URL names one.
+  function commitOf(cites){
+    for (var i = 0; cites && i < cites.length; i++) {
+      var m = cites[i] && typeof cites[i].url === "string" && /\/blob\/([0-9a-f]{7,40})\//.exec(cites[i].url);
+      if (m) return m[1].slice(0, 7);
+    }
+    return null;
+  }
+  // The spinner's count: whole seconds, and nothing in the first, so a quick answer shows none.
+  function seconds(ms){ var n = Math.floor(ms / 1000); return n > 0 ? n + "s" : ""; }
+
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;

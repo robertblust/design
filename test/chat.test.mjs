@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -707,4 +707,92 @@ test("a conversation has no length limit, and only the tail the server reads is 
   assert.doesNotMatch(src, /TURNS|fullNote|rbchat-full/, "a conversation still stops at a length");
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
   assert.doesNotMatch(css, /rbchat-full|rbchat-fresh/, "the full note's style is still shipped");
+});
+
+// ─── The terminal's pure parts ─────────────────────────────────────────────────────────────
+// A stub of the header each site writes: `<a class="brand"><svg>…</svg><b>Company<span>Graph</span></b></a>`.
+function brandDoc(first, accent){
+  const svg = { tagName: "svg" };
+  const span = accent === null ? null : { textContent: accent };
+  const b = { textContent: first + (accent || ""), querySelector: (q) => q === "span" ? span : null };
+  const a = { querySelector: (q) => q === "svg" ? svg : q === "b" ? b : null };
+  return { svg, doc: { querySelector: (q) => q === "header a.brand" ? a : null } };
+}
+
+test("the lockup is the header's own mark and name, split where the page splits it", () => {
+  const cg = brandDoc("Company", "Graph");
+  assert.deepEqual(lockupOf(cg.doc), { mark: cg.svg, first: "Company", accent: "Graph" });
+  const rb = brandDoc("Robert ", "Blust");
+  assert.deepEqual(lockupOf(rb.doc), { mark: rb.svg, first: "Robert ", accent: "Blust" });
+  const plain = brandDoc("Acme", null);
+  assert.deepEqual(lockupOf(plain.doc), { mark: plain.svg, first: "Acme", accent: "" });
+});
+
+test("a page without a brand in its header has no lockup", () => {
+  assert.equal(lockupOf({ querySelector: () => null }), null);
+  assert.equal(lockupOf({}), null);
+});
+
+test("only the three slash commands are commands, whatever their case and spaces", () => {
+  assert.equal(command("/new"), "new");
+  assert.equal(command("  /CLEAR "), "new");
+  assert.equal(command("/help"), "help");
+  for (const t of ["/newer", "new", "/ new", "/help me", "", null, undefined]) assert.equal(command(t), null, String(t));
+});
+
+test("a bare number picks its row, and anything else is sent as typed", () => {
+  const rows = ["Show me the meta-model", "Walk me through the Answering process", "What is an owner?"];
+  assert.equal(picked("1", rows), rows[0]);
+  assert.equal(picked(" 3 ", rows), rows[2]);
+  assert.equal(picked("0", rows), "0");
+  assert.equal(picked("4", rows), "4");
+  assert.equal(picked("2", []), "2");
+  assert.equal(picked("2", null), "2");
+  assert.equal(picked("2 please", rows), "2 please");
+  assert.equal(picked("  What is an owner?  ", rows), "What is an owner?");
+});
+
+test("the Try rows are the meta-model, a process the model holds, and a list it holds three of", () => {
+  const facts = { processes: ["Answering"], counts: { role: 4, kpi: 5, product: 1 } };
+  assert.deepEqual(tryRows(facts, "en", () => 0), [
+    ["Show me the meta-model", "a diagram of the types and how they refer to each other"],
+    ["Walk me through the Answering process", "its steps as a flow, the loops back included"],
+    ["List the KPIs as a table", "one row each, every name a link into the model"]
+  ]);
+  assert.deepEqual(tryRows(facts, "de", () => 0).map((r) => r[0]),
+    ["Zeig mir das Meta-Modell", "Zeig mir den Prozess Answering Schritt für Schritt", "Liste die KPIs als Tabelle"]);
+});
+
+test("a model without a process or a long enough list leaves those rows out, and no model leaves the meta-model alone", () => {
+  assert.deepEqual(tryRows({ processes: [], counts: { kpi: 2, role: 3 } }, "en", () => 0).map((r) => r[0]),
+    ["Show me the meta-model", "List the roles as a table"]);
+  assert.deepEqual(tryRows(null, "en").map((r) => r[0]), ["Show me the meta-model"]);
+  assert.deepEqual(tryRows({}, "en").map((r) => r[0]), ["Show me the meta-model"]);
+});
+
+test("the commit is the first cite URL's blob segment, cut to seven, and no URL means none", () => {
+  assert.equal(commitOf([{ url: null }, { url: "https://github.com/o/r/blob/3f2a1c9e0b1d/x.md" }]), "3f2a1c9");
+  assert.equal(commitOf([{ url: "https://github.com/o/r/tree/main/x" }]), null);
+  assert.equal(commitOf([]), null);
+  assert.equal(commitOf(undefined), null);
+});
+
+test("the spinner's seconds are whole seconds, and none before the first", () => {
+  assert.equal(seconds(0), "");
+  assert.equal(seconds(999), "");
+  assert.equal(seconds(1000), "1s");
+  assert.equal(seconds(10400), "10s");
+});
+
+test("every new sentence exists in both languages", () => {
+  for (const lang of ["en", "de"]) {
+    const s = strings(lang);
+    for (const k of ["hello", "helloHost", "sub", "bar", "prompt", "asking", "answered", "model", "tryLabel"]) assert.ok(s[k], `${lang}.${k}`);
+    assert.equal(s.hello.length, 2);
+    assert.equal(s.helloHost.length, 2);
+    for (const k of ["send", "last", "pick", "help"]) assert.ok(s.keys[k], `${lang}.keys.${k}`);
+    assert.equal(s.help.length, 4);
+    for (const k of ["metaModel", "metaModelGets", "process", "processGets", "list", "listGets"]) assert.ok(s.try[k], `${lang}.try.${k}`);
+    for (const t of ["kpi", "role", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
+  }
 });
