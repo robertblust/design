@@ -57,6 +57,9 @@
 //   rbChat.commitOf(cites)             the commit the answer was read at, or null
 //   rbChat.seconds(ms)                 the spinner's count
 //   rbChat.rangeOf(n)                  the rows a number picks, as the keys line names them
+//   rbChat.versionsOf(file)            the model file's core, commit and repository, or null
+//   rbChat.graphHref(model, id)        the embedded graph's address
+//   rbChat.entityOf(href, model)       the entity a link into the model names, or null
 //
 // An empty conversation, once the panel is shown, offers three questions as a way in in its
 // intro, three of the site's own model's entities of type `question`, picked at random for that
@@ -100,6 +103,8 @@
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
       help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
+      versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
+      graph: { head: "graph · {title}", page: "model page ↗", close: "Close the graph" },
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
@@ -142,6 +147,8 @@
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
+      versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
+      graph: { head: "Graph · {title}", page: "Modellseite ↗", close: "Graph schliessen" },
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
@@ -449,6 +456,23 @@
     if (cut >= 0) base = base.slice(0, cut);
     return base + (base.indexOf("?") >= 0 ? "&" : "?") + "stage=expanded#" + id;
   }
+  // The graph's own address: the model link, embedded, so the page draws the stage alone.
+  function graphHref(model, id){ return link(model, id).replace("?stage=expanded#", "?stage=expanded&embed#").replace("&stage=expanded#", "&stage=expanded&embed#"); }
+  // The entity a link into the model names, read back from the address link() wrote; null for
+  // any address that is not one, so a link to anywhere else is left to the browser.
+  function entityOf(href, model){
+    var base = model, cut = base.indexOf("#"); if (cut >= 0) base = base.slice(0, cut);
+    var at = String(href || ""), hash = at.indexOf("#");
+    if (hash < 0 || at.slice(0, hash) !== base + (base.indexOf("?") >= 0 ? "&" : "?") + "stage=expanded") return null;
+    var id = decodeURIComponent(at.slice(hash + 1));
+    return id || null;
+  }
+  // What the chat answers from, read from the model file it already fetched: the core the model
+  // is written in, and the model's repository at one commit.
+  function versionsOf(file){
+    if (!file || typeof file.commit !== "string" || !file.commit || typeof file.repo !== "string" || !file.repo) return null;
+    return { core: typeof file.core === "string" && file.core ? file.core : null, commit: file.commit, sha: file.commit.slice(0, 7), repo: file.repo };
+  }
 
   // Whether the cursor goes back to the input after an answer or a refusal. On a touch screen
   // focusing the input opens the keyboard over the answer the visitor is about to read, a
@@ -736,7 +760,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;

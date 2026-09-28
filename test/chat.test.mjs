@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -816,4 +816,31 @@ test("the pick range names the rows a number picks, and none when there are none
   assert.equal(rangeOf(0), "");
   assert.equal(rangeOf(1), "1");
   assert.equal(rangeOf(6), "1-6");
+});
+
+test("the versions are the model file's core, commit and repository, and none without a commit or a repository", () => {
+  assert.deepEqual(versionsOf({ commit: "1d1b4e646fe21686bf854e6b464cf94c9a34d3dd", repo: "robertblust/mental-model", core: "0.46.0" }),
+    { core: "0.46.0", commit: "1d1b4e646fe21686bf854e6b464cf94c9a34d3dd", sha: "1d1b4e6", repo: "robertblust/mental-model" });
+  assert.deepEqual(versionsOf({ commit: "1d1b4e646fe2", repo: "r/m" }), { core: null, commit: "1d1b4e646fe2", sha: "1d1b4e6", repo: "r/m" });
+  assert.equal(versionsOf({ repo: "r/m" }), null);
+  assert.equal(versionsOf({ commit: "abc1234" }), null);
+  assert.equal(versionsOf(null), null);
+  assert.deepEqual(versionsOf({ commit: "abc1234def", repo: "r/m", core: 46 }).core, null);
+});
+
+test("the graph's address is the model link with embed, and a model link gives back its entity", () => {
+  assert.equal(graphHref("/model/", "people/rob"), "/model/?stage=expanded&embed#people/rob");
+  assert.equal(graphHref("/", "identity"), "/?stage=expanded&embed#identity");
+  assert.equal(entityOf("/model/?stage=expanded#people/rob", "/model/"), "people/rob");
+  assert.equal(entityOf("https://example.org/model/?stage=expanded#x", "/model/"), null);
+  assert.equal(entityOf("/model/", "/model/"), null);
+  assert.equal(entityOf("/?stage=expanded#concepts/owner%20x", "/"), "concepts/owner x");
+});
+
+test("the versions line and the graph's head exist in both languages", () => {
+  assert.equal(strings("en").versions, "meta-model {core} · model {sha}");
+  assert.equal(strings("de").versions, "Meta-Modell {core} · Modell {sha}");
+  assert.equal(strings("en").versionsModel, "model {sha}");
+  assert.equal(strings("de").versionsModel, "Modell {sha}");
+  for (const l of ["en", "de"]) for (const k of ["head", "page", "close"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
 });
