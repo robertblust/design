@@ -105,7 +105,7 @@
       help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
-      graph: { head: "graph · {title}", page: "model page ↗", close: "Close the graph", failed: "The graph could not be drawn here; the model page has it." },
+      graph: { head: "graph · {title}", failed: "The graph could not be drawn here; the model page has it." },
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
@@ -114,6 +114,7 @@
       },
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
+      modalClose: "Close \u00b7 Esc",
       diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
@@ -149,7 +150,7 @@
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
-      graph: { head: "Graph · {title}", page: "Modellseite ↗", close: "Graph schliessen", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
+      graph: { head: "Graph · {title}", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
@@ -158,6 +159,7 @@
       },
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
+      modalClose: "Schliessen \u00b7 Esc",
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
@@ -795,8 +797,8 @@
   // The dialog Expand opens, the stage's own pattern (assets/stage.js `expand()`): one <dialog>,
   // made once per page, that a figure's picture box moves into and back out of — never a copy —
   // so the same element and the links Mermaid drew into it keep working on both sides of the move.
-  var modal = null, modalBody = null, modalCap = null, modalClose = null, modalFig = null, modalMark = null;
-  var zoomIn = null, zoomOut = null, zoomFit = null;
+  // The picture the one modal holds, its handle, and the zoom controls it carries in its head.
+  var modalFig = null, modalHandle = null, zoomBar = null, zoomIn = null, zoomOut = null, zoomFit = null;
 
   function loadMermaid(){
     if (window.mermaid) return Promise.resolve(window.mermaid);
@@ -823,7 +825,8 @@
     // inside it: a theme change redraws into the box wherever it currently stands.
     var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
-      m.initialize(mermaidConfig(tokenReader(fig.isConnected ? fig : null)));
+      // The colors are read where the box stands: in the modal, the terminal's; on the page, the page's.
+      m.initialize(mermaidConfig(tokenReader(box.isConnected ? box : null)));
       // The width the picture is drawn for: an answer's is the log's, which the chat gives it,
       // and a page's the figure's own.
       return m.render(id, oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth));
@@ -868,81 +871,66 @@
     if (failed) failed.textContent = s.failed;
     // The dialog holds this figure's box while it is open, so a language switch has to reach
     // its caption and its × exactly as it reaches the figure's own.
-    if (modal && modalFig === fig) {
-      modalCap.textContent = caption;
-      // The note names the key that also closes the dialog, as the stage's own × does, so a
-      // visitor who reads it before clicking learns the shortcut too.
-      modalClose.setAttribute("aria-label", s.shut); modalClose.setAttribute("data-tip", s.shut + " · Esc");
-      // Each zoom control names the key that does the same, the way the × names Escape.
+    if (modalHandle && modalFig === fig) {
+      modalHandle.title(caption);
+      // Each zoom control names the key that does the same, the way the modal's × names Escape.
       zoomIn.setAttribute("aria-label", s.zoomIn); zoomIn.setAttribute("data-tip", s.zoomIn + " · +");
       zoomOut.setAttribute("aria-label", s.zoomOut); zoomOut.setAttribute("data-tip", s.zoomOut + " · −");
       zoomFit.textContent = s.fit; zoomFit.setAttribute("aria-label", s.fitTip); zoomFit.setAttribute("data-tip", s.fitTip + " · 0");
     }
   }
-  // Built once, on the first Expand, and reused by every figure on the page after that — only
-  // one picture can be looked at full size at a time, which is all a visitor needs.
-  function ensureModal(){
-    if (modal) return modal;
-    modal = el("dialog", "rbchat-modal");
-    var head = el("div", "rbchat-modal-head");
-    // The dialog names itself by the caption it holds, since a picture's Expand is the only
-    // way in: no other text sits above the box to give it a name of its own.
-    modalCap = el("span"); modalCap.id = "rbchat-modal-cap";
-    modal.setAttribute("aria-labelledby", "rbchat-modal-cap");
-    modalClose = el("button", "rbchat-modal-close"); modalClose.type = "button"; modalClose.textContent = "×";
-    modalClose.addEventListener("click", function(){ modal.close(); });
-    // showModal() focuses the first control it finds, which the zoom's − now precedes; the ×
-    // keeps that focus, as it had before the zoom came.
-    modalClose.autofocus = true;
-    // The zoom controls sit in the head beside the caption, the gestures' visible twin: a
-    // visitor who does not know a pinch or Ctrl and the wheel zoom still finds a way to.
-    var zoom = el("div", "rbchat-modal-zoom");
-    zoomOut = el("button", null, "−"); zoomIn = el("button", null, "+"); zoomFit = el("button", "rbchat-modal-fit");
-    [zoomOut, zoomIn, zoomFit].forEach(function(b){ b.type = "button"; zoom.appendChild(b); });
+  // The zoom controls, built once and carried in the one modal's head by whichever picture it holds.
+  function zoomControls(){
+    if (zoomBar) return zoomBar;
+    zoomBar = el("div", "rbchat-modal-zoom");
+    zoomOut = el("button", null, "\u2212"); zoomIn = el("button", null, "+"); zoomFit = el("button", "rbchat-modal-fit");
+    [zoomOut, zoomIn, zoomFit].forEach(function(b){ b.type = "button"; zoomBar.appendChild(b); });
     zoomOut.addEventListener("click", function(){ viewStep(1 / STEP_ZOOM); });
     zoomIn.addEventListener("click", function(){ viewStep(STEP_ZOOM); });
     zoomFit.addEventListener("click", function(){ viewFit(); });
-    head.appendChild(modalCap); head.appendChild(zoom); head.appendChild(modalClose);
-    modalBody = el("div", "rbchat-modal-body");
-    modal.appendChild(head); modal.appendChild(modalBody);
-    // Appended to document.body: the top layer a native dialog opens into needs no z-index to
-    // sit above a panel pinned to the corner of the same page.
-    document.body.appendChild(modal);
-    // A click on the backdrop lands with the dialog itself as the event target — nothing else
-    // is there to hit — which is what tells it apart from a click on the box it holds.
-    modal.addEventListener("click", function(ev){ if (ev.target === modal) modal.close(); });
-    modal.addEventListener("keydown", viewKey);
-    // One handler for every way the dialog closes — ×, Escape, backdrop click — because all
-    // three end in the native "close" event. The box goes back in front of the marker Expand
-    // left, which puts it exactly where it was whatever else the turn grew around it.
-    modal.addEventListener("close", function(){
-      var fig = modalFig;
-      if (fig && modalMark && modalMark.parentNode) {
-        modalMark.parentNode.insertBefore(fig.rbBox, modalMark);
-        modalMark.parentNode.removeChild(modalMark);
-      }
-      modalFig = null; modalMark = null;
-      viewDrop();
-      if (fig) labelFigure(fig);
-    });
-    return modal;
+    return zoomBar;
   }
+  // A picture's full screen is the family's one modal, fetched from beside this file the first
+  // time anything opens, like Mermaid. Its box moves in and back, the zoom rides in its head, and
+  // a page's own picture is drawn again in the terminal's colors while it is there and in the
+  // page's once it is back, so it never sits in the modal in colors that fight it.
+  var modalLoad = null;
+  function loadModal(){
+    window.rbModalWords = window.rbModalWords || { en: strings("en").modalClose, de: strings("de").modalClose };
+    // A modal another script has fetched, stage.js on the model page, is used once its
+    // stylesheet has arrived too, so a picture is fitted to the modal it will be seen in.
+    if (window.rbModal) return window.rbModal.ready.then(function(){ return window.rbModal; });
+    if (!modalLoad) modalLoad = new Promise(function(resolve, reject){
+      var sc = document.createElement("script"); sc.src = new URL("modal.js", tag.src).href;
+      sc.onload = function(){ if (window.rbModal) window.rbModal.ready.then(function(){ resolve(window.rbModal); }); else reject(new Error("modal.js set no rbModal")); };
+      // A failed fetch is not remembered: the next open tries again.
+      sc.onerror = function(){ modalLoad = null; reject(new Error("modal.js did not load")); };
+      document.head.appendChild(sc);
+    });
+    return modalLoad;
+  }
+  // One Expand at a time: a second press while the modal is still on its way is the same one.
+  var figPending = false;
   function expandFigure(fig){
-    ensureModal();
-    // A comment left where the box stood is not a claim about anything the page contains, so
-    // it cannot be wrong about where to put the box back, whatever else sits around it by then.
-    modalMark = document.createComment("rbchat-diagram");
-    fig.rbBox.parentNode.insertBefore(modalMark, fig.rbBox);
-    modalBody.appendChild(fig.rbBox);
-    modalFig = fig;
-    // An answer's picture keeps the terminal's colors when it is opened full screen, since
-    // Mermaid drew it from them; a page's own picture keeps the page's.
-    modal.classList.toggle("rbchat-term", !!(fig.closest && fig.closest(".rbchat")));
-    labelFigure(fig);
-    modal.showModal();
-    // A page's picture not yet scrolled to is drawn now, and the view waits for it.
-    if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); }
-    viewOpen(fig.rbBox);
+    if (figPending || modalFig) return;
+    figPending = true;
+    loadModal().then(function(M){
+      figPending = false;
+      var own = !(fig.closest && fig.closest(".rbchat"));
+      modalFig = fig;
+      modalHandle = M.open({ key: "diagram", kind: "diagram", title: diagramCaption(fig.rbDiagram, langNow()), body: fig.rbBox, controls: zoomControls(), opener: document.activeElement,
+        onClose: function(){
+          var was = modalFig; modalFig = null; modalHandle = null; viewDrop();
+          if (was) { if (own && !was.rbWaiting) drawFigure(was); labelFigure(was); }
+        } });
+      if (!modalHandle.el.rbZoomKeys) { modalHandle.el.rbZoomKeys = true; modalHandle.el.addEventListener("keydown", function(ev){ if (modalFig) viewKey(ev); }); }
+      labelFigure(fig);
+      // A page's picture not yet scrolled to is drawn now; a page's picture already drawn is
+      // drawn again, now in the modal's colors; an answer's picture is already in them.
+      if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); }
+      else if (own) drawFigure(fig);
+      viewOpen(fig.rbBox);
+    }, function(){ figPending = false; });
   }
 
   // ─── The zoom ─────────────────────────────────────────────────────────────────────────────
@@ -1162,20 +1150,22 @@
   var EMBEDDED = document.documentElement.hasAttribute("data-embed");
 
   // ─── The graph ────────────────────────────────────────────────────────────────────────────
-  // A link into the model opens the model page's own stage over the page, in a dialog like a
-  // picture's Expand, rather than taking the visitor to the page, on every page that loads this
-  // file, whether or not it offers the chat. The page is
-  // embedded: it draws its stage alone and keeps its history to itself (see stage.js), so the
-  // chat page's address and its Back stay the visitor's. The frame is made on the first open;
-  // a later open moves its focus by message, queued until the frame says it is ready.
-  var graph = null, graphFrame = null, graphTitle = null, graphPage = null, graphReady = false, graphQueue = null, graphOpener = null;
-  // The name of the place the graph stands on, which heads the dialog in the page's language,
+  // A link into the model opens the model page's own stage over the page, in the family's one
+  // modal, rather than taking the visitor to the page, on every page that loads this file,
+  // whether or not it offers the chat. The page is embedded: it draws its stage alone and keeps
+  // its history to itself (see stage.js), so the chat page's address and its Back stay the
+  // visitor's. The frame is made on the first open and lives in a keyed modal for the page's
+  // life, since moving an iframe reloads it; a later open moves its focus by message, queued
+  // until the frame says it is ready.
+  var graph = null, graphFrame = null, graphHandle = null, graphReady = false, graphQueue = null;
+  // The name of the place the graph stands on, which titles the modal in the page's language,
   // and the wait for a frame that never says it is ready: its model file failed, or is empty.
   var graphName = "", graphWait = null, GRAPH_WAIT = 6000, graphFailed = null;
   function setGraphTitle(name){
     graphName = name;
     var head = strings(langNow()).graph.head.replace("{title}", name);
-    graphTitle.textContent = head; graphFrame.setAttribute("title", head);
+    if (graphHandle) graphHandle.title(head);
+    if (graphFrame) graphFrame.setAttribute("title", head);
   }
   function graphFails(on){
     if (graphFailed) { graphFailed.parentNode.removeChild(graphFailed); graphFailed = null; }
@@ -1187,50 +1177,42 @@
   }
   function ensureGraph(){
     if (graph) return;
-    var s = strings(langNow());
-    graph = el("dialog", "rbchat-graph"); graph.setAttribute("aria-labelledby", "rbchat-graph-title");
-    var head = el("div", "rbchat-graph-head");
-    graphTitle = el("span", "rbchat-graph-title"); graphTitle.id = "rbchat-graph-title";
-    graphPage = el("a", "rbchat-graph-page", s.graph.page);
-    var shut = el("button", "rbchat-graph-close", "×"); shut.type = "button"; shut.setAttribute("aria-label", s.graph.close); shut.setAttribute("data-tip", s.graph.close + " · Esc");
-    shut.addEventListener("click", function(){ graph.close(); });
-    head.appendChild(graphTitle); head.appendChild(graphPage); head.appendChild(shut);
+    // What the modal holds for the graph: the frame, and the line that says when it failed.
+    graph = el("div", "rbchat-graph");
     graphFrame = el("iframe", "rbchat-graph-frame");
     // A frame that has loaded and still not said it is ready never will: its model file failed.
     graphFrame.addEventListener("load", function(){
       clearTimeout(graphWait);
       if (graphFrame.getAttribute("src") && !graphReady) graphWait = setTimeout(function(){ if (!graphReady) graphFails(true); }, GRAPH_WAIT);
     });
-    graph.appendChild(head); graph.appendChild(graphFrame);
-    graph.addEventListener("click", function(ev){ if (ev.target === graph) graph.close(); });
-    graph.addEventListener("close", function(){ if (graphOpener && graphOpener.focus) graphOpener.focus(); graphOpener = null; });
-    document.body.appendChild(graph);
+    graph.appendChild(graphFrame);
   }
   function lookOf(){ return { type: "rb-graph-look", theme: document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark", lang: langNow() }; }
   function tellGraph(m){ if (graphFrame && graphFrame.contentWindow) graphFrame.contentWindow.postMessage(m, location.origin); }
+  // Where the modal cannot be fetched, the link leads where it points, to the whole model page.
   function openGraph(id, title, opener){
-    ensureGraph();
-    var s = strings(langNow());
-    graphOpener = opener || document.activeElement;
-    setGraphTitle(title || id);
-    graphFails(false);
-    graphPage.href = link(MODEL, id);
-    if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
-    else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
-    else graphQueue = id;
-    if (!graph.open) graph.showModal();
-    // The keyboard goes into the graph on every open, so its keys walk the trail at once.
-    if (graphReady) graphFrame.focus();
+    loadModal().then(function(M){
+      ensureGraph();
+      graphHandle = M.open({ key: "graph", kind: "graph", title: "", body: graph, opener: opener || document.activeElement });
+      setGraphTitle(title || id);
+      graphFails(false);
+      if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
+      else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
+      else graphQueue = id;
+      // The keyboard goes into the graph on every open, so its keys walk the trail at once.
+      if (graphReady) graphFrame.focus();
+    }, function(){ location.href = link(MODEL, id); });
   }
+  function graphOpen(){ return !!(graphHandle && graphHandle.el.open); }
   window.addEventListener("message", function(ev){
     if (ev.origin !== location.origin || !graphFrame || ev.source !== graphFrame.contentWindow || !ev.data) return;
     if (ev.data.type === "rb-graph-ready") {
       graphReady = true; clearTimeout(graphWait); graphFails(false); tellGraph(lookOf());
       if (graphQueue) { tellGraph({ type: "rb-graph-focus", id: graphQueue }); graphQueue = null; }
-      if (graph && graph.open) graphFrame.focus();
+      if (graphOpen()) graphFrame.focus();
     }
     else if (ev.data.type === "rb-graph-at" && typeof ev.data.title === "string" && ev.data.title) setGraphTitle(ev.data.title);
-    else if (ev.data.type === "rb-graph-close" && graph && graph.open) graph.close();
+    else if (ev.data.type === "rb-graph-close" && graphOpen()) graphHandle.close();
   });
   if (window.MutationObserver) new MutationObserver(function(){ if (graphReady) tellGraph(lookOf()); })
     .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "lang"] });
@@ -1252,11 +1234,8 @@
   // The graph's words follow the page's language on a page with no chat to relabel them.
   function relabelGraph(){
     if (!graph) return;
-    var s = strings(langNow());
     if (graphName) setGraphTitle(graphName);
-    if (graphFailed) graphFailed.textContent = s.graph.failed;
-    graphPage.textContent = s.graph.page;
-    var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
+    if (graphFailed) graphFailed.textContent = strings(langNow()).graph.failed;
   }
   if (window.MutationObserver) new MutationObserver(relabelGraph).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
@@ -1565,7 +1544,7 @@
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
     if (!panel) return;
-    title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.close); closeBtn.textContent = "×";
+    title.textContent = s.bar.replace("{host}", location.host); panel.setAttribute("aria-label", s.title); closeBtn.setAttribute("aria-label", s.close); closeBtn.setAttribute("data-tip", s.modalClose); closeBtn.textContent = "×";
     input.placeholder = s.prompt; sendBtn.setAttribute("aria-label", s.send); keysLine();
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }

@@ -15,6 +15,9 @@
 // for "pages", which the site's language toggle swaps through t(). The entity card and every
 // date are rbCard's, from card.js, which a page loads before this file — or the first click
 // throws.
+// Where this file came from, read while it runs, since the family's one modal is fetched from
+// beside it the first time Expand opens it.
+var STAGE_SRC = document.currentScript && document.currentScript.src;
 function rbStage(data) {
   if (!data.entities) return;             // the artifact is empty until the site's build has written it
 
@@ -49,6 +52,7 @@ function rbStage(data) {
   // and re-render when <html lang> changes.
   var STR = {
     out:   { en:"refers to",   de:"Verweist auf" },
+    graphHead: { en:"graph \u00b7 {title}", de:"Graph \u00b7 {title}" },
     "in":  { en:"referred by", de:"Verwiesen von" },
     pages: { en:"pages",       de:"Seiten" },
     // the history control, which the script builds and so labels itself
@@ -780,13 +784,42 @@ function rbStage(data) {
     });
   }
 
+  // Expand opens the family's one modal, fetched from beside this file on the first open and
+  // used once its stylesheet has arrived, so the stage is fitted to the modal it will be seen
+  // in. The modal moves the path and the stage in and gives them back where they stood, titles
+  // itself by the focus, and keeps the page behind still. An embedded page has no modal of its
+  // own to open: it draws its stage in #stagemodal, filling the frame the chat's modal holds.
+  var modalLoad = null, modalHandle = null;
+  function loadModal(){
+    if (window.rbModal) return window.rbModal.ready.then(function(){ return window.rbModal; });
+    if (!modalLoad) modalLoad = new Promise(function(resolve, reject){
+      var sc = document.createElement("script"); sc.src = new URL("modal.js", STAGE_SRC || location.href).href;
+      sc.onload = function(){ if (window.rbModal) window.rbModal.ready.then(function(){ resolve(window.rbModal); }); else reject(new Error("modal.js set no rbModal")); };
+      // A failed fetch is not remembered: the next Expand tries again.
+      sc.onerror = function(){ modalLoad = null; reject(new Error("modal.js did not load")); };
+      document.head.appendChild(sc);
+    });
+    return modalLoad;
+  }
+  function graphTitle(n){ return t("graphHead").replace("{title}", n ? n.label : ""); }
+  // Where the modal cannot be fetched, the stage still expands, into the page's own dialog.
   function expand(){
+    if (EMBED) return expandEmbedded();
+    return loadModal().then(function(M){
+      if (modalHandle) return;
+      modalHandle = M.open({ key: "stage", kind: "graph", title: graphTitle(focused), body: [stageHead, stageEl], opener: expandBtn,
+        onClose: function(){ modalHandle = null; setCard(storedCard(), false); refit(); } });
+      // The stage has changed boxes, so it changes memories with it.
+      setCard(storedCard(), false);
+      refit();
+    }, function(){ if (!modalHandle && !modal.open) expandEmbedded(); });
+  }
+  function expandEmbedded(){
     // Drop the marker where the stage stands before taking it away, so close has somewhere
     // exact to put it back — in front of whatever followed it, not in front of the caption.
     stageHome.insertBefore(stageMark, stageHead);
     modal.append(stageHead, stageEl);
     modal.showModal();
-    // The stage has changed boxes, so it changes memories with it.
     setCard(storedCard(), false);
     refit();
   }
@@ -844,7 +877,9 @@ function rbStage(data) {
     render();
     showCard(n);
     renderHist();
-    // The parent names the dialog after the place the visitor stands, wherever they walked.
+    // The modal is titled after the place the visitor stands, wherever they walked: this page's
+    // own modal, or the parent's when embedded.
+    if (modalHandle) modalHandle.title(graphTitle(n));
     tell("rb-graph-at", { title: n.label });
   }
 
@@ -855,7 +890,7 @@ function rbStage(data) {
 
   // The site's language toggle rewrites every [data-de] node and sets <html lang>; the two
   // eyebrows and the folder card are built here, after that pass, so they follow the flag.
-  new MutationObserver(function(){ if (focused) { render(); showCard(focused); renderHist(); } })
+  new MutationObserver(function(){ if (focused) { render(); showCard(focused); renderHist(); if (modalHandle) modalHandle.title(graphTitle(focused)); } })
     .observe(document.documentElement, { attributes:true, attributeFilter:["lang"] });
 
   // ── the divider ───────────────────────────────────────────────────────────────────────
@@ -876,7 +911,9 @@ function rbStage(data) {
   // differs for the same reason.
   var CARD = { page: { key: "stage-card" }, modal: { key: "stage-card-modal" } };
   var CARD_MIN = 280, CANVAS_MIN = 320;
-  function cardMode(){ return modal.contains(stageEl) ? CARD.modal : CARD.page; }
+  // The stage is in a modal when the one modal holds it on the model page, or #stagemodal
+  // when the page is embedded; either way it is the wider box with a memory of its own.
+  function cardMode(){ return modalHandle || modal.contains(stageEl) ? CARD.modal : CARD.page; }
   // Nothing stored means half the box, not a fixed width: the two panes start equal and the
   // reader decides from there. It is computed from the box in hand rather than carried as a
   // number, so the page and the dialog each open even without either knowing the other's size.
@@ -982,9 +1019,8 @@ function rbStage(data) {
     // Opening a dialog focuses its first control, the close button, and a page nobody has
     // clicked yet paints that focus as a ring: the first thing a visitor sees is the way
     // out, lit. The dialog takes the focus instead — Escape and Tab work from the top, and
-    // a container draws no ring.
-    modal.tabIndex = -1;
-    modal.focus({ preventScroll: true });
+    // a container draws no ring. The one modal does the same for itself.
+    if (EMBED) { modal.tabIndex = -1; modal.focus({ preventScroll: true }); }
   }
 
   // The parent moves the focus and hands over its theme and language; nothing but a message from

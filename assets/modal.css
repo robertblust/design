@@ -1,0 +1,37 @@
+/* The family's one modal, which modal.js draws: the terminal's colors from the `--t-*` tokens,
+   the model page's size, a dimmed page behind and a close that says its key. Inside it the page's
+   tokens are defined again from the terminal's, so whatever it holds, the model page's stage or a
+   picture, draws in the terminal's colors without a second copy of its own rules. */
+dialog.rbmodal{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel);
+  width:min(1500px,96vw);height:min(92vh,1000px);max-width:96vw;max-height:92vh;padding:0;margin:auto;box-sizing:border-box;
+  border:1.5px solid var(--t-edge);border-radius:12px;background:var(--t-bg);color:var(--t-ink);overflow:hidden}
+dialog.rbmodal[open]{display:flex;flex-direction:column}
+dialog.rbmodal::backdrop{background:rgba(0,0,0,.6)}
+/* A container draws no ring: modal.js focuses the dialog, not the ×, on open. */
+dialog.rbmodal:focus,dialog.rbmodal:focus-visible{outline:none}
+@keyframes rbmodalIn{from{opacity:0}to{opacity:1}}
+dialog.rbmodal[open]{animation:rbmodalIn .15s ease-out}
+@media (prefers-reduced-motion:reduce){dialog.rbmodal[open]{animation:none}}
+/* The head bar: the title, what the content brings to the head, then the close, in the
+   terminal's mono. What the body holds keeps the page's own face, as the stage's card does. */
+.rbmodal-head{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55;flex:0 0 auto;display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem .6rem 1.2rem;background:var(--t-top)}
+.rbmodal-title{margin-right:auto;min-width:0;color:var(--t-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbmodal-controls{display:flex;align-items:center;gap:.3rem}
+.rbmodal-controls:empty{display:none}
+.rbmodal-close{position:relative;border:0;background:none;color:var(--t-dim);font:inherit;font-size:1rem;line-height:1;cursor:pointer;padding:.15rem .4rem;border-radius:5px}
+.rbmodal-close:hover,.rbmodal-close:focus-visible{color:var(--t-ink);outline:1.5px solid var(--t-accent);outline-offset:1px}
+/* The close's note, the box the family's .tip draws, hanging below and to the left of the ×,
+   shown on hover and on keyboard focus, never on a tap's focus. */
+.rbmodal-close[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
+  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
+  background:var(--t-top);border:1px solid var(--t-line);border-radius:6px;padding:.42rem .62rem;
+  box-shadow:0 6px 18px rgba(0,0,0,.4);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--t-ink)}
+.rbmodal-close:hover::after,.rbmodal-close:focus-visible::after{opacity:1;transform:none}
+@media (hover:none){.rbmodal-close[data-tip]::after{display:none}}
+@media (prefers-reduced-motion:reduce){.rbmodal-close[data-tip]::after{transition:none}}
+/* The body takes what the head leaves and does not scroll itself: what it holds scrolls in its
+   own box, the graph's card in the card and a picture in its viewport, and keeps that to itself. */
+.rbmodal-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:contain}
+@media (max-width:860px){
+  dialog.rbmodal{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}
+}

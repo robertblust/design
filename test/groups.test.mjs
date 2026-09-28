@@ -59,9 +59,9 @@ test("no destination is claimed by two groups", () => {
   }
 });
 
-test("the stage group carries the card, the script, the stylesheet and the vendored d3 with its license", () => {
+test("the stage group carries the card, the script, the stylesheet, the vendored d3 with its license, and the one modal", () => {
   const dests = GROUPS.stage.map(([, to]) => to).sort();
-  assert.deepEqual(dests, ["card.js", "d3.LICENSE.txt", "d3.v7.min.js", "stage.css", "stage.js"]);
+  assert.deepEqual(dests, ["card.js", "d3.LICENSE.txt", "d3.v7.min.js", "modal.css", "modal.js", "stage.css", "stage.js"]);
 });
 
 test("the fonts group carries all four faces and each family's license, under fonts/", () => {

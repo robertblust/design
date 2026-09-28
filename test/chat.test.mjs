@@ -571,7 +571,7 @@ test("open() clears any standing chips before asking for a fresh set, so a reope
 test("the new-conversation control is an arrow come back round with a note, not a bare plus", () => {
   assert.doesNotMatch(src, /d="M12 6v12M6 12h12"/, "the plus is back beside the close cross");
   assert.match(src, /newBtn\.setAttribute\("aria-label", s\.fresh\); newBtn\.setAttribute\("data-tip", s\.fresh\);/, "the button's note does not follow the language");
-  assert.match(src, /closeBtn\.setAttribute\("data-tip", s\.close\)/, "the close cross has no note");
+  assert.match(src, /closeBtn\.setAttribute\("data-tip", s\.modalClose\)/, "the close cross has no note");
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
   assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after\{content:attr\(data-tip\)/, "the note is not drawn");
   assert.match(css, /\.rbchat-new:focus-visible::after/, "the note does not show on keyboard focus");
@@ -842,14 +842,18 @@ test("the versions line and the graph's head exist in both languages", () => {
   assert.equal(strings("de").versions, "Meta-Modell {core} · Modell {sha}");
   assert.equal(strings("en").versionsModel, "model {sha}");
   assert.equal(strings("de").versionsModel, "Modell {sha}");
-  for (const l of ["en", "de"]) for (const k of ["head", "page", "close"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
+  for (const l of ["en", "de"]) for (const k of ["head", "failed"]) assert.ok(strings(l).graph[k], l + ".graph." + k);
+  // The modal knows nothing of the model page, and its close is the one modal's own.
+  for (const l of ["en", "de"]) for (const k of ["page", "close"]) assert.equal(strings(l).graph[k], undefined, l + ".graph." + k);
 });
 
 // WCAG relative luminance and contrast, from two #RRGGBB values.
 const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 test("the answer card keeps the answer's text, links and rail readable in both palettes", () => {
-  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  // The terminal's colors are the family's tokens, which the chat and the one modal both read.
+  assert.doesNotMatch(fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8"), /--t-bg:/, "chat.css still defines the terminal's colors itself");
+  const css = fs.readFileSync(path.join(PKG, "blocks", "tokens.css"), "utf8");
   const blocks = [...css.matchAll(/--t-card:(#[0-9A-Fa-f]{6})[^}]*/g)].map((m) => m[0]);
   assert.equal(blocks.length >= 2, true, "the card is not defined in both palettes");
   for (const b of blocks) {
@@ -882,4 +886,11 @@ test("a link names a place in the graph where it resolves to the model page, exp
   assert.equal(graphTarget("/model/?stage=expanded#x", "/model/", "https://blust.ch/model/"), null, "the model page itself moves its own stage");
   assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/"), null);
   assert.equal(graphTarget(null, "/model/", here), null);
+});
+
+test("no dialog but the one modal is drawn, and it names no model page", () => {
+  const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
+  assert.doesNotMatch(src, /el\("dialog"|createElement\("dialog"\)/, "chat.js still draws a dialog of its own");
+  assert.doesNotMatch(src, /rbchat-graph-page|model page \u2197|model page ↗/, "the graph's modal still names the model page");
+  assert.doesNotMatch(css, /dialog\.rbchat-graph|dialog\.rbchat-modal/, "chat.css still styles a dialog of its own");
 });

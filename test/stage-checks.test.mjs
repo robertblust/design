@@ -64,3 +64,11 @@ test("graph carries the single-reference link assertion, the check that travels 
   assert.match(src, /a reference is a link whether the field holds one name or a list/,
     "graph no longer asserts that a single-valued reference is a link — card.js's repair has lost its check");
 });
+
+test("the stage check expands into the family's one modal, and holds the page behind it", () => {
+  const src = fs.readFileSync(path.join(PKG, "verify", "stage.mjs"), "utf8");
+  assert.match(src, /dialog\.rbmodal\[open\]/, "the check still expands into dialog#stagemodal");
+  assert.doesNotMatch(src, /querySelector\("dialog#stagemodal\[open\]"\)|getElementById\("stagemodal"\)/, "the check still looks for the page's own dialog");
+  assert.match(src, /overflow/, "the check does not hold that the page behind stays still");
+  assert.match(src, /rbmodal-close/, "the arrival check does not read the modal's close");
+});

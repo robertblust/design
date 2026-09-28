@@ -9,16 +9,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { modelPage, stageFiles } from "./fixtures/stage-page.mjs";
+import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ID_A = "concepts/guest", ID_B = "concepts/merge";
 const PICTURE = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "diagrams.json"), "utf8")).typed;
 PICTURE.nodes[0].id = ID_A; PICTURE.nodes[0].title = "Guest";
-const CHAT = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+const CHAT = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head>
 <body><p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
 // A page of the site with a plain link into the graph, as a timeline card writes one, with the
 // chat's tag naming an endpoint or not; and a link on the model page itself.
-const PLAIN = (chat) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+const PLAIN = (chat) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head>
 <body><p>A card: <a id="plain" href="../model/?stage=expanded#${ID_A}">Guest</a></p><script src="/chat.js" ${chat ? 'data-chat="/chat" ' : ""}data-model="/model/" defer></script></body></html>`;
 const SELF = `<a id="self" href="/model/?stage=expanded#${ID_B}">Merge</a>`;
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
@@ -66,8 +67,8 @@ const nameLink = '.rbchat-assistant .rbchat-body a:text-is("Guest")';
 test("a name in an answer opens the graph over the chat, focused on it, and the page does not change", async () => {
   const { p, close } = await answered();
   await p.click(nameLink);
-  await p.waitForSelector("dialog.rbchat-graph[open]");
-  assert.equal(await p.$eval(".rbchat-graph-title", (t) => t.textContent), "graph · Guest");
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
+  assert.equal(await p.$eval("dialog.rbmodal-graph .rbmodal-title", (t) => t.textContent), "graph · Guest");
   await focusIs(p, "concepts / guest");
   assert.equal(await p.evaluate(() => location.pathname + location.search), "/");
   await close();
@@ -77,11 +78,11 @@ test("a cite title and a picture's node open it too, and a second open moves the
   const { p, loads, close } = await answered();
   await p.click(nameLink);
   await focusIs(p, "concepts / guest");
-  await p.click(".rbchat-graph-close");
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
   await p.click(".rbchat-cites a.rbchat-cite");
   await focusIs(p, "concepts / merge");
   assert.equal(loads.n, 1, "the frame loaded again");
-  await p.click(".rbchat-graph-close");
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
   await p.click('.rbchat-diagram svg a[aria-label="Guest"]');
   await focusIs(p, "concepts / guest");
   assert.equal(loads.n, 1);
@@ -99,30 +100,30 @@ test("the dialog's × and Escape in the graph close it, focus goes back to the l
     await f.click("#fig g.n:not(.focus):not(.ancestor) >> nth=0");
     await f.waitForFunction((w) => document.getElementById("path").textContent !== w, was);
   }
-  await p.click(".rbchat-graph-close");
-  await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
+  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal-graph").open);
   assert.equal(await p.evaluate(() => history.length), before, "the graph wrote to the chat page's history");
   assert.equal(await p.evaluate(() => document.activeElement && document.activeElement.textContent), "Guest", "the focus did not go back to the link");
   await p.click(nameLink);
-  await p.waitForSelector("dialog.rbchat-graph[open]");
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
   // Escape where the visitor's focus is, in the graph itself: the stage asks the chat to close.
   await frame(p).focus("#stagemodal");
   await p.keyboard.press("Escape");
-  await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
+  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal-graph").open);
   await close();
 });
 
 test("opened from the picture's full screen, the graph sits on top and closing it leaves the picture open", async () => {
   const { p, close } = await answered();
   await p.click(".rbchat-diagram-full");
-  await p.waitForSelector("dialog.rbchat-modal[open]");
-  await p.click('dialog.rbchat-modal svg a[aria-label="Guest"]');
-  await p.waitForSelector("dialog.rbchat-graph[open]");
+  await p.waitForSelector("dialog.rbmodal-diagram[open]");
+  await p.click('dialog.rbmodal-diagram svg a[aria-label="Guest"]');
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
   await focusIs(p, "concepts / guest");
-  assert.equal(await p.evaluate(() => { const g = document.querySelector("dialog.rbchat-graph").getBoundingClientRect(); const top = document.elementFromPoint(g.x + g.width / 2, g.y + 20); return !!(top && top.closest("dialog.rbchat-graph")); }), true, "the graph is not on top");
-  await p.click(".rbchat-graph-close");
-  await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
-  assert.equal(await p.$eval("dialog.rbchat-modal", (d) => d.open), true, "closing the graph closed the picture");
+  assert.equal(await p.evaluate(() => { const g = document.querySelector("dialog.rbmodal-graph").getBoundingClientRect(); const top = document.elementFromPoint(g.x + g.width / 2, g.y + 20); return !!(top && top.closest("dialog.rbmodal-graph")); }), true, "the graph is not on top");
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
+  await p.waitForFunction(() => !document.querySelector("dialog.rbmodal-graph").open);
+  assert.equal(await p.$eval("dialog.rbmodal-diagram", (d) => d.open), true, "closing the graph closed the picture");
   await close();
 });
 
@@ -143,7 +144,7 @@ test("a switch of theme or language while the graph is open reaches it, and a cl
   await frame(p).waitForFunction(() => document.documentElement.getAttribute("data-theme") === "light" && document.documentElement.lang === "de");
   await p.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "rb-graph-close" }, origin: "https://elsewhere.example" })));
   await p.waitForTimeout(250);
-  assert.equal(await p.$eval("dialog.rbchat-graph", (d) => d.open), true);
+  assert.equal(await p.$eval("dialog.rbmodal-graph", (d) => d.open), true);
   await close();
 });
 
@@ -162,7 +163,7 @@ test("a link on the graph's card leaves as the whole tab, never as the frame, an
   // A link out of the model follows the family's rule, the same tab: the whole tab goes, as any
   // link on these sites does, and the frame never shows a page that refuses to be framed.
   await p.route("https://github.com/**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>GitHub</p>" }));
-  await p.click(".rbchat-graph-close");
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
   await p.click(nameLink);
   await focusIs(p, "concepts / guest");
   await Promise.all([p.waitForURL(/^https:\/\/github\.com\//), frame(p).click("#cfootlink a")]);
@@ -183,7 +184,7 @@ test("every open puts the keyboard in the graph, so its keys walk the trail", as
   const { p, close } = await answered();
   await p.click(nameLink);
   await focusIs(p, "concepts / guest");
-  await p.click(".rbchat-graph-close");
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
   await p.click(".rbchat-cites a.rbchat-cite");
   await focusIs(p, "concepts / merge");
   await p.keyboard.press("ArrowLeft");
@@ -195,14 +196,14 @@ test("the dialog is named by its head, and the head follows the focus and the la
   const { p, close } = await answered();
   await p.click(nameLink);
   await focusIs(p, "concepts / guest");
-  const named = await p.evaluate(() => { const d = document.querySelector("dialog.rbchat-graph"), id = d.getAttribute("aria-labelledby"); return { byTitle: !!id && document.getElementById(id) === d.querySelector(".rbchat-graph-title"), frame: d.querySelector("iframe").getAttribute("title") }; });
+  const named = await p.evaluate(() => { const d = document.querySelector("dialog.rbmodal-graph"), id = d.getAttribute("aria-labelledby"); return { byTitle: !!id && document.getElementById(id) === d.querySelector("dialog.rbmodal-graph .rbmodal-title"), frame: d.querySelector("iframe").getAttribute("title") }; });
   assert.deepEqual(named, { byTitle: true, frame: "graph · Guest" });
   const f = frame(p);
   await f.click("#fig g.n:not(.focus):not(.ancestor) >> nth=0");
-  await p.waitForFunction(() => document.querySelector(".rbchat-graph-title").textContent !== "graph · Guest");
-  const to = await p.$eval(".rbchat-graph-title", (t) => t.textContent);
+  await p.waitForFunction(() => document.querySelector("dialog.rbmodal-graph .rbmodal-title").textContent !== "graph · Guest");
+  const to = await p.$eval("dialog.rbmodal-graph .rbmodal-title", (t) => t.textContent);
   await p.evaluate(() => { document.documentElement.lang = "de"; });
-  await p.waitForFunction((t) => document.querySelector(".rbchat-graph-title").textContent === t.replace(/^graph/, "Graph"), to);
+  await p.waitForFunction((t) => document.querySelector("dialog.rbmodal-graph .rbmodal-title").textContent === t.replace(/^graph/, "Graph"), to);
   await close();
 });
 
@@ -214,7 +215,7 @@ for (const [where, address] of [["with a chat", "/timeline/"], ["whose tag names
     await p.goto(base + address);
     const before = await p.evaluate(() => history.length);
     await p.click("#plain");
-    await p.waitForSelector("dialog.rbchat-graph[open]");
+    await p.waitForSelector("dialog.rbmodal-graph[open]");
     await focusIs(p, "concepts / guest");
     assert.equal(await p.evaluate(() => location.pathname), address);
     assert.equal(await p.evaluate(() => history.length), before);
@@ -229,6 +230,41 @@ test("on the model page itself a link into the graph moves its own stage", async
   await p.waitForSelector("#fig g.n");
   await p.click("#self");
   await p.waitForFunction(() => location.hash === "#concepts/merge");
-  assert.equal(await p.$("dialog.rbchat-graph"), null, "the model page opened a graph over itself");
+  // The page's own stage moves into the one modal; no frame of the model page opens over it.
+  assert.equal(await p.evaluate(() => !!document.querySelector("iframe.rbchat-graph-frame")), false, "the model page opened a graph over itself");
+  await p.waitForSelector("dialog.rbmodal-graph[open] #fig");
+  await context.close();
+});
+
+// ─── The one modal ───────────────────────────────────────────────────────────────────────
+test("the graph's modal carries no link to the model page", async () => {
+  const { p, close } = await answered();
+  await p.click(nameLink);
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
+  assert.equal(await p.$$eval("dialog.rbmodal-graph .rbmodal-head a", (a) => a.length), 0);
+  assert.equal(await p.$eval("dialog.rbmodal-graph .rbmodal-close", (b) => b.getAttribute("data-tip")), "Close · Esc");
+  await close();
+});
+
+test("the graph over a picture's full screen is a second modal, and closing it leaves the picture open with the page still held", async () => {
+  const { p, close } = await answered();
+  await p.click(".rbchat-diagram-full");
+  await p.waitForSelector("dialog.rbmodal-diagram[open]");
+  await p.click('dialog.rbmodal-diagram svg a[aria-label="Guest"]');
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
+  assert.equal(await p.$$eval("dialog.rbmodal[open]", (d) => d.length), 2);
+  await p.click("dialog.rbmodal-graph .rbmodal-close");
+  await p.waitForFunction(() => document.querySelectorAll("dialog.rbmodal[open]").length === 1);
+  assert.equal(await p.evaluate(() => getComputedStyle(document.documentElement).overflow), "hidden");
+  await close();
+});
+
+test("where modal.js cannot be fetched, a link into the graph still leads to it, as the whole page", async () => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await context.newPage();
+  await p.route("**/modal.js", (r) => r.abort());
+  await p.goto(base + "/timeline/");
+  await p.click("#plain");
+  await p.waitForURL(/\/model\/\?stage=expanded#concepts\/guest$/, { timeout: 5000 });
   await context.close();
 });

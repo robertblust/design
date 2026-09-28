@@ -10,6 +10,13 @@
 // the `link[data-stage]` every page carries, and `divider` needs nothing. That is why they
 // could move unchanged.
 
+// The one modal is fetched on the first Expand, so a check waits for the modal itself rather
+// than a fixed time, then gives the stage its moment to settle into it.
+async function expanded(page) {
+  await page.waitForSelector("dialog.rbmodal[open]", { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(300);
+}
+
 export const STAGE_CHECKS = {
   async graph(page, spec) {
     // The same file the stage reads, found the same way, so the check and the page cannot
@@ -162,7 +169,8 @@ export const STAGE_CHECKS = {
     });
     if (inside.length) return `a spine ends inside a node instead of at its edge: ${inside.join(", ")}`;
     // The stage, expanded: Expand moves the whole stage — path, canvas and card — into
-    // dialog#stagemodal, closed by its ×, Escape or a backdrop click. It is the same stage
+    // the family's one modal, dialog.rbmodal, closed by its ×, Escape or a backdrop click, with the
+    // page behind it held still. It is the same stage
     // moved, not a copy, so this checks the dialog actually contains #fig and #card (rather
     // than a second rendering of them) and that the canvas really grew, then that the move
     // back on close lands #fig inside .figure-section again — nothing here is a literal from
@@ -172,14 +180,16 @@ export const STAGE_CHECKS = {
       [...document.querySelector(".figure-section").children].map(e => e.id || e.className));
     const widthBefore = await page.evaluate(() => document.getElementById("fig").getBoundingClientRect().width);
     await page.click("#expand");
-    await page.waitForTimeout(300);
-    const modalOpen = await page.evaluate(() => !!document.querySelector("dialog#stagemodal[open]"));
-    if (!modalOpen) return "clicking #expand did not open dialog#stagemodal";
+    await expanded(page);
+    const modalOpen = await page.evaluate(() => !!document.querySelector("dialog.rbmodal[open]"));
+    if (!modalOpen) return "clicking #expand did not open the one modal, dialog.rbmodal";
+    const held = await page.evaluate(() => getComputedStyle(document.documentElement).overflow);
+    if (held !== "hidden") return `the page behind the expanded stage can scroll: the root's overflow is ${JSON.stringify(held)}`;
     const holds = await page.evaluate(() => {
-      const dialog = document.getElementById("stagemodal");
+      const dialog = document.querySelector("dialog.rbmodal[open]");
       return dialog.contains(document.getElementById("fig")) && dialog.contains(document.getElementById("card"));
     });
-    if (!holds) return "dialog#stagemodal does not contain #fig and #card — Expand should move the stage, not copy it";
+    if (!holds) return "the modal does not contain #fig and #card — Expand should move the stage, not copy it";
     const widthAfter = await page.evaluate(() => document.getElementById("fig").getBoundingClientRect().width);
     if (!(widthAfter > widthBefore)) return `#fig width in the dialog is ${widthAfter}, expected more than ${widthBefore} before Expand`;
     const stillFocused = await page.evaluate((id) => {
@@ -189,7 +199,7 @@ export const STAGE_CHECKS = {
     if (!stillFocused) return `${from.id} is no longer the focus after Expand`;
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
-    if (await page.evaluate(() => !!document.querySelector("dialog[open]"))) return "Escape did not close dialog#stagemodal";
+    if (await page.evaluate(() => !!document.querySelector("dialog[open]"))) return "Escape did not close the modal";
     const backInPlace = await page.evaluate(() => document.querySelector(".figure-section").contains(document.getElementById("fig")));
     if (!backInPlace) return "closing the dialog did not move #fig back inside .figure-section";
     // Back inside is not back in place. The restore used to insert the stage before the
@@ -260,10 +270,10 @@ export const STAGE_CHECKS = {
     await page.goto(`${spec.absolute}?stage=expanded#${from.id}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(500);
     const arrived = await page.evaluate(() => ({
-      open: !!(document.getElementById("stagemodal") || {}).open,
-      inModal: !!document.querySelector("#stagemodal #fig"),
+      open: !!document.querySelector("dialog.rbmodal[open]"),
+      inModal: !!document.querySelector("dialog.rbmodal[open] #fig"),
       search: location.search,
-      lit: document.activeElement && document.activeElement.id === "modalclose",
+      lit: !!(document.activeElement && document.activeElement.classList.contains("rbmodal-close")),
       focus: (document.querySelector("#fig .n.focus") || {}).dataset ? document.querySelector("#fig .n.focus").dataset.id : null }));
     if (!arrived.open || !arrived.inModal) return "arriving with ?stage=expanded did not open the expanded stage";
     if (arrived.focus !== from.id) return `arriving with ?stage=expanded#${from.id} focused ${JSON.stringify(arrived.focus)}`;
@@ -331,7 +341,7 @@ export const STAGE_CHECKS = {
     // of the window, so one number would be clamped to the page's maximum every time the
     // dialog closed and the reader's choice in the wider box would be lost coming back.
     await page.click("#expand");
-    await page.waitForTimeout(300);
+    await expanded(page);
     const dialogDefault = await width();
     if (dialogDefault === onPage)
       return "the dialog opened at the page's width, so the two boxes share one memory";
@@ -343,7 +353,7 @@ export const STAGE_CHECKS = {
     if (Math.abs((await width()) - onPage) > 2)
       return `closing the dialog left the page at ${await width()}, expected its own ${onPage}`;
     await page.click("#expand");
-    await page.waitForTimeout(300);
+    await expanded(page);
     if (Math.abs((await width()) - inDialog) > 2)
       return `the dialog forgot its own width: ${await width()}, expected ${inDialog}`;
     await page.keyboard.press("Escape");

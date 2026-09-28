@@ -7,12 +7,13 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
 
 const BRAND = `<header><a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"><rect x="2" y="6.75" width="10.5" height="10.5" rx="1.5"/><rect x="4.75" y="9.5" width="5" height="5" fill="currentColor" stroke="none"/><path d="M12.5 12 h4.5"/><rect x="17" y="9.5" width="5" height="5" fill="currentColor" stroke="none"/></svg><b>Company<span>Graph</span></b></a></header>`;
-const page = (header) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+const page = (header) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head>
 <body>${header}<p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" data-questions="/model.json" defer></script></body></html>`;
 const MODEL = { commit: "ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f", repo: "companygraph/mental-model", core: "0.46.0", entities: [
   { id: "processes/answering", type: "process", name: "Answering" },
@@ -182,6 +183,17 @@ test("the intro follows a language switch, rows and keys included", async () => 
   await p.waitForFunction(() => /^Hallo/.test(document.querySelector(".rbchat-hello").textContent));
   assert.equal(await p.$eval(".rbchat-intro .rbchat-row .rbchat-q", (q) => q.textContent), "Zeig mir das Meta-Modell");
   assert.match(await p.$eval(".rbchat-keys", (k) => k.textContent), /1-6 wählen/);
+  await close();
+});
+
+test("the panel's close says its key, as the modal's does, and follows the language", async () => {
+  const { p, close } = await tab();
+  await open(p);
+  const tip = () => p.$eval(".rbchat-close", (b) => [b.getAttribute("data-tip"), b.getAttribute("aria-label")]);
+  assert.deepEqual(await tip(), ["Close \u00b7 Esc", "Close"]);
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => document.querySelector(".rbchat-close").getAttribute("data-tip") !== "Close \u00b7 Esc");
+  assert.deepEqual(await tip(), ["Schliessen \u00b7 Esc", "Schliessen"]);
   await close();
 });
 

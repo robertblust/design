@@ -9,6 +9,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const asset = (f) => fs.readFileSync(path.join(PKG, "assets", f));
@@ -16,7 +17,7 @@ const PICTURES = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "
 
 const page = (body) => `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <style>*{box-sizing:border-box} body{background:#0C0E13;color:#EFEDE8}</style>
-<link rel="stylesheet" href="/chat.css"></head><body>${body}
+<style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head><body>${body}
 <script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
 
 // Each answer long enough that the log scrolls well inside it, the first with a picture, so a
@@ -34,7 +35,7 @@ before(async () => {
       res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(events)); return;
     }
     const files = { "/": ["text/html", page("<p>A page.</p>")], "/model/": ["text/html", page("<p>The model.</p>")],
-      "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")], "/mermaid.min.js": ["text/javascript", asset("mermaid.min.js")] };
+      "/chat.js": ["text/javascript", asset("chat.js")], "/modal.js": ["text/javascript", asset("modal.js")], "/modal.css": ["text/css", asset("modal.css")], "/chat.css": ["text/css", asset("chat.css")], "/mermaid.min.js": ["text/javascript", asset("mermaid.min.js")] };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]);
