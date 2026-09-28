@@ -1147,6 +1147,62 @@
   // An embedded page is the chat's own graph, inside the chat's dialog on another page: it takes
   // no chat of its own.
   if (document.documentElement.hasAttribute("data-embed")) return;
+
+  // ─── The graph ────────────────────────────────────────────────────────────────────────────
+  // A link into the model from the chat opens the model page's own stage over the page, in a
+  // dialog like a picture's Expand, rather than taking the visitor to the page. The page is
+  // embedded: it draws its stage alone and keeps its history to itself (see stage.js), so the
+  // chat page's address and its Back stay the visitor's. The frame is made on the first open;
+  // a later open moves its focus by message, queued until the frame says it is ready.
+  var graph = null, graphFrame = null, graphTitle = null, graphPage = null, graphReady = false, graphQueue = null, graphOpener = null;
+  function ensureGraph(){
+    if (graph) return;
+    var s = strings(langNow());
+    graph = el("dialog", "rbchat-graph"); graph.setAttribute("aria-label", s.graph.head.replace("{title}", ""));
+    var head = el("div", "rbchat-graph-head");
+    graphTitle = el("span", "rbchat-graph-title");
+    graphPage = el("a", "rbchat-graph-page", s.graph.page);
+    var shut = el("button", "rbchat-graph-close", "×"); shut.type = "button"; shut.setAttribute("aria-label", s.graph.close); shut.setAttribute("data-tip", s.graph.close + " · Esc");
+    shut.addEventListener("click", function(){ graph.close(); });
+    head.appendChild(graphTitle); head.appendChild(graphPage); head.appendChild(shut);
+    graphFrame = el("iframe", "rbchat-graph-frame"); graphFrame.setAttribute("title", s.graph.head.replace("{title}", ""));
+    graph.appendChild(head); graph.appendChild(graphFrame);
+    graph.addEventListener("click", function(ev){ if (ev.target === graph) graph.close(); });
+    graph.addEventListener("close", function(){ if (graphOpener && graphOpener.focus) graphOpener.focus(); graphOpener = null; });
+    document.body.appendChild(graph);
+  }
+  function lookOf(){ return { type: "rb-graph-look", theme: document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark", lang: langNow() }; }
+  function tellGraph(m){ if (graphFrame && graphFrame.contentWindow) graphFrame.contentWindow.postMessage(m, location.origin); }
+  function openGraph(id, title, opener){
+    ensureGraph();
+    var s = strings(langNow());
+    graphOpener = opener || document.activeElement;
+    graphTitle.textContent = s.graph.head.replace("{title}", title || id);
+    graphPage.href = link(MODEL, id);
+    if (!graphFrame.getAttribute("src")) { graphReady = false; graphFrame.setAttribute("src", graphHref(MODEL, id)); }
+    else if (graphReady) tellGraph({ type: "rb-graph-focus", id: id });
+    else graphQueue = id;
+    if (!graph.open) graph.showModal();
+  }
+  window.addEventListener("message", function(ev){
+    if (ev.origin !== location.origin || !graphFrame || ev.source !== graphFrame.contentWindow || !ev.data) return;
+    if (ev.data.type === "rb-graph-ready") { graphReady = true; tellGraph(lookOf()); if (graphQueue) { tellGraph({ type: "rb-graph-focus", id: graphQueue }); graphQueue = null; } }
+    else if (ev.data.type === "rb-graph-close" && graph && graph.open) graph.close();
+  });
+  if (window.MutationObserver) new MutationObserver(function(){ if (graphReady) tellGraph(lookOf()); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "lang"] });
+  // Any link into the model inside the chat, whether a name, a cite title or a picture's node,
+  // on the panel or in the picture's full screen, opens the graph instead of leaving the page.
+  // A modified click (a new tab) is left to the browser.
+  document.addEventListener("click", function(ev){
+    if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    var a = ev.target && ev.target.closest && ev.target.closest("a[href]");
+    if (!a || !(a.closest(".rbchat") || a.closest("dialog.rbchat-modal"))) return;
+    var id = entityOf(a.getAttribute("href") || a.getAttribute("xlink:href"), MODEL);
+    if (!id) return;
+    ev.preventDefault();
+    openGraph(id, a.getAttribute("aria-label") || a.textContent.trim(), a);
+  });
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
@@ -1455,6 +1511,10 @@
     if (grip) grip.setAttribute("aria-label", s.size);
     if (newBtn) { newBtn.setAttribute("aria-label", s.fresh); newBtn.setAttribute("data-tip", s.fresh); }
     writeNotice();
+    if (graph) {
+      graphPage.textContent = s.graph.page;
+      var gx = graph.querySelector(".rbchat-graph-close"); gx.setAttribute("aria-label", s.graph.close); gx.setAttribute("data-tip", s.graph.close + " \u00b7 Esc");
+    }
     if (log) {
       var heads = log.querySelectorAll(".rbchat-done");
       for (var h = 0; h < heads.length; h++) heads[h].lastChild.textContent = " " + s.answered;

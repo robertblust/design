@@ -1,0 +1,139 @@
+// The chat opens the model's graph over the page, in Chromium: a name, a cite title or a
+// picture's node opens the embedded model page in the chat's own dialog, a later open moves
+// its focus by message, and nothing about it touches the chat page's address or history.
+import { test, before, after } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+import { modelPage, stageFiles } from "./fixtures/stage-page.mjs";
+
+const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const ID_A = "concepts/guest", ID_B = "concepts/merge";
+const PICTURE = JSON.parse(fs.readFileSync(path.join(PKG, "test", "fixtures", "diagrams.json"), "utf8")).typed;
+PICTURE.nodes[0].id = ID_A; PICTURE.nodes[0].title = "Guest";
+const CHAT = `<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="/chat.css"></head>
+<body><p>A page.</p><script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
+const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
+const EVENTS = [["text", { text: "A Guest is resolved before any merge happens." }], ["names", { names: [{ id: ID_A, title: "Guest" }] }],
+  ["cite", { id: ID_B, title: "Merge", url: "https://github.com/o/r/blob/abc1234def/concepts/merge.md" }], ["diagram", PICTURE], ["done", { spent: 1 }]];
+let server, base, browser, slowModel = 0;
+
+before(async () => {
+  server = http.createServer((req, res) => {
+    const url = req.url.split("?")[0];
+    if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(EVENTS)); return; }
+    const files = { "/": ["text/html", CHAT], "/model/": ["text/html", modelPage()], "/mermaid.min.js": ["text/javascript", fs.readFileSync(path.join(PKG, "assets", "mermaid.min.js"))], ...stageFiles() };
+    const hit = files[url];
+    if (!hit) { res.writeHead(404); res.end(); return; }
+    const send = () => { res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]); };
+    if (url === "/model.json" && slowModel) setTimeout(send, slowModel); else send();
+  });
+  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  base = `http://127.0.0.1:${server.address().port}`;
+  browser = await chromium.launch();
+});
+after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
+
+async function answered() {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await context.newPage();
+  const loads = { n: 0 };
+  // A load is a request for the model page as a document; the stage's own address updates are
+  // same-document navigations and fetch nothing.
+  p.on("request", (r) => { if (r.resourceType() === "document" && /\/model\//.test(r.url())) loads.n++; });
+  await p.goto(base + "/");
+  await p.click(".rbchat-open");
+  await p.fill("section.rbchat textarea", "What is a guest?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.waitForSelector('.rbchat-diagram svg a[aria-label="Guest"]');
+  return { p, loads, close: () => context.close() };
+}
+const frame = (p) => p.frame({ url: /\/model\// });
+const focusIs = (p, want) => p.waitForFunction((w) => { const f = [...document.querySelectorAll("iframe.rbchat-graph-frame")][0]; const d = f && f.contentDocument; return d && d.getElementById("path") && d.getElementById("path").textContent === w; }, want);
+const nameLink = '.rbchat-assistant .rbchat-body a:text-is("Guest")';
+
+test("a name in an answer opens the graph over the chat, focused on it, and the page does not change", async () => {
+  const { p, close } = await answered();
+  await p.click(nameLink);
+  await p.waitForSelector("dialog.rbchat-graph[open]");
+  assert.equal(await p.$eval(".rbchat-graph-title", (t) => t.textContent), "graph · Guest");
+  await focusIs(p, "concepts / guest");
+  assert.equal(await p.evaluate(() => location.pathname + location.search), "/");
+  await close();
+});
+
+test("a cite title and a picture's node open it too, and a second open moves the focus without reloading", async () => {
+  const { p, loads, close } = await answered();
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  await p.click(".rbchat-graph-close");
+  await p.click(".rbchat-cites a.rbchat-cite");
+  await focusIs(p, "concepts / merge");
+  assert.equal(loads.n, 1, "the frame loaded again");
+  await p.click(".rbchat-graph-close");
+  await p.click('.rbchat-diagram svg a[aria-label="Guest"]');
+  await focusIs(p, "concepts / guest");
+  assert.equal(loads.n, 1);
+  await close();
+});
+
+test("the frame's × and Escape close the dialog, focus goes back to the link, and the chat page's history is untouched", async () => {
+  const { p, close } = await answered();
+  const before = await p.evaluate(() => history.length);
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  const f = frame(p);
+  for (let i = 0; i < 2; i++) {
+    const was = await f.$eval("#path", (e) => e.textContent);
+    await f.click("#fig g.n:not(.focus):not(.ancestor) >> nth=0");
+    await f.waitForFunction((w) => document.getElementById("path").textContent !== w, was);
+  }
+  await f.click("#modalclose");
+  await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
+  assert.equal(await p.evaluate(() => history.length), before, "the graph wrote to the chat page's history");
+  assert.equal(await p.evaluate(() => document.activeElement && document.activeElement.textContent), "Guest", "the focus did not go back to the link");
+  await p.click(nameLink);
+  await p.waitForSelector("dialog.rbchat-graph[open]");
+  await p.keyboard.press("Escape");
+  await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
+  await close();
+});
+
+test("opened from the picture's full screen, the graph sits on top and closing it leaves the picture open", async () => {
+  const { p, close } = await answered();
+  await p.click(".rbchat-diagram-full");
+  await p.waitForSelector("dialog.rbchat-modal[open]");
+  await p.click('dialog.rbchat-modal svg a[aria-label="Guest"]');
+  await p.waitForSelector("dialog.rbchat-graph[open]");
+  await focusIs(p, "concepts / guest");
+  assert.equal(await p.evaluate(() => { const g = document.querySelector("dialog.rbchat-graph").getBoundingClientRect(); const top = document.elementFromPoint(g.x + g.width / 2, g.y + 20); return !!(top && top.closest("dialog.rbchat-graph")); }), true, "the graph is not on top");
+  await p.click(".rbchat-graph-close");
+  await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
+  assert.equal(await p.$eval("dialog.rbchat-modal", (d) => d.open), true, "closing the graph closed the picture");
+  await close();
+});
+
+test("a second open before the frame is ready is not lost", async () => {
+  const { p, close } = await answered();
+  slowModel = 900;
+  await p.evaluate(() => { document.querySelector('.rbchat-assistant .rbchat-body a').click(); document.querySelector(".rbchat-cites a.rbchat-cite").click(); });
+  await focusIs(p, "concepts / merge");
+  slowModel = 0;
+  await close();
+});
+
+test("a switch of theme or language while the graph is open reaches it, and a close from another origin is ignored", async () => {
+  const { p, close } = await answered();
+  await p.click(nameLink);
+  await focusIs(p, "concepts / guest");
+  await p.evaluate(() => { document.documentElement.setAttribute("data-theme", "light"); document.documentElement.lang = "de"; });
+  await frame(p).waitForFunction(() => document.documentElement.getAttribute("data-theme") === "light" && document.documentElement.lang === "de");
+  await p.evaluate(() => window.dispatchEvent(new MessageEvent("message", { data: { type: "rb-graph-close" }, origin: "https://elsewhere.example" })));
+  await p.waitForTimeout(250);
+  assert.equal(await p.$eval("dialog.rbchat-graph", (d) => d.open), true);
+  await close();
+});
