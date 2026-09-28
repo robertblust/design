@@ -243,11 +243,16 @@ test("on the model page itself a link into the graph moves its own stage", async
   const p = await context.newPage();
   await p.goto(base + "/model/");
   await p.waitForSelector("#fig g.n");
+  // A mark on the window: a page that reloads comes back without it, and a reload is a flicker.
+  await p.evaluate(() => { window.__same = true; });
   await p.click("#self");
   await p.waitForFunction(() => location.hash === "#concepts/merge");
   // The page's own stage moves into the one modal; no frame of the model page opens over it.
   assert.equal(await p.evaluate(() => !!document.querySelector("iframe.rbchat-graph-frame")), false, "the model page opened a graph over itself");
   await p.waitForSelector("dialog.rbmodal-graph[open] #fig");
+  assert.equal(await p.evaluate(() => window.__same === true), true, "the model page reloaded itself");
+  assert.equal(await p.evaluate(() => location.search), "", "the address kept ?stage=expanded");
+  assert.equal(await p.evaluate(() => document.querySelector("dialog.rbmodal-graph[open] #fig g.n.focus") !== null), true);
   await context.close();
 });
 
