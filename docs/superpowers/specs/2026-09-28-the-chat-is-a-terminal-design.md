@@ -1,6 +1,6 @@
 # The chat as a terminal
 
-Status: the direction was approved by the owner on 2026-09-28 from a working prototype, played on all three sites' lockups in both languages. One choice is open and listed at the end, with a proposal. The build waits for this spec's review. Decided on 2026-09-28 against `robertblust/design` at v0.115.0, and against `robertblust/robertblust.github.io`, `companygraph/companygraph.github.io` and `guestgraph/guestgraph.github.io` as read that day. Those are the source of every fact below about what exists.
+Status: the direction was approved by the owner on 2026-09-28 from a working prototype, played on all three sites' lockups in both languages. Every choice is taken and listed at the end. The build waits for this spec's review. Decided on 2026-09-28 against `robertblust/design` at v0.115.0, and against `robertblust/robertblust.github.io`, `companygraph/companygraph.github.io` and `guestgraph/guestgraph.github.io` as read that day. Those are the source of every fact below about what exists.
 
 ## Why now
 
@@ -69,8 +69,4 @@ First this spec's review. Then an implementation plan. Then one pull request in 
 
 ## Decisions
 
-Taken by the owner on 2026-09-28 from the prototype: the whole chat as the terminal, not only its first screen; lists and tables as the section above says; an answer shown whole and at once when it is finished, behind a spinner that counts the seconds, with no animation of any kind; the answer's text in today's face and tone, with the question and everything the chat prints around the answer in mono.
-
-## Open for the owner
-
-1. **The intro once the conversation starts.** Should it stay at the top of the log and scroll away, or clear on the first send? The proposal is to keep it, as a terminal keeps its banner above what follows. That leaves the Try rows there to click again.
+Taken by the owner on 2026-09-28 from the prototype: the whole chat as the terminal, not only its first screen; lists and tables as the section above says; an answer shown whole and at once when it is finished, behind a spinner that counts the seconds, with no animation of any kind; the answer's text in today's face and tone, with the question and everything the chat prints around the answer in mono; the intro kept at the top of the log once the conversation starts, scrolling away as it grows, so its rows can be clicked again.
