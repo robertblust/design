@@ -637,7 +637,7 @@
     if (newBtn) newBtn.hidden = !messages.length;
     try {
       if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns, at: reading || (panel && !panel.hidden ? place(log) : null) }));
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns, at: reading || (panel && !panel.hidden ? place(log) : null), next: qBox ? qPicked : null }));
     } catch (e) {}
   }
 
@@ -1257,8 +1257,9 @@
   // conversation. `qList` is null until `questions` has resolved once, `qFetch` is that one
   // fetch, kept so a second open before it lands does not ask twice, and `qBox` is the chip
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
-  // opening an empty conversation, which is all that tells its two names apart.
-  var qList = null, qFetch = null, qBox = null, qNext = false, qFacts = { processes: [], counts: {}, versions: null };
+  // opening an empty conversation, which is all that tells its two names apart. `qPicked` is
+  // the titles that box offers, kept with the conversation while it stands.
+  var qList = null, qFetch = null, qBox = null, qPicked = null, qNext = false, qFacts = { processes: [], counts: {}, versions: null };
   var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
@@ -1509,16 +1510,19 @@
       var last = turns[turns.length - 1];
       var picked = (last && last.role === "assistant" && follow(last.cites, list, messages, langNow())) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
-      qNext = messages.length > 0;
-      qBox = el("div", "rbchat-next");
-      qBox.setAttribute("role", "group");
-      qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
-      qBox.appendChild(el("p", "rbchat-label", strings(langNow()).askNext));
-      menu(qBox, picked.map(function(t){ return [t]; }), 0);
-      log.appendChild(qBox);
-      menuRows = picked.slice(); keysLine();
+      offer(picked);
       if (qNext && !reading) log.scrollTop = log.scrollHeight; else settle();
     });
+  }
+  function offer(picked){
+    qNext = messages.length > 0;
+    qBox = el("div", "rbchat-next");
+    qBox.setAttribute("role", "group");
+    qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
+    qBox.appendChild(el("p", "rbchat-label", strings(langNow()).askNext));
+    menu(qBox, picked.map(function(t){ return [t]; }), 0);
+    log.appendChild(qBox);
+    qPicked = picked.slice(); menuRows = picked.slice(); keysLine();
   }
   // A message on its way makes any chips standing stale: the ones it answered are asked, and
   // the answer it brings is followed by a fresh three of its own.
@@ -1902,6 +1906,11 @@
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
     });
+    // The rows the last answer offered, drawn now with the rest: read again from the model file
+    // they would stand a moment after the page shows, push the log up, and differ on every page.
+    // Only titles a message may carry, and only under an answer, where the rows were offered.
+    var next = Array.isArray(was.next) ? was.next.filter(function(t){ return typeof t === "string" && t && t.length <= LIMIT; }) : [];
+    if (next.length && canOffer()) offer(next);
     // After the turns, so the intro knows the conversation has moved past it, whether its
     // menus are filled now or once the model file is read.
     if (was.open) intro(false);
