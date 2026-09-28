@@ -35,7 +35,7 @@ before(async () => {
       res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(events)); return;
     }
     const files = { "/": ["text/html", page("<p>A page.</p>")], "/model/": ["text/html", page("<p>The model.</p>")],
-      "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")], "/mermaid.min.js": ["text/javascript", asset("mermaid.min.js")] };
+      "/chat.js": ["text/javascript", asset("chat.js")], "/modal.js": ["text/javascript", asset("modal.js")], "/modal.css": ["text/css", asset("modal.css")], "/chat.css": ["text/css", asset("chat.css")], "/mermaid.min.js": ["text/javascript", asset("mermaid.min.js")] };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]);

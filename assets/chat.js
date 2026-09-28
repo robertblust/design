@@ -114,6 +114,7 @@
       },
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
+      modalClose: "Close \u00b7 Esc",
       diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
@@ -158,6 +159,7 @@
       },
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
+      modalClose: "Schliessen \u00b7 Esc",
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
@@ -795,8 +797,8 @@
   // The dialog Expand opens, the stage's own pattern (assets/stage.js `expand()`): one <dialog>,
   // made once per page, that a figure's picture box moves into and back out of — never a copy —
   // so the same element and the links Mermaid drew into it keep working on both sides of the move.
-  var modal = null, modalBody = null, modalCap = null, modalClose = null, modalFig = null, modalMark = null;
-  var zoomIn = null, zoomOut = null, zoomFit = null;
+  // The picture the one modal holds, its handle, and the zoom controls it carries in its head.
+  var modalFig = null, modalHandle = null, zoomBar = null, zoomIn = null, zoomOut = null, zoomFit = null;
 
   function loadMermaid(){
     if (window.mermaid) return Promise.resolve(window.mermaid);
@@ -823,7 +825,8 @@
     // inside it: a theme change redraws into the box wherever it currently stands.
     var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
     loadMermaid().then(function(m){
-      m.initialize(mermaidConfig(tokenReader(fig.isConnected ? fig : null)));
+      // The colors are read where the box stands: in the modal, the terminal's; on the page, the page's.
+      m.initialize(mermaidConfig(tokenReader(box.isConnected ? box : null)));
       // The width the picture is drawn for: an answer's is the log's, which the chat gives it,
       // and a page's the figure's own.
       return m.render(id, oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth));
@@ -868,81 +871,59 @@
     if (failed) failed.textContent = s.failed;
     // The dialog holds this figure's box while it is open, so a language switch has to reach
     // its caption and its × exactly as it reaches the figure's own.
-    if (modal && modalFig === fig) {
-      modalCap.textContent = caption;
-      // The note names the key that also closes the dialog, as the stage's own × does, so a
-      // visitor who reads it before clicking learns the shortcut too.
-      modalClose.setAttribute("aria-label", s.shut); modalClose.setAttribute("data-tip", s.shut + " · Esc");
-      // Each zoom control names the key that does the same, the way the × names Escape.
+    if (modalHandle && modalFig === fig) {
+      modalHandle.title(caption);
+      // Each zoom control names the key that does the same, the way the modal's × names Escape.
       zoomIn.setAttribute("aria-label", s.zoomIn); zoomIn.setAttribute("data-tip", s.zoomIn + " · +");
       zoomOut.setAttribute("aria-label", s.zoomOut); zoomOut.setAttribute("data-tip", s.zoomOut + " · −");
       zoomFit.textContent = s.fit; zoomFit.setAttribute("aria-label", s.fitTip); zoomFit.setAttribute("data-tip", s.fitTip + " · 0");
     }
   }
-  // Built once, on the first Expand, and reused by every figure on the page after that — only
-  // one picture can be looked at full size at a time, which is all a visitor needs.
-  function ensureModal(){
-    if (modal) return modal;
-    modal = el("dialog", "rbchat-modal");
-    var head = el("div", "rbchat-modal-head");
-    // The dialog names itself by the caption it holds, since a picture's Expand is the only
-    // way in: no other text sits above the box to give it a name of its own.
-    modalCap = el("span"); modalCap.id = "rbchat-modal-cap";
-    modal.setAttribute("aria-labelledby", "rbchat-modal-cap");
-    modalClose = el("button", "rbchat-modal-close"); modalClose.type = "button"; modalClose.textContent = "×";
-    modalClose.addEventListener("click", function(){ modal.close(); });
-    // showModal() focuses the first control it finds, which the zoom's − now precedes; the ×
-    // keeps that focus, as it had before the zoom came.
-    modalClose.autofocus = true;
-    // The zoom controls sit in the head beside the caption, the gestures' visible twin: a
-    // visitor who does not know a pinch or Ctrl and the wheel zoom still finds a way to.
-    var zoom = el("div", "rbchat-modal-zoom");
-    zoomOut = el("button", null, "−"); zoomIn = el("button", null, "+"); zoomFit = el("button", "rbchat-modal-fit");
-    [zoomOut, zoomIn, zoomFit].forEach(function(b){ b.type = "button"; zoom.appendChild(b); });
+  // The zoom controls, built once and carried in the one modal's head by whichever picture it holds.
+  function zoomControls(){
+    if (zoomBar) return zoomBar;
+    zoomBar = el("div", "rbchat-modal-zoom");
+    zoomOut = el("button", null, "\u2212"); zoomIn = el("button", null, "+"); zoomFit = el("button", "rbchat-modal-fit");
+    [zoomOut, zoomIn, zoomFit].forEach(function(b){ b.type = "button"; zoomBar.appendChild(b); });
     zoomOut.addEventListener("click", function(){ viewStep(1 / STEP_ZOOM); });
     zoomIn.addEventListener("click", function(){ viewStep(STEP_ZOOM); });
     zoomFit.addEventListener("click", function(){ viewFit(); });
-    head.appendChild(modalCap); head.appendChild(zoom); head.appendChild(modalClose);
-    modalBody = el("div", "rbchat-modal-body");
-    modal.appendChild(head); modal.appendChild(modalBody);
-    // Appended to document.body: the top layer a native dialog opens into needs no z-index to
-    // sit above a panel pinned to the corner of the same page.
-    document.body.appendChild(modal);
-    // A click on the backdrop lands with the dialog itself as the event target — nothing else
-    // is there to hit — which is what tells it apart from a click on the box it holds.
-    modal.addEventListener("click", function(ev){ if (ev.target === modal) modal.close(); });
-    modal.addEventListener("keydown", viewKey);
-    // One handler for every way the dialog closes — ×, Escape, backdrop click — because all
-    // three end in the native "close" event. The box goes back in front of the marker Expand
-    // left, which puts it exactly where it was whatever else the turn grew around it.
-    modal.addEventListener("close", function(){
-      var fig = modalFig;
-      if (fig && modalMark && modalMark.parentNode) {
-        modalMark.parentNode.insertBefore(fig.rbBox, modalMark);
-        modalMark.parentNode.removeChild(modalMark);
-      }
-      modalFig = null; modalMark = null;
-      viewDrop();
-      if (fig) labelFigure(fig);
+    return zoomBar;
+  }
+  // A picture's full screen is the family's one modal, fetched from beside this file the first
+  // time anything opens, like Mermaid. Its box moves in and back, the zoom rides in its head, and
+  // a page's own picture is drawn again in the terminal's colors while it is there and in the
+  // page's once it is back, so it never sits in the modal in colors that fight it.
+  var modalLoad = null;
+  function loadModal(){
+    window.rbModalWords = window.rbModalWords || { en: strings("en").modalClose, de: strings("de").modalClose };
+    if (window.rbModal) return Promise.resolve(window.rbModal);
+    if (!modalLoad) modalLoad = new Promise(function(resolve, reject){
+      var sc = document.createElement("script"); sc.src = new URL("modal.js", tag.src).href;
+      sc.onload = function(){ if (window.rbModal) window.rbModal.ready.then(function(){ resolve(window.rbModal); }); else reject(new Error("modal.js set no rbModal")); };
+      // A failed fetch is not remembered: the next open tries again.
+      sc.onerror = function(){ modalLoad = null; reject(new Error("modal.js did not load")); };
+      document.head.appendChild(sc);
     });
-    return modal;
+    return modalLoad;
   }
   function expandFigure(fig){
-    ensureModal();
-    // A comment left where the box stood is not a claim about anything the page contains, so
-    // it cannot be wrong about where to put the box back, whatever else sits around it by then.
-    modalMark = document.createComment("rbchat-diagram");
-    fig.rbBox.parentNode.insertBefore(modalMark, fig.rbBox);
-    modalBody.appendChild(fig.rbBox);
-    modalFig = fig;
-    // An answer's picture keeps the terminal's colors when it is opened full screen, since
-    // Mermaid drew it from them; a page's own picture keeps the page's.
-    modal.classList.toggle("rbchat-term", !!(fig.closest && fig.closest(".rbchat")));
-    labelFigure(fig);
-    modal.showModal();
-    // A page's picture not yet scrolled to is drawn now, and the view waits for it.
-    if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); }
-    viewOpen(fig.rbBox);
+    loadModal().then(function(M){
+      var own = !(fig.closest && fig.closest(".rbchat"));
+      modalFig = fig;
+      modalHandle = M.open({ title: diagramCaption(fig.rbDiagram, langNow()), body: fig.rbBox, controls: zoomControls(), opener: document.activeElement,
+        onClose: function(){
+          var was = modalFig; modalFig = null; modalHandle = null; viewDrop();
+          if (was) { if (own && !was.rbWaiting) drawFigure(was); labelFigure(was); }
+        } });
+      if (!modalHandle.el.rbZoomKeys) { modalHandle.el.rbZoomKeys = true; modalHandle.el.addEventListener("keydown", function(ev){ if (modalFig) viewKey(ev); }); }
+      labelFigure(fig);
+      // A page's picture not yet scrolled to is drawn now; a page's picture already drawn is
+      // drawn again, now in the modal's colors; an answer's picture is already in them.
+      if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); }
+      else if (own) drawFigure(fig);
+      viewOpen(fig.rbBox);
+    });
   }
 
   // ─── The zoom ─────────────────────────────────────────────────────────────────────────────

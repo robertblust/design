@@ -116,14 +116,14 @@ test("the dialog's × and Escape in the graph close it, focus goes back to the l
 test("opened from the picture's full screen, the graph sits on top and closing it leaves the picture open", async () => {
   const { p, close } = await answered();
   await p.click(".rbchat-diagram-full");
-  await p.waitForSelector("dialog.rbchat-modal[open]");
-  await p.click('dialog.rbchat-modal svg a[aria-label="Guest"]');
+  await p.waitForSelector("dialog.rbmodal[open]");
+  await p.click('dialog.rbmodal svg a[aria-label="Guest"]');
   await p.waitForSelector("dialog.rbchat-graph[open]");
   await focusIs(p, "concepts / guest");
   assert.equal(await p.evaluate(() => { const g = document.querySelector("dialog.rbchat-graph").getBoundingClientRect(); const top = document.elementFromPoint(g.x + g.width / 2, g.y + 20); return !!(top && top.closest("dialog.rbchat-graph")); }), true, "the graph is not on top");
   await p.click(".rbchat-graph-close");
   await p.waitForFunction(() => !document.querySelector("dialog.rbchat-graph").open);
-  assert.equal(await p.$eval("dialog.rbchat-modal", (d) => d.open), true, "closing the graph closed the picture");
+  assert.equal(await p.$eval("dialog.rbmodal", (d) => d.open), true, "closing the graph closed the picture");
   await close();
 });
 

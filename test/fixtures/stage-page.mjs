@@ -58,5 +58,6 @@ export function stageFiles() {
     "/stage.css": ["text/css", asset("stage.css")], "/stage.js": ["text/javascript", asset("stage.js")],
     "/card.js": ["text/javascript", asset("card.js")], "/d3.v7.min.js": ["text/javascript", asset("d3.v7.min.js")],
     "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")],
+    "/modal.js": ["text/javascript", asset("modal.js")], "/modal.css": ["text/css", asset("modal.css")],
   };
 }

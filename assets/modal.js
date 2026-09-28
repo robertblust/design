@@ -7,6 +7,7 @@
 //
 //   rbModal.open({ key, title, body, controls, opener, onClose }) → { el, title(text), close() }
 //   rbModal.labels()                   every close relabeled in the page's language
+//   rbModal.ready                      settles once modal.css has arrived
 //
 // `body` is a node or a list of them. A node that stands somewhere on the page is moved in, a
 // comment left where it stood, and moved back in front of that comment on close, so it lands
@@ -19,10 +20,13 @@
   if (window.rbModal) return;
 
   // ─── The stylesheet ───────────────────────────────────────────────────────────────────────
-  var here = document.currentScript && document.currentScript.src;
+  // `ready` settles once the stylesheet has arrived, loaded or not, so a caller that measures
+  // what it puts in the modal, a picture fitted to the sheet, measures the modal it will see.
+  var here = document.currentScript && document.currentScript.src, ready = Promise.resolve();
   if (here && !document.querySelector("link[data-rbmodal]")) {
     var css = document.createElement("link");
     css.rel = "stylesheet"; css.href = new URL("modal.css", here).href; css.setAttribute("data-rbmodal", "");
+    ready = new Promise(function(done){ css.onload = done; css.onerror = done; });
     document.head.appendChild(css);
   }
 
@@ -114,5 +118,5 @@
     };
   }
 
-  window.rbModal = { open: open, labels: labels };
+  window.rbModal = { open: open, labels: labels, ready: ready };
 })();

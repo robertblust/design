@@ -14,7 +14,7 @@
    defined again inside the panel from the terminal's, so every rule below that reads a token,
    and Mermaid, which reads them from the figure, draws in the terminal's colors with no second
    copy of each rule. Dark by default and light where the page is, as the tokens are. */
-dialog.rbchat-modal.rbchat-term,dialog.rbchat-graph{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel)}
+dialog.rbchat-graph{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel)}
 .rbchat{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel);
   position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:61;
   width:min(31rem,calc(100vw - 2rem));height:min(46rem,calc(100vh - 2rem));display:flex;flex-direction:column;
@@ -165,64 +165,31 @@ figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:1.1rem 0 1
 .rbchat-diagram-fit .rbchat-diagram-box{overflow:hidden; cursor:zoom-in}
 .rbchat-diagram-fit .rbchat-diagram-box svg{max-width:100%; height:auto; margin:0 auto}
 .rbchat-diagram-box pre{margin:.3rem 0 0;white-space:pre-wrap;font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--ink)}
-/* The dialog Expand opens: a dimmed backdrop, a bordered box, a × in the corner, closed by
-   Escape or a backdrop click, mirroring assets/stage.css's dialog.modal. Its own copy because
-   a chat page loads no stage.css. */
-dialog.rbchat-modal{width:min(1500px,96vw); height:min(92vh,1000px);
-  max-width:96vw; max-height:92vh; padding:1rem 1.2rem 1.2rem;
-  margin:auto; border:1.5px solid var(--c-mid); border-radius:12px;
-  background:var(--raise); color:var(--ink); flex-direction:column}
-dialog.rbchat-modal[open]{display:flex}
-/* chat.js never focuses the dialog itself — showModal() focuses the × — but should focus ever
-   land on it, it is a container, and a container draws no ring. */
-dialog.rbchat-modal:focus, dialog.rbchat-modal:focus-visible{outline:none}
-dialog.rbchat-modal::backdrop{background:rgba(0,0,0,.6)}
-@keyframes rbchatModalIn{ from{opacity:0} to{opacity:1} }
-dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
-@media (prefers-reduced-motion: reduce){
-  dialog.rbchat-modal[open]{animation:none}
-}
-.rbchat-modal-head{flex:0 0 auto; display:flex; align-items:center; padding-right:2.4rem;
-  font-size:.8rem; color:var(--dim)}
-.rbchat-modal-close{position:absolute; top:.6rem; right:.6rem; width:2.2rem; height:2.2rem;
-  display:flex; align-items:center; justify-content:center;
-  font:inherit; font-size:1.3rem; line-height:1; background:none; border:0;
-  border-radius:6px; color:var(--dim); cursor:pointer}
-.rbchat-modal-close:hover, .rbchat-modal-close:focus-visible{color:var(--c-mid)}
-/* The note under the ×, the same box .rbchat-close's note takes: chat.js sets data-tip and
-   there is no rbCard.describe to draw it here, card.js not being on every page the chat is.
-   It hangs below and to the left of the ×, the corner the dialog leaves clear. */
-.rbchat-modal-close[data-tip]::after,.rbchat-modal-zoom button[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
-  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
-  background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
-  box-shadow:0 6px 18px var(--deck-drop);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--ink)}
-.rbchat-modal-close:hover::after,.rbchat-modal-close:focus-visible::after,
-.rbchat-modal-zoom button:hover::after,.rbchat-modal-zoom button:focus-visible::after{opacity:1;transform:none}
-@media (hover:none){.rbchat-modal-close[data-tip]::after,.rbchat-modal-zoom button[data-tip]::after{display:none}}
-@media (prefers-reduced-motion:reduce){.rbchat-modal-close[data-tip]::after,.rbchat-modal-zoom button[data-tip]::after{transition:none}}
-/* The caption gives way to the zoom controls on a narrow sheet, and is cut rather than wrapped. */
-.rbchat-modal-head > span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-/* −, + and Fit: quiet until pointed at, as the × is, with an edge so three read as a group. */
-.rbchat-modal-zoom{flex:0 0 auto; display:flex; gap:.3rem; margin-left:.6rem}
+/* A picture's full screen is the family's one modal (modal.css). What the picture brings to it:
+   the zoom controls in the modal's head, and its box filling the modal's body. */
+/* −, + and Fit: quiet until pointed at, as the modal's × is, with an edge so three read as a
+   group, each with a note naming its key, drawn here because card.js is not on every page. */
+.rbchat-modal-zoom{flex:0 0 auto; display:flex; gap:.3rem}
 .rbchat-modal-zoom button{position:relative; min-width:2rem; height:2rem; padding:0 .55rem;
   font:inherit; font-size:.9rem; line-height:1; background:none; border:1px solid var(--rule);
   border-radius:6px; color:var(--dim); cursor:pointer}
 .rbchat-modal-zoom button:hover, .rbchat-modal-zoom button:focus-visible{color:var(--c-mid); border-color:var(--c-mid); outline:none}
-/* The box takes whatever height the head leaves and scrolls both ways, the same rule
-   .rbchat-diagram-box carries on the page. */
-.rbchat-modal-body{flex:1 1 auto; min-height:0; margin-top:.8rem}
-.rbchat-modal-body .rbchat-diagram-box{height:100%}
-/* In the dialog the box is a viewport the picture is moved in by chat.js's zoom, not a
-   box that scrolls: the browser's own scrolling and pinching would fight the gestures. */
-.rbchat-modal-body .rbchat-diagram-box.rbchat-zoom{overflow:hidden; touch-action:none; cursor:grab;
+.rbchat-modal-zoom button[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
+  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
+  background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
+  box-shadow:0 6px 18px var(--deck-drop);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--ink)}
+.rbchat-modal-zoom button:hover::after,.rbchat-modal-zoom button:focus-visible::after{opacity:1;transform:none}
+@media (hover:none){.rbchat-modal-zoom button[data-tip]::after{display:none}}
+@media (prefers-reduced-motion:reduce){.rbchat-modal-zoom button[data-tip]::after{transition:none}}
+/* The box takes whatever the head leaves, inset as the model page's stage is. In the modal it is
+   a viewport the picture is moved in by chat.js's zoom, not a box that scrolls: the browser's
+   own scrolling and pinching would fight the gestures. */
+.rbmodal-body > .rbchat-diagram-box{flex:1 1 auto; min-height:0; margin:1rem 1.2rem 1.2rem}
+.rbmodal-body .rbchat-diagram-box.rbchat-zoom{overflow:hidden; touch-action:none; cursor:grab;
   user-select:none; -webkit-user-select:none}
-.rbchat-modal-body .rbchat-diagram-box.rbchat-panning{cursor:grabbing}
-.rbchat-modal-body .rbchat-diagram-box.rbchat-panning a{cursor:grabbing}
-@media (max-width: 860px){
-  /* A sheet on a phone, for the reason assets/stage.css's dialog.modal is one there. */
-  dialog.rbchat-modal{width:100vw; max-width:100vw; height:100dvh; max-height:100dvh;
-                       margin:0; border:0; border-radius:0; padding:.5rem}
-}
+.rbmodal-body .rbchat-diagram-box.rbchat-panning{cursor:grabbing}
+.rbmodal-body .rbchat-diagram-box.rbchat-panning a{cursor:grabbing}
+@media (max-width: 860px){ .rbmodal-body > .rbchat-diagram-box{margin:.5rem} }
 /* The intro: the lockup as /cli/ prints its banner, a hello, the notice as a comment, and the menus. */
 .rbchat-intro{display:flex;flex-direction:column}
 .rbchat-lock{display:flex;align-items:center;gap:1rem;margin:.2rem 0 .9rem .2rem}

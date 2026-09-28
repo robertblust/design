@@ -29,8 +29,9 @@ dialog.rbmodal[open]{animation:rbmodalIn .15s ease-out}
 .rbmodal-close:hover::after,.rbmodal-close:focus-visible::after{opacity:1;transform:none}
 @media (hover:none){.rbmodal-close[data-tip]::after{display:none}}
 @media (prefers-reduced-motion:reduce){.rbmodal-close[data-tip]::after{transition:none}}
-/* The body takes what the head leaves, and whatever scrolls inside it keeps its scrolling to itself. */
-.rbmodal-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain}
+/* The body takes what the head leaves and does not scroll itself: what it holds scrolls in its
+   own box, the graph's card in the card and a picture in its viewport, and keeps that to itself. */
+.rbmodal-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;overscroll-behavior:contain}
 @media (max-width:860px){
   dialog.rbmodal{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0}
 }
