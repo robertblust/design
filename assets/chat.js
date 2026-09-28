@@ -1113,7 +1113,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
-  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null;
+  var messages = [], turns = [], busy = false, panel = null, log = null, input = null, sendBtn = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null, say = null;
   // The place a restore owes the visitor, held until the log is shown and every picture above it
   // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
   // the log is where they put it, and place() reads it there.
@@ -1428,6 +1428,9 @@
     sendBtn = el("button", "rbchat-send", "\u21b5"); sendBtn.type = "submit";
     form.appendChild(p); form.appendChild(input); form.appendChild(sendBtn);
     keysEl = el("p", "rbchat-keys");
+    // What a screen reader is told once an answer is whole: the answer arrives in one piece,
+    // already in the log, so the log itself would announce nothing.
+    say = el("p", "rbchat-say"); say.setAttribute("aria-live", "polite");
     form.addEventListener("submit", function(e){ e.preventDefault(); send(); });
     // The corner that sizes the panel. The panel is pinned to the bottom right, so the top left
     // corner is the one that can move without moving the panel: dragging it out makes the panel
@@ -1436,7 +1439,7 @@
     // the panel is the whole screen and there is nothing to size.
     grip = el("div", "rbchat-grip"); grip.tabIndex = 0; grip.setAttribute("role", "separator"); grip.setAttribute("aria-orientation", "vertical");
     panel.appendChild(grip);
-    panel.appendChild(head); panel.appendChild(log); panel.appendChild(form); panel.appendChild(keysEl);
+    panel.appendChild(head); panel.appendChild(log); panel.appendChild(form); panel.appendChild(keysEl); panel.appendChild(say);
     document.body.appendChild(panel);
     // Escape is native to <dialog> and needs no handler here, but its own "close" runs after
     // this keydown, not before: while a modal dialog is still open the panel must not close
@@ -1511,7 +1514,7 @@
   // two opens ahead of the one fetch landing still share it rather than asking twice.
   function open(){ hideQuestions(); if (!panel) build(); panel.hidden = false; button.hidden = true; if (!introEl) intro(!messages.length); settle(); input.focus(); keep(); if (messages.length) offerQuestions(); linkWaiting(); }
   function close(){ if (!reading) reading = place(log); panel.hidden = true; button.hidden = false; button.focus(); keep(); }
-  function reset(){ reading = null; messages = []; turns = []; log.innerHTML = ""; introEl = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
+  function reset(){ reading = null; reqGen++; if (stopRequest) { stopRequest(); stopRequest = null; } messages = []; turns = []; log.innerHTML = ""; introEl = null; menuRows = []; qBox = null; busy = false; input.disabled = false; sendBtn.disabled = false; intro(true); input.focus(); keep(); }
 
   function bubble(role){ var b = el("div", "rbchat-msg rbchat-" + role); log.appendChild(b); log.scrollTop = log.scrollHeight; return b; }
   // A refusal always leaves the visitor able to try again: the sentence is on the table's own
@@ -1521,6 +1524,9 @@
   // sentence.
   function refuse(code, retryAt){ bubble("refusal").textContent = "\u2717 " + refusalText(code, retryAt, Date.now(), langNow()); keysLine(); if (panel && !panel.hidden && refocus(window)) input.focus(); }
 
+  // The request on its way, so starting over can end it: `reqGen` names the latest, and a
+  // request that is no longer it touches nothing when it answers, fails or times out.
+  var reqGen = 0, stopRequest = null;
   function send(){
     if (busy) return;
     var typed = input.value.trim();
@@ -1560,6 +1566,8 @@
     // .catch below exactly as a network failure does.
     var ac = new AbortController();
     var timer = setTimeout(function(){ ac.abort(); }, TIMEOUT);
+    var gen = ++reqGen;
+    stopRequest = function(){ clearTimeout(timer); stopSpin(); ac.abort(); };
     function finish(){
       clearTimeout(timer);
       stopSpin();
@@ -1594,6 +1602,10 @@
       var sha = commitOf(cites);
       if (sha) ans.appendChild(el("p", "rbchat-model", strings(langNow()).model.replace("{sha}", sha).replace("{secs}", String(Math.max(1, Math.round((Date.now() - t0) / 1000))))));
       log.scrollTop = log.scrollHeight;
+      // Emptied first and filled a moment later, so the same words twice are still said twice.
+      say.textContent = ""; var said = body.textContent;
+      setTimeout(function(){ if (say) say.textContent = said; }, 60);
+      stopRequest = null;
       messages.push({ role: "assistant", content: acc });
       turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture });
       ans.setAttribute("data-turn", turns.length - 1);
@@ -1609,6 +1621,7 @@
           return r.json().then(function(j){ var e = j && j.error; return { code: (e && e.code) || "internal", retryAt: e && e.retryAt }; }, function(){ return { code: r.status === 413 ? "too_much" : "internal" }; })
             .then(function(got){
               clearTimeout(timer); stopSpin();
+              if (gen !== reqGen) return;
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1616,6 +1629,7 @@
             });
         }
         return readEvents(r, function(name, data){
+          if (gen !== reqGen) return;
           if (name === "text") acc += data.text || "";
           else if (name === "cite") cites.push(data);
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
@@ -1637,10 +1651,11 @@
             }
             acc += "\n\n" + refusalText(code, at, Date.now(), langNow());
           }
-        }).then(function(){ if (busy) finish(); });
+        }).then(function(){ if (gen === reqGen && busy) finish(); });
       })
       .catch(function(){
         clearTimeout(timer); stopSpin();
+        if (gen !== reqGen) return;
         if (ans.parentNode) ans.parentNode.removeChild(ans);
         if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { unsend(); }
         busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1659,7 +1674,9 @@
     var was = stored();
     if (!was || !was.turns || !was.turns.length) return;
     if (!panel) build();
-    intro(false);
+    // Only a panel restored open shows its intro now; a closed one gets it from open(), since
+    // the intro reads the model file and that read waits for the panel.
+    if (was.open) intro(false);
     reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
     was.turns.forEach(function(t){
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }

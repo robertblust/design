@@ -26,7 +26,7 @@ const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JS
 // What the stub /chat answers: set per test. `delay` holds the whole body back, `split` sends the
 // first event at once and the rest after `delay`, as a slow stream does; `fail` drops the socket
 // after the first event.
-export const reply = { events: [], delay: 0, split: false, fail: false, asked: [] };
+export const reply = { events: [], delay: 0, delays: null, split: false, fail: false, asked: [] };
 let server, base, browser;
 
 before(async () => {
@@ -35,11 +35,12 @@ before(async () => {
     if (req.method === "POST" && url === "/chat") {
       let body = ""; req.on("data", (c) => body += c); req.on("end", () => {
         reply.asked.push(JSON.parse(body));
+        const delay = reply.delays && reply.delays.length ? reply.delays.shift() : reply.delay;
         res.writeHead(200, { "content-type": "text/event-stream" });
         const all = sse(reply.events), first = sse(reply.events.slice(0, 1)), rest = sse(reply.events.slice(1));
-        if (reply.fail) { res.write(first); setTimeout(() => res.destroy(), reply.delay); return; }
-        if (reply.split) { res.write(first); setTimeout(() => res.end(rest), reply.delay); return; }
-        setTimeout(() => res.end(all), reply.delay);
+        if (reply.fail) { res.write(first); setTimeout(() => res.destroy(), delay); return; }
+        if (reply.split) { res.write(first); setTimeout(() => res.end(rest), delay); return; }
+        setTimeout(() => res.end(all), delay);
       });
       return;
     }
@@ -298,5 +299,71 @@ test("a number with no such row is sent as typed, and ↑ brings back the last q
   await p.focus("section.rbchat textarea");
   await p.keyboard.press("ArrowUp");
   assert.equal(await p.$eval("section.rbchat textarea", (t) => t.value), "9");
+  await close();
+});
+
+// ─── The final review's findings ─────────────────────────────────────────────────────────
+test("a conversation restored into a closed panel does not read the model file until the panel opens", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, split: false, fail: false });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.click(".rbchat-close");
+  const reads = [];
+  p.on("request", (r) => { if (r.url().endsWith("/model.json")) reads.push(r.url()); });
+  await p.reload();
+  await p.waitForSelector(".rbchat-open", { state: "attached" });
+  await p.waitForTimeout(400);
+  assert.equal(reads.length, 0, "the model file was read with the panel closed");
+  await open(p);
+  await p.waitForSelector(".rbchat-intro .rbchat-row");
+  assert.equal(await p.evaluate(() => document.querySelector(".rbchat-log").firstElementChild.classList.contains("rbchat-intro")), true, "the intro is not at the top of the restored log");
+  await close();
+});
+
+test("the finished answer is said to a screen reader through a live region", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, split: false, fail: false });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.waitForFunction(() => /is the entity another is nested under/.test((document.querySelector(".rbchat-say") || {}).textContent || ""));
+  assert.equal(await p.$eval(".rbchat-say", (e) => e.getAttribute("aria-live")), "polite");
+  await close();
+});
+
+test("starting over while an answer is on its way stops it: no spinner, and the old answer never lands", { timeout: 40000 }, async () => {
+  // ↻ shows once a conversation has an answer, so the race is on the second question: it is
+  // started over while its answer is still coming, and a third question is waiting by the time
+  // that old answer would land.
+  Object.assign(reply, { events: ANSWER, delays: [0, 6000, 11000], split: false, fail: false });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "First");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.fill("section.rbchat textarea", "Second");
+  const t0 = Date.now();
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-spin");
+  await p.click(".rbchat-new");
+  await p.waitForSelector(".rbchat-intro .rbchat-row");
+  await p.fill("section.rbchat textarea", "Third");
+  await p.keyboard.press("Enter");
+  assert.ok(Date.now() - t0 < 6000, "the third question went out after the second answer landed, so the race was not run");
+  // Past the moment the second answer lands, and before the third's.
+  await p.waitForTimeout(7000 - (Date.now() - t0));
+  const s = await p.evaluate(() => ({
+    spin: document.querySelectorAll(".rbchat-spin").length,
+    answers: document.querySelectorAll(".rbchat-assistant").length,
+    users: [...document.querySelectorAll(".rbchat-user")].map((u) => u.textContent)
+  }));
+  assert.deepEqual(s, { spin: 1, answers: 0, users: ["Third"] }, "the old request wrote into the new conversation");
+  await p.waitForSelector(".rbchat-assistant[aria-live]", { timeout: 15000 });
+  assert.equal(await p.$$eval(".rbchat-assistant", (a) => a.length), 1);
+  reply.delays = null;
   await close();
 });

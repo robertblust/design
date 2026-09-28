@@ -262,3 +262,5 @@ dialog.rbchat-modal[open]{animation:rbchatModalIn .15s ease-out}
 .rbchat-help{margin:.4rem 0 0;color:var(--t-dim)}
 .rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
 .rbchat-help-k{color:var(--t-accent)}
+/* Heard, not seen: the finished answer, said once to a screen reader. */
+.rbchat-say{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
