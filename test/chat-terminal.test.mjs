@@ -172,3 +172,91 @@ test("the intro follows a language switch, rows and keys included", async () => 
   assert.match(await p.$eval(".rbchat-keys", (k) => k.textContent), /1-6 wählen/);
   await close();
 });
+
+const ANSWER = [["text", { text: "An **owner** is the entity another is nested under.\n\n- one\n- two\n\n| Owner | Owns |\n| --- | --- |\n| process | step |" }],
+  ["cite", { id: "concepts/owner", title: "owner", url: "https://github.com/o/r/blob/3f2a1c9e0b/concepts/owner.md" }],
+  ["done", { model: null, spent: 1, dayLeft: 1 }]];
+
+test("a slow answer shows only the spinner, counting, until the stream ends, then the whole answer at once", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 2600, split: true, fail: false });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-spin");
+  await p.waitForTimeout(1300);
+  const mid = await p.evaluate(() => ({
+    answer: document.querySelectorAll(".rbchat-assistant").length,
+    secs: document.querySelector(".rbchat-spin .rbchat-secs").textContent,
+    you: document.querySelector(".rbchat-user").textContent
+  }));
+  assert.equal(mid.answer, 0, "some of the answer showed before the stream ended");
+  assert.equal(mid.secs, "1s");
+  assert.equal(mid.you, "What is an owner?");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  const done = await p.evaluate(() => {
+    const a = document.querySelector(".rbchat-assistant");
+    return {
+      spin: document.querySelectorAll(".rbchat-spin").length,
+      head: a.querySelector(".rbchat-done").textContent,
+      strong: !!a.querySelector(".rbchat-body strong"),
+      list: a.querySelectorAll(".rbchat-body ul li").length,
+      table: !!a.querySelector(".rbchat-body table"),
+      cite: a.querySelector(".rbchat-cites a.rbchat-cite").textContent,
+      model: a.querySelector(".rbchat-model").textContent,
+      animations: document.getAnimations().filter((x) => a.contains(x.effect && x.effect.target)).length,
+      face: getComputedStyle(a.querySelector(".rbchat-body p")).fontFamily,
+      tableFace: getComputedStyle(a.querySelector(".rbchat-body table")).fontFamily
+    };
+  });
+  assert.equal(done.spin, 0, "the spinner stayed");
+  assert.equal(done.head, "✓ answered");
+  assert.equal(done.strong, true);
+  assert.equal(done.list, 2);
+  assert.equal(done.table, true);
+  assert.equal(done.cite, "owner");
+  assert.match(done.model, /^model 3f2a1c9 · \d+s$/);
+  assert.equal(done.animations, 0, "the answer animates");
+  assert.match(done.face, /Instrument Sans/, "the answer's text is not in today's face");
+  assert.match(done.tableFace, /Plex Mono/, "a table is not in mono");
+  await close();
+});
+
+test("a stream that drops after some text leaves no answer, no spinner, and a ✗ network line", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 300, split: false, fail: true });
+  const { p, close } = await tab();
+  await open(p);
+  await p.fill("section.rbchat textarea", "What is an owner?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-refusal");
+  const s = await p.evaluate(() => ({
+    refusal: document.querySelector(".rbchat-refusal").textContent,
+    answer: document.querySelectorAll(".rbchat-assistant").length,
+    spin: document.querySelectorAll(".rbchat-spin").length,
+    enabled: !document.querySelector("section.rbchat textarea").disabled
+  }));
+  assert.match(s.refusal, /^✗ The chat could not be reached/);
+  assert.equal(s.answer, 0);
+  assert.equal(s.spin, 0);
+  assert.equal(s.enabled, true);
+  await close();
+});
+
+test("the next questions are a numbered menu, and the intro's menu dims once a question is sent", async () => {
+  Object.assign(reply, { events: ANSWER, delay: 0, split: false, fail: false });
+  const { p, close } = await tab();
+  await open(p);
+  await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+  await p.click(".rbchat-intro .rbchat-row");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.waitForSelector(".rbchat-next .rbchat-row");
+  const s = await p.evaluate(() => ({
+    spent: document.querySelectorAll(".rbchat-intro .rbchat-menu.rbchat-spent").length,
+    next: [...document.querySelectorAll(".rbchat-next .rbchat-n")].map((n) => n.textContent),
+    sent: document.querySelector(".rbchat-user").textContent
+  }));
+  assert.ok(s.spent >= 1, "the intro's menu did not dim");
+  assert.deepEqual(s.next, ["1", "2", "3"]);
+  assert.equal(s.sent, "Show me the meta-model");
+  await close();
+});

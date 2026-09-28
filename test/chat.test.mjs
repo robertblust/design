@@ -545,14 +545,14 @@ test("the chip container carries an accessible name from the strings, in both la
   assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", qNext \? s\.next : s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
 });
 
-test("a chip's label is set with textContent, and activating it sends exactly its title", () => {
-  assert.match(src, /el\("button", "rbchat-q", t\)/, "a chip's label is not textContent, through el()");
-  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = t; send\(\); \}\)/, "a chip does not send its own title through send()");
+test("a row's label is set with textContent, and activating it sends exactly its question", () => {
+  assert.match(src, /b\.appendChild\(el\("span", "rbchat-q", it\[0\]\)\);/, "a row's label is not textContent, through el()");
+  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = it\[0\]; send\(\); \}\)/, "a row does not send its own question through send()");
 });
 
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
   const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
-  assert.match(sendFn, /hideQuestions\(\);/, "send() no longer clears the chips before pushing a message");
+  assert.match(sendFn, /spend\(\); qBox = null;/, "send() does not dim the menus it moves past, or lets the next answer reuse the old one");
   assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
   assert.match(src, /introEl = null; menuRows = \[\]; qBox = null;.*intro\(true\);/, "reset() does not clear the stale menus and play a fresh intro");
 });

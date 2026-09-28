@@ -1207,6 +1207,20 @@
     parent.appendChild(m);
     return m;
   }
+  // A column whose cells are all numbers aligns right, in figures of one width.
+  function numberColumns(root){
+    var tables = root.querySelectorAll("table");
+    for (var t = 0; t < tables.length; t++) {
+      var rows = tables[t].querySelectorAll("tbody tr"), n = rows.length && rows[0].children.length;
+      for (var c = 0; c < n; c++) {
+        var all = rows.length > 0;
+        for (var r = 0; r < rows.length && all; r++) all = /^[\d\s.,'\u2019%+\-]+$/.test((rows[r].children[c] || {}).textContent || "");
+        if (!all) continue;
+        var cells = tables[t].querySelectorAll("tr > :nth-child(" + (c + 1) + ")");
+        for (var k = 0; k < cells.length; k++) cells[k].classList.add("rbchat-num");
+      }
+    }
+  }
   // A menu the conversation has moved past stays, dimmed, and its rows still send.
   function spend(){ var ms = log.querySelectorAll(".rbchat-menu"); for (var i = 0; i < ms.length; i++) ms[i].classList.add("rbchat-spent"); }
 
@@ -1305,16 +1319,13 @@
       var picked = (last && last.role === "assistant" && follow(last.cites, list, messages, langNow())) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
       qNext = messages.length > 0;
-      qBox = el("div", "rbchat-questions");
+      qBox = el("div", "rbchat-next");
       qBox.setAttribute("role", "group");
       qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
-      picked.forEach(function(t){
-        var b = el("button", "rbchat-q", t);
-        b.type = "button";
-        b.addEventListener("click", function(){ input.value = t; send(); });
-        qBox.appendChild(b);
-      });
+      qBox.appendChild(el("p", "rbchat-label", strings(langNow()).next));
+      menu(qBox, picked.map(function(t){ return [t]; }), 0);
       log.appendChild(qBox);
+      menuRows = picked.slice(); keysLine();
       if (qNext && !reading) log.scrollTop = log.scrollHeight; else settle();
     });
   }
@@ -1491,14 +1502,15 @@
   // every call site re-enables the form before calling this, so the box is never focused
   // while disabled. The moment the server named, if any, comes with the code and ends the
   // sentence.
-  function refuse(code, retryAt){ bubble("refusal").textContent = refusalText(code, retryAt, Date.now(), langNow()); if (panel && !panel.hidden && refocus(window)) input.focus(); }
+  function refuse(code, retryAt){ bubble("refusal").textContent = "\u2717 " + refusalText(code, retryAt, Date.now(), langNow()); keysLine(); if (panel && !panel.hidden && refocus(window)) input.focus(); }
 
   function send(){
     if (busy) return;
     var text = input.value.trim();
     if (!text) return;
     if (text.length > LIMIT) { refuse("too_long"); return; }
-    hideQuestions();
+    // The menus above stay, dimmed, and their rows still send; the next answer draws its own.
+    spend(); qBox = null;
     reading = null;
     var s = strings(langNow());
     messages.push({ role: "user", content: text });
@@ -1508,12 +1520,18 @@
     // A message that goes unanswered leaves the conversation, and its bubble stops naming a turn.
     function unsend(){ messages.pop(); turns.pop(); mine.removeAttribute("data-turn"); keep(); }
     input.value = ""; busy = true; input.disabled = true; sendBtn.disabled = true;
-    var ans = bubble("assistant"), body = el("div", "rbchat-body"), wait = el("p", "rbchat-wait", s.waiting);
-    // Streaming, from the moment the request goes out until finish() has the whole answer.
-    ans.setAttribute("aria-busy", "true");
-    ans.appendChild(wait); ans.appendChild(body);
+    // Nothing of the answer is drawn until the stream ends: the spinner stands for the whole
+    // wait, counting the seconds, and the finished answer arrives in one piece. The answer's
+    // element is made now and filled as the stream comes, but joins the log only in finish().
+    var ans = el("div", "rbchat-msg rbchat-assistant"), body = el("div", "rbchat-body"), t0 = Date.now();
+    var wait = el("p", "rbchat-spin"), frame = el("span", "rbchat-frame", "|"), secs = el("span", "rbchat-secs");
+    wait.appendChild(frame); wait.appendChild(document.createTextNode(" " + s.asking + "\u2026 ")); wait.appendChild(secs);
+    log.appendChild(wait); log.scrollTop = log.scrollHeight;
+    var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
+    ans.appendChild(body);
     var acc = "", cites = [], names = [], cut = false, picture = null, fig = null;
-    function render(){ body.innerHTML = md(acc); log.scrollTop = log.scrollHeight; }
+    function render(){ body.innerHTML = md(acc); numberColumns(body); }
+    function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
     // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
     // the request goes out, the controller aborts it, and the abort reaches the existing
@@ -1522,7 +1540,7 @@
     var timer = setTimeout(function(){ ac.abort(); }, TIMEOUT);
     function finish(){
       clearTimeout(timer);
-      if (wait.parentNode) wait.parentNode.removeChild(wait);
+      stopSpin();
       // An answer with no text is not a turn: pushing an empty assistant message would break
       // the server's alternating-turns rule on the visitor's next message, so this is a
       // refusal instead, and the exchange leaves no trace in the conversation. Whitespace
@@ -1535,9 +1553,13 @@
         return;
       }
       if (cut) acc += "\n\n" + strings(langNow()).cut;
-      ans.removeAttribute("aria-busy");
-      ans.setAttribute("aria-live", "polite");
       render();
+      var head = el("p", "rbchat-done"); head.appendChild(el("span", "rbchat-tick", "\u2713")); head.appendChild(document.createTextNode(" " + strings(langNow()).answered));
+      ans.insertBefore(head, body);
+      log.appendChild(ans);
+      // The picture is drawn once the answer is in the log, since it is drawn for the log's width.
+      if (picture) { fig = figure(picture); ans.insertBefore(fig, body.nextSibling); }
+      ans.setAttribute("aria-live", "polite");
       // Once, on the finished answer: the names are linked in the text the visitor reads, not
       // in the Markdown, so nothing about the answer itself changes and the next render — a
       // language switch, a redraw — would simply do it again.
@@ -1547,6 +1569,9 @@
       nameLinks(body, names.concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
+      var sha = commitOf(cites);
+      if (sha) ans.appendChild(el("p", "rbchat-model", strings(langNow()).model.replace("{sha}", sha).replace("{secs}", String(Math.max(1, Math.round((Date.now() - t0) / 1000))))));
+      log.scrollTop = log.scrollHeight;
       messages.push({ role: "assistant", content: acc });
       turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture });
       ans.setAttribute("data-turn", turns.length - 1);
@@ -1561,7 +1586,7 @@
           // lifts; a body that cannot be read refuses by the status alone and names no moment.
           return r.json().then(function(j){ var e = j && j.error; return { code: (e && e.code) || "internal", retryAt: e && e.retryAt }; }, function(){ return { code: r.status === 413 ? "too_much" : "internal" }; })
             .then(function(got){
-              clearTimeout(timer);
+              clearTimeout(timer); stopSpin();
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1569,24 +1594,19 @@
             });
         }
         return readEvents(r, function(name, data){
-          if (name === "text") { if (wait.parentNode) wait.parentNode.removeChild(wait); acc += data.text || ""; render(); }
+          if (name === "text") acc += data.text || "";
           else if (name === "cite") cites.push(data);
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
           else if (name === "diagram" && data && typeof data.mermaid === "string") {
             // The last picture a message brings is the one drawn: a second replaces the first.
-            // Where the dialog holds the figure being replaced, it is closed first, or it would
-            // go on showing a box about to be torn out from under it.
-            if (modal && modalFig === fig) modal.close();
+            // It is drawn in finish(), with the rest of the answer.
             picture = data;
-            if (fig && fig.parentNode) fig.parentNode.removeChild(fig);
-            fig = figure(data);
-            ans.insertBefore(fig, body.nextSibling);
           }
           else if (name === "done") cut = !!data.cut;
           else if (name === "error") {
             var code = data && data.error && data.error.code, at = data && data.error && data.error.retryAt;
             if (!acc.trim()) {
-              clearTimeout(timer);
+              clearTimeout(timer); stopSpin();
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1598,7 +1618,7 @@
         }).then(function(){ if (busy) finish(); });
       })
       .catch(function(){
-        clearTimeout(timer);
+        clearTimeout(timer); stopSpin();
         if (ans.parentNode) ans.parentNode.removeChild(ans);
         if (messages[messages.length - 1] && messages[messages.length - 1].role === "user") { unsend(); }
         busy = false; input.disabled = false; sendBtn.disabled = false;
@@ -1623,7 +1643,9 @@
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
       ans.setAttribute("data-turn", turns.length);
-      body.innerHTML = md(t.content); ans.appendChild(body);
+      body.innerHTML = md(t.content); numberColumns(body);
+      var head = el("p", "rbchat-done"); head.appendChild(el("span", "rbchat-tick", "\u2713")); head.appendChild(document.createTextNode(" " + strings(langNow()).answered));
+      ans.appendChild(head); ans.appendChild(body);
       var cites = t.cites || [];
       // The same gate send() applies to a picture arriving live: a stored turn from before this
       // gate existed, or one a bug wrote otherwise, keeps no picture rather than throwing.
@@ -1632,6 +1654,9 @@
       linkQuestions(body);
       if (diagram) ans.appendChild(figure(diagram));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
+      // A restored answer has no timing to name, so its line names the commit alone.
+      var sha = commitOf(cites);
+      if (sha) ans.appendChild(el("p", "rbchat-model", strings(langNow()).model.replace(/ \u00b7 \{secs\}s$/, "").replace("{sha}", sha)));
       messages.push({ role: "assistant", content: t.content });
       turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
     });
