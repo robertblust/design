@@ -5,7 +5,8 @@
 //   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/"
 //     data-questions="/model.json" defer>
 //
-// Any element carrying `data-chat-open` opens the panel on click, as the button does.
+// Any element carrying `data-chat-open` opens the panel on click, as the button does, and an
+// address carrying `?chat=open` opens it when the page loads, then drops the parameter.
 //
 // Opening the panel may read the site's own model file, when `data-questions` names one, but
 // nothing is sent to the chat host until the visitor presses send. The conversation lives in
@@ -32,6 +33,7 @@
 //   rbChat.nameLinks(root, names, …)   the model's names, linked in a rendered answer
 //   rbChat.heard(turns)                every name and cite the conversation's answers brought
 //   rbChat.refocus(window)             whether the cursor goes back after an answer
+//   rbChat.asked(location.search)      the address without ?chat=open, or null if it has none
 //   rbChat.when(retryAt, now, lang)    when a limit lifts, in the visitor's language and time
 //   rbChat.refusalText(code, retryAt, …)  the refusal sentence, ending with that moment where there is one
 //   rbChat.citeLine(cites, model, icon, doc)  the line under an answer: the icon, each title, each mark
@@ -414,6 +416,17 @@
   // still focus the input everywhere, because the visitor asked for those.
   function refocus(win){ var mm = win && win.matchMedia; return !mm || mm.call(win, "(pointer: fine)").matches; }
 
+  // A link may ask for the panel open — a post that sends a reader to the chat does — with
+  // ?chat=open, as a link asks for the stage expanded with ?stage=expanded. The page opens the
+  // panel and takes the parameter back out of the address, the way it takes lang and theme, so
+  // a reload or a shared address does not open it again. This gives the query string without
+  // the parameter, "" where it was the only one, or null where the address never asked.
+  function asked(search){
+    var re = /([?&])chat=open(&|$)/;
+    if (!re.test(search || "")) return null;
+    return search.replace(re, "$1").replace(/[?&]$/, "");
+  }
+
   // n items of a list, at random and without repeats: a Fisher–Yates shuffle of a copy, cut to
   // n, which is uniform over every ordering and never picks the same item twice even where the
   // caller asks for more than the list holds — it then gives back the whole list, shuffled.
@@ -629,7 +642,7 @@
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1414,5 +1427,17 @@
     if (was.open) { panel.hidden = false; button.hidden = true; offerQuestions(); linkWaiting(); }
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight; settle();
+  })();
+
+  // After the restore, so a panel the tab kept open is not opened twice. The address is not a
+  // click: open() focuses the input, which on a touch screen would raise the keyboard over a page
+  // the visitor has not read yet, so there the focus is taken back at once, where refocus says.
+  (function arrive(){
+    var rest = asked(location.search);
+    if (rest === null) return;
+    try { history.replaceState(null, "", location.pathname + rest + location.hash); } catch (err) {}
+    if (panel && !panel.hidden) return;
+    open();
+    if (!refocus(window)) input.blur();
   })();
 })();
