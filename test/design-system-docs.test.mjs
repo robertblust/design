@@ -38,7 +38,7 @@ function linkedFiles() {
 
 // GitHub's anchor for a heading: lowercased, punctuation dropped, spaces to hyphens.
 const slug = (h) => h.trim().toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s/g, "-");
-const anchors = (page) => new Set([...read(page).matchAll(/^#{1,6} (.+)$/gm)].map((m) => slug(m[1])));
+const anchors = (page) => new Set([...read(page).replace(/```[\s\S]*?```/g, "").matchAll(/^#{1,6} (.+)$/gm)].map((m) => slug(m[1])));
 
 test("the map links every block", () => {
   const linked = linkedFiles();
@@ -83,24 +83,42 @@ test("every link on the pages lands, anchors included", () => {
 test("no page restates a value or a version", () => {
   for (const page of PAGES) {
     const text = read(page).replace(/\]\([^)]*\)/g, "]()");
-    const hex = text.match(/#[0-9a-fA-F]{3,8}\b/);
+    const hex = text.match(/#(?!\d+\b)[0-9a-fA-F]{3,8}\b/);  // not #210, an issue
     assert.equal(hex, null, `${page} carries a color value, ${hex && hex[0]}; the tokens master values`);
-    const version = text.match(/(?<![.\w])v\d+(\.\d+)*\b/);  // not d3.v7, a file name
+    const version = text.match(/(?<![.\w])v\d+(\.\d+)*\b|\b\d+\.\d+\.\d+\b/);  // not d3.v7, a file name
     assert.equal(version, null, `${page} carries a version, ${version && version[0]}; versions.json masters versions`);
   }
 });
 
-test("what a color role means is stated on the tokens page and nowhere in the source", () => {
-  const norm = (s) => s.toLowerCase().replace(/[—–:;,."“”'’()]/g, " ").replace(/\s+/g, " ").trim();
-  const table = read("tokens.md").split("## Color roles")[1].split("\n## ")[0];
-  const means = [...table.matchAll(/^\| `(--c-[a-z]+)` \| ([^|]+) \|/gm)].map((m) => ({ role: m[1], text: norm(m[2]) }));
-  assert.ok(means.length > 0, "the tokens page's Color roles table was read");
-  const sources = ["blocks", "assets"].flatMap((d) => fs.readdirSync(path.join(PKG, d))
-    .filter((f) => /\.(css|js)$/.test(f))
-    .map((f) => ({ file: `${d}/${f}`, text: norm(fs.readFileSync(path.join(PKG, d, f), "utf8")) })));
-  for (const { role, text } of means) {
-    for (const src of sources) {
-      assert.ok(!src.text.includes(text), `${src.file} restates what ${role} means; it is stated once, in docs/design-system/tokens.md`);
+// A restatement arrives as a paraphrase, not a copy — "links, controls" for "a link, a control" —
+// so a source fails when, within a few words either side of a role's name, it carries half of
+// the words that role's Means cell is made of.
+// A class name (`.conclusion`) is the markup's word for a thing, not a statement of what it means.
+const STOP = new Set(["what", "that", "with", "from", "this", "them", "thing", "anything", "where", "once", "most", "before"]);
+const words = (s) => s.toLowerCase().replace(/\.[a-z][\w-]*/g, " ").replace(/--c-[a-z]+/g, (r) => ` ${r} `).split(/[^a-z0-9-]+/).filter(Boolean);
+function restatements(tokensMd, sources, reach = 16) {
+  const table = tokensMd.split("## Color roles")[1].split("\n## ")[0];
+  const roles = [...table.matchAll(/^\| `(--c-[a-z]+)` \| ([^|]+) \|/gm)]
+    .map((m) => ({ role: m[1], key: [...new Set(words(m[2]).filter((w) => w.length > 3 && !STOP.has(w)))] }));
+  const found = [];
+  for (const { file, text } of sources) {
+    const w = words(text);
+    for (const { role, key } of roles) {
+      w.forEach((t, i) => {
+        if (t !== role) return;
+        const near = new Set(w.slice(Math.max(0, i - reach), i + reach + 1));
+        const hit = key.filter((k) => near.has(k));
+        if (hit.length * 2 >= key.length) found.push(`${file} restates ${role} (${hit.join(", ")})`);
+      });
     }
   }
+  return [...new Set(found)];
+}
+
+test("what a color role means is stated on the tokens page and nowhere in the source", () => {
+  assert.match(read("tokens.md"), /^\| `--c-weak` \|/m, "the tokens page's Color roles table was read");
+  const sources = ["blocks", "assets"].flatMap((d) => fs.readdirSync(path.join(PKG, d))
+    .filter((f) => /\.(css|js)$/.test(f))
+    .map((f) => ({ file: `${d}/${f}`, text: fs.readFileSync(path.join(PKG, d, f), "utf8") })));
+  assert.deepEqual(restatements(read("tokens.md"), sources), [], "what a role means is stated once, in docs/design-system/tokens.md");
 });

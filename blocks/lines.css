@@ -1,15 +1,14 @@
-  /* ─── lines · v2 · {{variant}} ─────────────────────────────────────────
+  /* ─── lines · v3 · {{variant}} ─────────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
-     What a prose page brings forward beside its paragraphs, and what each means, so that a
-     line's color says the same thing on every page of the family:
+     What a prose page brings forward beside its paragraphs, where each goes and how often, so
+     that a line's color says the same thing on every page of the family. What each color means
+     is docs/design-system/tokens.md's, in robertblust/design:
        · .title .note   the caveat, in --c-flag: what a reader should know before trusting the
                         rest. Once per page, under the title.
-       · .conclusion    the conclusion, in --c-sum: what the figures above add up to. At most
-                        once per section.
+       · .conclusion    in --c-sum. At most once per section.
        · .keyline       a section's one point in a sentence, lifted out of its paragraph and
-                        said once, in --c-firm text with no line: the thesis, as the ramp names
-                        it. At most once per section and never in a section with a conclusion.
+                        said once, in --c-firm text with no line. At most once per section and never in a section with a conclusion.
                         It sits tighter above than below, so it reads as the completion of the
                         sentence before it; that spacing, not its color, is what tells it from
                         a link, which carries the same blue.

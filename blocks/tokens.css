@@ -5,15 +5,15 @@
      from the package. Change it there, not here.
 
      What each color role means, and the one misuse it must never carry, is
-     stated once, in docs/design-system/tokens.md of @robertblust/design. This
-     block holds the values and why each was picked.
+     stated once, in docs/design-system/tokens.md of robertblust/design:
+     https://github.com/robertblust/design/blob/main/docs/design-system/tokens.md
+     This block holds the values and why each was picked.
 
-     --c-path carries --c-firm's value, and naming it is the point: the places
-     that draw a path mean "the way back to the root", not "the resolved
-     thing", and the two only happen to look alike. A green was considered and
-     refused — the grammar here is one hue at four brightnesses, and a second
-     hue would have made color mean two things at once. If it is ever wanted,
-     this is the one line that changes.
+     --c-path carries --c-firm's value under a name of its own, because the two
+     mean different things; a green was considered for it and refused — the
+     grammar here is one hue at four brightnesses, and a second hue would have
+     made color mean two things at once. If it is ever wanted, this is the one
+     line that changes.
   */
   /* The same eleven names, re-picked. The ramp's axis flips: on dark, brightness is
      confidence; on light, depth is — the candidate pales, the resolved thing deepens.
@@ -23,7 +23,7 @@
 
      --c-weak is 2.37:1 and that is deliberate, exactly as its 2.64:1 on dark is: darkening
      it until it clears the 3:1 UI threshold stops it reading as tentative, and that is why
-     its Never in docs/design-system/tokens.md is what it is.
+     its Never on the tokens page is what it is.
 
      --press carries text now, not just a hover wash: `.seg button[aria-pressed="true"]`
      paints --c-mid on it, and the pressed segment is how a visitor tells which language and
