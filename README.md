@@ -2,6 +2,8 @@
 
 The design system shared by [blust.ch](https://blust.ch), [companygraph.io](https://companygraph.io) and [guestgraph.io](https://guestgraph.io).
 
+What it is made of, what each part looks like and where each part ships is mapped in [docs/design-system](docs/design-system/README.md), with the color roles and the faces the three brands share. This file is how the package delivers it.
+
 ## The rule
 
 > If a visitor downloads it and every copy is the same, it is generated into the
