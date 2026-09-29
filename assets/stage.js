@@ -1004,6 +1004,8 @@ function rbStage(data) {
   trail = [opener.kind === "root" ? "" : opener.id]; pos = 0;
   focus(opener, true);
   first = false;
+  // What stage.css waits for before it stops saying the stage is coming.
+  stageEl.classList.add("drawn");
 
   // A link may ask for the stage expanded — blust.ch's timeline does, for a skill — with
   // ?stage=expanded beside the hash that names the node. The page adopts the state and takes

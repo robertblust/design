@@ -21,6 +21,25 @@
   box-shadow:0 18px 60px var(--deck-drop);overflow:hidden;
   font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55}
 .rbchat[hidden]{display:none}
+/* The panel's empty frame, painted from the first frame of a page the visitor arrives at with the
+   chat open, until chat.js has built the panel over it: theme boot sets `data-chat-waiting` to the
+   host, and a stored size, before anything paints. The same place and size as the panel, its
+   title bar band, its three dots and its title where the panel's head puts them — the band 40px,
+   the dots 19px in and 14px down, 11px each and .45rem apart, the title 83px in and .6rem down,
+   all as measured on the built panel — so the page never shows a frame without the panel and
+   nothing in the bar moves when the panel arrives. A page whose chat.js never comes lets it go
+   after four seconds rather than holding an empty frame over the page. */
+html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);position:fixed;z-index:61;box-sizing:border-box;
+  right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));
+  width:min(var(--rbchat-kept-w,31rem),calc(100vw - 2rem));height:min(var(--rbchat-kept-h,46rem),calc(100vh - 2rem));
+  padding:.6rem 1rem 0 81.5px;border:1.5px solid var(--t-edge);border-radius:12px;box-shadow:0 18px 60px var(--deck-drop);
+  background:radial-gradient(circle closest-side,var(--t-dot) 97%,transparent) 19px 14px/11px 11px no-repeat,
+    radial-gradient(circle closest-side,var(--t-dot) 97%,transparent) calc(19px + 11px + .45rem) 14px/11px 11px no-repeat,
+    radial-gradient(circle closest-side,var(--t-dot) 97%,transparent) calc(19px + 22px + .9rem) 14px/11px 11px no-repeat,
+    linear-gradient(var(--t-top),var(--t-top)) 0 0/100% 40px no-repeat,var(--t-bg);
+  font:400 .78rem/1.55 "Plex Mono",ui-monospace,Menlo,monospace;color:var(--t-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  pointer-events:none;animation:rbchat-waited 0s linear 4s forwards}
+@keyframes rbchat-waited{to{visibility:hidden}}
 /* The corner that sizes the panel: the top left, the one corner that can move while the panel
    stays pinned to the bottom right. Drag, arrow keys when focused, double-click back to the default. */
 .rbchat-grip{position:absolute;top:0;left:0;width:18px;height:18px;z-index:2;cursor:nwse-resize;
@@ -118,6 +137,7 @@
      is a `<section>`, and a page's own margin on its sections would push a top-anchored panel
      down by that much. */
   .rbchat{top:var(--rbchat-top,0);right:0;bottom:auto;margin:0;width:100vw!important;height:var(--rbchat-h,100dvh)!important;border-radius:0;border:0}
+  html[data-chat-waiting]::after{top:0;right:0;bottom:auto;width:100vw;height:100dvh;border:0;border-radius:0;padding-left:82px}
   .rbchat-grip{display:none}
   /* The page under a full-screen panel holds still, so a swipe in the panel moves only the
      conversation. */

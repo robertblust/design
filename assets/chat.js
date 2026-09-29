@@ -1286,7 +1286,13 @@
   }
   if (window.MutationObserver) new MutationObserver(relabelGraph).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
-  if (!tag.dataset.chat || EMBEDDED) return;
+  // The panel's empty frame theme boot asked chat.css to paint, for a page arriving with the
+  // chat open: taken off once the panel stands over it, or once there is no panel to stand.
+  function unwait(){
+    var r = document.documentElement;
+    r.removeAttribute("data-chat-waiting"); r.style.removeProperty("--rbchat-kept-w"); r.style.removeProperty("--rbchat-kept-h");
+  }
+  if (!tag.dataset.chat || EMBEDDED) { unwait(); return; }
 
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
   var ICON = iconOf(document);
@@ -1983,6 +1989,7 @@
     if (newBtn) newBtn.hidden = !messages.length;
     log.scrollTop = log.scrollHeight; settle();
   })();
+  unwait();
 
   // After the restore, so a panel the tab kept open is not opened twice. The address is not a
   // click: open() focuses the input, which on a touch screen would raise the keyboard over a page
