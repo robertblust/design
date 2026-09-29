@@ -79,13 +79,18 @@ export async function tab(address = "/", options = {}){
 }
 export async function open(p){ await p.click(".rbchat-open"); await p.waitForSelector("section.rbchat:not([hidden])"); }
 
-test("the panel is a terminal window: three dots, the host in the bar, a prompt and the keys under it", async () => {
+test("the panel is a terminal: the host in a bar headed as the one modal's, a prompt and the keys under it", async () => {
   const { p, close } = await tab();
   await open(p);
   const s = await p.evaluate(() => {
     const panel = document.querySelector("section.rbchat");
     return {
-      dots: panel.querySelectorAll(".rbchat-head .rbchat-dots i").length,
+      dots: panel.querySelectorAll(".rbchat-head .rbchat-dots, .rbchat-head i").length,
+      // The bar's title stands where the one modal's does: the head's own padding in, at its size.
+      titleIn: Math.round(panel.querySelector("#rbchat-title").getBoundingClientRect().left - panel.querySelector(".rbchat-head").getBoundingClientRect().left),
+      pad: Math.round(parseFloat(getComputedStyle(panel.querySelector(".rbchat-head")).paddingLeft)),
+      titleSize: getComputedStyle(panel.querySelector("#rbchat-title")).fontSize,
+      headSize: getComputedStyle(panel.querySelector(".rbchat-head")).fontSize,
       bar: panel.querySelector("#rbchat-title").textContent,
       label: panel.getAttribute("aria-label"),
       prompt: panel.querySelector(".rbchat-form .rbchat-p").textContent,
@@ -95,7 +100,9 @@ test("the panel is a terminal window: three dots, the host in the bar, a prompt 
       hint: panel.querySelector(".rbchat-form textarea").enterKeyHint
     };
   });
-  assert.equal(s.dots, 3);
+  assert.equal(s.dots, 0, "the bar carries dots no other head in the family has");
+  assert.equal(s.titleIn, s.pad, "the title does not start where the modal's does");
+  assert.equal(s.titleSize, s.headSize);
   assert.equal(s.bar, "ask · 127.0.0.1:" + new URL(base).port);
   assert.equal(s.label, "Ask the model");
   assert.equal(s.prompt, "›");

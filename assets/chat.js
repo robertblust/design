@@ -1652,9 +1652,8 @@
   function build(){
     panel = el("section", "rbchat"); panel.setAttribute("role", "dialog"); panel.setAttribute("aria-modal", "false"); panel.hidden = true;
     var head = el("header", "rbchat-head");
-    // The terminal's title bar, as /cli/ draws its .term: three dots, then the page's host.
-    var dots = el("span", "rbchat-dots"); dots.setAttribute("aria-hidden", "true");
-    dots.appendChild(el("i")); dots.appendChild(el("i")); dots.appendChild(el("i"));
+    // The bar is headed as the one modal's is, the page's host where the modal puts its title,
+    // so every head in the family reads one way.
     title = el("h2"); title.id = "rbchat-title"; closeBtn = el("button", "rbchat-close"); closeBtn.type = "button"; closeBtn.addEventListener("click", close);
     // Starting over is the header's one door, beside the way out, and only once there is
     // something to clear: an empty panel shows no control for emptying it. A conversation has no
@@ -1667,7 +1666,7 @@
     // and for a keyboard, which a bare glyph never did.
     newBtn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12a7 7 0 1 0 2.05-4.95L5 9M5 5v4h4"/></svg>';
     newBtn.addEventListener("click", reset);
-    head.appendChild(dots); head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
+    head.appendChild(title); head.appendChild(newBtn); head.appendChild(closeBtn);
     // No aria-live here: the log used to re-announce the growing answer on every token. The
     // finished answer gets its own aria-live, set once in finish(), after it stops changing.
     log = el("div", "rbchat-log");
