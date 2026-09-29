@@ -2,10 +2,12 @@
      Set the theme before anything paints. Generated from @robertblust/design —
      editing it here does nothing, because the next `npm run design` overwrites it.
 
-     This is the only script on these pages that runs in <head>, and it has to: every other
-     script sits at the end of the body, which is after first paint. Language arriving late
-     costs a flash of English; a palette arriving late repaints the whole page in the wrong
-     one, on every navigation.
+     This is the one script this package puts in <head>, and it has to be there: the package's
+     other scripts sit at the end of the body, and a page may paint before they have run.
+     Language arriving late costs a flash of English; a palette arriving late repaints the
+     whole page in the wrong one, on every navigation. A site may put a script of its own in
+     <head> as well, as each site does to start its fonts loading right after its @font-face
+     rules.
 
      It duplicates the storage key and the URL pattern that `theme` also carries. That is
      deliberate — nothing is in scope up here, and the block must stand alone. Both blocks are
