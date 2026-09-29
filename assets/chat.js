@@ -843,6 +843,12 @@
     }
   }
   function drawFigure(fig){
+    // A picture the site drew at build is finished, and its colors are the page's tokens, so a
+    // theme or the modal's colors reach it without a drawing; the modal still fits it to the sheet.
+    if (fig.rbBuilt) {
+      Promise.resolve().then(function(){ if (view && view.box === fig.rbBox) viewTake(); if (fig.rbDrawn) fig.rbDrawn(); });
+      return;
+    }
     // fig.rbBox, not a query, because while the dialog holds this figure the box is not
     // inside it: a theme change redraws into the box wherever it currently stands.
     var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount), cfg, source, key;
@@ -1166,9 +1172,11 @@
         if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
         expandFigure(fig);
       });
-      fig.rbWaiting = true;
       figures.push(fig);
       labelFigure(fig);
+      // Drawn when the site built, links and all: nothing to fetch and nothing to wait for.
+      if (fig.rbBox.hasAttribute("data-drawn") && fig.rbBox.querySelector("svg")) { fig.rbBuilt = true; return; }
+      fig.rbWaiting = true;
       function draw(){ if (fig.rbWaiting) { fig.rbWaiting = false; drawFigure(fig); } }
       if (!window.IntersectionObserver) { draw(); return; }
       var near = new IntersectionObserver(function(seen){

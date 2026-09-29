@@ -128,34 +128,8 @@ test("a missing German string stops the build, with the caller's message", () =>
 import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
 import { writeSurfaces } from "../lib/render/surfaces.mjs";
 
-// Two phases, three roles, and every relation the board draws. Deliberately not the real
-// model: this asserts the derivation, and the real model's shape is asserted by pages:check.
-export const TEAM_FIXTURE = {
-  ...FIXTURE,
-  entities: [
-    { id: "profiles/p", type: "profile", name: "A Person", tagline: "One line.",
-      path: "model/profiles/p/p.md", fields: { nature: "human", roles: ["Boss"] }, sections: [] },
-    { id: "profiles/a", type: "profile", name: "An Agent", tagline: "Another line.",
-      path: "model/profiles/a/a.md", fields: { nature: "agent", roles: ["Maker", "Checker"] }, sections: [] },
-    { id: "roles/boss", type: "role", name: "Boss", tagline: "Decides.",
-      path: "model/roles/boss.md", fields: { requires: ["Deciding"] }, sections: [] },
-    { id: "roles/maker", type: "role", name: "Maker", tagline: "Makes.",
-      path: "model/roles/maker.md", fields: { requires: [] }, sections: [] },
-    { id: "roles/checker", type: "role", name: "Checker", tagline: "Checks.",
-      path: "model/roles/checker.md", fields: { requires: [] }, sections: [] },
-    { id: "processes/d", type: "process", name: "Doing", tagline: "How.",
-      path: "model/processes/d/d.md", fields: { owner: "Boss" },
-      sections: [{ heading: "Phases", text: "", tables: [{ caption: null, columns: ["Phase"], rows: [["One"], ["Two"]] }] }] },
-    { id: "processes/d/phases/one", type: "phase", name: "One", tagline: "First.",
-      path: "model/processes/d/phases/one.md", owner: "processes/d",
-      fields: { owner: "Maker", "executed-by": ["Maker"], "supported-by": ["Checker"],
-                "gate-approvers": ["Boss"], "gate-to": "Two" }, sections: [] },
-    { id: "processes/d/phases/two", type: "phase", name: "Two", tagline: "Second.",
-      path: "model/processes/d/phases/two.md", owner: "processes/d",
-      fields: { owner: "Boss", "executed-by": ["Boss", "Checker"], "gate-approvers": ["Boss"] },
-      sections: [] },
-  ],
-};
+import { TEAM_FIXTURE } from "./fixtures/team.mjs";
+export { TEAM_FIXTURE };
 
 export function renderTeamInto(fixture, opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-team-"));
@@ -208,7 +182,8 @@ test("each process's picture sits under its tagline and before its head rail, in
     assert.ok(sec.indexOf('class="proctag"') < sec.indexOf("<figure") && sec.indexOf("<figure") < sec.indexOf('class="hdrail"'), "the picture comes between the tagline and the head rail");
     assert.ok(sec.includes(`<figcaption><span>Process · ${name}</span><button class="rbchat-diagram-full" type="button"`), sec);
     assert.ok(sec.includes('<div class="rbchat-diagram-box"></div>'));
-    assert.ok(sec.includes('<figure class="rbchat-diagram" data-diagram data-model="../model/">'), "the model page, relative to the team page");
+    // The board's name names the picture's file, for the drawing at build to find it by.
+    assert.ok(sec.includes(`<figure class="rbchat-diagram" data-diagram data-model="../model/" data-picture="${name.toLowerCase()}">`), "the model page, relative to the team page");
     const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);
     assert.deepEqual(json, { shape: "process", title: name, mermaid: `flowchart LR\n  n0["<b>${name}</b>"]`,
       nodes: [{ node: "n0", id: ["processes/d", "processes/e"][i], title: name }] });
@@ -217,7 +192,7 @@ test("each process's picture sits under its tagline and before its head rail, in
 
 test("a site whose model is drawn elsewhere names that page, and the picture links there", () => {
   const diagram = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [] });
-  assert.ok(regionOf(renderTeamInto(TEAM_FIXTURE, { diagram, model: "../" })).includes('<figure class="rbchat-diagram" data-diagram data-model="../">'));
+  assert.ok(regionOf(renderTeamInto(TEAM_FIXTURE, { diagram, model: "../" })).includes('<figure class="rbchat-diagram" data-diagram data-model="../" data-picture="doing">'));
 });
 
 test("no title can close the script a picture's JSON sits in", () => {
@@ -483,4 +458,76 @@ test("a seat a person shares with an agent is a person's row, the person's mark 
   const rail = railOf(html);
   assert.match(rail, /<div class="nm">A Person<\/div><div class="lbl">human · holds 2 of 3<\/div>/);
   assert.match(rail, /<div class="nm">An Agent<\/div><div class="lbl">agent · holds 2 of 3<\/div>/);
+});
+
+// ── pictures drawn at build ───────────────────────────────────────────────────────────
+import { pictureStamp, picturePath, keptPicture, tokenized, PLACEHOLDERS } from "../lib/pictures.mjs";
+
+const ONE_PICTURE = () => ({ title: "Doing", mermaid: "flowchart LR\n  n0[Doing]", nodes: [{ node: "n0", id: "processes/d", title: "Doing" }] });
+// A site root with a team page, and a chat.js and mermaid.min.js whose bytes the stamp reads.
+function siteWithTeam() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-pictures-"));
+  fs.mkdirSync(path.join(dir, "team"));
+  fs.writeFileSync(path.join(dir, "team/index.html"),
+    "<html><body><p class=\"tagline\">t</p>\n<!-- team-note:start -->\n<!-- team-note:end -->\n<!-- team:start -->\n<!-- team:end --></body></html>");
+  fs.writeFileSync(path.join(dir, "chat.js"), "// chat");
+  fs.writeFileSync(path.join(dir, "mermaid.min.js"), "// mermaid");
+  return dir;
+}
+function drawnFor(dir, svg = '<svg id="rbchat-picture-doing"><rect fill="var(--raise)"/></svg>') {
+  const d = { mermaid: ONE_PICTURE().mermaid, nodes: ONE_PICTURE().nodes };
+  const file = path.join(dir, picturePath("team/index.html", "doing"));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, svg + "\n");
+  fs.writeFileSync(file.replace(/\.svg$/, ".sha"), pictureStamp(d, dir) + "\n");
+  return svg;
+}
+const quiet = (fn) => { const was = console.error; console.error = () => {}; try { return fn(); } finally { console.error = was; } };
+
+test("a picture's stamp moves with its source, its nodes and either file that draws it, and nothing else", () => {
+  const dir = siteWithTeam(), d = { mermaid: "flowchart LR", nodes: [{ node: "n0", id: "x" }] };
+  const was = pictureStamp(d, dir);
+  assert.equal(pictureStamp({ ...d, title: "a caption is no input" }, dir), was);
+  assert.notEqual(pictureStamp({ ...d, mermaid: "flowchart TB" }, dir), was);
+  assert.notEqual(pictureStamp({ ...d, nodes: [] }, dir), was);
+  fs.writeFileSync(path.join(dir, "chat.js"), "// chat, changed");
+  assert.notEqual(pictureStamp(d, dir), was);
+  const again = pictureStamp(d, dir);
+  fs.writeFileSync(path.join(dir, "mermaid.min.js"), "// mermaid, changed");
+  assert.notEqual(pictureStamp(d, dir), again);
+});
+
+test("the placeholders come back as the tokens, a translucent one as a mix, and the ids as the board's", () => {
+  const [r, g, b] = PLACEHOLDERS["--raise"], hex = "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
+  const html = `<svg id="rbchat-diagram-7"><style>#rbchat-diagram-7 .a{fill:${hex};stroke:rgb(${PLACEHOLDERS["--ink"].join(", ")})} #rbchat-diagram-7 .b{background-color:rgba(${r}, ${g}, ${b}, 0.5)}</style><marker id="rbchat-diagram-7_end"/></svg>`;
+  const out = tokenized(html, "rbchat-diagram-7", "delivery");
+  assert.ok(!out.includes("rbchat-diagram-7"), out);
+  assert.ok(out.includes('id="rbchat-picture-delivery"') && out.includes('id="rbchat-picture-delivery_end"'));
+  assert.ok(out.includes("fill:var(--raise)") && out.includes("stroke:var(--ink)"), out);
+  assert.ok(out.includes("background-color:color-mix(in srgb, var(--raise) 50%, transparent)"), out);
+});
+
+test("a picture drawn from what the page shows now is written into its box, and the box says it is drawn", () => {
+  const dir = siteWithTeam(), svg = drawnFor(dir);
+  const html = quiet(() => { writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE }); return fs.readFileSync(path.join(dir, "team/index.html"), "utf8"); });
+  assert.ok(html.includes(`<div class="rbchat-diagram-box" data-drawn>${svg}</div>`), html);
+  assert.deepEqual(quiet(() => writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true })), []);
+});
+
+test("a picture not drawn, or drawn from something else, leaves its box empty and fails the check", () => {
+  const dir = siteWithTeam();
+  const said = [];
+  const was = console.error; console.error = (m) => said.push(m);
+  try {
+    writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE });
+    assert.ok(fs.readFileSync(path.join(dir, "team/index.html"), "utf8").includes('<div class="rbchat-diagram-box"></div>'));
+    // The page matches what would be written, and the check still fails: only the drawing can
+    // bring the picture back, and nothing else would say so.
+    assert.deepEqual(writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["team/index.html"]);
+    drawnFor(dir);
+    fs.writeFileSync(path.join(dir, "chat.js"), "// a chat.js the picture was not drawn with");
+    assert.equal(keptPicture(dir, "team/index.html", "doing", { mermaid: ONE_PICTURE().mermaid, nodes: ONE_PICTURE().nodes }), null);
+    assert.deepEqual(writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["team/index.html"]);
+  } finally { console.error = was; }
+  assert.ok(said.every((m) => /team\/pictures\/doing\.svg .*run: npm run pictures/.test(m)), said.join("\n"));
 });
