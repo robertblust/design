@@ -102,3 +102,28 @@ test("the intro comes back whole with the conversation, the same picks and nothi
   assert.deepEqual(await intro(p), first);
   await context.close();
 });
+
+test("a panel left open with no conversation, fresh or just reset, is open on the next page with the same intro", async () => {
+  for (const reset of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await context.newPage();
+    slow = false;
+    await p.goto(base + "/");
+    await p.click(".rbchat-open");
+    await p.waitForSelector(".rbchat-intro .rbchat-versions");
+    if (reset) {
+      await p.fill(".rbchat textarea", "What is this?");
+      await p.keyboard.press("Enter");
+      await p.waitForSelector(".rbchat-next button");
+      await p.click(".rbchat-new");
+      await p.waitForSelector(".rbchat-intro .rbchat-versions");
+    }
+    const first = await intro(p);
+    slow = true;
+    await p.goto(base + "/other/", { waitUntil: "domcontentloaded" });
+    assert.equal(await p.evaluate(() => !!document.querySelector(".rbchat") && !document.querySelector(".rbchat").hidden), true, reset ? "a reset conversation closed the panel" : "an empty open panel closed");
+    assert.deepEqual(await intro(p), first);
+    assert.equal(await p.$$eval(".rbchat-msg", (m) => m.length), 0, "a turn came back from nowhere");
+    await context.close();
+  }
+});

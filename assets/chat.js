@@ -636,7 +636,9 @@
   function keep(){
     if (newBtn) newBtn.hidden = !messages.length;
     try {
-      if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
+      // A panel left open with nothing asked yet, fresh or just reset, is kept too, so the next
+      // page shows it open; only an empty conversation behind a closed panel leaves nothing.
+      if (!messages.length && !(panel && !panel.hidden)) { sessionStorage.removeItem(STORE_KEY); return; }
       sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns, at: reading || (panel && !panel.hidden ? place(log) : null), next: qBox ? qPicked : null, pick: introPick }));
     } catch (e) {}
   }
@@ -1933,7 +1935,7 @@
   window.addEventListener("pagehide", keep);
   (function restore(){
     var was = stored();
-    if (!was || !was.turns || !was.turns.length) return;
+    if (!was || !Array.isArray(was.turns) || (!was.turns.length && !was.open)) return;
     if (!panel) build();
     // Only a panel restored open shows its intro now; a closed one gets it from open(), since
     // the intro reads the model file and that read waits for the panel.
