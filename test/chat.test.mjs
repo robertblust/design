@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -451,11 +451,66 @@ test("follow leaves out a neighbors chip too long for the box", () => {
   assert.equal(got.length, 3);
 });
 
-test("the widget keeps what each question rests on and offers follow() after an answer about one type", () => {
+// The conversation of 2026-09-29 that asked for these: an answer that names a decision, a value
+// and a concept while it cites only the questions it matched.
+const DECISION = { id: "decisions/apache", title: "Everything under Apache 2.0, and consulting billed by the day", type: "decision" };
+const VALUE = { id: "values/adoption", title: "Adoption is not taxed", type: "value" };
+const INSTANCE = { id: "concepts/instance", title: "Instance", type: "concept" };
+const Q_COST = { id: "questions/cost", title: "Do I need your service to run CompanyGraph, and what does it cost?", type: "question" };
+const Q_BIZ = { id: "questions/business", title: "Is CompanyGraph a business, or a side project?", type: "question" };
+const ANSWER = "This question matches \"Do I need your service to run CompanyGraph, and what does it cost?\" in this model.\n\nThe decision Everything under Apache 2.0, and consulting billed by the day says why. The value **Adoption is not taxed** says what is free. The concept Instance says where the model runs.";
+const ASKED = [{ role: "user", content: "why is the core of company graph public" }];
+const QS_CG = [R(Q_COST.title, "A", [VALUE.id, "value"]), R(Q_BIZ.title, "B", [VALUE.id, "value"]), R("How do you know CompanyGraph is working?", "C")];
+
+test("mentioned finds the entities an answer writes, in its order, leaving out questions and what was asked", () => {
+  const names = [INSTANCE, VALUE, DECISION, Q_COST, Q_BIZ];
+  assert.deepEqual(mentioned(ANSWER, names, QS_CG, ASKED), [DECISION.title, VALUE.title, INSTANCE.title]);
+  assert.deepEqual(mentioned(ANSWER, names, QS_CG, [{ role: "user", content: "tell me more about adoption is not taxed" }]), [DECISION.title, INSTANCE.title], "an entity the visitor asked about is offered again");
+  assert.deepEqual(mentioned("Instances run anywhere.", [INSTANCE], [], []), [], "a title inside a word is a mention");
+  assert.deepEqual(mentioned("", [INSTANCE], [], []), []);
+  assert.deepEqual(mentioned(undefined, undefined, undefined, undefined), []);
+});
+
+test("mentioned takes the longer title where a shorter one sits inside it", () => {
+  const short = { id: "c/x", title: "Adoption", type: "concept" };
+  assert.deepEqual(mentioned("The value Adoption is not taxed holds.", [short, VALUE], [], []), [VALUE.title]);
+  assert.deepEqual(mentioned("Adoption, and then Adoption is not taxed.", [short, VALUE], [], []), [short.title, VALUE.title]);
+});
+
+test("follow shares the three: two to hear more about the answer's entities, then the cited entity's neighbors", () => {
+  const named = mentioned(ANSWER, [INSTANCE, VALUE, DECISION, Q_COST], QS_CG, ASKED);
+  assert.deepEqual(follow([Q_COST, Q_BIZ], QS_CG, ASKED, "en", null, named), [
+    "Tell me more about Everything under Apache 2.0, and consulting billed by the day",
+    "Tell me more about Adoption is not taxed",
+    "Show me the neighbors of " + Q_COST.title
+  ]);
+  assert.equal(follow([Q_COST], QS_CG, ASKED, "de", null, named)[0], "Erzähl mir mehr über Everything under Apache 2.0, and consulting billed by the day");
+});
+
+test("follow with one entity named fills with the neighbors and the type's schema", () => {
+  assert.deepEqual(follow([CG], FOLLOW_QS, [], "en", null, ["Java"]), ["Tell me more about Java", "Show me the neighbors of CompanyGraph", "Show me the schema of CompanyGraph (experience)"]);
+});
+
+test("follow offers the answer's entities where its cites are of several types or none, and fills from the questions", () => {
+  const got = follow([CG, { id: "skills/java", title: "Java", type: "skill" }], FOLLOW_QS, [], "en", null, ["Java"]);
+  assert.equal(got[0], "Tell me more about Java");
+  assert.equal(got.length, 3);
+  assert.ok(got.slice(1).every((t) => FOLLOW_QS.some((q) => q.title === t)));
+  assert.equal(follow([], FOLLOW_QS, [], "en", null, ["Java", "Go", "Rust"]).length, 3);
+  assert.deepEqual(follow([], FOLLOW_QS, [], "en", null, ["Java", "Go", "Rust"]).slice(0, 2), ["Tell me more about Java", "Tell me more about Go"]);
+  assert.equal(follow([], FOLLOW_QS, [], "en", null, []), null, "an answer that names nothing and cites nothing follows nothing");
+});
+
+test("follow leaves out a tell-me-more the conversation already sent", () => {
+  const messages = [{ role: "user", content: "Tell me more about Java" }, { role: "assistant", content: "…" }, { role: "user", content: "and?" }];
+  assert.deepEqual(follow([CG], FOLLOW_QS, messages, "en", null, ["Java", "Go"]).slice(0, 2), ["Tell me more about Go", "Show me the neighbors of CompanyGraph"]);
+});
+
+test("the widget keeps what each question rests on and offers follow() after an answer, with the entities it writes", () => {
   const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
   assert.match(fn, /g\.via\.indexOf\("Rests on\."\) !== 0/, "a question's rests-on edges are not read");
   const offer = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
-  assert.match(offer, /follow\(last\.cites, list, messages, langNow\(\)\)/, "the chips do not follow the last answer");
+  assert.match(offer, /follow\(last\.cites, list, messages, langNow\(\), null, mentioned\(last\.content, heard\(turns\), list, messages\)\)/, "the chips do not follow the last answer");
   assert.match(offer, /!list\.length\) return;/, "a site with no question still offers chips");
 });
 
