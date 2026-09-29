@@ -1,0 +1,31 @@
+# Pictures drawn at build
+
+Status: the owner asked on 2026-09-29 whether the team page's pictures should be drawn when the site builds rather than in the visitor's browser. This spec answers yes, on three conditions. The build waits for its review. Decided against `robertblust/design` at `main` after #202 and the three sites as read that day, which are the source of every fact below about what exists.
+
+## Why
+
+Each site's team page carries one picture per process board, the figure `renderPicture` in `lib/render/team.mjs` writes: a `figure[data-diagram]` with the picture as JSON and an empty box. `chat.js` fetches Mermaid, several megabytes, once the figure nears the screen, and draws it there. So the page grows when the picture arrives, a visitor without JavaScript sees an empty box, and every visit draws again the same picture that changes only when the model does. The site is built exactly when the model changes, so that is when the picture should be drawn.
+
+The chat's answers stay as they are. They exist only in the browser, and #202 already keeps a drawn answer's picture for the tab.
+
+## The shape
+
+**Drawn by the site, once, in a browser.** A new command, `design pictures`, run by each site as `npm run pictures`, serves the site, opens each page that carries a `figure[data-diagram]` in headless Chromium, and lets `chat.js` draw every figure the way it draws one today, links and wrapped names included. What it draws is harvested from the box and written to a file beside the page, one per picture: `team/pictures/<process>.svg`. The sites already run Playwright for their checks, so nothing new is installed.
+
+**One SVG for both themes.** Mermaid writes fixed colors into what it draws, and a picture drawn in the dark theme would stay dark on a light page. So the build draws with a sentinel color for each token the picture reads, `--ground`, `--raise`, `--press`, `--ink`, `--c-mid` and `--dim`, and replaces every sentinel in the result with `var(--token)`. The picture then takes the page's colors in either theme. The one modal already sets the terminal's colors on those tokens, so the same SVG shows in the terminal's colors at full screen, and Expand draws nothing. Mermaid derives some colors of its own from the ones it is given. **The build refuses a picture that still holds a color it cannot name as a token,** so a derived shade shows up as a failed build and never as a wrong color on one theme.
+
+**A check that reads no pixels.** Mermaid measures text with the fonts where it runs, so a picture drawn on a Mac and one drawn in Linux CI differ by a pixel here and there, and a check that drew again and compared would fail at random. The share cards solved the same problem: each `.svg` gets a stamp beside it, `<process>.sha`, the hash of what went into it — the picture's source and nodes, the design version and the Mermaid version. `npm run pages` inlines the committed SVG into its figure when the stamp matches, and `pages:check` fails with "run npm run pictures" when it does not. CI never draws.
+
+**One direction.** In a panel narrower than 560px, the chat turns a left-to-right flow top to bottom. A page's picture is scaled to fit its column, so it keeps the direction it was drawn in.
+
+**What `chat.js` does with it.** A figure whose box already holds an SVG is left alone: no Mermaid, no drawing, the node links already in the markup. Expand moves the box into the modal as today, and zoom, pan and the node links work on the SVG as they do on a drawn one. A figure without an SVG, a stale stamp in a local build, is drawn at runtime as now.
+
+## What it costs
+
+- **A design minor:** `design pictures`, `renderPicture` inlining a stamped SVG, `chat.js` leaving a drawn figure alone, and the check.
+- **Each site:** a `pictures` script, running it once and committing the files, and a step in its build notes: after `npm run pages`, `npm run pictures`, then `npm run pages` again. The team page is today's only page with a picture, but the command reads every page, so a later one needs nothing new.
+
+## Not in this
+
+- The model page's graph, which is D3 and no Mermaid picture.
+- A reserved size without the SVG, the cheaper route: it stops the page growing, but keeps the download and the drawing.
