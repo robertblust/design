@@ -2,7 +2,7 @@
 
 What the design system of [blust.ch](https://blust.ch), [companygraph.io](https://companygraph.io) and [guestgraph.io](https://guestgraph.io) is made of, what each part looks like, and where each part ships. The CSS and scripts are the design system; these pages are its map. Nothing here repeats a value, a contract or a reason the source already states, so every entry names the file that says it.
 
-The brand is kept one level up, in each site's model: the name, the promise, the mark and the voice are in the `model/brand.md` of [robertblust/mental-model](https://github.com/robertblust/mental-model/blob/main/model/brand.md), [companygraph/mental-model](https://github.com/companygraph/mental-model/blob/main/model/brand.md) and [guestgraph/mental-model](https://github.com/guestgraph/mental-model/blob/main/model/brand.md). What the three share, the color roles and the faces, is stated once, in [Tokens](tokens.md).
+The brand is kept one level up, in each site's model: the name, the promise, the mark and the voice are in the `model/brand.md` of [robertblust/mental-model](https://github.com/robertblust/mental-model/blob/main/model/brand.md), [companygraph/mental-model](https://github.com/companygraph/mental-model/blob/main/model/brand.md) and [guestgraph/mental-model](https://github.com/guestgraph/mental-model/blob/main/model/brand.md). The color roles and the faces, which the three share, are on [Tokens](tokens.md).
 
 How the package delivers any of this to a site, fences, whole files and groups, is the [package README](../../README.md)'s subject.
 
