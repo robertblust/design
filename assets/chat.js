@@ -637,7 +637,7 @@
     if (newBtn) newBtn.hidden = !messages.length;
     try {
       if (!messages.length) { sessionStorage.removeItem(STORE_KEY); return; }
-      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns, at: reading || (panel && !panel.hidden ? place(log) : null), next: qBox ? qPicked : null }));
+      sessionStorage.setItem(STORE_KEY, JSON.stringify({ open: !!(panel && !panel.hidden), turns: turns, at: reading || (panel && !panel.hidden ? place(log) : null), next: qBox ? qPicked : null, pick: introPick }));
     } catch (e) {}
   }
 
@@ -1275,8 +1275,18 @@
   // its one fetch rather than starting another. The timeout covers the whole response, headers
   // and body: the timer is cleared only once the JSON has been read, so a body that stalls after
   // its headers arrive is still aborted, and reading it is what raises the abort as a rejection.
+  // What that read gave is kept for the tab, beside the conversation: the next page draws the
+  // intro whole before it paints, where waiting for the file again drew it a moment late and
+  // pushed the conversation down. Only what the chat takes from the file, never the file.
+  var FACTS_KEY = "chat-facts";
   function questions(cb){
     if (!QUESTIONS) { qList = qList || []; cb([]); return; }
+    if (!qList) {
+      try {
+        var kept = JSON.parse(sessionStorage.getItem(FACTS_KEY) || "null");
+        if (kept && kept.from === QUESTIONS && Array.isArray(kept.list) && kept.facts) { qList = kept.list; qFacts = kept.facts; }
+      } catch (e) {}
+    }
     if (qList) { cb(qList); return; }
     if (!qFetch) {
       var ac = new AbortController();
@@ -1306,7 +1316,13 @@
         })
         .catch(function(){ clearTimeout(timer); return []; });
     }
-    qFetch.then(function(list){ qList = list; cb(list); });
+    qFetch.then(function(list){
+      if (!qList) {
+        qList = list;
+        if (list.length) { try { sessionStorage.setItem(FACTS_KEY, JSON.stringify({ from: QUESTIONS, list: list, facts: qFacts })); } catch (e) {} }
+      }
+      cb(qList);
+    });
   }
   // The Try rows' facts, from the one fetch questions() makes: a tag without data-questions, or
   // a read that failed, leaves them empty, and the rows fall back to the meta-model alone.
@@ -1885,6 +1901,8 @@
     // Only a panel restored open shows its intro now; a closed one gets it from open(), since
     // the intro reads the model file and that read waits for the panel.
     reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
+    // The intro's picks, so it offers the same process and questions it offered on the last page.
+    if (was.pick && Array.isArray(was.pick.processes) && Array.isArray(was.pick.questions)) introPick = was.pick;
     was.turns.forEach(function(t){
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
