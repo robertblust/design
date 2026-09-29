@@ -820,17 +820,53 @@
   // are off under `strict`, and the host writes none; the widget links from `nodes`. A type is
   // no entity the model page holds, so the host names its schema's file as `url`, and an https
   // address alone is taken, since a node's link is the one place the host's words become an href.
+  // A picture once drawn is kept for the tab, finished and linked, under what it was drawn from:
+  // its source as oriented and the colors it was drawn in. A page that shows it again, the
+  // answer restored after a page change, puts it back at once, where drawing it again waited
+  // for Mermaid and grew the log a moment after the page showed. A theme or a place with other
+  // colors, the modal's, is another key and draws afresh. The newest few are kept, since a
+  // picture is tens of kilobytes and the tab's storage is small.
+  var PICTURES_KEY = "chat-pictures", PICTURES_MAX = 12;
+  function keptPictures(){
+    try { var v = JSON.parse(sessionStorage.getItem(PICTURES_KEY) || "[]"); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
+  function keepPicture(key, id, html){
+    var list = keptPictures().filter(function(p){ return p && p.key !== key; });
+    list.push({ key: key, id: id, html: html });
+    while (list.length > PICTURES_MAX) list.shift();
+    // A full storage gives up the oldest pictures first, and the picture itself last.
+    while (list.length) {
+      try { sessionStorage.setItem(PICTURES_KEY, JSON.stringify(list)); return; } catch (e) { list.shift(); }
+    }
+  }
   function drawFigure(fig){
     // fig.rbBox, not a query, because while the dialog holds this figure the box is not
     // inside it: a theme change redraws into the box wherever it currently stands.
-    var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount);
-    loadMermaid().then(function(m){
+    var box = fig.rbBox, d = fig.rbDiagram, id = "rbchat-diagram-" + (++drawCount), cfg, source, key;
+    // A moment later, still before the page paints: a restored answer's figure is made before
+    // it stands in the log, and its colors and width are read where it stands.
+    Promise.resolve().then(function(){
       // The colors are read where the box stands: in the modal, the terminal's; on the page, the page's.
-      m.initialize(mermaidConfig(tokenReader(box.isConnected ? box : null)));
+      cfg = mermaidConfig(tokenReader(box.isConnected ? box : null));
       // The width the picture is drawn for: an answer's is the log's, which the chat gives it,
       // and a page's the figure's own.
-      return m.render(id, oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth));
+      source = oriented(d.mermaid, (fig.rbWidth && fig.rbWidth()) || fig.clientWidth || window.innerWidth);
+      key = JSON.stringify(cfg) + "\n" + source;
+      var kept = keptPictures().filter(function(p){ return p && p.key === key && typeof p.html === "string" && typeof p.id === "string"; })[0];
+      if (kept) {
+        // Its ids are this page's own, so a picture drawn later here cannot take the same one.
+        box.innerHTML = kept.html.split(kept.id).join(id);
+        if (view && view.box === box) viewTake();
+        if (fig.rbDrawn) fig.rbDrawn();
+        return null;
+      }
+      return loadMermaid().then(function(m){
+        m.initialize(cfg);
+        return m.render(id, source);
+      });
     }).then(function(out){
+      if (!out) return;
       box.innerHTML = out.svg;
       var svg = box.querySelector("svg");
       (Array.isArray(d.nodes) ? d.nodes : []).forEach(function(n){
@@ -847,6 +883,7 @@
       // After the nodes are linked, so the selector below reaches only a linked node's label.
       var names = svg.querySelectorAll("a .nodeLabel > p");
       for (var ni = 0; ni < names.length; ni++) { try { wrapNodeName(names[ni]); } catch (e) {} }
+      keepPicture(key, id, box.innerHTML);
       // A picture the dialog holds keeps the view the visitor zoomed it to across a redraw.
       if (view && view.box === box) viewTake();
       if (fig.rbDrawn) fig.rbDrawn();

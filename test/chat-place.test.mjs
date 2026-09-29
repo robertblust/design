@@ -24,7 +24,7 @@ const page = (body) => `<!doctype html><html lang="en" data-theme="dark"><head><
 // place counted in pixels from the top would miss once the picture draws again.
 const long = (n) => Array.from({ length: 30 }, (_, i) => `Answer ${n}, line ${i + 1}: Delivery runs in three phases.`).join("\n\n");
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
-let asked = 0, server, base, browser;
+let asked = 0, slowMermaid = false, server, base, browser;
 
 before(async () => {
   server = http.createServer((req, res) => {
@@ -38,7 +38,8 @@ before(async () => {
       "/chat.js": ["text/javascript", asset("chat.js")], "/modal.js": ["text/javascript", asset("modal.js")], "/modal.css": ["text/css", asset("modal.css")], "/chat.css": ["text/css", asset("chat.css")], "/mermaid.min.js": ["text/javascript", asset("mermaid.min.js")] };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
-    res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]);
+    const send = () => { res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]); };
+    if (slowMermaid && url === "/mermaid.min.js") setTimeout(send, 1500); else send();
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -102,5 +103,30 @@ test("a log read to its end comes back at its end", async () => {
   await tab.waitForSelector(".rbchat-diagram svg");
   await tab.waitForTimeout(300);
   assert.equal((await where(tab)).end, true);
+  await tab.close();
+});
+
+test("a picture drawn once comes back drawn on the next page, before Mermaid has loaded", async () => {
+  asked = 0; slowMermaid = false;
+  const tab = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+  await tab.goto(base + "/");
+  await tab.click(".rbchat-open");
+  await tab.fill(".rbchat-form textarea", "first");
+  await tab.press(".rbchat-form textarea", "Enter");
+  await tab.waitForSelector(".rbchat-diagram svg a");
+  const links = await tab.$$eval(".rbchat-diagram svg a", (a) => a.map((x) => x.getAttribute("href")));
+  // The next page's Mermaid is slow: a picture drawn by it would not stand yet.
+  slowMermaid = true;
+  await tab.goto(base + "/model/", { waitUntil: "domcontentloaded" });
+  await tab.waitForFunction(() => document.querySelector(".rbchat") && !document.querySelector(".rbchat").hidden);
+  await tab.evaluate(() => new Promise((r) => requestAnimationFrame(() => r())));
+  assert.deepEqual(await tab.$$eval(".rbchat-diagram svg a", (a) => a.map((x) => x.getAttribute("href"))), links, "the picture was not back, linked, when the page first painted");
+  const height = await tab.$eval(".rbchat-log", (l) => l.scrollHeight);
+  await tab.waitForTimeout(1800);
+  assert.equal(await tab.$eval(".rbchat-log", (l) => l.scrollHeight), height, "the picture was drawn again after the page showed");
+  // Its id is this page's own, so a picture drawn later cannot take the same one.
+  const ids = await tab.$$eval("svg[id^=rbchat-diagram-]", (s) => s.map((x) => x.id));
+  assert.equal(new Set(ids).size, ids.length);
+  slowMermaid = false;
   await tab.close();
 });
