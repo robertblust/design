@@ -42,7 +42,7 @@
         // carrying either would send the other site's visitors to the wrong page.
         // The hash is where the seat sits, the address the stage writes itself; a model written
         // before entities carried one has its path as its id.
-        a.href = STAGE_PAGE + "?stage=expanded#" + (byId[id].address || id);
+        a.href = STAGE_PAGE + "?stage=expanded#" + (byId[id].address ?? id);
         return a;
       }
       // Rendered once per row, not per seat: a seat on two boards is two rows, and each row's

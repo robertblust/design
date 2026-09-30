@@ -134,7 +134,7 @@
   function para(text, cls, ref){ return inline(h("p", null, cls), text, ref); }
 
   // Where the page serves the model's images, or null where it serves none. A site copies each
-  // image beside its model.json as `<entity id>.<extension>` and says so on the link that names
+  // image beside its model.json as `<entity address>.<extension>` and says so on the link that names
   // its data — `data-images="../images/"` — so a page that has not taken the copy step draws no
   // broken picture: it draws the card it always drew. With more than one `link[data-stage]` the
   // first is read, as `data()` reads it.
