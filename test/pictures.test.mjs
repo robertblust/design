@@ -11,7 +11,7 @@ import { chromium } from "playwright";
 import { writeTeam } from "../lib/render/team.mjs";
 import { drawPictures } from "../lib/pictures.mjs";
 import { serve } from "../cards/export.mjs";
-import { TEAM_FIXTURE } from "./fixtures/team.mjs";
+import { TEAM_FIXTURE, idAt } from "./fixtures/team.mjs";
 import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -61,6 +61,20 @@ test("the site draws its pictures once, the page carries them, and the check agr
   // page still agrees.
   await drawPictures({ chromium, root: dir, log: () => {} });
   assert.deepEqual(await pages(dir, true), []);
+});
+
+// The host names its nodes by id, a UUID once the instance has stable ids; the picture the site
+// bakes links each by its address, as the renderer wrote it, so the committed SVG reads.
+test("a picture baked from a model with stable ids links each node by its address", async () => {
+  const dir = site();
+  const phase = idAt(TEAM_FIXTURE, "processes/d/phases/one");
+  const stable = () => ({ ...PICTURES.process, title: "Doing",
+    nodes: PICTURES.process.nodes.map((n, i) => (i === 0 ? { ...n, id: phase } : n)) });
+  await quiet(() => writeTeam(TEAM_FIXTURE, { root: dir, diagram: stable }));
+  await drawPictures({ chromium, root: dir, log: () => {} });
+  const svg = fs.readFileSync(path.join(dir, "team/pictures/doing.svg"), "utf8");
+  assert.ok(svg.includes('href="../model/?stage=expanded#processes/d/phases/one"'), svg.slice(0, 400));
+  assert.ok(!svg.includes(phase), "the node's UUID reached the baked link");
 });
 
 test("a picture that paints a color no token names is refused, and nothing is written", async () => {

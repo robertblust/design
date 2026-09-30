@@ -199,8 +199,31 @@ test("each process's picture sits under its tagline and before its head rail, in
     assert.ok(sec.includes(`<figure class="rbchat-diagram" data-diagram data-model="../model/" data-picture="${name.toLowerCase()}">`), "the model page, relative to the team page");
     const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);
     assert.deepEqual(json, { shape: "process", title: name, mermaid: `flowchart LR\n  n0["<b>${name}</b>"]`,
-      nodes: [{ node: "n0", id: PROCESS_IDS[i], title: name }] });
+      nodes: [{ node: "n0", id: ["processes/d", "processes/e"][i], title: name }] });
   });
+});
+
+// The host names a node by its entity's id, a UUID once the instance carries stable ids, and
+// chat.js links a node to the stage by what the figure's JSON names it. The stage takes either,
+// but a UUID after the hash is unreadable on hover and when copied, so the renderer, which holds
+// the site's model, writes the node's address where the model gives one; a node the model does
+// not hold, or a model with no addresses yet, keeps the id the host gave.
+test("a picture's node links by its entity's address, and by the host's id where the model gives none", () => {
+  const phase = idAt(TEAM_FIXTURE, "processes/d/phases/one");
+  const diagram = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [
+    { node: "n0", id: phase, title: "One" },
+    { node: "n1", id: "0199a3c2-7f00-7000-8000-ffffffffffff", title: "Elsewhere" },
+  ] });
+  const nodesOf = (fixture) => {
+    const html = regionOf(renderTeamInto(fixture, { diagram }));
+    return JSON.parse(html.match(/<script type="application\/json">(.*)<\/script>/)[1]).nodes;
+  };
+  assert.notEqual(phase, "processes/d/phases/one", "the fixture's id is not its address");
+  assert.deepEqual(nodesOf(TEAM_FIXTURE).map((n) => n.id), ["processes/d/phases/one", "0199a3c2-7f00-7000-8000-ffffffffffff"]);
+  // Before stable ids the id is the address, and no entity carries `address`: the id stands.
+  const byAddress = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [{ node: "n0", id: "processes/d/phases/one", title: "One" }] });
+  const html = regionOf(renderTeamInto(TEAM_BY_ADDRESS, { diagram: byAddress }));
+  assert.equal(JSON.parse(html.match(/<script type="application\/json">(.*)<\/script>/)[1]).nodes[0].id, "processes/d/phases/one");
 });
 
 test("a site whose model is drawn elsewhere names that page, and the picture links there", () => {
@@ -507,6 +530,8 @@ test("a seat a person shares with an agent is a person's row, the person's mark 
 import { pictureStamp, picturePath, keptPicture, tokenized, PLACEHOLDERS } from "../lib/pictures.mjs";
 
 const ONE_PICTURE = () => ({ title: "Doing", mermaid: "flowchart LR\n  n0[Doing]", nodes: [{ node: "n0", id: idAt(TEAM_FIXTURE, "processes/d"), title: "Doing" }] });
+// The picture as the page writes it, and so as it is drawn and stamped: its node by the address.
+const ONE_WRITTEN = () => ({ mermaid: ONE_PICTURE().mermaid, nodes: [{ node: "n0", id: "processes/d", title: "Doing" }] });
 // A site root with a team page, and a chat.js and mermaid.min.js whose bytes the stamp reads.
 function siteWithTeam() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-pictures-"));
@@ -518,7 +543,7 @@ function siteWithTeam() {
   return dir;
 }
 function drawnFor(dir, svg = '<svg id="rbchat-picture-doing"><rect fill="var(--raise)"/></svg>') {
-  const d = { mermaid: ONE_PICTURE().mermaid, nodes: ONE_PICTURE().nodes };
+  const d = ONE_WRITTEN();
   const file = path.join(dir, picturePath("team/index.html", "doing"));
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, svg + "\n");
@@ -569,7 +594,7 @@ test("a picture not drawn, or drawn from something else, leaves its box empty an
     assert.deepEqual(writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["team/index.html"]);
     drawnFor(dir);
     fs.writeFileSync(path.join(dir, "chat.js"), "// a chat.js the picture was not drawn with");
-    assert.equal(keptPicture(dir, "team/index.html", "doing", { mermaid: ONE_PICTURE().mermaid, nodes: ONE_PICTURE().nodes }), null);
+    assert.equal(keptPicture(dir, "team/index.html", "doing", ONE_WRITTEN()), null);
     assert.deepEqual(writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["team/index.html"]);
   } finally { console.error = was; }
   assert.ok(said.every((m) => /team\/pictures\/doing\.svg .*run: npm run pictures/.test(m)), said.join("\n"));
