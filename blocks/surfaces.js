@@ -1,4 +1,4 @@
-  /* ─── surfaces lineage · v1 · {{variant}} ───────────────────────────────
+  /* ─── surfaces lineage · v2 · {{variant}} ───────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The lineage's behavior on /surfaces/: the wires drawn from where the nodes landed, a
@@ -94,8 +94,10 @@
         var a = document.createElement("a");
         a.className = "go"; a.textContent = byId[id].name;
         // Where a card links: the page that draws this model on the stage, which a site declares
-        // for the reason the `model card` block gives.
-        a.href = STAGE_PAGE + "?stage=expanded#" + id;
+        // for the reason the `model card` block gives. The hash is where the entity sits, the
+        // address the stage writes itself; a model written before entities carried one has its
+        // path as its id.
+        a.href = STAGE_PAGE + "?stage=expanded#" + (byId[id].address ?? id);
         return a;
       }
       card = function (id) {
