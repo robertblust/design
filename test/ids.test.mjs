@@ -31,16 +31,15 @@ test("an entity with a stable id gets one page at id/<uuid>/index.html", () => {
   assert.ok(html.endsWith("</html>\n"));
 });
 
-test("the canonical is absolute and the refresh and the fallback link are relative, all to the stage", () => {
+test("the refresh and the fallback link are relative to the stage, and no canonical mixes signals with noindex", () => {
   const e = entity(A, "decisions/2026-four-months", "Four months");
   const model = pageOf(idPages(MODEL([e]), { origin: ORIGIN, stage: "/model/" }), A);
-  assert.match(model, /<link rel="canonical" href="https:\/\/blust\.ch\/model\/\?stage=expanded#decisions\/2026-four-months">/);
+  assert.ok(!/rel="canonical"/.test(model), "a redirect page names no canonical");
   assert.match(model, /<meta http-equiv="refresh" content="0; url=\.\.\/\.\.\/model\/\?stage=expanded#decisions\/2026-four-months">/);
   assert.match(model, /<a href="\.\.\/\.\.\/model\/\?stage=expanded#decisions\/2026-four-months">/);
 
   // companygraph.io draws its own company on the home page.
   const home = pageOf(idPages(MODEL([e]), { origin: "https://companygraph.io", stage: "/" }), A);
-  assert.match(home, /<link rel="canonical" href="https:\/\/companygraph\.io\/\?stage=expanded#decisions\/2026-four-months">/);
   assert.match(home, /<meta http-equiv="refresh" content="0; url=\.\.\/\.\.\/\?stage=expanded#decisions\/2026-four-months">/);
 });
 
@@ -76,7 +75,7 @@ test("everything taken from the model is escaped: the name as text, the address 
   assert.ok(!html.includes("<b>"), "no markup from a name reaches the page");
   assert.match(html, /<title>Tom &amp; &quot;Jerry&quot; &lt;b&gt;&#39;s&lt;\/b&gt;<\/title>/);
   const frag = "things/a%22b%3Cc%3E%26d%20e%27f%23g";
-  assert.ok(html.includes(`href="https://blust.ch/model/?stage=expanded#${frag}"`), html);
+  assert.ok(html.includes(`href="../../model/?stage=expanded#${frag}"`), html);
   assert.ok(html.includes(`content="0; url=../../model/?stage=expanded#${frag}"`), html);
   // Every attribute value closes where it should: no quote from the data survives inside one.
   for (const m of html.matchAll(/="([^"]*)"/g)) assert.ok(!/[<>]/.test(m[1]), m[0]);
@@ -104,6 +103,7 @@ test("idUrl is the @id a site's JSON-LD names, and null where the entity has no 
   assert.equal(idUrl(entity(A, "things/a", "A"), ORIGIN), `https://blust.ch/id/${A}`);
   assert.equal(idUrl(entity("things/a", "things/a", "A"), ORIGIN), null);
   assert.equal(idUrl(entity("nope", "things/a", "A"), ORIGIN), null);
+  for (const origin of [undefined, "https://blust.ch/", "blust.ch"]) assert.throws(() => idUrl(entity(A, "things/a", "A"), origin), /origin/);
 });
 
 // The writer, against a site root in a temporary folder.
@@ -166,9 +166,55 @@ test("the link checker reads a page this renderer writes as a redirect to the en
   const base = `http://127.0.0.1:8000/id/${A}/`;
   assert.deepEqual(redirectLinks(html, base), [
     "http://127.0.0.1:8000/model/?stage=expanded#things/a%20b%22c",
-    "https://blust.ch/model/?stage=expanded#things/a%20b%22c",
     "http://127.0.0.1:8000/model/?stage=expanded#things/a%20b%22c",
   ]);
-  assert.equal(redirectLinks("<!doctype html><title>x</title><a href=\"a/\">a</a>", base), null, "a page that does not redirect is loaded");
-  assert.deepEqual(redirectLinks("<meta http-equiv='refresh' content='5;URL=\"/x/\"'>", base), ["http://127.0.0.1:8000/x/"]);
+});
+
+test("only a page that leaves at once for a url, from its head, and is noindex is read as a redirect", () => {
+  const base = "http://127.0.0.1:8000/p/";
+  const NOINDEX = '<meta name="robots" content="noindex">';
+  const page = (head, body = '<a href="a/">a</a>') => `<!doctype html><html><head>${head}</head><body>${body}</body></html>`;
+  assert.deepEqual(redirectLinks(page(`${NOINDEX}<meta http-equiv='refresh' content='0;URL="/x/"'>`), base),
+    ["http://127.0.0.1:8000/x/", "http://127.0.0.1:8000/p/a/"], "the positive control");
+  assert.equal(redirectLinks("<!doctype html><title>x</title><a href=\"a/\">a</a>", base), null, "no refresh");
+  assert.equal(redirectLinks(page(`${NOINDEX}<meta http-equiv="refresh" content="5; url=/x/">`), base), null, "a delay");
+  assert.equal(redirectLinks(page(`${NOINDEX}<meta http-equiv="refresh" content="0">`), base), null, "no url");
+  assert.equal(redirectLinks(page(`${NOINDEX}<noscript><meta http-equiv="refresh" content="0; url=/x/"></noscript>`), base), null, "inside noscript");
+  assert.equal(redirectLinks(page(`${NOINDEX}<!-- <meta http-equiv="refresh" content="0; url=/x/"> -->`), base), null, "inside a comment");
+  assert.equal(redirectLinks(page(`${NOINDEX}<script>const s = '<meta http-equiv="refresh" content="0; url=/x/">';</script>`), base), null, "inside a script");
+  assert.equal(redirectLinks(page(NOINDEX, '<meta http-equiv="refresh" content="0; url=/x/">'), base), null, "in the body");
+  assert.equal(redirectLinks(page('<meta http-equiv="refresh" content="0; url=/x/">'), base), null, "not noindex");
+});
+
+test("a symlink in id/ is removed as a link, never followed, and a symlinked id/ is refused", () => {
+  const root = site();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "design-ids-outside-"));
+  fs.writeFileSync(path.join(outside, "keep.txt"), "keep");
+  fs.mkdirSync(path.join(root, "id"));
+  fs.symlinkSync(outside, path.join(root, "id", A));
+  fs.symlinkSync(outside, path.join(root, "id", B));
+  const data = MODEL([entity(A, "things/a", "A")]);
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }).sort(), [`id/${A}`, `id/${A}/index.html`, `id/${B}`].sort());
+  writeIdPages(data, { ...OPTS, root });
+  assert.deepEqual(fs.readdirSync(outside), ["keep.txt"], "nothing written or removed through a link");
+  assert.ok(fs.lstatSync(path.join(root, "id", A)).isDirectory(), "the wanted page is a real folder now");
+  assert.ok(!fs.existsSync(path.join(root, "id", B)));
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }), []);
+
+  const linked = site();
+  fs.symlinkSync(outside, path.join(linked, "id"));
+  assert.throws(() => writeIdPages(data, { ...OPTS, root: linked }), /symbolic link/);
+  assert.throws(() => writeIdPages(data, { ...OPTS, root: linked, check: true }), /symbolic link/);
+  assert.deepEqual(fs.readdirSync(outside), ["keep.txt"]);
+});
+
+test("a file where an entity's folder belongs is replaced, so the writer heals", () => {
+  const root = site();
+  fs.mkdirSync(path.join(root, "id"));
+  fs.writeFileSync(path.join(root, "id", A), "not a folder");
+  const data = MODEL([entity(A, "things/a", "A")]);
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }).sort(), [`id/${A}`, `id/${A}/index.html`].sort());
+  writeIdPages(data, { ...OPTS, root });
+  assert.ok(fs.existsSync(path.join(root, "id", A, "index.html")));
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }), []);
 });

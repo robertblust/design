@@ -94,7 +94,7 @@ test("a redirect page is read from the checkout, since a browser would leave it 
   assert.deepEqual({ ...site.pages.get(`/id/${ID_A}/`), ids: [...site.pages.get(`/id/${ID_A}/`).ids] },
     { ids: [], stage: false, data: null }, "the redirect's own page, not the stage it sends a reader to");
   assert.deepEqual(where(`https://fixture.test/id/${ID_A}`), ["/"], "the @id is collected as its path");
-  assert.deepEqual(where(`https://fixture.test/model/?stage=expanded#things/a`), [`/id/${ID_A}/`], "the canonical");
+  assert.ok(!site.found.has("https://fixture.test/model/?stage=expanded#things/a"), "a redirect page names no canonical");
   assert.deepEqual(where(`${o}/model/?stage=expanded#things/a`), ["/", `/id/${ID_A}/`, "/lineage/ (card)"], "the refresh and the fallback link");
   assert.deepEqual(where(`${o}/model/?stage=expanded#things/gone`), [`/id/${ID_B}/`]);
 });

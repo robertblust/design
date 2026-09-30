@@ -84,20 +84,32 @@ async function openCards({ ids, settleMs, stepMs }) {
   return [...out];
 }
 
-// A page that sends its reader on at once, `<meta http-equiv="refresh">`, as the /id/<uuid>/ pages
-// render/ids writes do. A browser leaves it before anything could be read off it, and whatever was
-// read would be the page it went to, named as this one; so it is read from the checkout instead,
-// and its links are the refresh's target and every href it carries. Null for any other page.
+// A page that sends its reader on at once, as the /id/<uuid>/ pages render/ids writes do. A browser
+// leaves it before anything could be read off it, and whatever was read would be the page it went
+// to, named as this one; so it is read from the checkout instead. Only a page that is plainly such
+// a redirect takes that path: a `<meta http-equiv="refresh">` with a delay of 0 and a url, in the
+// head and outside a comment, a script or a noscript, on a page that is also `noindex`. Every
+// other page, one that refreshes later or only without script included, is loaded as any page is,
+// so no page loses its checks by carrying a refresh. What is read off a redirect is its refresh's
+// target and every `href` it carries, and nothing else: no `src`, no JSON-LD, no stylesheet and no
+// element ids, which such a page does not carry. Null for any other page.
 export function redirectLinks(html, base) {
-  const tag = /<meta\b[^>]*http-equiv=["']?refresh["']?[^>]*>/i.exec(html);
-  if (!tag) return null;
   const decode = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-  const raw = [];
-  const content = /\bcontent="([^"]*)"/i.exec(tag[0]) ?? /\bcontent='([^']*)'/i.exec(tag[0]);
-  const url = content && /^\s*\d+\s*[;,]\s*url\s*=\s*['"]?([^'"]*)/i.exec(decode(content[1]));
-  if (url) raw.push(url[1].trim());
-  for (const m of html.matchAll(/\bhref="([^"]*)"/gi)) raw.push(decode(m[1]));
+  const bare = html.replace(/<!--[\s\S]*?-->/g, "");
+  const head = /<head\b[^>]*>([\s\S]*?)<\/head\s*>/i.exec(bare);
+  if (!head) return null;
+  const tags = head[1].replace(/<(script|noscript|style|template)\b[\s\S]*?<\/\1\s*>/gi, "").match(/<meta\b[^>]*>/gi) ?? [];
+  const attr = (tag, name) => {
+    const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag);
+    return m ? decode(m[1] ?? m[2] ?? m[3]) : null;
+  };
+  const noindex = tags.some((t) => attr(t, "name")?.toLowerCase() === "robots" && /(^|,)\s*noindex\s*(,|$)/i.test(attr(t, "content") ?? ""));
+  const refresh = tags.find((t) => attr(t, "http-equiv")?.toLowerCase() === "refresh");
+  const url = refresh && /^\s*0(?:\.0*)?\s*[;,]\s*url\s*=\s*['"]?([^'"]+)/i.exec(attr(refresh, "content") ?? "");
+  if (!noindex || !url || !url[1].trim()) return null;
+  const raw = [url[1].trim()];
+  for (const m of bare.matchAll(/\bhref="([^"]*)"/gi)) raw.push(decode(m[1]));
   const links = [];
   for (const r of raw) { if (!r) continue; try { links.push(new URL(r, base).href); } catch {} }
   return links;
@@ -158,7 +170,7 @@ export async function collect({ root, base, chromium, settleMs = 150, stepMs = 2
     while (queue.length) {
       const key = queue.shift();
       const file = key.endsWith("/") ? `${key.slice(1)}index.html` : key.slice(1);
-      const redirect = redirectLinks(read(decodeURIComponent(file)), origin + encodeURI(key));
+      const redirect = redirectLinks(read(file), origin + encodeURI(key));
       if (redirect) {
         site.pages.set(key, { ids: new Set(), stage: false, data: null });
         for (const href of redirect) found(href, key);
