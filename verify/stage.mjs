@@ -64,13 +64,18 @@ export const STAGE_CHECKS = {
     // than two carrying the same name; the rest of the singular entities hang beside the
     // folders.
     const loose = data.entities.filter(e => singular.has(e.type) && e.id !== data.rootId);
+    // A node on the canvas is keyed by where its entity sits, its address; an edge and the root
+    // name an entity by its id. A model written before entities carried an address has its path
+    // as its id, and the two are one string.
+    const where = (e) => e.address ?? e.id;
+    const at = (id) => { const e = data.entities.find(x => x.id === id); return e ? where(e) : id; };
     let ns = await nodes();
     if (!ns.find(n => n.id === "root" && n.focus)) return "initially the root is not the focus";
     if (ns.length !== roots.length + loose.length + 1)
       return `initially ${ns.length} nodes, expected root + ${roots.length} folders + ${loose.length} singular entities`;
     for (const e of loose)
-      if (!ns.find(n => n.id === e.id)) return `${e.id} is a singular type's entity and is not drawn at the root`;
-    if (data.rootId && ns.find(n => n.id === data.rootId))
+      if (!ns.find(n => n.id === where(e))) return `${where(e)} is a singular type's entity and is not drawn at the root`;
+    if (data.rootId && ns.find(n => n.id === at(data.rootId)))
       return `${data.rootId} is drawn beside the root it is`;
     // The walk below descends to a folder, so it needs an edge that starts inside one.
     const edge = data.edges.find(e => {
@@ -79,10 +84,11 @@ export const STAGE_CHECKS = {
     });
     if (!edge) return null;
     const from = data.entities.find(e => e.id === edge.from);
-    const folder = from.id.slice(0, from.id.lastIndexOf("/"));
+    const fromAt = where(from);
+    const folder = fromAt.slice(0, fromAt.lastIndexOf("/"));
     // Walk down to that folder one click at a time. The canvas is a neighbourhood, not a
     // tree, so a folder four levels down is not on it until its parent is the focus — and
-    // every prefix of an id IS a node here, because an id is the thing's path on disk.
+    // every prefix of an address IS a node here, because an address is the thing's path on disk.
     const parts = folder.split("/");
     for (let i = 1; i <= parts.length; i++) {
       const prefix = parts.slice(0, i).join("/");
@@ -92,8 +98,8 @@ export const STAGE_CHECKS = {
     ns = await nodes();
     if (!ns.find(n => n.id === folder && n.focus)) return `clicking ${folder} did not focus it`;
     if (!ns.find(n => n.id === "root")) return `focused ${folder}, but its ancestor root is gone`;
-    if (!ns.find(n => n.id === from.id)) return `focused ${folder}, but its child ${from.id} is not drawn`;
-    await click(from.id); await page.waitForTimeout(500);
+    if (!ns.find(n => n.id === fromAt)) return `focused ${folder}, but its child ${fromAt} is not drawn`;
+    await click(fromAt); await page.waitForTimeout(500);
     const name = await page.evaluate(() => (document.querySelector("#card h3") || {}).textContent);
     if (name !== from.name) return `card shows ${JSON.stringify(name)}, expected ${JSON.stringify(from.name)}`;
     // The focused node is the one thing the drawing must keep on the canvas. A visitor
@@ -195,8 +201,8 @@ export const STAGE_CHECKS = {
     const stillFocused = await page.evaluate((id) => {
       const n = document.querySelector(`#fig .n[data-id="${id}"]`);
       return !!n && n.classList.contains("focus");
-    }, from.id);
-    if (!stillFocused) return `${from.id} is no longer the focus after Expand`;
+    }, fromAt);
+    if (!stillFocused) return `${fromAt} is no longer the focus after Expand`;
     await page.keyboard.press("Escape");
     await page.waitForTimeout(300);
     if (await page.evaluate(() => !!document.querySelector("dialog[open]"))) return "Escape did not close the modal";
@@ -210,12 +216,12 @@ export const STAGE_CHECKS = {
       [...document.querySelector(".figure-section").children].map(e => e.id || e.className));
     if (orderAfter.join(" ") !== orderBefore.join(" "))
       return `closing the dialog left the figure section as ${orderAfter.join(" ")}, was ${orderBefore.join(" ")}`;
-    const drawn = await page.evaluate((id) => Array.from(document.querySelectorAll(`#fig .ref[data-from="${id}"]`)).map(p => p.dataset.to), from.id);
-    for (const x of data.edges.filter(x => x.from === from.id)) if (!drawn.includes(x.to)) return `reference ${from.id} → ${x.to} is in the block but not drawn`;
+    const drawn = await page.evaluate((id) => Array.from(document.querySelectorAll(`#fig .ref[data-from="${id}"]`)).map(p => p.dataset.to), fromAt);
+    for (const x of data.edges.filter(x => x.from === from.id)) if (!drawn.includes(at(x.to))) return `reference ${fromAt} → ${at(x.to)} is in the block but not drawn`;
     ns = await nodes();
-    for (const x of data.edges.filter(x => x.from === from.id)) if (!ns.find(n => n.id === x.to)) return `reference target ${x.to} is not on the canvas`;
+    for (const x of data.edges.filter(x => x.from === from.id)) if (!ns.find(n => n.id === at(x.to))) return `reference target ${at(x.to)} is not on the canvas`;
     const hash = await page.evaluate(() => decodeURIComponent(location.hash.slice(1)));
-    if (hash !== from.id) return `hash is ${JSON.stringify(hash)}, expected ${from.id}`;
+    if (hash !== fromAt) return `hash is ${JSON.stringify(hash)}, expected ${fromAt}`;
     // An entity is one node, however many edges reach it. `neighbourhood()` placed a node per
     // edge, so a profile's skill came back once for the claim and once per evidence row, a
     // phase's role once per field naming it, and a phase's own process twice: in the spine
@@ -223,8 +229,9 @@ export const STAGE_CHECKS = {
     // the spine's position. The data says where to look, so nothing here names a page: a
     // focus with two edges to one entity in either direction, and a focus its owner refers to
     // or that refers to its owner. Up to two of each are focused through the address and the
-    // nodes counted.
-    const owns = (a, b) => b.startsWith(a + "/");
+    // nodes counted. Owning is a matter of where the two sit, so it reads their addresses; the
+    // hash is set to the entity's id, which the stage accepts and writes back as the address.
+    const owns = (a, b) => at(b).startsWith(at(a) + "/");
     const perPair = new Map();
     for (const x of data.edges) {
       const k = [x.from, x.to].sort().join("→");
@@ -238,7 +245,7 @@ export const STAGE_CHECKS = {
       await page.evaluate((id) => { location.hash = "#" + id; }, id);
       await page.waitForTimeout(700);
       const drawn = await nodes();
-      if (!drawn.find(n => n.id === id && n.focus)) return `focusing ${id} through the address did not focus it`;
+      if (!drawn.find(n => n.id === at(id) && n.focus)) return `focusing ${id} through the address did not focus it`;
       const seen = new Map();
       for (const n of drawn) seen.set(n.id, (seen.get(n.id) || 0) + 1);
       const twice = [...seen].filter(([, n]) => n > 1).map(([nid, n]) => `${nid} ${n} times`);
@@ -267,7 +274,7 @@ export const STAGE_CHECKS = {
     // A link may ask for the stage expanded: arriving with ?stage=expanded beside a hash opens
     // the dialog on that node and leaves the address clean, so a page that read the request
     // looks like one expanded by hand. Left as found afterwards, for whatever check runs next.
-    await page.goto(`${spec.absolute}?stage=expanded#${from.id}`, { waitUntil: "networkidle" });
+    await page.goto(`${spec.absolute}?stage=expanded#${fromAt}`, { waitUntil: "networkidle" });
     await page.waitForTimeout(500);
     const arrived = await page.evaluate(() => ({
       open: !!document.querySelector("dialog.rbmodal[open]"),
@@ -276,7 +283,7 @@ export const STAGE_CHECKS = {
       lit: !!(document.activeElement && document.activeElement.classList.contains("rbmodal-close")),
       focus: (document.querySelector("#fig .n.focus") || {}).dataset ? document.querySelector("#fig .n.focus").dataset.id : null }));
     if (!arrived.open || !arrived.inModal) return "arriving with ?stage=expanded did not open the expanded stage";
-    if (arrived.focus !== from.id) return `arriving with ?stage=expanded#${from.id} focused ${JSON.stringify(arrived.focus)}`;
+    if (arrived.focus !== fromAt) return `arriving with ?stage=expanded#${fromAt} focused ${JSON.stringify(arrived.focus)}`;
     if (arrived.search !== "") return `the address still carries ${JSON.stringify(arrived.search)} after the page read it`;
     if (arrived.lit) return "arriving with ?stage=expanded leaves the close button focused, and lit";
     await page.goto(spec.absolute, { waitUntil: "networkidle" });

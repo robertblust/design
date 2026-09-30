@@ -59,15 +59,19 @@ export function pageExists(key, root) {
   return isFile(root, key.endsWith("/") ? `${key.slice(1)}index.html` : key.slice(1));
 }
 
-// Every id a stage finds a node for in its data: each entity, the root, and every leading part of
-// an entity's id, which the stage draws as the folder holding it. assets/stage.js walks an id down
-// from the root one segment at a time, so every prefix of an id is a node.
+// Every id a stage finds a node for in its data: each entity by its id and by its address, the
+// root, and every leading part of an entity's address, which the stage draws as the folder holding
+// it. assets/stage.js looks an id up directly and walks an address down from the root one segment
+// at a time, so every prefix of an address is a node. A model written before entities carried an
+// address has its path as its id, and the two are one string.
 export function stageIds(data) {
   const ids = new Set();
   if (data?.rootId) ids.add(data.rootId);
   for (const e of data?.entities ?? []) {
     ids.add(e.id);
-    const parts = e.id.split("/");
+    const address = e.address ?? e.id;
+    ids.add(address);
+    const parts = address.split("/");
     for (let i = 1; i < parts.length; i++) ids.add(parts.slice(0, i).join("/"));
   }
   return ids;
