@@ -34,7 +34,10 @@ function withProcess(model) {
   };
 }
 
-// Every entity gets a stable id and keeps its path as its address; every reference follows.
+// Every entity gets a stable id, numbered in the order it is listed, and keeps its path as its
+// address; its owner, every edge's ends, every qualifier value naming an entity and the rootId
+// follow. A fixture that appends entities to another keeps every id the shorter one was given.
+// The one helper every test uses, so no two fixtures number or map ids differently.
 export function withStableIds(model) {
   const ids = new Map(model.entities.map((e, i) => [e.id, uuidOf(i + 1)]));
   const to = (v) => (typeof v === "string" && ids.has(v) ? ids.get(v) : v);
@@ -42,7 +45,7 @@ export function withStableIds(model) {
     ...model,
     rootId: to(model.rootId),
     entities: model.entities.map((e) => ({ ...e, id: to(e.id), address: e.id, ...(e.owner ? { owner: to(e.owner) } : {}) })),
-    edges: model.edges.map((x) => ({ ...x, from: to(x.from), to: to(x.to),
+    edges: (model.edges ?? []).map((x) => ({ ...x, from: to(x.from), to: to(x.to),
       attrs: Object.fromEntries(Object.entries(x.attrs || {}).map(([k, v]) => [k, to(v)])) })),
   };
 }

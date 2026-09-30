@@ -6,6 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { withStableIds } from "./fixtures/stable-ids.mjs";
 
 const BLOCK = fs.readFileSync(new URL("../blocks/model-card.js", import.meta.url), "utf8");
 
@@ -32,8 +33,8 @@ function hrefFor(data, role, id) {
 const MODEL = (entities) => ({ commit: "0".repeat(40), repo: "o/r", entities, edges: [] });
 
 test("a seat's card links the stage at the address of what it names", () => {
-  const boss = { id: "0199a3c2-7f00-7000-8000-000000000001", address: "roles/boss", type: "role", name: "Boss" };
-  const maker = { id: "0199a3c2-7f00-7000-8000-000000000002", address: "roles/maker", type: "role", name: "Maker" };
+  const [boss, maker] = withStableIds(MODEL([{ id: "roles/boss", type: "role", name: "Boss" },
+    { id: "roles/maker", type: "role", name: "Maker" }])).entities;
   assert.equal(hrefFor(MODEL([boss, maker]), boss.id, maker.id), "../model/?stage=expanded#roles/maker");
 });
 

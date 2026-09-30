@@ -1,5 +1,7 @@
 // The team board's fixture, shared by render.test.mjs and pictures.test.mjs. It sits here, not in
 // either test file, since importing a test file runs its tests a second time.
+import { withStableIds } from "./stable-ids.mjs";
+
 const FIXTURE = { commit: "0".repeat(40), repo: "example/model", root: "Someone", rootId: "identity", types: [], entities: [], edges: [] };
 
 // Two phases, three roles, and every relation the board draws. Deliberately not the real
@@ -33,15 +35,8 @@ export const TEAM_BY_ADDRESS = {
   ],
 };
 
-// Every entity gets a UUID-shaped id, numbered in the order it is listed, keeps its path as its
-// address, and names its owner by id. A fixture that appends entities to TEAM_BY_ADDRESS keeps
-// every id TEAM_FIXTURE gives, so the two can be compared.
-export const uuidOf = (n) => `0199a3c2-7f00-7000-8000-${String(n).padStart(12, "0")}`;
-export function withStableIds(data) {
-  const ids = new Map(data.entities.map((e, i) => [e.id, uuidOf(i + 1)]));
-  return { ...data, entities: data.entities.map((e) => ({ ...e, id: ids.get(e.id), address: e.id,
-    ...(e.owner ? { owner: ids.get(e.owner) ?? e.owner } : {}) })) };
-}
+// TEAM_BY_ADDRESS with stable ids, through the shared helper; a fixture that appends entities to
+// TEAM_BY_ADDRESS keeps every id TEAM_FIXTURE gives, so the two can be compared.
 export const TEAM_FIXTURE = withStableIds(TEAM_BY_ADDRESS);
 // The id of the entity at an address, read off the data.
 export const idAt = (data, address) => data.entities.find((e) => e.address === address).id;

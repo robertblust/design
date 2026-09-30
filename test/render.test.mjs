@@ -97,8 +97,6 @@ test("each value is an article with its slug as an id", () => {
 
 // Since meta-model 0.65.0 an entity's id may be a stable UUID, and where it sits is its address.
 // An anchor is where the reader lands, so it is built from the address.
-const UUID = (n) => `0199a3c2-7f00-7000-8000-${String(n).padStart(12, "0")}`;
-const withStableIds = (data) => ({ ...data, entities: data.entities.map((e, i) => ({ ...e, id: UUID(i + 1), address: e.id })) });
 
 test("a value with a stable id is an article with its address's slug as an id", () => {
   const page = princInto(withStableIds(PRINCIPLES_FIXTURE));
@@ -139,7 +137,8 @@ test("a missing German string stops the build, with the caller's message", () =>
 import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
 import { writeSurfaces } from "../lib/render/surfaces.mjs";
 
-import { TEAM_FIXTURE, TEAM_BY_ADDRESS, withStableIds as teamWithStableIds, idAt } from "./fixtures/team.mjs";
+import { TEAM_FIXTURE, TEAM_BY_ADDRESS, idAt } from "./fixtures/team.mjs";
+import { withStableIds, uuidOf } from "./fixtures/stable-ids.mjs";
 export { TEAM_FIXTURE };
 
 export function renderTeamInto(fixture, opts = {}) {
@@ -155,7 +154,7 @@ export function renderTeamInto(fixture, opts = {}) {
 // A second process beside TEAM_FIXTURE's "Doing": one phase, naming Boss, whom Doing names too,
 // and Helper, whom Doing does not and no profile holds. So a seat on two boards and a seat no
 // profile holds both occur.
-const TWO_PROCESS_FIXTURE = teamWithStableIds({
+const TWO_PROCESS_FIXTURE = withStableIds({
   ...TEAM_BY_ADDRESS,
   entities: [
     ...TEAM_BY_ADDRESS.entities,
@@ -302,8 +301,8 @@ test("phasesOf reads a phase's name within its own process", () => {
   // Core 0.31.0: a name of an owned type is unique within its owner, so another process may hold
   // a phase of the same name. Placed first, it is what an unscoped lookup would find.
   const f = structuredClone(TEAM_FIXTURE);
-  f.entities.unshift({ id: "0199a3c2-7f00-7000-8000-0000000000ff", address: "processes/x/phases/one", type: "phase", name: "One",
-    tagline: "Elsewhere.", path: "model/processes/x/phases/one.md", owner: "0199a3c2-7f00-7000-8000-0000000000fe", fields: {}, sections: [] });
+  f.entities.unshift({ id: uuidOf(255), address: "processes/x/phases/one", type: "phase", name: "One",
+    tagline: "Elsewhere.", path: "model/processes/x/phases/one.md", owner: uuidOf(254), fields: {}, sections: [] });
   assert.deepEqual(phasesOf(f, processesOf(f)[0]).map((p) => p.id),
     [idAt(TEAM_FIXTURE, "processes/d/phases/one"), idAt(TEAM_FIXTURE, "processes/d/phases/two")]);
 });
@@ -444,7 +443,7 @@ test("the generated note says the rest of the site is bilingual, not the rest of
 // holders. TEAM_FIXTURE's agent holds Maker and Checker; each case below adds a holder.
 const withProfile = (fields, name = "Another Agent", address = "profiles/b") => {
   const f = structuredClone(TEAM_FIXTURE);
-  f.entities.splice(2, 0, { id: "0199a3c2-7f00-7000-8000-0000000000bb", address, type: "profile", name, tagline: "A third line.",
+  f.entities.splice(2, 0, { id: uuidOf(187), address, type: "profile", name, tagline: "A third line.",
     path: `model/${address}/${address.split("/")[1]}.md`, fields, sections: [] });
   return f;
 };

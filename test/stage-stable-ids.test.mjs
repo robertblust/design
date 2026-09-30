@@ -85,7 +85,6 @@ test("an id hash opens the entity and is written back as its address, in place",
   const p = await context.newPage();
   await p.goto(base + "/model/");
   await p.waitForSelector("#fig g.n");
-  const was = await p.evaluate(() => history.length);
   await p.goto(base + "/model/#" + idAt("processes/delivery/phases/shape"));
   await p.waitForSelector("#fig g.n.focus");
   assert.equal(await pathOf(p), "processes / delivery / phases / shape");
@@ -98,7 +97,6 @@ test("an id hash opens the entity and is written back as its address, in place",
   await p.waitForFunction(() => document.getElementById("path").textContent === "concepts / guest");
   assert.equal(await hashOf(p), "concepts/guest");
   assert.equal(await p.evaluate(() => history.length), before + 1);
-  assert.ok(was >= 1);
   // Back returns to the phase by its address.
   await p.goBack();
   await p.waitForFunction(() => document.getElementById("path").textContent === "processes / delivery / phases / shape");

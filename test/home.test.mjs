@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { writeHome, numberWord, neverOf } from "../lib/render/home.mjs";
+import { withStableIds } from "./fixtures/stable-ids.mjs";
 
 const value = (slug, name, last) => ({ id: `values/${slug}`, type: "value", name, tagline: `${name} tagline.`,
   path: `model/values/${slug}.md`, sections: [{ heading: "In practice", text: `Body of ${name}.\n\n${last}` }] });
@@ -135,10 +136,7 @@ test("a page missing a region is an error, not a page half written", () => {
 });
 
 test("a value with a stable id links the anchor its address names", () => {
-  let n = 0;
-  const data = { ...DATA, entities: DATA.entities.map((e) => ({ ...e, id: `0199a3c2-7f00-7000-8000-${String(++n).padStart(12, "0")}`, address: e.id })) };
-  data.rootId = data.entities.find((e) => e.address === "vision").id;
-  const page = into(data);
+  const page = into(withStableIds(DATA));
   assert.ok(page.includes(`<a href="principles/#a"><b data-de="DE:Ay">Ay</b>`), page);
   assert.ok(page.includes(`<a href="principles/#b"><b data-de="DE:Bee">Bee</b>`), page);
 });
