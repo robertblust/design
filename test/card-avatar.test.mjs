@@ -96,3 +96,34 @@ test("each segment of the id is encoded in the address, and a plain id reads as 
   assert.equal(img.attrs.src, "../images/profiles/mi%20ra%23x.jpg");
   assert.equal(find(draw(mira("mira.jpg"), { dataImages: "../images/" }), (n) => n.tag === "img")[0].attrs.src, "../images/profiles/mira.jpg");
 });
+
+// ── stable ids ─────────────────────────────────────────────────────────────────────────
+// Since meta-model 0.65.0 an entity's id may be a stable UUID and its address the path it sits
+// at. Pictures are published under the address, and which entity holds another's levels is a
+// matter of where the two sit, so both read the address; a model with no address reads the id.
+const UUID = (n) => `0199a3c2-7f00-7000-8000-${String(n).padStart(12, "0")}`;
+
+test("a stable id draws the picture published under the entity's address, each segment encoded", () => {
+  const e = { ...mira("mira.jpg"), id: UUID(1), address: "profiles/mira" };
+  assert.equal(find(draw(e, { dataImages: "../images/" }), (n) => n.tag === "img")[0].attrs.src, "../images/profiles/mira.jpg");
+  const odd = { ...mira("mira.png"), id: UUID(2), address: "profiles/mi ra#x" };
+  assert.equal(find(draw(odd, { dataImages: "/images/" }), (n) => n.tag === "img")[0].attrs.src, "/images/profiles/mi%20ra%23x.png");
+});
+
+test("a skill chip carries the level claimed by the entity above it on disk, found by address", () => {
+  const ent = (n, address, type, name, extra = {}) => ({ id: UUID(n), address, type, name, tagline: "t",
+    path: `model/${address}.md`, fields: { source: "Local" }, sections: [], ...extra });
+  const profile = ent(1, "profiles/rb", "profile", "Rob", { sections: [{ heading: "Skills", text: "",
+    tables: [{ caption: null, columns: ["Skill", "Level"], rows: [["Java", "Expert"]] }] }] });
+  const role = ent(2, "profiles/rb/roles/dev", "role", "Developer", { owner: UUID(1),
+    fields: { source: "Local", skills: ["Java"] } });
+  const skill = ent(3, "skills/java", "skill", "Java", { fields: { source: "Local", group: "Languages" } });
+  const lv = [ent(4, "levels/basic", "level", "Basic", { fields: { rank: "1" } }),
+    ent(5, "levels/expert", "level", "Expert", { fields: { rank: "2" } })];
+  const rbCard = load("../images/");
+  const body = new El("div"), foot = new El("span");
+  rbCard.render(role, body, foot, { data: { entities: [profile, role, skill, ...lv], edges: [], commit: "abc", repo: "o/r" }, lang: "en", link: () => new El("a") });
+  const marks = find(body, (n) => n.className === "lv");
+  assert.equal(marks.length, 1, "the chip carries no level marks");
+  assert.deepEqual(marks[0].kids.map((k) => k.className), ["on", "on"]);
+});

@@ -133,3 +133,12 @@ test("a page missing a region is an error, not a page half written", () => {
   fs.writeFileSync(path.join(dir, "index.html"), "<main></main>\n");
   assert.throws(() => writeHome(DATA, { root: dir, de, heading: HEADING }), /vision:start/);
 });
+
+test("a value with a stable id links the anchor its address names", () => {
+  let n = 0;
+  const data = { ...DATA, entities: DATA.entities.map((e) => ({ ...e, id: `0199a3c2-7f00-7000-8000-${String(++n).padStart(12, "0")}`, address: e.id })) };
+  data.rootId = data.entities.find((e) => e.address === "vision").id;
+  const page = into(data);
+  assert.ok(page.includes(`<a href="principles/#a"><b data-de="DE:Ay">Ay</b>`), page);
+  assert.ok(page.includes(`<a href="principles/#b"><b data-de="DE:Bee">Bee</b>`), page);
+});

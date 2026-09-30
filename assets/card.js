@@ -144,12 +144,15 @@
   }
   // The size is set on the element so nothing shifts when the file arrives, and the name is
   // the text a reader without the picture gets.
+  // Pictures are published where their entity sits, under its address, so the name is built
+  // from that; a model written before entities carried an address has its path as its id.
   function encId(id){ return id.split("/").map(encodeURIComponent).join("/"); }
+  function where(e){ return e.address != null ? e.address : e.id; }
   function avatar(e, base){
     var name = e.fields && e.fields.image;
     if (!base || typeof name !== "string" || !/\.(jpe?g|png)$/.test(name)) return null;
     var img = h("img", null, "avatar");
-    img.setAttribute("src", base.replace(/\/?$/, "/") + encId(e.id) + "." + name.split(".").pop());
+    img.setAttribute("src", base.replace(/\/?$/, "/") + encId(where(e)) + "." + name.split(".").pop());
     img.setAttribute("alt", e.name);
     img.setAttribute("width", "64"); img.setAttribute("height", "64");
     img.setAttribute("loading", "lazy"); img.setAttribute("decoding", "async");
@@ -356,12 +359,13 @@
     return found;
   }
   // The entity that claims levels for this one: itself, or the nearest entity above it on
-  // disk whose card holds a table with a Level column.
+  // disk whose card holds a table with a Level column. Above it on disk is a matter of
+  // addresses, which is where a page sits; an id says only which entity it is.
   function levelOwner(data, e){
     if (levelTable(e)) return e;
     var best = null;
     data.entities.forEach(function(x){
-      if (e.id.indexOf(x.id + "/") === 0 && levelTable(x) && (!best || x.id.length > best.id.length)) best = x;
+      if (where(e).indexOf(where(x) + "/") === 0 && levelTable(x) && (!best || where(x).length > where(best).length)) best = x;
     });
     return best;
   }

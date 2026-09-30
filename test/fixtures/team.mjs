@@ -4,7 +4,9 @@ const FIXTURE = { commit: "0".repeat(40), repo: "example/model", root: "Someone"
 
 // Two phases, three roles, and every relation the board draws. Deliberately not the real
 // model: this asserts the derivation, and the real model's shape is asserted by pages:check.
-export const TEAM_FIXTURE = {
+// Written here by address, the way a model before meta-model 0.65.0 wrote its ids; TEAM_FIXTURE
+// is this with stable ids, as an instance carries them once backfilled.
+export const TEAM_BY_ADDRESS = {
   ...FIXTURE,
   entities: [
     { id: "profiles/p", type: "profile", name: "A Person", tagline: "One line.",
@@ -30,3 +32,16 @@ export const TEAM_FIXTURE = {
       sections: [] },
   ],
 };
+
+// Every entity gets a UUID-shaped id, numbered in the order it is listed, keeps its path as its
+// address, and names its owner by id. A fixture that appends entities to TEAM_BY_ADDRESS keeps
+// every id TEAM_FIXTURE gives, so the two can be compared.
+export const uuidOf = (n) => `0199a3c2-7f00-7000-8000-${String(n).padStart(12, "0")}`;
+export function withStableIds(data) {
+  const ids = new Map(data.entities.map((e, i) => [e.id, uuidOf(i + 1)]));
+  return { ...data, entities: data.entities.map((e) => ({ ...e, id: ids.get(e.id), address: e.id,
+    ...(e.owner ? { owner: ids.get(e.owner) ?? e.owner } : {}) })) };
+}
+export const TEAM_FIXTURE = withStableIds(TEAM_BY_ADDRESS);
+// The id of the entity at an address, read off the data.
+export const idAt = (data, address) => data.entities.find((e) => e.address === address).id;

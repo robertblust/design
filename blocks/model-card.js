@@ -1,4 +1,4 @@
-  /* ─── model card · v2 · {{variant}} ─────────────────────────────────────
+  /* ─── model card · v3 · {{variant}} ─────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The card glue for a board of seats: a seat's card is rendered by card.js the first time
@@ -40,7 +40,9 @@
         // Where a seat links: the page that draws this model on the stage. A site declares it,
         // because on one site that is /model/ and on another the landing page, and a shared file
         // carrying either would send the other site's visitors to the wrong page.
-        a.href = STAGE_PAGE + "?stage=expanded#" + id;
+        // The hash is where the seat sits, the address the stage writes itself; a model written
+        // before entities carried one has its path as its id.
+        a.href = STAGE_PAGE + "?stage=expanded#" + (byId[id].address || id);
         return a;
       }
       // Rendered once per row, not per seat: a seat on two boards is two rows, and each row's
