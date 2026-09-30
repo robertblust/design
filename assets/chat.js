@@ -451,9 +451,11 @@
   }
 
   // Where a cite points: the model page with the entity's id as the hash, asking for the stage
-  // expanded. An id is `type/slug`, and the stage writes its own hashes with that slash as it
-  // is and reads them the same way; encoded, the slash is a hash the page does not hold, and
-  // the page drops it and shows the root. So nothing here is encoded. `?stage=expanded` is the
+  // expanded. The stage takes an id or an address after the hash and writes the address back
+  // once it has found the entity. An id may still be a path — a model whose instance has no
+  // stable ids yet carries its address as its id — and the stage reads a path's slashes as
+  // they are; encoded, the slash is a hash the page does not hold, and the page drops it and
+  // shows the root. So nothing here is encoded. `?stage=expanded` is the
   // request the stage already answers, the one blust.ch's timeline makes for a skill: a reader
   // following a cite came for that entity's card, not for the graph around it, and the page
   // takes the parameter back out of the address once it has read it.

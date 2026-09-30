@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { modelPage, stageFiles } from "./fixtures/stage-page.mjs";
 import { TERMINAL } from "./fixtures/terminal.mjs";
+import { STABLE_MODEL, idAt } from "./fixtures/stable-ids.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ID_A = "concepts/guest", ID_B = "concepts/merge";
@@ -220,6 +221,37 @@ test("the dialog is named by its head, and the head follows the focus and the la
   await p.evaluate(() => { document.documentElement.lang = "de"; });
   await p.waitForFunction((t) => document.querySelector("dialog.rbmodal-graph .rbmodal-title").textContent === t.replace(/^graph/, "Graph"), to);
   await close();
+});
+
+// ─── Stable ids ───────────────────────────────────────────────────────────────────────────
+test("a cite built from a UUID opens the embedded stage on that entity, and the frame's hash ends at its address", async () => {
+  const STABLE_ID = idAt("concepts/guest");
+  const stableEvents = [["text", { text: "A Guest is resolved before any merge happens." }],
+    ["cite", { id: STABLE_ID, title: "Guest", url: "https://github.com/o/r/blob/abc1234def/concepts/guest.md" }], ["done", { spent: 1 }]];
+  const srv = http.createServer((req, res) => {
+    const url = req.url.split("?")[0];
+    if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(stableEvents)); return; }
+    const files = { "/": ["text/html", CHAT], "/model/": ["text/html", modelPage({ chat: true })],
+      ...stageFiles({ model: JSON.stringify(STABLE_MODEL) }) };
+    const hit = files[url];
+    if (!hit) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]);
+  });
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  const b = `http://127.0.0.1:${srv.address().port}`;
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const p = await context.newPage();
+  await p.goto(b + "/");
+  await p.click(".rbchat-open");
+  await p.fill("section.rbchat textarea", "What is a guest?");
+  await p.keyboard.press("Enter");
+  await p.waitForSelector(".rbchat-assistant[aria-live]");
+  await p.click(".rbchat-cites a.rbchat-cite");
+  await p.waitForSelector("dialog.rbmodal-graph[open]");
+  await focusIs(p, "concepts / guest");
+  assert.match(frame(p).url(), /#concepts\/guest$/, "the frame's hash was not written back to the address");
+  await context.close();
+  await new Promise((r) => srv.close(r));
 });
 
 // ─── One rule for every page: the graph opens on the page ────────────────────────────────

@@ -95,6 +95,15 @@ test("each value is an article with its slug as an id", () => {
   assert.deepEqual(valuesOf(PRINCIPLES_FIXTURE).map((v) => v.id), ["values/a", "values/b"]);
 });
 
+// Since meta-model 0.65.0 an entity's id may be a stable UUID, and where it sits is its address.
+// An anchor is where the reader lands, so it is built from the address.
+
+test("a value with a stable id is an article with its address's slug as an id", () => {
+  const page = princInto(withStableIds(PRINCIPLES_FIXTURE));
+  assert.match(page, /<article class="value" id="a">/);
+  assert.match(page, /<article class="value" id="b">/);
+});
+
 test("without German the page renders as before: no data-de on the model's words, the one-language note", () => {
   const page = princInto(PRINCIPLES_FIXTURE);
   assert.ok(!/<h3 data-de/.test(page), "a value name carries no German");
@@ -128,7 +137,8 @@ test("a missing German string stops the build, with the caller's message", () =>
 import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
 import { writeSurfaces } from "../lib/render/surfaces.mjs";
 
-import { TEAM_FIXTURE } from "./fixtures/team.mjs";
+import { TEAM_FIXTURE, TEAM_BY_ADDRESS, idAt } from "./fixtures/team.mjs";
+import { withStableIds, uuidOf } from "./fixtures/stable-ids.mjs";
 export { TEAM_FIXTURE };
 
 export function renderTeamInto(fixture, opts = {}) {
@@ -144,10 +154,10 @@ export function renderTeamInto(fixture, opts = {}) {
 // A second process beside TEAM_FIXTURE's "Doing": one phase, naming Boss, whom Doing names too,
 // and Helper, whom Doing does not and no profile holds. So a seat on two boards and a seat no
 // profile holds both occur.
-const TWO_PROCESS_FIXTURE = {
-  ...TEAM_FIXTURE,
+const TWO_PROCESS_FIXTURE = withStableIds({
+  ...TEAM_BY_ADDRESS,
   entities: [
-    ...TEAM_FIXTURE.entities,
+    ...TEAM_BY_ADDRESS.entities,
     { id: "roles/helper", type: "role", name: "Helper", tagline: "Helps.",
       path: "model/roles/helper.md", fields: {}, sections: [] },
     { id: "processes/e", type: "process", name: "Else", tagline: "Another way.",
@@ -157,12 +167,15 @@ const TWO_PROCESS_FIXTURE = {
       path: "model/processes/e/phases/three.md", owner: "processes/e",
       fields: { owner: "Boss", "executed-by": ["Helper"], "gate-approvers": ["Boss"] }, sections: [] },
   ],
-};
+});
+const PROCESS_IDS = ["processes/d", "processes/e"].map((a) => idAt(TWO_PROCESS_FIXTURE, a));
 export const regionOf = (page) => page.slice(page.indexOf("<!-- team:start -->"), page.indexOf("<!-- team:end -->"));
 
 // What the renderer drew for TEAM_FIXTURE at c365772, before it could draw more than one
-// process: captured from that commit's code, not written by hand.
-const BEFORE_ONE_PROCESS = "<!-- team:start -->\n      <div class=\"hdrail\"><div class=\"whos\">\n        <div class=\"hw\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><div><div class=\"nm\">A Person</div><div class=\"lbl\">human · holds 1 of 3</div></div></div>\n        <div class=\"hw\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><div><div class=\"nm\">An Agent</div><div class=\"lbl\">agent · holds 2 of 3</div></div></div>\n      </div><button class=\"openall\" id=\"openall\" type=\"button\" data-de=\"Alle öffnen\">Open all</button></div>\n      <div class=\"grid\" id=\"board\">\n        <div class=\"ghead\"><span class=\"lbl\">Seat</span><span><span class=\"phnum\">01</span><span class=\"phname\">One</span></span><span><span class=\"phnum\">02</span><span class=\"phname\">Two</span></span></div>\n        <details class=\"human\" id=\"boss\" data-role=\"roles/boss\">\n          <summary aria-label=\"Boss, human. executes Two. approves the gate of One, Two.\"><span class=\"sname\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><span class=\"tw\">Boss</span></span><span><i class=\"g ga\"></i></span><span><i class=\"g ex\"></i><i class=\"g ga\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"maker\" data-role=\"roles/maker\">\n          <summary aria-label=\"Maker, agent. executes One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Maker</span></span><span><i class=\"g ex\"></i></span><span></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"checker\" data-role=\"roles/checker\">\n          <summary aria-label=\"Checker, agent. executes Two. supports One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Checker</span></span><span><i class=\"g su\"></i></span><span><i class=\"g ex\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n      </div>\n      <div class=\"legend\"><span><i class=\"g ex\"></i> <span data-de=\"führt die Phase aus\">executes the phase</span></span><span><i class=\"g su\"></i> <span data-de=\"unterstützt sie\">supports it</span></span><span><i class=\"g ga\"></i> <span data-de=\"gibt ihr Gate frei\">approves its gate</span></span><span><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg> <span data-de=\"Mensch\">human</span></span><span><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg> <span data-de=\"Agent\">agent</span></span></div>\n      <dl class=\"phases\">\n        <dt><span class=\"phnum\">01</span><span class=\"phname\">One</span></dt>\n        <dd>First.</dd>\n        <dt><span class=\"phnum\">02</span><span class=\"phname\">Two</span></dt>\n        <dd>Second.</dd>\n      </dl>\n      ";
+// process: captured from that commit's code, not written by hand. A seat's data-role is its
+// role's id, which was its address then; it is read off the data now.
+const BEFORE_ONE_PROCESS = "<!-- team:start -->\n      <div class=\"hdrail\"><div class=\"whos\">\n        <div class=\"hw\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><div><div class=\"nm\">A Person</div><div class=\"lbl\">human · holds 1 of 3</div></div></div>\n        <div class=\"hw\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><div><div class=\"nm\">An Agent</div><div class=\"lbl\">agent · holds 2 of 3</div></div></div>\n      </div><button class=\"openall\" id=\"openall\" type=\"button\" data-de=\"Alle öffnen\">Open all</button></div>\n      <div class=\"grid\" id=\"board\">\n        <div class=\"ghead\"><span class=\"lbl\">Seat</span><span><span class=\"phnum\">01</span><span class=\"phname\">One</span></span><span><span class=\"phnum\">02</span><span class=\"phname\">Two</span></span></div>\n        <details class=\"human\" id=\"boss\" data-role=\"roles/boss\">\n          <summary aria-label=\"Boss, human. executes Two. approves the gate of One, Two.\"><span class=\"sname\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><span class=\"tw\">Boss</span></span><span><i class=\"g ga\"></i></span><span><i class=\"g ex\"></i><i class=\"g ga\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"maker\" data-role=\"roles/maker\">\n          <summary aria-label=\"Maker, agent. executes One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Maker</span></span><span><i class=\"g ex\"></i></span><span></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"checker\" data-role=\"roles/checker\">\n          <summary aria-label=\"Checker, agent. executes Two. supports One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Checker</span></span><span><i class=\"g su\"></i></span><span><i class=\"g ex\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n      </div>\n      <div class=\"legend\"><span><i class=\"g ex\"></i> <span data-de=\"führt die Phase aus\">executes the phase</span></span><span><i class=\"g su\"></i> <span data-de=\"unterstützt sie\">supports it</span></span><span><i class=\"g ga\"></i> <span data-de=\"gibt ihr Gate frei\">approves its gate</span></span><span><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg> <span data-de=\"Mensch\">human</span></span><span><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg> <span data-de=\"Agent\">agent</span></span></div>\n      <dl class=\"phases\">\n        <dt><span class=\"phnum\">01</span><span class=\"phname\">One</span></dt>\n        <dd>First.</dd>\n        <dt><span class=\"phnum\">02</span><span class=\"phname\">Two</span></dt>\n        <dd>Second.</dd>\n      </dl>\n      "
+  .replace(/data-role="([^"]+)"/g, (m, address) => `data-role="${idAt(TEAM_FIXTURE, address)}"`);
 
 test("a site that passes no diagram draws no picture, and the board is what it was", () => {
   assert.ok(!renderTeamInto(TEAM_FIXTURE).includes("data-diagram"));
@@ -175,7 +188,7 @@ test("each process's picture sits under its tagline and before its head rail, in
     return { title: proc.name, mermaid: `flowchart LR\n  n0["<b>${proc.name}</b>"]`, nodes: [{ node: "n0", id: proc.id, title: proc.name, type: "phase" }], links: [], edges: 0 };
   };
   const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE, { diagram }));
-  assert.deepEqual(seen, ["processes/d", "processes/e"]);
+  assert.deepEqual(seen, PROCESS_IDS);
   const sections = html.split('<section class="proc"').slice(1);
   sections.forEach((sec, i) => {
     const name = ["Doing", "Else"][i];
@@ -186,7 +199,7 @@ test("each process's picture sits under its tagline and before its head rail, in
     assert.ok(sec.includes(`<figure class="rbchat-diagram" data-diagram data-model="../model/" data-picture="${name.toLowerCase()}">`), "the model page, relative to the team page");
     const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);
     assert.deepEqual(json, { shape: "process", title: name, mermaid: `flowchart LR\n  n0["<b>${name}</b>"]`,
-      nodes: [{ node: "n0", id: ["processes/d", "processes/e"][i], title: name }] });
+      nodes: [{ node: "n0", id: PROCESS_IDS[i], title: name }] });
   });
 });
 
@@ -253,7 +266,7 @@ test("the seat that owns the process leads its board, before a person's seats", 
   // Else names Boss, whom a person holds, and Helper, whom nobody holds; by holder alone Boss
   // comes first. Made Else's owner, Helper leads instead.
   const f = structuredClone(TWO_PROCESS_FIXTURE);
-  f.entities.find((e) => e.id === "processes/e").fields.owner = "Helper";
+  f.entities.find((e) => e.address === "processes/e").fields.owner = "Helper";
   const elseBoard = regionOf(renderTeamInto(f)).slice(regionOf(renderTeamInto(f)).indexOf('id="else"'));
   const order = [...elseBoard.matchAll(/<details[^>]* id="else-([a-z-]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order, ["helper", "boss"]);
@@ -288,9 +301,10 @@ test("phasesOf reads a phase's name within its own process", () => {
   // Core 0.31.0: a name of an owned type is unique within its owner, so another process may hold
   // a phase of the same name. Placed first, it is what an unscoped lookup would find.
   const f = structuredClone(TEAM_FIXTURE);
-  f.entities.unshift({ id: "processes/x/phases/one", type: "phase", name: "One", tagline: "Elsewhere.",
-    path: "model/processes/x/phases/one.md", owner: "processes/x", fields: {}, sections: [] });
-  assert.deepEqual(phasesOf(f, processesOf(f)[0]).map((p) => p.id), ["processes/d/phases/one", "processes/d/phases/two"]);
+  f.entities.unshift({ id: uuidOf(255), address: "processes/x/phases/one", type: "phase", name: "One",
+    tagline: "Elsewhere.", path: "model/processes/x/phases/one.md", owner: uuidOf(254), fields: {}, sections: [] });
+  assert.deepEqual(phasesOf(f, processesOf(f)[0]).map((p) => p.id),
+    [idAt(TEAM_FIXTURE, "processes/d/phases/one"), idAt(TEAM_FIXTURE, "processes/d/phases/two")]);
 });
 
 test("seatsOf puts the human profile's seats first", () => {
@@ -306,7 +320,7 @@ test("marksOf reads executes, supports and approves off each phase", () => {
 
 test("marksOf falls back to owner when a phase names no executed-by", () => {
   const f = structuredClone(TEAM_FIXTURE);
-  const two = f.entities.find((e) => e.id === "processes/d/phases/two");
+  const two = f.entities.find((e) => e.address === "processes/d/phases/two");
   delete two.fields["executed-by"];
   assert.deepEqual(marksOf(f, processesOf(f)[0]).Boss, [["ga"], ["ex", "ga"]]);
 });
@@ -317,7 +331,7 @@ test("marksOf orders a cell executes, supports, approves — never file order", 
 
 test("a phase the model does not hold is an error, not a missing column", () => {
   const f = structuredClone(TEAM_FIXTURE);
-  f.entities = f.entities.filter((e) => e.id !== "processes/d/phases/two");
+  f.entities = f.entities.filter((e) => e.address !== "processes/d/phases/two");
   assert.throws(() => phasesOf(f, processesOf(f)[0]), /names a phase the model does not hold: Two/);
 });
 
@@ -331,8 +345,8 @@ test("every row says itself in words, because the grid is not a table", () => {
 test("the board carries one details per seat, with its slug as an address", () => {
   const html = renderTeamInto(TEAM_FIXTURE);
   assert.equal((html.match(/<details/g) || []).length, 3);
-  assert.match(html, /<details class="human" id="boss" data-role="roles\/boss">/);
-  assert.match(html, /<details id="checker" data-role="roles\/checker">/);
+  assert.ok(html.includes(`<details class="human" id="boss" data-role="${idAt(TEAM_FIXTURE, "roles/boss")}">`), html);
+  assert.ok(html.includes(`<details id="checker" data-role="${idAt(TEAM_FIXTURE, "roles/checker")}">`), html);
 });
 
 test("the note that says why a region does not translate has one home", () => {
@@ -381,6 +395,35 @@ test("the board is followed by what each phase is, in the model's own words", ()
   assert.ok(!/data-de/.test(block), "a phase tagline carries a translation it should not");
 });
 
+const surfacesInto = (data) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-surf-"));
+  fs.mkdirSync(path.join(dir, "surfaces"));
+  const file = path.join(dir, "surfaces/index.html");
+  fs.writeFileSync(file, "<div>\n    <!-- surfaces-note:start -->\n    <!-- surfaces-note:end -->\n" +
+    "      <!-- surfaces:start -->\n      <!-- surfaces:end -->\n</div>\n");
+  writeSurfaces(data, { root: dir });
+  return fs.readFileSync(file, "utf8");
+};
+const SURFACES_FIXTURE = {
+  ...FIXTURE,
+  entities: [
+    { id: "surfaces/linkedin-profile", type: "surface", name: "LinkedIn profile", tagline: "t", path: "model/surfaces/linkedin-profile.md",
+      fields: { production: "written", url: "https://www.linkedin.com/in/someone/" }, sections: [] },
+    { id: "surfaces/model-page", type: "surface", name: "Model page", tagline: "t", path: "model/surfaces/model-page.md",
+      fields: { production: "built", "built-by": "https://github.com/example/site", url: "https://example.org/model/" }, sections: [] },
+  ],
+};
+
+test("a surface's button is anchored by its address, and carries its id to open its card", () => {
+  for (const data of [SURFACES_FIXTURE, withStableIds(SURFACES_FIXTURE)]) {
+    const page = surfacesInto(data);
+    for (const e of data.entities) {
+      const slug = (e.address ?? e.id).split("/")[1];
+      assert.ok(page.includes(`id="${slug}" data-id="${e.id}"`), page);
+    }
+  }
+});
+
 test("a writer refuses to run without the site's root", () => {
   const data = { entities: [], commit: "0".repeat(40), repo: "x/y" };
   assert.throws(() => writeTeam(data, {}), /needs the site's root/);
@@ -398,10 +441,10 @@ test("the generated note says the rest of the site is bilingual, not the rest of
 // ── a seat held by more than one profile ──────────────────────────────────────────────────────
 // A role names nobody and any number of profiles may list it, so a seat can have several
 // holders. TEAM_FIXTURE's agent holds Maker and Checker; each case below adds a holder.
-const withProfile = (fields, name = "Another Agent", id = "profiles/b") => {
+const withProfile = (fields, name = "Another Agent", address = "profiles/b") => {
   const f = structuredClone(TEAM_FIXTURE);
-  f.entities.splice(2, 0, { id, type: "profile", name, tagline: "A third line.",
-    path: `model/${id}/${id.split("/")[1]}.md`, fields, sections: [] });
+  f.entities.splice(2, 0, { id: uuidOf(187), address, type: "profile", name, tagline: "A third line.",
+    path: `model/${address}/${address.split("/")[1]}.md`, fields, sections: [] });
   return f;
 };
 const rowOf = (html, id) => {
@@ -448,7 +491,7 @@ test("a shared seat's row carries a stacked mark and names its holders in words"
 
 test("a seat a person shares with an agent is a person's row, the person's mark in front", () => {
   const f = structuredClone(TEAM_FIXTURE);
-  f.entities.find((e) => e.id === "profiles/p").fields.roles = ["Boss", "Checker"];
+  f.entities.find((e) => e.address === "profiles/p").fields.roles = ["Boss", "Checker"];
   const html = regionOf(renderTeamInto(f));
   const row = rowOf(html, "checker");
   assert.match(row, /<details class="human" id="checker"/);
@@ -463,7 +506,7 @@ test("a seat a person shares with an agent is a person's row, the person's mark 
 // ── pictures drawn at build ───────────────────────────────────────────────────────────
 import { pictureStamp, picturePath, keptPicture, tokenized, PLACEHOLDERS } from "../lib/pictures.mjs";
 
-const ONE_PICTURE = () => ({ title: "Doing", mermaid: "flowchart LR\n  n0[Doing]", nodes: [{ node: "n0", id: "processes/d", title: "Doing" }] });
+const ONE_PICTURE = () => ({ title: "Doing", mermaid: "flowchart LR\n  n0[Doing]", nodes: [{ node: "n0", id: idAt(TEAM_FIXTURE, "processes/d"), title: "Doing" }] });
 // A site root with a team page, and a chat.js and mermaid.min.js whose bytes the stamp reads.
 function siteWithTeam() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-pictures-"));

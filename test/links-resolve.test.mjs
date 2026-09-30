@@ -10,6 +10,7 @@ import path from "node:path";
 import {
   URL_STRING, classify, shown, pageKey, pageExists, stageIds, modelUrls, resolveOwn,
 } from "../verify/links/resolve.mjs";
+import { withStableIds, uuidOf } from "./fixtures/stable-ids.mjs";
 
 const SITE = { host: "fixture.test", origin: "http://127.0.0.1:8000" };
 
@@ -69,6 +70,14 @@ test("a stage finds a node for every entity, the root, and every folder above an
     assert.ok(ids.has(id), id);
   assert.ok(!ids.has("skills/z"));
   assert.ok(!ids.has("profiles/rb/skill"), "a folder is a whole segment, not a string prefix");
+});
+
+test("a stage takes an entity by its stable id or by its address, and every folder its address passes", () => {
+  const data = withStableIds({ rootId: "identity", entities: [{ id: "identity" }, { id: "skills/a" }, { id: "profiles/rb/skills/b" }] });
+  const ids = stageIds(data);
+  for (const id of [...data.entities.map((e) => e.id), data.rootId, "identity", "skills/a", "skills", "profiles", "profiles/rb", "profiles/rb/skills", "profiles/rb/skills/b"])
+    assert.ok(ids.has(id), id);
+  assert.ok(![...ids].some((id) => id.startsWith(uuidOf(0).slice(0, 24)) && id.includes("/")), "an id was split as a path");
 });
 
 test("every absolute URL string in a model is found, with the entity it sits in", () => {

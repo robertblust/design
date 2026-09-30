@@ -51,10 +51,10 @@ ${chat ? '<script src="/chat.js" data-chat="/chat" data-model="/model/" defer></
 </body></html>`;
 }
 
-// The files a model page loads, by address.
-export function stageFiles() {
+// The files a model page loads, by address. A test may hand in another model to serve.
+export function stageFiles({ model = STAGE_MODEL } = {}) {
   return {
-    "/model.json": ["application/json", STAGE_MODEL],
+    "/model.json": ["application/json", model],
     "/stage.css": ["text/css", asset("stage.css")], "/stage.js": ["text/javascript", asset("stage.js")],
     "/card.js": ["text/javascript", asset("card.js")], "/d3.v7.min.js": ["text/javascript", asset("d3.v7.min.js")],
     "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")],

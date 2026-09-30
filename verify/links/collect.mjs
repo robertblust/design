@@ -151,7 +151,9 @@ export async function collect({ root, base, chromium, settleMs = 150, stepMs = 2
         for (const m of modelUrls(model(data), data)) found(m.url, m.from);
       }
       if (got.hasDataStage) {
-        const ids = data ? (model(data)?.entities ?? []).map((e) => e.id) : [];
+        // A card is opened where the stage places it, its address, which is the hash the stage
+        // writes itself; a model written before entities carried an address has its path as its id.
+        const ids = data ? (model(data)?.entities ?? []).map((e) => e.address ?? e.id) : [];
         const cards = await page.evaluate(openCards, { ids, settleMs, stepMs });
         if (cards === null) site.problems.push({ link: key, reason: NO_OPENER, from: [key] });
         else for (const href of cards) found(href, `${key} (card)`);

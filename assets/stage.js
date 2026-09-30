@@ -92,10 +92,15 @@ function rbStage(data) {
   }
 
   // ── model ─────────────────────────────────────────────────────────────────────────────
-  // Node ids are paths, because that is what they are on disk: "<folder>" is a folder,
-  // "<folder>/<entity>" a page, "<folder>/<entity>/<owned folder>" a folder a page owns. The
-  // one invented id is "root", which has no path of its own.
+  // Node keys are addresses, because that is where a page sits on disk: "<folder>" is a
+  // folder, "<folder>/<entity>" a page, "<folder>/<entity>/<owned folder>" a folder a page
+  // owns. The one invented key is "root", which has no path of its own. An entity's id says
+  // which entity it is and is opaque — a stable id once the instance carries one — so an
+  // entity node keeps it beside its key, and every edge, owner and lookup goes by the id. A
+  // model written before entities carried an address has its path as its id, which is why
+  // where a page sits falls back to the id.
   var byId = {}; data.entities.forEach(function(e){ byId[e.id] = e; });
+  function where(e){ return e.address != null ? e.address : e.id; }
   // The root and the identity entity are one thing: the company. Drawing both would put the
   // same name on the canvas twice, and the root would carry a page count where the entity has
   // a tagline, contact and prose to show.
@@ -127,7 +132,7 @@ function rbStage(data) {
   function keep(n){ return cache[n.id] || (cache[n.id] = n); }
   function nRoot(){ return keep({ kind:"root", id:"root", label:data.root, entity:rootEntity }); }
   function nFolder(id, type, ownerId){ return keep({ kind:"folder", id:id, type:type, ownerId:ownerId, label:id.slice(id.lastIndexOf("/") + 1) }); }
-  function nEntity(e){ return keep({ kind:"entity", id:e.id, label:e.name, entity:e }); }
+  function nEntity(e){ return keep({ kind:"entity", id:where(e), label:e.name, entity:e }); }
   function folderIdOf(id){ return id.slice(0, id.lastIndexOf("/")); }
 
   function parentOf(n){
@@ -135,7 +140,7 @@ function rbStage(data) {
     if (n.kind === "folder") return n.ownerId ? nEntity(byId[n.ownerId]) : nRoot();
     var e = n.entity;
     if (isSingular(e.type)) return nRoot();
-    return nFolder(folderIdOf(e.id), e.type, e.owner);
+    return nFolder(folderIdOf(where(e)), e.type, e.owner);
   }
   function childrenOf(n){
     if (n.kind === "root") return data.entities
@@ -145,16 +150,17 @@ function rbStage(data) {
     if (n.kind === "folder") return data.entities
       .filter(function(e){ return e.type === n.type && e.owner === n.ownerId; })
       .map(nEntity);
-    return ownedTypes(n.entity.type).map(function(t){ return nFolder(n.id + "/" + t.folder, t.type, n.id); });
+    return ownedTypes(n.entity.type).map(function(t){ return nFolder(n.id + "/" + t.folder, t.type, n.entity.id); });
   }
   function ancestorsOf(n){ var out = [], p = parentOf(n); while (p) { out.unshift(p); p = parentOf(p); } return out; }
-  // The node an id names — a folder's or an entity's — found by walking down from the root
-  // through the same childrenOf() the canvas uses. An id is a path on disk, so every prefix
-  // of it is a node, and the walk needs no second index and no name from either page.
-  // Returns null for an id no page here holds, which is what a hand-edited hash looks like.
+  // The node an id or an address names. An entity's id is looked up directly; anything else
+  // is an address — a folder's or an entity's — found by walking down from the root through
+  // the same childrenOf() the canvas uses. An address is a path on disk, so every prefix of
+  // it is a node, and the walk needs no second index and no name from either page. Returns
+  // null for what no page here holds, which is what a hand-edited hash looks like.
   function nodeById(id){
     if (!id) return null;
-    if (rootEntity && id === rootEntity.id) return nRoot();
+    if (rootEntity && (id === rootEntity.id || id === where(rootEntity))) return nRoot();
     if (byId[id]) return nEntity(byId[id]);
     var n = nRoot();
     for (;;) {
@@ -172,9 +178,9 @@ function rbStage(data) {
   // entity and the folder it owns both count as pages of the folder that holds the entity.
   function pagesUnder(n){
     if (n.kind === "root") return data.entities.length;
-    return data.entities.filter(function(e){ return e.id.indexOf(n.id + "/") === 0; }).length;
+    return data.entities.filter(function(e){ return where(e).indexOf(n.id + "/") === 0; }).length;
   }
-  function refsOut(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.from === n.id; })
+  function refsOut(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.from === n.entity.id; })
     .map(function(x){ return { node:nEntity(byId[x.to]), attrs:x.attrs, label:x.label, edge:x }; }); }
   // A proficiency level has no "referred by" band and an experience kind does. That is the
   // model, not a gap here, and it has been asked about: a kind is a field in an experience's
@@ -188,7 +194,7 @@ function rbStage(data) {
   // from the one profile, so the band would read "referred by · 1 profile" on every level.
   // What a reader actually wants — the skills claimed at that level — is the OTHER end of
   // those rows, and no skill refers to a level. Left absent deliberately.
-  function refsIn(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.to === n.id; })
+  function refsIn(n){ return n.kind !== "entity" ? [] : data.edges.filter(function(x){ return x.to === n.entity.id; })
     .map(function(x){ return { node:nEntity(byId[x.from]), attrs:x.attrs, label:x.label, edge:x }; }); }
 
   // An attribute value is worth putting on the canvas only if it is short enough to read
@@ -737,7 +743,7 @@ function rbStage(data) {
   function clear(el){ while (el.firstChild) el.removeChild(el.firstChild); }
   function goLink(id){
     var a = h("a", byId[id].name, "go");
-    a.href = "#" + id;
+    a.href = "#" + where(byId[id]);
     a.addEventListener("click", function(ev){ ev.preventDefault(); focus(nEntity(byId[id])); });
     return a;
   }
@@ -988,19 +994,29 @@ function rbStage(data) {
   }
 
   window.addEventListener("resize", function(){ if (focused) render(); });
-  window.addEventListener("hashchange", function(){
+  // A hash may name an entity by its id, which is what a cite or an agent hands over; the
+  // stage's own hashes are addresses, so one that named an id is written back as the address
+  // it resolved to, in place, and the trail and every later comparison see one key per place.
+  function readHash(){
     var id = decodeURIComponent(location.hash.slice(1));
+    var n = nodeById(id);
+    if (n && n.kind !== "root" && n.id !== id) {
+      id = n.id;
+      try { history.replaceState(null, "", location.pathname + location.search + "#" + id); } catch (err) {}
+    }
+    return { id:id, n:n };
+  }
+  window.addEventListener("hashchange", function(){
     // An empty hash — Back past the last focus — means the root, not "do nothing", and so
     // does one naming nothing this page holds: focus() writes a hash for every node but the
     // root, so a bare or unrecognized hash is exactly what the root looks like.
-    var n = nodeById(id);
+    var at = readHash(), id = at.id, n = at.n;
     trailMove(n ? id : "");
     if (!n) { if (!focused || focused.kind !== "root") focus(nRoot(), true); else renderHist(); return; }
     if (!focused || focused.id !== id) focus(n, true); else renderHist();
   });
 
-  var initial = decodeURIComponent(location.hash.slice(1));
-  var opener = nodeById(initial) || nRoot();
+  var opener = readHash().n || nRoot();
   trail = [opener.kind === "root" ? "" : opener.id]; pos = 0;
   focus(opener, true);
   first = false;

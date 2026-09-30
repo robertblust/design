@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { writeHome, numberWord, neverOf } from "../lib/render/home.mjs";
+import { withStableIds } from "./fixtures/stable-ids.mjs";
 
 const value = (slug, name, last) => ({ id: `values/${slug}`, type: "value", name, tagline: `${name} tagline.`,
   path: `model/values/${slug}.md`, sections: [{ heading: "In practice", text: `Body of ${name}.\n\n${last}` }] });
@@ -132,4 +133,10 @@ test("a page missing a region is an error, not a page half written", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-home-"));
   fs.writeFileSync(path.join(dir, "index.html"), "<main></main>\n");
   assert.throws(() => writeHome(DATA, { root: dir, de, heading: HEADING }), /vision:start/);
+});
+
+test("a value with a stable id links the anchor its address names", () => {
+  const page = into(withStableIds(DATA));
+  assert.ok(page.includes(`<a href="principles/#a"><b data-de="DE:Ay">Ay</b>`), page);
+  assert.ok(page.includes(`<a href="principles/#b"><b data-de="DE:Bee">Bee</b>`), page);
 });
