@@ -107,7 +107,9 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
 .rbchat-body td:first-child a{white-space:nowrap}
 .rbchat-body td br ~ *,.rbchat-body td li + li{color:var(--t-dim)}
 .rbchat-body td ul,.rbchat-body td ol{margin:0;padding:0}
-.rbchat-refusal{margin-top:.4rem;color:var(--t-bad)}
+/* A refusal wears the answer's rail in the terminal's red, so an error reads as the step that
+   failed where an answer reads as the step that finished. */
+.rbchat-refusal{margin:.4rem 0 0 .35rem;padding:.55rem .9rem .55rem .95rem;border-left:1.5px solid var(--t-bad);background:var(--t-card);border-radius:0 8px 8px 0;color:var(--t-bad)}
 .rbchat-model{margin:.1rem 0 0;font-size:.74rem;color:var(--t-dim)}
 .rbchat-body .rbchat-num{text-align:right;font-variant-numeric:tabular-nums}
 /* One link style, the family's: a link in the answer or the notice has no class, so the page's
