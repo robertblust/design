@@ -184,6 +184,9 @@ test("only a page that leaves at once for a url, from its head, and is noindex i
   assert.equal(redirectLinks(page(`${NOINDEX}<script>const s = '<meta http-equiv="refresh" content="0; url=/x/">';</script>`), base), null, "inside a script");
   assert.equal(redirectLinks(page(NOINDEX, '<meta http-equiv="refresh" content="0; url=/x/">'), base), null, "in the body");
   assert.equal(redirectLinks(page('<meta http-equiv="refresh" content="0; url=/x/">'), base), null, "not noindex");
+  assert.equal(redirectLinks(page(`<meta data-name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=/x/">`), base), null, "a data-name is not a name");
+  assert.equal(redirectLinks(page(`${NOINDEX}<meta data-http-equiv="refresh" content="0; url=/x/">`), base), null, "a data-http-equiv is not an http-equiv");
+  assert.equal(redirectLinks(page(`<title><meta name="robots" content="noindex"></title><meta http-equiv="refresh" content="0; url=/x/">`), base), null, "a title's text is not a tag");
 });
 
 test("a symlink in id/ is removed as a link, never followed, and a symlinked id/ is refused", () => {
@@ -217,4 +220,27 @@ test("a file where an entity's folder belongs is replaced, so the writer heals",
   writeIdPages(data, { ...OPTS, root });
   assert.ok(fs.existsSync(path.join(root, "id", A, "index.html")));
   assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }), []);
+});
+
+test("an id/ that is a file is named once by the check and replaced by the writer, the two agreeing", () => {
+  const root = site();
+  fs.writeFileSync(path.join(root, "id"), "not a folder");
+  const data = MODEL([entity(A, "things/a", "A")]);
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }).sort(), ["id", `id/${A}/index.html`].sort());
+  writeIdPages(data, { ...OPTS, root });
+  assert.ok(fs.lstatSync(path.join(root, "id", A, "index.html")).isFile());
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }), []);
+});
+
+test("a page that is a symbolic link is named once, and replaced by a real file", () => {
+  const root = site();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "design-ids-outside-"));
+  fs.writeFileSync(path.join(outside, "page.html"), "elsewhere");
+  fs.mkdirSync(path.join(root, "id", A), { recursive: true });
+  fs.symlinkSync(path.join(outside, "page.html"), path.join(root, "id", A, "index.html"));
+  const data = MODEL([entity(A, "things/a", "A")]);
+  assert.deepEqual(writeIdPages(data, { ...OPTS, root, check: true }), [`id/${A}/index.html`]);
+  writeIdPages(data, { ...OPTS, root });
+  assert.equal(fs.readFileSync(path.join(outside, "page.html"), "utf8"), "elsewhere", "nothing written through the link");
+  assert.ok(fs.lstatSync(path.join(root, "id", A, "index.html")).isFile());
 });

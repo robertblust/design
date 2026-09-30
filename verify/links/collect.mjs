@@ -99,9 +99,10 @@ export function redirectLinks(html, base) {
   const bare = html.replace(/<!--[\s\S]*?-->/g, "");
   const head = /<head\b[^>]*>([\s\S]*?)<\/head\s*>/i.exec(bare);
   if (!head) return null;
-  const tags = head[1].replace(/<(script|noscript|style|template)\b[\s\S]*?<\/\1\s*>/gi, "").match(/<meta\b[^>]*>/gi) ?? [];
+  const tags = head[1].replace(/<(script|noscript|style|template|title)\b[\s\S]*?<\/\1\s*>/gi, "").match(/<meta\b[^>]*>/gi) ?? [];
   const attr = (tag, name) => {
-    const m = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag);
+    // The name stands after whitespace, so `data-name` is never read as `name`.
+    const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag);
     return m ? decode(m[1] ?? m[2] ?? m[3]) : null;
   };
   const noindex = tags.some((t) => attr(t, "name")?.toLowerCase() === "robots" && /(^|,)\s*noindex\s*(,|$)/i.test(attr(t, "content") ?? ""));
@@ -109,7 +110,7 @@ export function redirectLinks(html, base) {
   const url = refresh && /^\s*0(?:\.0*)?\s*[;,]\s*url\s*=\s*['"]?([^'"]+)/i.exec(attr(refresh, "content") ?? "");
   if (!noindex || !url || !url[1].trim()) return null;
   const raw = [url[1].trim()];
-  for (const m of bare.matchAll(/\bhref="([^"]*)"/gi)) raw.push(decode(m[1]));
+  for (const m of bare.matchAll(/\shref="([^"]*)"/gi)) raw.push(decode(m[1]));
   const links = [];
   for (const r of raw) { if (!r) continue; try { links.push(new URL(r, base).href); } catch {} }
   return links;
