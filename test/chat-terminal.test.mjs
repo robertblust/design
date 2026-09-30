@@ -285,9 +285,11 @@ test("a stream that drops after some text leaves no answer, no spinner, and a âœ
     refusal: document.querySelector(".rbchat-refusal").textContent,
     answer: document.querySelectorAll(".rbchat-assistant").length,
     spin: document.querySelectorAll(".rbchat-spin").length,
-    enabled: !document.querySelector("section.rbchat textarea").disabled
+    enabled: !document.querySelector("section.rbchat textarea").disabled,
+    rail: getComputedStyle(document.querySelector(".rbchat-refusal")).borderLeft
   }));
   assert.match(s.refusal, /^âœ— The chat could not be reached/);
+  assert.match(s.rail, /solid rgb\(224, 112, 94\)$/, "the refusal has no red rail");
   assert.equal(s.answer, 0);
   assert.equal(s.spin, 0);
   assert.equal(s.enabled, true);
