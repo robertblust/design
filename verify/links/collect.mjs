@@ -84,6 +84,25 @@ async function openCards({ ids, settleMs, stepMs }) {
   return [...out];
 }
 
+// A page that sends its reader on at once, `<meta http-equiv="refresh">`, as the /id/<uuid>/ pages
+// render/ids writes do. A browser leaves it before anything could be read off it, and whatever was
+// read would be the page it went to, named as this one; so it is read from the checkout instead,
+// and its links are the refresh's target and every href it carries. Null for any other page.
+export function redirectLinks(html, base) {
+  const tag = /<meta\b[^>]*http-equiv=["']?refresh["']?[^>]*>/i.exec(html);
+  if (!tag) return null;
+  const decode = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const raw = [];
+  const content = /\bcontent="([^"]*)"/i.exec(tag[0]) ?? /\bcontent='([^']*)'/i.exec(tag[0]);
+  const url = content && /^\s*\d+\s*[;,]\s*url\s*=\s*['"]?([^'"]*)/i.exec(decode(content[1]));
+  if (url) raw.push(url[1].trim());
+  for (const m of html.matchAll(/\bhref="([^"]*)"/gi)) raw.push(decode(m[1]));
+  const links = [];
+  for (const r of raw) { if (!r) continue; try { links.push(new URL(r, base).href); } catch {} }
+  return links;
+}
+
 // The served copy has to answer before a browser is pointed at it. CI starts the server in the
 // background a step earlier, so this waits for it the way the sites' own wait step does.
 async function waitFor(origin, { tries = 20, delayMs = 500 } = {}) {
@@ -138,6 +157,13 @@ export async function collect({ root, base, chromium, settleMs = 150, stepMs = 2
     const page = await browser.newPage();
     while (queue.length) {
       const key = queue.shift();
+      const file = key.endsWith("/") ? `${key.slice(1)}index.html` : key.slice(1);
+      const redirect = redirectLinks(read(decodeURIComponent(file)), origin + encodeURI(key));
+      if (redirect) {
+        site.pages.set(key, { ids: new Set(), stage: false, data: null });
+        for (const href of redirect) found(href, key);
+        continue;
+      }
       await page.goto(origin + encodeURI(key), { waitUntil: "load" });
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(settleMs);

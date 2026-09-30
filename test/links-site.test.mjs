@@ -49,9 +49,14 @@ after(() => served.close());
 
 const where = (href) => [...(site.found.get(href) ?? [])].sort();
 
+// Two redirect pages as render/ids writes them, each named by an @id in the home page's JSON-LD:
+// one sends a reader to an entity the data holds, the other to one it does not.
+const ID_A = "0199a3c2-7f00-7000-8000-000000000001";
+const ID_B = "0199a3c2-7f00-7000-8000-000000000002";
+
 test("every page the sitemap names is loaded, and every own page they reach", () => {
   assert.deepEqual([...site.pages.keys()].sort(), [
-    "/", "/about/", "/ledger/", "/lineage/", "/model/", "/nodata/", "/noopener/", "/talks/deck/",
+    "/", "/about/", `/id/${ID_A}/`, `/id/${ID_B}/`, "/ledger/", "/lineage/", "/model/", "/nodata/", "/noopener/", "/talks/deck/",
   ]);
   assert.ok(!site.pages.has("/missing/"), "a page not in the checkout is not loaded");
 });
@@ -84,11 +89,21 @@ test("a JSON-LD @id is collected without its fragment, since it identifies a nod
   }
 });
 
+test("a redirect page is read from the checkout, since a browser would leave it before it could be read", () => {
+  const o = served.base;
+  assert.deepEqual({ ...site.pages.get(`/id/${ID_A}/`), ids: [...site.pages.get(`/id/${ID_A}/`).ids] },
+    { ids: [], stage: false, data: null }, "the redirect's own page, not the stage it sends a reader to");
+  assert.deepEqual(where(`https://fixture.test/id/${ID_A}`), ["/"], "the @id is collected as its path");
+  assert.deepEqual(where(`https://fixture.test/model/?stage=expanded#things/a`), [`/id/${ID_A}/`], "the canonical");
+  assert.deepEqual(where(`${o}/model/?stage=expanded#things/a`), ["/", `/id/${ID_A}/`, "/lineage/ (card)"], "the refresh and the fallback link");
+  assert.deepEqual(where(`${o}/model/?stage=expanded#things/gone`), [`/id/${ID_B}/`]);
+});
+
 test("every card is opened, by Open all, by each item, and by each node of a stage", () => {
   const o = served.base;
   assert.deepEqual(where(`${o}/model/?stage=expanded#things/b`), ["/ledger/ (card)", "/lineage/ (card)"]);
   assert.deepEqual(where(`${o}/model/?stage=expanded#things/lost`), ["/ledger/ (card)"]);
-  assert.deepEqual(where(`${o}/model/?stage=expanded#things/a`), ["/", "/lineage/ (card)"]);
+  assert.deepEqual(where(`${o}/model/?stage=expanded#things/a`), ["/", `/id/${ID_A}/`, "/lineage/ (card)"]);
   assert.deepEqual(where(`${o}/model/#things/b`), ["/model/ (card)"]);
   assert.deepEqual(where(`${o}/model/#things/void`), ["/model/ (card)"]);
 });
@@ -145,6 +160,7 @@ test("every own link that does not land is named once, with where it was found",
     ["/model/#things/nope", "no node things/nope in model.json", ["/"]],
     ["/model/#things/void", "no node things/void in model.json", ["/model/ (card)"]],
     ["/model/?stage=expanded#things/ghost", "no node things/ghost in model.json", ["/"]],
+    ["/model/?stage=expanded#things/gone", "no node things/gone in model.json", [`/id/${ID_B}/`]],
     ["/model/?stage=expanded#things/lost", "no node things/lost in model.json", ["/ledger/ (card)"]],
     ["/nodata/#things/a", "/nodata/ draws a stage and names no data, so #things/a cannot be drawn", ["/"]],
     ["/noopener/", "carries a <link data-stage> and none of #openall, .openall, .ln-s or #stage, so its cards cannot be opened", ["/noopener/"]],
@@ -152,7 +168,7 @@ test("every own link that does not land is named once, with where it was found",
     ["/slides.pdf", "no file here", ["/talks/deck/"]],
     ["/about/#nobody", "no element with id nobody on /about/", ["/"]],
   ].sort((a, b) => a[0].localeCompare(b[0])));
-  assert.match(lines.join("\n"), /12 own link\(s\) do not resolve/);
+  assert.match(lines.join("\n"), /13 own link\(s\) do not resolve/);
 });
 
 test("the CLI fails on a wrong STAGE_PAGE and passes once it is set back", async () => {
