@@ -56,7 +56,8 @@
     "./render/principles": "./lib/render/principles.mjs",
     "./render/team": "./lib/render/team.mjs",
     "./render/surfaces": "./lib/render/surfaces.mjs",
-    "./render/home": "./lib/render/home.mjs"
+    "./render/home": "./lib/render/home.mjs",
+    "./render/ids": "./lib/render/ids.mjs"
   },
   "scripts": {
     "test": "node --test \"test/*.test.mjs\""

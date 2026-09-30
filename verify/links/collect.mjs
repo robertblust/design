@@ -84,6 +84,38 @@ async function openCards({ ids, settleMs, stepMs }) {
   return [...out];
 }
 
+// A page that sends its reader on at once, as the /id/<uuid>/ pages render/ids writes do. A browser
+// leaves it before anything could be read off it, and whatever was read would be the page it went
+// to, named as this one; so it is read from the checkout instead. Only a page that is plainly such
+// a redirect takes that path: a `<meta http-equiv="refresh">` with a delay of 0 and a url, in the
+// head and outside a comment, a script or a noscript, on a page that is also `noindex`. Every
+// other page, one that refreshes later or only without script included, is loaded as any page is,
+// so no page loses its checks by carrying a refresh. What is read off a redirect is its refresh's
+// target and every `href` it carries, and nothing else: no `src`, no JSON-LD, no stylesheet and no
+// element ids, which such a page does not carry. Null for any other page.
+export function redirectLinks(html, base) {
+  const decode = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const bare = html.replace(/<!--[\s\S]*?-->/g, "");
+  const head = /<head\b[^>]*>([\s\S]*?)<\/head\s*>/i.exec(bare);
+  if (!head) return null;
+  const tags = head[1].replace(/<(script|noscript|style|template|title)\b[\s\S]*?<\/\1\s*>/gi, "").match(/<meta\b[^>]*>/gi) ?? [];
+  const attr = (tag, name) => {
+    // The name stands after whitespace, so `data-name` is never read as `name`.
+    const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(tag);
+    return m ? decode(m[1] ?? m[2] ?? m[3]) : null;
+  };
+  const noindex = tags.some((t) => attr(t, "name")?.toLowerCase() === "robots" && /(^|,)\s*noindex\s*(,|$)/i.test(attr(t, "content") ?? ""));
+  const refresh = tags.find((t) => attr(t, "http-equiv")?.toLowerCase() === "refresh");
+  const url = refresh && /^\s*0(?:\.0*)?\s*[;,]\s*url\s*=\s*['"]?([^'"]+)/i.exec(attr(refresh, "content") ?? "");
+  if (!noindex || !url || !url[1].trim()) return null;
+  const raw = [url[1].trim()];
+  for (const m of bare.matchAll(/\shref="([^"]*)"/gi)) raw.push(decode(m[1]));
+  const links = [];
+  for (const r of raw) { if (!r) continue; try { links.push(new URL(r, base).href); } catch {} }
+  return links;
+}
+
 // The served copy has to answer before a browser is pointed at it. CI starts the server in the
 // background a step earlier, so this waits for it the way the sites' own wait step does.
 async function waitFor(origin, { tries = 20, delayMs = 500 } = {}) {
@@ -138,6 +170,13 @@ export async function collect({ root, base, chromium, settleMs = 150, stepMs = 2
     const page = await browser.newPage();
     while (queue.length) {
       const key = queue.shift();
+      const file = key.endsWith("/") ? `${key.slice(1)}index.html` : key.slice(1);
+      const redirect = redirectLinks(read(file), origin + encodeURI(key));
+      if (redirect) {
+        site.pages.set(key, { ids: new Set(), stage: false, data: null });
+        for (const href of redirect) found(href, key);
+        continue;
+      }
       await page.goto(origin + encodeURI(key), { waitUntil: "load" });
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(settleMs);
