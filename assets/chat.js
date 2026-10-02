@@ -3,7 +3,7 @@
 // come off its own tag, the language off <html lang> at every render, the colors off the tokens.
 //
 //   <script src="chat.js" data-chat="https://chat.example/chat" data-model="/model/"
-//     data-questions="/model.json" defer>
+//     data-questions="/model.json" data-questions-de="/questions.de.json" defer>
 //
 // Any element carrying `data-chat-open` opens the panel on click, as the button does, and an
 // address carrying `?chat=open` opens it when the page loads, then drops the parameter.
@@ -29,6 +29,10 @@
 // `data-diagram` and the picture as JSON inside it, drawn the same way once it nears the
 // screen, whether or not the tag names a chat. Expanded, any picture zooms and pans.
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
+//
+// Where the tag also names `data-questions-de`, the same read takes the site's reviewed German
+// for its question titles, and a German page offers and sends that German; which questions are
+// offered is still chosen by their titles.
 //
 //   rbChat.md(text)                    the subset, rendered
 //   rbChat.readEvents(response, fn)    the stream, one fn(name, data) per event
@@ -539,6 +543,27 @@
     (messages || []).forEach(function(m){ if (m && m.role === "user" && typeof m.content === "string") asked[m.content.trim()] = true; });
     return (list || []).filter(function(t){ return !asked[String(t).trim()]; });
   }
+  // A question as the page offers it: its German where the page is German and the site's
+  // reviewed file holds one, else the model's own title. A chip shows and sends this; which
+  // questions to offer is still chosen by title, and a chip that is no model question, such as
+  // "tell me more", is its own text in either language.
+  function sayIn(list, lang, title){
+    if (lang !== "de") return title;
+    for (var i = 0; i < (list || []).length; i++) if (list[i] && list[i].title === title && typeof list[i].de === "string" && list[i].de) return list[i].de;
+    return title;
+  }
+
+  // The conversation with every visitor message that is a question's German read back as its
+  // title, so unasked() and follow(), which compare titles, know the question was asked —
+  // whether a chip sent it or the visitor typed the same words.
+  function asTitles(list, messages){
+    var back = {};
+    (list || []).forEach(function(q){ if (q && typeof q.de === "string" && q.de) back[q.de.trim()] = q.title; });
+    return (messages || []).map(function(m){
+      return m && m.role === "user" && typeof m.content === "string" && back[m.content.trim()] ? { role: m.role, content: back[m.content.trim()] } : m;
+    });
+  }
+
 
   // The chips as a span of what the model answers: where its questions name a kind, three kinds
   // are picked at random and one question from each, so a visitor sees three sorts of question
@@ -822,7 +847,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1338,7 +1363,7 @@
   }
   if (!tag.dataset.chat || EMBEDDED) { unwait(); return; }
 
-  var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null;
+  var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null, QUESTIONS_DE = tag.dataset.questionsDe || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
 
@@ -1378,17 +1403,12 @@
   var FACTS_KEY = "chat-facts";
   function questions(cb){
     if (!QUESTIONS) { qList = qList || []; cb([]); return; }
-    if (!qList) {
-      try {
-        var kept = JSON.parse(sessionStorage.getItem(FACTS_KEY) || "null");
-        if (kept && kept.from === QUESTIONS && Array.isArray(kept.list) && kept.facts) { qList = kept.list; qFacts = kept.facts; }
-      } catch (e) {}
-    }
+    if (!qList) keptList();
     if (qList) { cb(qList); return; }
     if (!qFetch) {
       var ac = new AbortController();
       var timer = setTimeout(function(){ ac.abort(); }, Q_TIMEOUT);
-      qFetch = fetch(QUESTIONS, { signal: ac.signal })
+      var modelRead = fetch(QUESTIONS, { signal: ac.signal })
         .then(function(r){
           if (!r.ok) { clearTimeout(timer); return []; }
           return r.json().then(function(j){
@@ -1412,15 +1432,54 @@
           });
         })
         .catch(function(){ clearTimeout(timer); return []; });
+      qFetch = Promise.all([modelRead, germanRead()]).then(function(r){
+        var de = r[1];
+        return r[0].map(function(q){ return de[q.title] ? Object.assign({}, q, { de: de[q.title] }) : q; });
+      });
     }
     qFetch.then(function(list){
       if (!qList) {
         qList = list;
-        if (list.length) { try { sessionStorage.setItem(FACTS_KEY, JSON.stringify({ from: QUESTIONS, list: list, facts: qFacts })); } catch (e) {} }
+        if (list.length) { try { sessionStorage.setItem(FACTS_KEY, JSON.stringify({ from: keptFrom(), list: list, facts: qFacts })); } catch (e) {} }
       }
       cb(qList);
     });
   }
+  // Which files a kept list was made from: the model's and, where the tag names one, the German.
+  function keptFrom(){ return QUESTIONS + (QUESTIONS_DE ? " " + QUESTIONS_DE : ""); }
+  // The list the tab kept from an earlier page, taken where it was made from the same files, so a
+  // conversation drawn again before the files are read offers its chips in the page's language.
+  function keptList(){
+    try {
+      var kept = JSON.parse(sessionStorage.getItem(FACTS_KEY) || "null");
+      if (kept && kept.from === keptFrom() && Array.isArray(kept.list) && kept.facts) { qList = kept.list; qFacts = kept.facts; }
+    } catch (e) {}
+    return qList;
+  }
+  // The site's reviewed German for its question titles, read with the model under the same
+  // timeout and the same rules: a tag without `data-questions-de`, a 404, a timeout or a body that
+  // is not the file's shape gives no German, and the titles are offered as they stand. A German
+  // text longer than the box's limit is not one a chip may send, so its title is offered instead.
+  function germanRead(){
+    if (!QUESTIONS_DE) return Promise.resolve({});
+    var ac = new AbortController();
+    var timer = setTimeout(function(){ ac.abort(); }, Q_TIMEOUT);
+    return fetch(QUESTIONS_DE, { signal: ac.signal })
+      .then(function(r){
+        if (!r.ok) { clearTimeout(timer); return {}; }
+        return r.json().then(function(j){
+          clearTimeout(timer);
+          var map = {};
+          (Array.isArray(j) ? j : []).forEach(function(x){
+            if (x && typeof x.title === "string" && typeof x.text === "string" && x.text && x.text.length <= LIMIT) map[x.title] = x.text;
+          });
+          return map;
+        });
+      })
+      .catch(function(){ clearTimeout(timer); return {}; });
+  }
+  // A question as this page offers it now, from the list the widget holds or the tab kept.
+  function asOffered(title){ return sayIn(qList || keptList() || [], langNow(), title); }
   // The Try rows' facts, from the one fetch questions() makes: a tag without data-questions, or
   // a read that failed, leaves them empty, and the rows fall back to the meta-model alone.
   function facts(cb){ questions(function(){ cb(qFacts); }); }
@@ -1533,11 +1592,11 @@
       questions(function(list){
         if (mine !== introRun || !introEl) return;
         var t = strings(langNow());
-        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], messages).length; }), 3) };
+        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], asTitles(list, messages)).length; }), 3) };
         var rows = tryRows({ processes: introPick.processes, counts: f.counts }, langNow());
         groups.appendChild(el("p", "rbchat-label", t.tryLabel));
         menu(groups, rows, 0);
-        var picked = introPick.questions.map(function(q){ return [q]; });
+        var picked = introPick.questions.map(function(q){ return [asOffered(q)]; });
         if (picked.length) { groups.appendChild(el("p", "rbchat-label", t.from)); menu(groups, picked, rows.length); }
         // What the chat answers from, under the lockup: the core the model is written in and the
         // model at its commit, each linked to exactly that on GitHub.
@@ -1619,9 +1678,10 @@
     questions(function(list){
       if (!canOffer() || qBox) return;
       if (!list.length) return;
-      var open = unasked(list.map(function(q){ return q.title; }), messages);
+      var seen = asTitles(list, messages);
+      var open = unasked(list.map(function(q){ return q.title; }), seen);
       var last = turns[turns.length - 1];
-      var picked = (last && last.role === "assistant" && follow(last.cites, list, messages, langNow(), null, mentioned(last.content, heard(turns), list, messages))) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
+      var picked = (last && last.role === "assistant" && follow(last.cites, list, seen, langNow(), null, mentioned(last.content, heard(turns), list, messages))) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
       offer(picked);
       if (qNext && !reading) log.scrollTop = log.scrollHeight; else settle();
@@ -1633,9 +1693,9 @@
     qBox.setAttribute("role", "group");
     qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
     qBox.appendChild(el("p", "rbchat-label", strings(langNow()).askNext));
-    menu(qBox, picked.map(function(t){ return [t]; }), 0);
+    menu(qBox, picked.map(function(t){ return [asOffered(t)]; }), 0);
     log.appendChild(qBox);
-    qPicked = picked.slice(); menuRows = picked.slice(); keysLine();
+    qPicked = picked.slice(); menuRows = picked.map(asOffered); keysLine();
   }
   // A message on its way makes any chips standing stale: the ones it answered are asked, and
   // the answer it brings is followed by a fresh three of its own.
