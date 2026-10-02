@@ -23,6 +23,7 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
        design german extract|german <page>
        design german apply <page> <edits.json>
        design german stale <base> <head>
+       design german questions <model.json>
 
   sync            copy this package's files into the site
   sync --check    compare only, exit 1 if a copy has drifted (this is what CI runs)
@@ -37,7 +38,8 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
   german extract  every German value of a page by id, with its English, as JSON
   german german   the same without the English, for a role that must not read it
   german apply    write {id: value} back into the page; refuses an unknown id or a broken attribute
-  german stale    fail where an English edit between two commits left its German unchanged`;
+  german stale    fail where an English edit between two commits left its German unchanged
+  german questions every question title of a model or company file, as JSON, for the translator`;
 
 function fail(message, code) {
   console.error(message);
@@ -62,6 +64,16 @@ if (argv[0] === "german") {
       fail(`  ✗ design german ${sub}: cannot read ${file} — ${e.code === "ENOENT" ? "no such file" : e.message}`, 2);
     }
   };
+  // The translator's list for a site's build/questions.de.json: every title the build will hold
+  // the file to, from the same artifact the site's pages are built from. A company file carries
+  // the model under `company`, as companygraph.io's does.
+  if (sub === "questions") {
+    if (!a) fail(USAGE, 2);
+    const { questionTitles } = await import("../lib/render/questions.mjs");
+    const j = JSON.parse(readPage(a));
+    console.log(JSON.stringify(questionTitles(j.entities ? j : j.company || { entities: [] }), null, 2));
+    process.exit(0);
+  }
   if (sub === "extract" || sub === "german") {
     if (!a) fail(USAGE, 2);
     const v = germanValues(readPage(a));
