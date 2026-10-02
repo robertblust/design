@@ -77,3 +77,24 @@ test("design german questions prints the titles of a model file and of a company
   assert.equal(missing.status, 2);
   assert.match(missing.stderr, /cannot read/);
 });
+
+// Two titles under one German could not be told apart on a German page: a chip would show the
+// same words for both, and the widget, which reads German back to a title, would mark the wrong
+// one asked. The build refuses it, as it refuses a title with no German.
+test("two titles with the same German stop the write, naming both", () => {
+  const { de } = loadGerman(germanFile([{ en: "What is it?", de: "Was ist es?" }, { en: "Who answers?", de: "Was ist es?" }]));
+  assert.throws(() => writeQuestionsDe(DATA, { root: tmp(), de }), /"What is it\?" and "Who answers\?" share the German "Was ist es\?"/);
+});
+
+test("design german questions refuses a file that is not JSON, or holds no model, in one line at exit 2", () => {
+  const dir = tmp();
+  fs.writeFileSync(path.join(dir, "broken.json"), "{ not json");
+  fs.writeFileSync(path.join(dir, "null.json"), "null");
+  fs.writeFileSync(path.join(dir, "german.json"), JSON.stringify([{ en: "What is it?", de: "Was ist es?" }]));
+  for (const f of ["broken.json", "null.json", "german.json"]) {
+    const r = spawnSync(process.execPath, [CLI, "german", "questions", path.join(dir, f)], { encoding: "utf8" });
+    assert.equal(r.status, 2, `${f}: ${r.stderr}`);
+    assert.equal(r.stderr.trim().split("\n").length, 1, `${f}: ${r.stderr}`);
+    assert.match(r.stderr, /design german questions/, f);
+  }
+});

@@ -70,8 +70,14 @@ if (argv[0] === "german") {
   if (sub === "questions") {
     if (!a) fail(USAGE, 2);
     const { questionTitles } = await import("../lib/render/questions.mjs");
-    const j = JSON.parse(readPage(a));
-    console.log(JSON.stringify(questionTitles(j.entities ? j : j.company || { entities: [] }), null, 2));
+    // A file that is not JSON, or holds no model, is the caller's mistake — the site's German file
+    // passed by habit is the likely one — and an empty list printed for it would send the
+    // translator off with nothing to do and no word why.
+    let j;
+    try { j = JSON.parse(readPage(a)); } catch { fail(`  ✗ design german questions: ${a} is not JSON`, 2); }
+    const model = j && Array.isArray(j.entities) ? j : j && j.company && Array.isArray(j.company.entities) ? j.company : null;
+    if (!model) fail(`  ✗ design german questions: ${a} holds no model — pass the model.json or company.json the site's pages are built from`, 2);
+    console.log(JSON.stringify(questionTitles(model), null, 2));
     process.exit(0);
   }
   if (sub === "extract" || sub === "german") {

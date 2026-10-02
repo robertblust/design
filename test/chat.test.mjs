@@ -968,3 +968,9 @@ test("asTitles reads a German question back as its title, whoever typed it, and 
   assert.deepEqual(unasked(["What is it?", "Who answers?"], asTitles(DE_QS, messages)), ["Who answers?"]);
   assert.deepEqual(asTitles(null, messages), messages);
 });
+
+test("the intro reads the conversation back to titles once, not once per question", () => {
+  const fn = src.slice(src.indexOf("function intro("), src.indexOf("function finishIntro("));
+  assert.match(fn, /var seen = asTitles\(list, messages\);/, "the intro does not build the read-back once");
+  assert.match(fn, /unasked\(\[q\.title\], seen\)/, "the intro rebuilds the read-back for every question");
+});

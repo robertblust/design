@@ -1434,18 +1434,23 @@
         .catch(function(){ clearTimeout(timer); return []; });
       qFetch = Promise.all([modelRead, germanRead()]).then(function(r){
         var de = r[1];
+        // A German file named and read as empty failed — a 404 or a timeout, since a site's build
+        // writes German for every title — so the list made without it is not kept for the tab,
+        // and the next page reads both files again rather than offering English for good.
+        germanMissed = !!QUESTIONS_DE && !Object.keys(de).length;
         return r[0].map(function(q){ return de[q.title] ? Object.assign({}, q, { de: de[q.title] }) : q; });
       });
     }
     qFetch.then(function(list){
       if (!qList) {
         qList = list;
-        if (list.length) { try { sessionStorage.setItem(FACTS_KEY, JSON.stringify({ from: keptFrom(), list: list, facts: qFacts })); } catch (e) {} }
+        if (list.length && !germanMissed) { try { sessionStorage.setItem(FACTS_KEY, JSON.stringify({ from: keptFrom(), list: list, facts: qFacts })); } catch (e) {} }
       }
       cb(qList);
     });
   }
   // Which files a kept list was made from: the model's and, where the tag names one, the German.
+  var germanMissed = false;
   function keptFrom(){ return QUESTIONS + (QUESTIONS_DE ? " " + QUESTIONS_DE : ""); }
   // The list the tab kept from an earlier page, taken where it was made from the same files, so a
   // conversation drawn again before the files are read offers its chips in the page's language.
@@ -1592,7 +1597,8 @@
       questions(function(list){
         if (mine !== introRun || !introEl) return;
         var t = strings(langNow());
-        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], asTitles(list, messages)).length; }), 3) };
+        var seen = asTitles(list, messages);
+        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], seen).length; }), 3) };
         var rows = tryRows({ processes: introPick.processes, counts: f.counts }, langNow());
         groups.appendChild(el("p", "rbchat-label", t.tryLabel));
         menu(groups, rows, 0);
@@ -1736,6 +1742,9 @@
     }
     // A language switch redraws the intro in the new language, finished, where the log holds one.
     if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
+    // The chips standing under an answer are drawn again from the titles they were picked as, so a
+    // model question reads in the new language and a number key sends what its row now shows.
+    if (qBox && qPicked && qPicked.length) { var was_ = qPicked.slice(); hideQuestions(); offer(was_); }
     if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
   }
   relabel();

@@ -23,7 +23,7 @@ const TOO_LONG = "Q".repeat(5000);
 const MODEL = JSON.stringify({ entities: TITLES.map((name, i) => ({ id: `question/q${i}`, type: "question", name, fields: {} })), edges: [] });
 const SERVED = JSON.stringify(TITLES.map((title) => ({ title, text: title === "Can I trust it?" ? TOO_LONG : GERMAN[title] })));
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
-let sent = [], slow = false, server, base, browser;
+let sent = [], slow = false, germanDown = false, server, base, browser;
 
 before(async () => {
   server = http.createServer((req, res) => {
@@ -45,7 +45,7 @@ before(async () => {
       "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")],
     };
     const hit = files[url];
-    if (!hit) { res.writeHead(404); res.end(); return; }
+    if (!hit || (germanDown && url === "/questions.de.json")) { res.writeHead(404); res.end(); return; }
     const send = () => { res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]); };
     // A slow model and German file stand for a page on which neither has been read yet.
     if (slow && (url === "/model.json" || url === "/questions.de.json")) setTimeout(send, 1500); else send();
@@ -115,4 +115,35 @@ test("an English page, a German page whose file is missing and one without the a
     assert.deepEqual(await introQuestions(p), [...TITLES].sort(), path);
     await context.close();
   }
+});
+
+// A German file that failed once is not the tab's answer for good: the list made without it is
+// not kept, so the next page reads both files again and offers the German.
+test("a German file that failed to load is read again on the next page", async () => {
+  germanDown = true;
+  const { p, context } = await opened("/de/");
+  assert.deepEqual(await introQuestions(p), [...TITLES].sort(), "the failed read offers the titles");
+  germanDown = false;
+  await p.goto(base + "/de/other/");
+  await p.waitForFunction(() => document.querySelector(".rbchat") && !document.querySelector(".rbchat").hidden);
+  await p.waitForFunction(() => [...document.querySelectorAll(".rbchat-intro .rbchat-q")].some((q) => q.textContent.trim() === "Was ist es?"));
+  assert.deepEqual(await introQuestions(p), ["Can I trust it?", "Was ist es?", "Wer antwortet?"]);
+  await context.close();
+});
+
+// The follow-ups standing under an answer follow the page's language when it is switched, as the
+// intro does, so a number key sends what the row now shows.
+test("the follow-ups standing under an answer switch language with the page", async () => {
+  const { p, context } = await opened("/de/");
+  await p.click(".rbchat-intro .rbchat-q >> text=Was ist es?");
+  await p.waitForSelector(".rbchat-next .rbchat-q");
+  const german = await nextQuestions(p);
+  assert.ok(german.some((q) => Object.values(GERMAN).includes(q)), german.join(" | "));
+  await p.evaluate(() => { document.documentElement.lang = "en"; });
+  await p.waitForFunction(() => [...document.querySelectorAll(".rbchat-next .rbchat-q")].every((q) => !["Was ist es?", "Wer antwortet?"].includes(q.textContent.trim())));
+  const english = await nextQuestions(p);
+  assert.equal(english.length, german.length);
+  assert.ok(english.every((q) => TITLES.includes(q)), english.join(" | "));
+  assert.equal(await p.$$eval(".rbchat-next", (n) => n.length), 1, "the chips were drawn twice");
+  await context.close();
 });
