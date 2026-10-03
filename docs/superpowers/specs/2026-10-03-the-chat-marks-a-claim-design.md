@@ -37,7 +37,7 @@ A marked claim carries a note in the chat's own tooltip, the box `chat.css` draw
 | `absent`, `unnamed`, `withheld` | Not backed | The model's pages don't say this. |
 | `unsourced` | Not backed | No page the chat read says this. |
 
-It shows on hover and on keyboard focus, never on a tap's focus, and not at all where `(hover: none)`, the same rules the header's notes keep; on a phone the line under the answer is what tells the reader. It hangs under the claim's first line, inside the panel, kept within the panel's sides, and closes on Escape and on scroll. The box is defined once in `chat.css`, the header's `::after` and the claim's note element both reading it, so the two cannot drift.
+It shows on hover and on keyboard focus, never on a tap's focus, and not at all where `(hover: none)`, the same rules the header's notes keep; on a phone the line under the answer is what tells the reader. It hangs under the claim's first line, inside the panel, kept within the panel's sides, closes on Escape, and moves with its claim when the log scrolls, as the family's tooltip does. The box is defined once in `chat.css`, the header's `::after` and the claim's note element both reading it, so the two cannot drift.
 
 The English is above. The German is the German pipeline's, as every German word a site ships is: the translator drafts from the glossary, an editor reads it without the English, and a back-reader renders it into literal English. Both languages live in `STRINGS`, chosen by `langNow()`, as the panel's other words are.
 
