@@ -40,6 +40,8 @@ Every other token is a surface, not a meaning, and belongs to one family.
 
 A page reads the page family and never defines a token of its own; the modal re-points the page family at the terminal's, so whatever it holds draws in the terminal's colors.
 
+In the terminal family `--t-good` and `--t-bad` say an answer's state, and `--t-part`, between them, underlines a claim of an answer that its evidence carries only in part. It is a mark and never text, so it is held to 3:1 against `--t-card`, the answer's ground; every other claim the evidence does not carry is underlined in `--t-bad`.
+
 ## Faces
 
 Three faces, each with one job, self-hosted from the [fonts](assets.md#fonts) group. The [prose reset](blocks.md#prose-reset) sets Instrument Sans and Plex Mono on a prose page, each block that marks a section sets Bricolage Grotesque, and a deck's lockup and transport set their own.
