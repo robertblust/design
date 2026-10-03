@@ -85,6 +85,11 @@ test("hover and keyboard focus show the panel's note with the verdict's name and
   await p.hover(".rbchat-claim.off");
   await p.waitForSelector(".rbchat-note.show");
   assert.equal(await p.$eval(".rbchat-note", (e) => e.textContent), "Contradicted The model's pages say otherwise.");
+  // Seen, not only classed: the log scrolling under a resting pointer moves the note with its
+  // claim, as the family's tooltip does, and never closes it.
+  await p.$eval(".rbchat-log", (l) => { l.scrollTop = Math.max(0, l.scrollTop - 1); l.dispatchEvent(new Event("scroll")); });
+  await p.waitForTimeout(250);
+  assert.equal(await p.$eval(".rbchat-note", (e) => getComputedStyle(e).opacity), "1", "the note is visible after the log scrolls");
   await p.mouse.move(0, 0);
   await p.waitForSelector(".rbchat-note.show", { state: "detached" }).catch(() => {});
   assert.equal(await p.$(".rbchat-note.show"), null);

@@ -1584,8 +1584,15 @@
   function claimLine(n){ var s = strings(langNow()); return el("p", "rbchat-claims", n === 1 ? s.claimsOne : s.claimsMany.replace("{n}", n)); }
   // The note is the panel's own, the box chat.css draws under the header's buttons: one element
   // for the panel, hung under the claim's first line and kept within the panel's sides. It shows
-  // on hover and on keyboard focus, never on a tap's focus, and not where there is no hover.
-  var note = null;
+  // on hover and on keyboard focus, never on a tap's focus, and not where there is no hover. A
+  // scroll under it moves it with its claim, as the family's tooltip does, rather than closing it.
+  var note = null, noteAt = null;
+  function placeNote(){
+    if (!note || !noteAt) return;
+    var home = note.parentNode, r = noteAt.getBoundingClientRect(), box = home.getBoundingClientRect();
+    var x = Math.max(box.left + 8, Math.min(r.left, box.right - note.offsetWidth - 8));
+    note.style.left = (x - box.left) + "px"; note.style.top = (r.bottom - box.top + 7) + "px";
+  }
   function noted(pieces, words){
     pieces[0].tabIndex = 0;
     pieces[0].setAttribute("aria-describedby", "rbchat-note");
@@ -1596,12 +1603,9 @@
       var home = pieces[0].closest(".rbchat") || document.body;
       if (note.parentNode !== home) home.appendChild(note);
       note.firstChild.textContent = words[0]; note.lastChild.textContent = words[1];
-      var r = pieces[0].getBoundingClientRect(), box = home.getBoundingClientRect();
-      note.style.left = "0px"; note.classList.add("show");
-      var x = Math.max(box.left + 8, Math.min(r.left, box.right - note.offsetWidth - 8));
-      note.style.left = (x - box.left) + "px"; note.style.top = (r.bottom - box.top + 7) + "px";
+      note.style.left = "0px"; note.classList.add("show"); noteAt = pieces[0]; placeNote();
     }
-    function hide(){ pieces.forEach(function(q){ q.classList.remove("on"); }); if (note) note.classList.remove("show"); }
+    function hide(){ pieces.forEach(function(q){ q.classList.remove("on"); }); if (note) note.classList.remove("show"); noteAt = null; }
     pieces.forEach(function(q){
       q.addEventListener("mouseenter", function(){ show(false); });
       q.addEventListener("mouseleave", hide);
@@ -1609,8 +1613,8 @@
     pieces[0].addEventListener("focus", function(){ var keyed = true; try { keyed = pieces[0].matches(":focus-visible"); } catch (e) {} if (keyed) show(true); });
     pieces[0].addEventListener("blur", hide);
   }
-  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && note) note.classList.remove("show"); });
-  document.addEventListener("scroll", function(){ if (note) note.classList.remove("show"); }, true);
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && note) { note.classList.remove("show"); noteAt = null; } });
+  document.addEventListener("scroll", placeNote, true);
 
   function doneLine(){ var h = el("p", "rbchat-done"); h.appendChild(el("span", "rbchat-tick", "\u2713")); h.appendChild(document.createTextNode(" " + strings(langNow()).answered)); return h; }
   function modelText(sha, secs){ var m = strings(langNow()).model; return (secs ? m.replace("{secs}", secs) : m.replace(/ \u00b7 \{secs\}s$/, "")).replace("{sha}", sha); }
