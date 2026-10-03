@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -510,7 +510,7 @@ test("the widget keeps what each question rests on and offers follow() after an 
   const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
   assert.match(fn, /g\.via\.indexOf\("Rests on\."\) !== 0/, "a question's rests-on edges are not read");
   const offer = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
-  assert.match(offer, /follow\(last\.cites, list, messages, langNow\(\), null, mentioned\(last\.content, heard\(turns\), list, messages\)\)/, "the chips do not follow the last answer");
+  assert.match(offer, /follow\(last\.cites, list, seen, langNow\(\), null, mentioned\(last\.content, heard\(turns\), list, messages\)\)/, "the chips do not follow the last answer");
   assert.match(offer, /!list\.length\) return;/, "a site with no question still offers chips");
 });
 
@@ -580,7 +580,8 @@ test("chips are offered only where the visitor can ask next, and a second race d
   const fn = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
   assert.match(fn, /if \(!canOffer\(\)\) return;/, "chips are offered without asking whether the visitor can ask next");
   assert.match(fn, /if \(!canOffer\(\) \|\| qBox\) return;/, "chips are rebuilt once a message went out while the fetch was in flight, or while chips are already up");
-  assert.match(fn, /var open = unasked\(list\.map\(function\(q\)\{ return q\.title; \}\), messages\);/, "a title the conversation already asked can be offered again");
+  assert.match(fn, /var seen = asTitles\(list, messages\);/, "a question asked in the page's language is not read back to its title");
+  assert.match(fn, /var open = unasked\(list\.map\(function\(q\)\{ return q\.title; \}\), seen\);/, "a title the conversation already asked can be offered again");
   assert.match(fn, /spread\(list\.filter\(function\(q\)\{ return open\.indexOf\(q\.title\) !== -1; \}\), 3\)/, "the chips are not picked across kinds from the titles still open");
   assert.match(fn, /if \(!picked\.length\) return;/, "an empty pick still builds a box");
 });
@@ -857,7 +858,8 @@ test("the one read of the model file also keeps its process names and how many o
   assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts, versions: versionsOf\(j\) \};/, "the process names are not kept");
   assert.match(fn, /if \(e && typeof e\.type === "string"\) counts\[e\.type\] = \(counts\[e\.type\] \|\| 0\) \+ 1;/, "the counts per type are not kept");
   assert.match(src, /function facts\(cb\)\{ questions\(function\(\)\{ cb\(qFacts\); \}\); \}/, "facts() does not share the one fetch");
-  assert.equal((src.match(/fetch\(QUESTIONS/g) || []).length, 1, "the model file is read twice");
+  assert.equal((src.match(/fetch\(QUESTIONS,/g) || []).length, 1, "the model file is read twice");
+  assert.equal((src.match(/fetch\(QUESTIONS_DE,/g) || []).length, 1, "the German file is read other than once, beside the model file");
 });
 
 test("the command line's words are settled before anything is pushed or sent", () => {
@@ -948,4 +950,27 @@ test("no dialog but the one modal is drawn, and it names no model page", () => {
   assert.doesNotMatch(src, /el\("dialog"|createElement\("dialog"\)/, "chat.js still draws a dialog of its own");
   assert.doesNotMatch(src, /rbchat-graph-page|model page \u2197|model page ↗/, "the graph's modal still names the model page");
   assert.doesNotMatch(css, /dialog\.rbchat-graph|dialog\.rbchat-modal/, "chat.css still styles a dialog of its own");
+});
+
+const DE_QS = [{ title: "What is it?", de: "Was ist es?" }, { title: "Who answers?" }];
+
+test("sayIn offers a question's German on a German page where the site has one, and its title otherwise", () => {
+  assert.equal(sayIn(DE_QS, "de", "What is it?"), "Was ist es?");
+  assert.equal(sayIn(DE_QS, "en", "What is it?"), "What is it?");
+  assert.equal(sayIn(DE_QS, "de", "Who answers?"), "Who answers?", "a title the file lacks stays English");
+  assert.equal(sayIn(DE_QS, "de", "Show me the neighbors of X"), "Show me the neighbors of X", "a chip that is no model question is its own text");
+  assert.equal(sayIn(null, "de", "What is it?"), "What is it?");
+});
+
+test("asTitles reads a German question back as its title, whoever typed it, and leaves the rest", () => {
+  const messages = [{ role: "user", content: " Was ist es? " }, { role: "assistant", content: "Was ist es?" }, { role: "user", content: "Something else" }];
+  assert.deepEqual(asTitles(DE_QS, messages), [{ role: "user", content: "What is it?" }, messages[1], messages[2]]);
+  assert.deepEqual(unasked(["What is it?", "Who answers?"], asTitles(DE_QS, messages)), ["Who answers?"]);
+  assert.deepEqual(asTitles(null, messages), messages);
+});
+
+test("the intro reads the conversation back to titles once, not once per question", () => {
+  const fn = src.slice(src.indexOf("function intro("), src.indexOf("function finishIntro("));
+  assert.match(fn, /var seen = asTitles\(list, messages\);/, "the intro does not build the read-back once");
+  assert.match(fn, /unasked\(\[q\.title\], seen\)/, "the intro rebuilds the read-back for every question");
 });

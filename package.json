@@ -54,6 +54,7 @@
     "./render/note": "./lib/render/note.mjs",
     "./render/german": "./lib/render/german.mjs",
     "./render/principles": "./lib/render/principles.mjs",
+    "./render/questions": "./lib/render/questions.mjs",
     "./render/team": "./lib/render/team.mjs",
     "./render/surfaces": "./lib/render/surfaces.mjs",
     "./render/home": "./lib/render/home.mjs",
