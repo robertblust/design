@@ -645,7 +645,6 @@ git log -1 --format='[%s]'
 
 ---
 
-
 ### Task 4: The design system's Chat section
 
 **Files:**
