@@ -62,8 +62,9 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
    left of its button, since the panel clips above its header and the buttons sit at its right
    edge. It shows on hover and on keyboard focus, never on a tap's focus. */
 .rbchat-new,.rbchat-close{position:relative}
-.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after,.rbchat-note{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
-  white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
+.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{content:attr(data-tip);top:calc(100% + .45rem);right:0;white-space:nowrap}
+.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after,.rbchat-note{position:absolute;z-index:3;
+  pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
   background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
   box-shadow:0 6px 18px var(--deck-drop);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--ink)}
 .rbchat-new:hover::after,.rbchat-new:focus-visible::after,.rbchat-close:hover::after,.rbchat-close:focus-visible::after{opacity:1;transform:none}
@@ -71,7 +72,7 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
 @media (prefers-reduced-motion:reduce){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after,.rbchat-note{transition:none}}
 /* The same box as a claim's note: one element, placed by chat.js under the claim it describes,
    in the panel, so it wraps where the header's note keeps one line. */
-.rbchat-note{right:auto;white-space:normal;max-width:min(20rem,calc(100% - 1.5rem))}
+.rbchat-note{max-width:min(20rem,calc(100% - 1.5rem))}
 .rbchat-note.show{opacity:1;transform:none}
 .rbchat-note .n{font-weight:600}
 /* A claim the evidence does not carry: a dotted underline, tinted while it is hovered or focused.

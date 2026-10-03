@@ -43,9 +43,9 @@ before(async () => {
 });
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
 
-async function asked(path, events, { hover = true } = {}) {
+async function asked(path, events, { hover = true, width = 1280 } = {}) {
   stream = events;
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, hasTouch: !hover });
+  const context = await browser.newContext({ viewport: { width, height: 900 }, hasTouch: !hover });
   const p = await context.newPage();
   await p.goto(base + path);
   await p.click(".rbchat-open");
@@ -131,4 +131,95 @@ test("a restored conversation marks its answer again", async () => {
   assert.equal((await marks(p)).length, 4);
   assert.ok(await p.$(".rbchat-claims"));
   await context.close();
+});
+
+// A stream of one answer whose claims are listed by their Markdown, offsets counted for them.
+const claimsOf = (text, list) => list.map(([s, verdict, p]) => ({ from: text.indexOf(s), to: text.indexOf(s) + s.length, ids: [], verdict, p }));
+const answerOf = (text, list) => [["text", { text }], ["verdict", { claims: claimsOf(text, list), threshold: 0.8 }], ["done", { model: null, spent: 1, dayLeft: 1 }]];
+
+test("Escape closes a claim's note and leaves the panel open", async () => {
+  const { p, context } = await asked("/en/", answer({ claims: CLAIMS, threshold: 0.8 }));
+  await p.focus(".rbchat-claim.off");
+  await p.keyboard.press("Shift+Tab"); await p.keyboard.press("Tab");
+  await p.waitForSelector(".rbchat-note.show");
+  await p.keyboard.press("Escape");
+  assert.equal(await p.$(".rbchat-note.show"), null);
+  assert.equal(await p.$eval("section.rbchat", (e) => e.hidden), false, "the panel stays open");
+  await context.close();
+});
+
+test("a language switch words the line and the notes in the new language", async () => {
+  const { p, context } = await asked("/en/", answer({ claims: CLAIMS, threshold: 0.8 }));
+  await p.evaluate(() => { document.documentElement.lang = "de"; });
+  await p.waitForFunction(() => !/statement/.test(document.querySelector(".rbchat-claims").textContent));
+  await p.hover(".rbchat-claim.off");
+  await p.waitForSelector(".rbchat-note.show");
+  assert.doesNotMatch(await p.$eval(".rbchat-note", (e) => e.textContent), /model's pages/);
+  await context.close();
+});
+
+test("a claim with bold, italic or the model's doubled name is found as the answer renders it", async () => {
+  const text = "**Master** (Master) is the *first* level. The _second_ is **Expert**.";
+  const { p, context } = await asked("/en/", answerOf(text, [["**Master** (Master) is the *first* level.", "partial", 0.9], ["The _second_ is **Expert**.", "contradicted", 0.9]]));
+  const marked = await p.$$eval(".rbchat-claim", (m) => m.map((x) => x.textContent).join("|"));
+  assert.match(marked, /Master/);
+  assert.match(marked, /Expert/);
+  await context.close();
+});
+
+test("a repeated sentence is marked where the claim stands, not where it first appears", async () => {
+  const text = "X is Y. Z holds. X is Y.";
+  const second = { from: text.lastIndexOf("X is Y."), to: text.length, ids: [], verdict: "absent", p: 0.9 };
+  const first = { from: 0, to: 7, ids: [], verdict: "supported", p: 0.99 };
+  const { p, context } = await asked("/en/", [["text", { text }], ["verdict", { claims: [first, second], threshold: 0.8 }], ["done", { model: null, spent: 1, dayLeft: 1 }]]);
+  assert.equal(await p.$eval(".rbchat-assistant .rbchat-body", (b) => b.innerHTML.indexOf("rbchat-claim") > b.innerHTML.indexOf("Z holds")), true);
+  await context.close();
+});
+
+test("each claim is described to a screen reader by its own words, and the shared box is hidden from it", async () => {
+  const { p, context } = await asked("/en/", answer({ claims: CLAIMS, threshold: 0.8 }));
+  const described = await p.$$eval(".rbchat-claim[aria-describedby]", (els) => els.map((e) => document.getElementById(e.getAttribute("aria-describedby"))?.textContent));
+  assert.deepEqual(described, ["Partly backed The model's pages say only part of this.", "Contradicted The model's pages say otherwise."]);
+  await p.hover(".rbchat-claim.off"); await p.waitForSelector(".rbchat-note.show");
+  assert.equal(await p.$eval(".rbchat-note", (e) => e.getAttribute("aria-hidden")), "true");
+  await context.close();
+});
+
+test("the note hangs under a wrapped claim, never over its words, and goes when its claim scrolls out of the log", async () => {
+  const long = "This claim is long enough to wrap onto several lines in a narrow panel, which is where the note's place matters most.";
+  const { p, context } = await asked("/en/", answerOf(long, [[long, "absent", 0.9]]), { width: 390 });
+  await p.hover(".rbchat-claim");
+  await p.waitForSelector(".rbchat-note.show");
+  const [lastLine, note, lines] = await p.evaluate(() => { const r = document.querySelector(".rbchat-claim").getClientRects(); return [r[r.length - 1].bottom, document.querySelector(".rbchat-note").getBoundingClientRect().top, r.length]; });
+  assert.ok(lines > 1, "the claim wraps");
+  assert.ok(note >= lastLine && note - lastLine < 20, `the note sits ${note - lastLine}px under the claim's last line`);
+  await p.focus(".rbchat-claim"); await p.keyboard.press("Shift+Tab"); await p.keyboard.press("Tab");
+  await p.$eval(".rbchat-log", (l) => { l.scrollTop = l.scrollHeight; l.querySelector(".rbchat-assistant").style.marginBottom = "3000px"; l.scrollTop = l.scrollHeight; });
+  await p.waitForTimeout(250);
+  assert.equal(await p.$(".rbchat-note.show"), null, "a note whose claim left the log is hidden");
+  await context.close();
+});
+
+test("a claim inside a linked name is reached by the link, not a second stop", async () => {
+  const text = "Integration architecture is a skill.";
+  const events = [["text", { text }], ["names", { names: [{ id: "skill/ia", title: "Integration architecture" }] }], ["verdict", { claims: claimsOf(text, [[text, "absent", 0.9]]), threshold: 0.8 }], ["done", { model: null, spent: 1, dayLeft: 1 }]];
+  const { p, context } = await asked("/en/", events);
+  assert.equal(await p.$$eval(".rbchat-claim", (m) => m.length), 2, "marked in the link and beside it");
+  assert.equal(await p.$$eval(".rbchat-assistant [tabindex='0']", (m) => m.length), 0, "no extra stop inside or beside the link");
+  assert.ok(await p.$eval(".rbchat-assistant a", (a) => !!a.getAttribute("aria-describedby")));
+  await context.close();
+});
+
+test("a stream that ends without done is not marked", async () => {
+  const { p, context } = await asked("/en/", [["text", { text: TEXT }], ["verdict", { claims: CLAIMS, threshold: 0.8 }]]);
+  assert.deepEqual(await marks(p), []);
+  await context.close();
+});
+
+test("the header's note keeps its own rule, and the claim's note shares only the box", () => {
+  const css = asset("chat.css").toString();
+  assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after\{content:attr\(data-tip\)/);
+  const rule = css.match(/([^{}]*\.rbchat-note[^{}]*)\{([^}]*)\}/);
+  assert.ok(rule && /background:var\(--raise\)/.test(rule[2]), "the note shares the box's declarations");
+  assert.doesNotMatch(rule[2], /content:/, "no pseudo-element property on the note");
 });
