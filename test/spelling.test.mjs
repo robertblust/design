@@ -38,6 +38,8 @@ const ALLOW = new Set([
   "paradise", "unwise", "sunrise", "moonrise", "user", "users", "browser", "browsers", "parser",
   "parsers", "loser", "closer", "chooser", "eraser", "geyser", "laser", "lasers", "miser", "poser",
   "teaser", "visor", "denoiser", "analysis", "analyses", "hydrolysis",
+  // German the widget's STRINGS carry, which only looks like a British -ise
+  "teilweise",
   // -our that is American
   "our", "ours", "hour", "hours", "four", "fours", "your", "yours", "tour", "tours", "pour", "poured",
   "pouring", "sour", "flour", "scour", "dour", "detour", "contour", "contours", "velour", "devour",

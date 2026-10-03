@@ -667,6 +667,18 @@ test("--warn clears AA against its own ground, in both themes", () => {
   }
 });
 
+test("--t-part, a partly backed claim's underline, holds 3:1 against the answer's ground in both themes", () => {
+  // A mark and never text, so it is held to the 3:1 of a non-text contrast against --t-card,
+  // the answer's ground in the chat, and is defined in both halves.
+  const css = deckCss();
+  for (const [name, sel] of [["dark", ":root"], ["light", ':root\\[data-theme="light"\\]']]) {
+    const p = palette(css, sel);
+    assert.ok(p["t-part"], `${name}: no --t-part`);
+    const r = ratio(p["t-part"], p["t-card"]);
+    assert.ok(r >= 3, `${name}: --t-part is ${r.toFixed(2)}:1 on --t-card, needs 3`);
+  }
+});
+
 test("--lcd reads as a recess, not a merge — darker than --slab by a stated margin, in both themes", () => {
   // The transport's whole metaphor depends on the readout being unambiguously the darker of
   // the two surfaces it's nested in. Dark's own pair is both near-black (~1.11:1) — the recess
