@@ -62,13 +62,25 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
    left of its button, since the panel clips above its header and the buttons sit at its right
    edge. It shows on hover and on keyboard focus, never on a tap's focus. */
 .rbchat-new,.rbchat-close{position:relative}
-.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
+.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after,.rbchat-note{content:attr(data-tip);position:absolute;top:calc(100% + .45rem);right:0;z-index:3;
   white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(-2px);transition:opacity .12s ease,transform .12s ease;
   background:var(--raise);border:1px solid var(--rule);border-radius:6px;padding:.42rem .62rem;
   box-shadow:0 6px 18px var(--deck-drop);font-family:inherit;font-size:.8rem;font-weight:400;line-height:1.35;letter-spacing:0;color:var(--ink)}
 .rbchat-new:hover::after,.rbchat-new:focus-visible::after,.rbchat-close:hover::after,.rbchat-close:focus-visible::after{opacity:1;transform:none}
 @media (hover:none){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{display:none}}
-@media (prefers-reduced-motion:reduce){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after{transition:none}}
+@media (prefers-reduced-motion:reduce){.rbchat-new[data-tip]::after,.rbchat-close[data-tip]::after,.rbchat-note{transition:none}}
+/* The same box as a claim's note: one element, placed by chat.js under the claim it describes,
+   in the panel, so it wraps where the header's note keeps one line. */
+.rbchat-note{right:auto;white-space:normal;max-width:min(20rem,calc(100% - 1.5rem))}
+.rbchat-note.show{opacity:1;transform:none}
+.rbchat-note .n{font-weight:600}
+/* A claim the evidence does not carry: a dotted underline, tinted while it is hovered or focused.
+   --t-part is a partly backed claim's and never text's; every other mark is --t-bad. */
+.rbchat-claim{text-decoration:underline dotted 1.5px;text-underline-offset:3px;cursor:help;border-radius:2px}
+.rbchat-claim.part{text-decoration-color:var(--t-part)}.rbchat-claim.off{text-decoration-color:var(--t-bad)}
+.rbchat-claim.part.on{background:color-mix(in srgb,var(--t-part) 14%,transparent)}.rbchat-claim.off.on{background:color-mix(in srgb,var(--t-bad) 14%,transparent)}
+.rbchat-claim:focus-visible{outline:1px solid var(--t-accent);outline-offset:1px}
+.rbchat-claims{margin:.45rem 0 0;padding-top:.4rem;border-top:1px dashed var(--t-line);font-size:.74rem;color:var(--t-dim)}
 .rbchat-notice code{font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.95em;color:var(--ink)}
 .rbchat-log{flex:1;overflow-y:auto;padding:1rem 1.1rem .5rem;display:flex;flex-direction:column;gap:.15rem}
 .rbchat-msg{overflow-wrap:anywhere}

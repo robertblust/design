@@ -629,7 +629,7 @@ test("the new-conversation control is an arrow come back round with a note, not 
   assert.match(src, /newBtn\.setAttribute\("aria-label", s\.fresh\); newBtn\.setAttribute\("data-tip", s\.fresh\);/, "the button's note does not follow the language");
   assert.match(src, /closeBtn\.setAttribute\("data-tip", s\.modalClose\)/, "the close cross has no note");
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
-  assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after\{content:attr\(data-tip\)/, "the note is not drawn");
+  assert.match(css, /\.rbchat-new\[data-tip\]::after,\.rbchat-close\[data-tip\]::after(,\.rbchat-note)?\{content:attr\(data-tip\)/, "the note is not drawn");
   assert.match(css, /\.rbchat-new:focus-visible::after/, "the note does not show on keyboard focus");
 });
 

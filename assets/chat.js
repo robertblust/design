@@ -108,6 +108,8 @@
       sub: "chat · {host}", bar: "ask · {host}",
       prompt: "Type a question, a number, or /help",
       asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
+      claim: { partial: ["Partly backed", "The model's pages say only part of this."], contradicted: ["Contradicted", "The model's pages say otherwise."], absent: ["Not backed", "The model's pages don't say this."], unsourced: ["Not backed", "No page the chat read says this."] },
+      claimsOne: "1 statement here isn't fully backed by the model's pages.", claimsMany: "{n} statements here aren't fully backed by the model's pages.",
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
       help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
@@ -153,6 +155,8 @@
       sub: "Chat · {host}", bar: "fragen · {host}",
       prompt: "Frage, Nummer oder /help tippen",
       asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
+      claim: { partial: ["Teilweise belegt", "Die Seiten des Modells belegen nur einen Teil davon."], contradicted: ["Widersprochen", "Die Seiten des Modells sagen etwas anderes."], absent: ["Nicht belegt", "Die Seiten des Modells sagen das nicht."], unsourced: ["Nicht belegt", "Keine Seite, die der Chat gelesen hat, sagt das."] },
+      claimsOne: "1 Aussage hier ist durch die Seiten des Modells nicht ganz belegt.", claimsMany: "{n} Aussagen hier sind durch die Seiten des Modells nicht ganz belegt.",
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
@@ -1534,6 +1538,80 @@
   }
   // An answer's head and commit lines, written from the strings, and written again by relabel()
   // when the language switches; a restored answer has no timing, so its line names the commit alone.
+  // ─── The answer check ─────────────────────────────────────────────────────────────────────
+  // A deployment that checks its answers sends a `verdict` before `done`: each claim's place in
+  // the answer's Markdown, its verdict and that verdict's probability, and the probability above
+  // which a claim is to be marked, null where none is measured. A claim the evidence does not
+  // carry is marked once the answer is drawn, found by its rendered text, since the offsets count
+  // Markdown the body no longer shows; one that cannot be found is not marked at all, since a
+  // mark on the wrong sentence is worse than none. A claim that runs through a code span or a
+  // link is marked in each of its pieces.
+  var MARKED = { partial: "part", contradicted: "off", absent: "off", unnamed: "off", withheld: "off", unsourced: "off" };
+  var NOTE_OF = { partial: "partial", contradicted: "contradicted", absent: "absent", unnamed: "absent", withheld: "absent", unsourced: "unsourced" };
+  function plainOf(s){ return s.replace(/`/g, "").replace(/\*\*|__/g, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim(); }
+  function textOf(root){
+    var walk = root.ownerDocument.createTreeWalker(root, 4), n, str = "", map = [], space = true;
+    while ((n = walk.nextNode())) for (var i = 0; i < n.data.length; i++) {
+      var ch = n.data.charAt(i), sp = /\s/.test(ch);
+      if (sp && space) continue;
+      str += sp ? " " : ch; map.push([n, i]); space = sp;
+    }
+    return { str: str, map: map };
+  }
+  function markClaims(root, text, verdict, lang){
+    if (!verdict || !Array.isArray(verdict.claims) || typeof verdict.threshold !== "number") return 0;
+    var s = strings(lang), count = 0, from = 0;
+    verdict.claims.forEach(function(c){
+      var kind = MARKED[c.verdict];
+      if (!kind || typeof c.p !== "number" || c.p < verdict.threshold || typeof c.from !== "number" || typeof c.to !== "number") return;
+      var want = plainOf(text.slice(c.from, c.to)), t = textOf(root), at = want ? t.str.indexOf(want, from) : -1;
+      if (at < 0) return;
+      var pieces = [], i = at, end = at + want.length;
+      while (i < end) {
+        var node = t.map[i][0], j = i;
+        while (j + 1 < end && t.map[j + 1][0] === node) j++;
+        var r = root.ownerDocument.createRange(); r.setStart(node, t.map[i][1]); r.setEnd(node, t.map[j][1] + 1);
+        var span = root.ownerDocument.createElement("span"); span.className = "rbchat-claim " + kind;
+        try { r.surroundContents(span); pieces.push(span); } catch (e) {}
+        i = j + 1;
+      }
+      if (!pieces.length) return;
+      noted(pieces, s.claim[NOTE_OF[c.verdict]]);
+      from = at + want.length; count++;
+    });
+    return count;
+  }
+  function claimLine(n){ var s = strings(langNow()); return el("p", "rbchat-claims", n === 1 ? s.claimsOne : s.claimsMany.replace("{n}", n)); }
+  // The note is the panel's own, the box chat.css draws under the header's buttons: one element
+  // for the panel, hung under the claim's first line and kept within the panel's sides. It shows
+  // on hover and on keyboard focus, never on a tap's focus, and not where there is no hover.
+  var note = null;
+  function noted(pieces, words){
+    pieces[0].tabIndex = 0;
+    pieces[0].setAttribute("aria-describedby", "rbchat-note");
+    function show(keyed){
+      if (!keyed && window.matchMedia && window.matchMedia("(hover: none)").matches) return;
+      pieces.forEach(function(q){ q.classList.add("on"); });
+      if (!note) { note = el("div", "rbchat-note"); note.id = "rbchat-note"; note.setAttribute("role", "tooltip"); note.appendChild(el("b", "n")); note.appendChild(document.createTextNode(" ")); note.appendChild(el("span", "d")); }
+      var home = pieces[0].closest(".rbchat") || document.body;
+      if (note.parentNode !== home) home.appendChild(note);
+      note.firstChild.textContent = words[0]; note.lastChild.textContent = words[1];
+      var r = pieces[0].getBoundingClientRect(), box = home.getBoundingClientRect();
+      note.style.left = "0px"; note.classList.add("show");
+      var x = Math.max(box.left + 8, Math.min(r.left, box.right - note.offsetWidth - 8));
+      note.style.left = (x - box.left) + "px"; note.style.top = (r.bottom - box.top + 7) + "px";
+    }
+    function hide(){ pieces.forEach(function(q){ q.classList.remove("on"); }); if (note) note.classList.remove("show"); }
+    pieces.forEach(function(q){
+      q.addEventListener("mouseenter", function(){ show(false); });
+      q.addEventListener("mouseleave", hide);
+    });
+    pieces[0].addEventListener("focus", function(){ var keyed = true; try { keyed = pieces[0].matches(":focus-visible"); } catch (e) {} if (keyed) show(true); });
+    pieces[0].addEventListener("blur", hide);
+  }
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && note) note.classList.remove("show"); });
+  document.addEventListener("scroll", function(){ if (note) note.classList.remove("show"); }, true);
+
   function doneLine(){ var h = el("p", "rbchat-done"); h.appendChild(el("span", "rbchat-tick", "\u2713")); h.appendChild(document.createTextNode(" " + strings(langNow()).answered)); return h; }
   function modelText(sha, secs){ var m = strings(langNow()).model; return (secs ? m.replace("{secs}", secs) : m.replace(/ \u00b7 \{secs\}s$/, "")).replace("{sha}", sha); }
   function modelLine(sha, secs){ var l = el("p", "rbchat-model", modelText(sha, secs)); l.setAttribute("data-sha", sha); if (secs) l.setAttribute("data-secs", secs); return l; }
@@ -1946,7 +2024,7 @@
     log.appendChild(wait); log.scrollTop = log.scrollHeight;
     var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
     ans.appendChild(body);
-    var acc = "", cites = [], names = [], cut = false, picture = null, fig = null;
+    var acc = "", cites = [], names = [], cut = false, picture = null, fig = null, verdict = null, errored = false;
     function render(){ body.innerHTML = md(acc); numberColumns(body); }
     function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
@@ -1987,6 +2065,8 @@
       // An earlier turn's names are linked too, which a follow-up that called no tool needs.
       nameLinks(body, names.concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
+      var marked = markClaims(body, acc, errored ? null : verdict, langNow());
+      if (marked) ans.appendChild(claimLine(marked));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       var sha = commitOf(cites);
       if (sha) ans.appendChild(modelLine(sha, String(Math.max(1, Math.round((Date.now() - t0) / 1000)))));
@@ -1996,7 +2076,7 @@
       setTimeout(function(){ if (say) say.textContent = said; }, 60);
       stopRequest = null;
       messages.push({ role: "assistant", content: acc });
-      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture });
+      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture, verdict: errored ? null : verdict });
       ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
@@ -2027,6 +2107,7 @@
             // It is drawn in finish(), with the rest of the answer.
             picture = data;
           }
+          else if (name === "verdict" && data && Array.isArray(data.claims)) verdict = data;
           else if (name === "done") cut = !!data.cut;
           else if (name === "error") {
             var code = data && data.error && data.error.code, at = data && data.error && data.error.retryAt;
@@ -2038,6 +2119,9 @@
               refuse(code || "internal", at);
               return;
             }
+            // An answer cut short by an error is not marked: the check spoke of an answer that
+            // did not finish as it was checked.
+            errored = true;
             acc += "\n\n" + refusalText(code, at, Date.now(), langNow());
           }
         }).then(function(){ if (gen === reqGen && busy) finish(); });
@@ -2082,12 +2166,14 @@
       nameLinks(body, (t.names || []).concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
       if (diagram) ans.appendChild(figure(diagram));
+      var restored = markClaims(body, t.content, t.verdict || null, langNow());
+      if (restored) ans.appendChild(claimLine(restored));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
       // A restored answer has no timing to name, so its line names the commit alone.
       var sha = commitOf(cites);
       if (sha) ans.appendChild(modelLine(sha, null));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram, verdict: t.verdict || null });
     });
     // The rows the last answer offered, drawn now with the rest: read again from the model file
     // they would stand a moment after the page shows, push the log up, and differ on every page.
