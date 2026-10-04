@@ -4,7 +4,7 @@ A deck is a talk: slides laid out on one canvas, the chrome under them, a notes 
 
 ## Transport
 
-The control a deck is driven with, drawn as a physical object: a slab, a display window for the slide number, the buttons, and the language and theme controls. Contract: [blocks/deck-transport.css](../../blocks/deck-transport.css); its colors are the deck chrome family on [Tokens](tokens.md#token-families).
+The control a deck is driven with, drawn as a physical object: a slab, a display window for the slide number, the buttons, and the language and theme controls. On a desk the chat's button stands beside it, bottom right; on a phone the transport takes the whole bottom edge and the button has no place, so a deck shows none there, and the chat still opens from `?chat=open`. Contract: [blocks/deck-transport.css](../../blocks/deck-transport.css); its colors are the deck chrome family on [Tokens](tokens.md#token-families).
 
 ```text
 Desk
@@ -15,8 +15,10 @@ Desk
 │                       │ │ ▔▔▔   │                                              │  │
 │                       │ └───────┘                                              │  │
 │                       ╰────────────────────────────────────────────────────────╯  │
+│                                                               ( ▢ Ask the model ) │
 └───────────────────────────────────────────────────────────────────────────────────┘
   .name (col 1)          .transport (col 2) on --slab: .lcd · .tmain · .tside
+                         .rbchat-open: the chat's button, fixed bottom right
                          .lcd .clip: the recording's progress on this slide
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ .bar: the deck's progress
 
@@ -24,6 +26,7 @@ Phone, or a tall screen
 ┌─────────────────────────────────────────────┐
 │ 03/10  ⇤ ◀ (▶) ▶ ⤢   DE│EN ☼│☾   ↑ ¶        │  ← no slab, no lockup, full width
 └─────────────────────────────────────────────┘
+  no chat button: the transport takes the bottom edge
   the tiers below the breakpoint are the transport's own, in its contract
 ```
 
