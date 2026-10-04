@@ -333,3 +333,27 @@ test("the assembled deck.js carries the language block exactly once", () => {
   const keyLines = deck.match(/var LANG_KEY = "lang";/g) || [];
   assert.equal(keyLines.length, 1, `expected exactly one LANG_KEY assignment, found ${keyLines.length}`);
 });
+
+test("deck.js leaves a key typed into a field or the chat to its target, and turns the page otherwise", () => {
+  const talk = { de: { title: "T-de", desc: "D-de" }, en: { title: "T-en", desc: "D-en" } };
+  // Inside `after`, while the harness still stands in for the browser: a page turn writes the
+  // slide's address, and outside it there is no location to write to.
+  loadAssembled(assemble("deck.js", { lockup: "one" }), { rb: { rbDeck: { talk } }, after: ({ doc }) => {
+    const handlers = doc._listeners.keydown || [];
+    assert.ok(handlers.length > 0, "no keydown handler was registered");
+    // A key the deck takes is one it prevents; a key it leaves alone reaches the field untouched.
+    const taken = (key, target) => {
+      let prevented = false;
+      for (const fn of handlers) fn({ key, target, preventDefault() { prevented = true; } });
+      return prevented;
+    };
+    const inside = (sel) => ({ isContentEditable: false, closest: (s) => (s.includes(sel) ? {} : null) });
+    const page = { isContentEditable: false, closest: () => null };
+    for (const key of [" ", "ArrowRight", "ArrowLeft", "Home", "End", "PageDown"]) {
+      assert.equal(taken(key, inside("textarea")), false, `${JSON.stringify(key)} in a textarea turned the page`);
+      assert.equal(taken(key, inside("input")), false, `${JSON.stringify(key)} in an input turned the page`);
+      assert.equal(taken(key, inside(".rbchat")), false, `${JSON.stringify(key)} in the chat panel turned the page`);
+      assert.equal(taken(key, page), true, `${JSON.stringify(key)} on the page did not turn it`);
+    }
+  } });
+});
