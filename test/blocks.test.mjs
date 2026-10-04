@@ -458,3 +458,9 @@ test("the design check's header measurements are the header contract's", () => {
   assert.ok(check.includes(`want("header padding-bottom", got.padBottom, "${px(pad[2])}")`), "verify/design.mjs expects another padding-bottom");
   assert.ok(check.includes(`want("the bar's min-height", got.barMin, "${floor[1]}px")`), "verify/design.mjs expects another floor");
 });
+
+test("on a phone the deck transport lifts the chat's button above itself, over chat.css's own rule", () => {
+  const css = blockFor("deck transport", null);
+  const phone = css.slice(css.indexOf("@media (max-width: 860px), (max-aspect-ratio: 4/5){"));
+  assert.match(phone.slice(0, phone.indexOf("\n  }\n")), /body \.rbchat-open\{bottom:calc\(var\(--chromeH,0px\) \+ \.8rem\)\}/);
+});
