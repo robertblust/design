@@ -664,3 +664,47 @@ test("a modal another script has loaded is used only once its stylesheet has arr
   await page.waitForFunction(() => window.opened === 1);
   await page.close();
 });
+
+test("an answer bringing a context, an aggregate, a flow and a lifecycle draws four fitted figures in order, each opening full screen", async () => {
+  const four = [PICTURES.context, PICTURES.aggregate, PICTURES.flow, PICTURES.lifecycle];
+  const { page } = await asked([...four.map((p) => ["diagram", p]), ["text", { text: "Quoting." }]], { viewport: { width: 1280, height: 900 } });
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 4);
+  assert.deepEqual(await page.$$eval(".rbchat-diagram figcaption span", (els) => els.map((e) => e.textContent)), ["Context map · Quoting", "Aggregate · Quote", "Flow · Quote", "Lifecycle · Quote"]);
+  assert.deepEqual(await page.$$eval(".rbchat-diagram", (els) => els.map((f) => f.classList.contains("rbchat-diagram-fit"))), [true, true, true, true]);
+  assert.equal(await page.$$eval(".rbchat-diagram-failed", (els) => els.length), 0);
+  const figures = await page.$$(".rbchat-diagram");
+  assert.match(await figures[2].$eval(".rbchat-diagram-reading", (e) => e.textContent), /commands/);
+  assert.match(await figures[3].$eval(".rbchat-diagram-reading", (e) => e.textContent), /state/);
+  for (const [fig, caption] of [[figures[2], "Flow · Quote"], [figures[3], "Lifecycle · Quote"]]) {
+    const r = await fig.$eval(".rbchat-diagram-box svg", (svg) => { svg.scrollIntoView({ block: "center" }); const b = svg.getBoundingClientRect(); return { x: b.left + 2, y: b.top + 2 }; });
+    await page.mouse.click(r.x, r.y);
+    await page.waitForSelector("dialog.rbmodal[open] svg");
+    assert.match(await page.textContent("dialog.rbmodal[open]"), new RegExp(caption));
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => !document.querySelector("dialog.rbmodal[open]"));
+  }
+  await page.close();
+});
+
+test("a flow and a lifecycle draw as SVG in both themes, with no fallback source", async () => {
+  const { page } = await asked([["diagram", PICTURES.flow], ["diagram", PICTURES.lifecycle], ["text", { text: "Quote." }]]);
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 2);
+  const read = () => page.$$eval(".rbchat-diagram svg", (svgs) => svgs.map((svg, i) => {
+    const shape = svg.querySelector(i === 0 ? "rect.actor" : "g.node rect");
+    return { note: i === 0 ? getComputedStyle(svg.querySelector("rect.note")).fill : null, text: [...svg.querySelectorAll("text, foreignObject")].map((t) => t.textContent).join(" "), fill: getComputedStyle(shape).fill };
+  }));
+  const dark = await read();
+  assert.match(dark[0].text, /Send quote/);
+  assert.match(dark[0].text, /expired/, "a branch's condition is drawn");
+  assert.match(dark[0].text, /—/, "a branch that emits nothing shows a dash");
+  assert.equal(dark[0].note, "rgb(22, 30, 41)", "a note is the panel's raise, not Mermaid's yellow");
+  assert.match(dark[1].text, /Accepted/);
+  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+  await page.waitForFunction((was) => [...document.querySelectorAll(".rbchat-diagram svg")].length === 2 && [...document.querySelectorAll(".rbchat-diagram svg")].every((svg, i) => getComputedStyle(svg.querySelector(i === 0 ? "rect.actor" : "g.node rect")).fill !== was[i]), dark.map((d) => d.fill));
+  const light = await read();
+  assert.equal(light[0].note, "rgb(239, 236, 229)", "a note is the panel's raise in the light theme too");
+  assert.match(light[0].text, /Quote accepted/);
+  assert.match(light[1].text, /Expired/);
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});

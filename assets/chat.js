@@ -125,7 +125,7 @@
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       modalClose: "Close \u00b7 Esc",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", flow: "Flow", lifecycle: "Lifecycle", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits.", flow: "Solid arrows are commands sent to the aggregate, dashed arrows the events it emits; a box names the condition of each branch.", lifecycle: "Each arrow is a step from one state to the next, labeled with the command that takes it where there is one." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -172,7 +172,7 @@
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       modalClose: "Schliessen \u00b7 Esc",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", flow: "Ablauf", lifecycle: "Lebenszyklus", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst.", flow: "Durchgezogene Pfeile sind Befehle an das Aggregat, gestrichelte die Ereignisse, die es auslöst; ein Kasten nennt die Bedingung jedes Zweigs.", lifecycle: "Jeder Pfeil ist ein Schritt von einem Zustand zum nächsten, beschriftet mit dem Befehl, der ihn auslöst, wo es einen gibt." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -733,6 +733,10 @@
       // At its own size in a box that scrolls: fitted to a bubble, a wide picture's words shrink
       // below reading. A concept carries no attributes or methods, so its class has no empty bars.
       flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
+      // A sequence diagram keeps its own size, its actors only above, wide enough that a branch's
+      // condition stays whole; a state diagram keeps its own size like the others.
+      sequence: { useMaxWidth: false, mirrorActors: false, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12, actorMargin: 24, width: 150, height: 40, boxMargin: 6, messageMargin: 26, diagramMarginX: 8, diagramMarginY: 8 },
+      state: { useMaxWidth: false },
       // `strict` alone still lets DOMPurify pass an `<img src>` through a label; a label writes
       // only `b`, `br` and `small`, so an image is never a label and would be a request to
       // another host, which "no request leaves the page's origin" promises never happens.
@@ -747,7 +751,9 @@
         primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"),
         // An edge label's own background: Mermaid draws it from this one variable in every
         // diagram kind this file uses, so the panel's raise reaches it without a CSS rule.
-        edgeLabelBackground: v("--raise")
+        edgeLabelBackground: v("--raise"),
+        // A note is the panel's own box, not Mermaid's yellow.
+        noteBkgColor: v("--raise"), noteBorderColor: v("--dim"), noteTextColor: v("--ink")
       }
     };
   }
