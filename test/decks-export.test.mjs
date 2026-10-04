@@ -11,12 +11,12 @@ import path from "node:path";
 import http from "node:http";
 import { pathToFileURL } from "node:url";
 
-import { exportDecks, validate } from "../decks/export.mjs";
+import { exportDecks, validate, annotation } from "../decks/export.mjs";
 
 const ROOT = "/tmp/a-site-that-is-never-read";
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-function harness({ slides = 3 } = {}) {
+function harness({ slides = 3, links = [] } = {}) {
   const calls = [];
   const logs = [];
   const written = [];
@@ -33,7 +33,10 @@ function harness({ slides = 3 } = {}) {
   // then reports a missing await that is not there — the fake failing, not the code.
   const page = {
     goto: (u, o) => record("goto", u, o),
-    evaluate: async (f, arg) => { await record("eval", String(f), arg); return slides; },
+    // linksOnSlide is the one evaluate called with an object carrying the slide's number;
+    // it answers with the links, every other evaluate with the slide count.
+    evaluate: async (f, arg) => { await record("eval", String(f), arg);
+                                  return arg && typeof arg === "object" && "n" in arg ? links : slides; },
     addStyleTag: (o) => record("style", o.content),
     waitForTimeout: (ms) => record("wait", ms),
     screenshot: async (o) => { await record("shot", o); return Buffer.from("png"); },
@@ -49,8 +52,10 @@ function harness({ slides = 3 } = {}) {
       const pages = [];
       return {
         embedPng: async (buf) => ({ png: buf.toString() }),
-        addPage: (size) => { const p = { size, drawn: null }; pages.push(p);
-                             return { drawImage: (img, box) => { p.drawn = { img, box }; } }; },
+        addPage: (size) => { const p = { size, drawn: null, annots: [] }; pages.push(p);
+                             return { drawImage: (img, box) => { p.drawn = { img, box }; },
+                                      node: { addAnnot: (ref) => p.annots.push(ref) } }; },
+        context: { obj: (o) => o, register: (o) => ({ ref: o }) },
         save: async () => { written.push(pages); return Buffer.from(`pdf:${pages.length}`); },
       };
     },
@@ -192,4 +197,37 @@ test("each written file is logged with its slide count", async () => {
                       decks: [{ dir: "talks/intro", slug: "g" }], log: h.log, write: h.write });
   assert.deepEqual(h.logs, ["  ✓ talks/intro/g-de.pdf  (4 slides)",
                             "  ✓ talks/intro/g-en.pdf  (4 slides)"]);
+});
+
+const FakeString = { of: (s) => ({ str: s }) };
+
+test("without PDFString the slides are not asked for links and no page carries one", async () => {
+  const h = harness({ slides: 2, links: [{ x: 0, y: 0, w: 10, h: 10, url: "https://blust.ch/" }] });
+  await exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, root: ROOT,
+                      decks: [{ dir: "talks/intro", slug: "g" }], log: h.log, write: h.write });
+  assert.equal(h.calls.filter((c) => c[0] === "eval" && c[2] && typeof c[2] === "object").length, 0);
+  for (const pages of h.written) for (const p of pages) assert.deepEqual(p.annots, []);
+});
+
+test("with PDFString each page carries one link per link its slide reported, asked before the shot", async () => {
+  const links = [{ x: 100, y: 50, w: 200, h: 20, url: "https://companygraph.io/?lang=en" },
+                 { x: 1200, y: 680, w: 40, h: 30, url: "https://companygraph.io/talks/x/?chat=open&lang=en" }];
+  const h = harness({ slides: 2, links });
+  await exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, PDFString: FakeString, root: ROOT,
+                      decks: [{ dir: "talks/intro", slug: "g" }], log: h.log, write: h.write });
+  const asks = h.calls.filter((c) => c[0] === "eval" && c[2] && typeof c[2] === "object");
+  assert.deepEqual(asks.map((c) => [c[2].n, c[2].lang]), [[0, "de"], [1, "de"], [0, "en"], [1, "en"]]);
+  const order = h.calls.map((c) => c[0]).filter((k) => k === "eval" || k === "shot");
+  assert.equal(order.at(-1), "shot", "the links are read before the screenshot, not after");
+  for (const pages of h.written) for (const p of pages) {
+    assert.deepEqual(p.annots.map((a) => a.ref.A.URI.str), links.map((l) => l.url));
+  }
+});
+
+test("an annotation is the reported rectangle turned over into PDF coordinates, borderless", () => {
+  const a = annotation({ x: 100, y: 50, w: 200, h: 20, url: "https://blust.ch/" }, FakeString);
+  assert.deepEqual(a, {
+    Type: "Annot", Subtype: "Link", Rect: [100, 650, 300, 670], Border: [0, 0, 0],
+    A: { Type: "Action", S: "URI", URI: { str: "https://blust.ch/" } },
+  });
 });

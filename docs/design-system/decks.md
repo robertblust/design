@@ -62,4 +62,4 @@ Everything a deck does: slide navigation, the language switch, the notes panel a
 
 ## Export
 
-A deck's PDF fallback, rendered from the deck as it shows on screen, in both languages. A site imports it into its own build and passes its browser and PDF library in. Source: [decks/export.mjs](../../decks/export.mjs).
+A deck's PDF fallback, rendered from the deck as it shows on screen, in both languages. A site imports it into its own build and passes its browser and PDF library in. Given pdf-lib's `PDFString` too, every link on a slide stays a link in the PDF, resolved against the deck's canonical address, and the chat button opens the deck on that slide with the chat open. Source: [decks/export.mjs](../../decks/export.mjs).
