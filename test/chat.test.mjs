@@ -698,7 +698,7 @@ test("a context's flow and lifecycle are captioned, and each has a reading line,
 
 test("mermaidConfig sets the sequence and state diagrams to their own size", () => {
   const cfg = mermaidConfig(() => "");
-  assert.deepEqual(cfg.sequence, { useMaxWidth: false, mirrorActors: false, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12, actorMargin: 24, width: 104, height: 40, boxMargin: 6, messageMargin: 26, diagramMarginX: 8, diagramMarginY: 8 });
+  assert.deepEqual(cfg.sequence, { useMaxWidth: false, mirrorActors: false, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12, actorMargin: 24, width: 150, height: 40, boxMargin: 6, messageMargin: 26, diagramMarginX: 8, diagramMarginY: 8 });
   assert.deepEqual(cfg.state, { useMaxWidth: false });
 });
 

@@ -199,7 +199,7 @@
  "flow": {
   "shape": "flow",
   "title": "Quote",
-  "mermaid": "sequenceDiagram\n  participant caller as Caller\n  participant n0 as Quote\n  caller->>n0: Send quote\n  n0--)caller: Quote sent\n  caller->>n0: Accept quote\n  alt the customer signs before it expires\n    n0--)caller: Quote accepted\n  else it has expired (INV-T1)\n  end",
+  "mermaid": "sequenceDiagram\n  participant caller as Caller\n  participant n0 as Quote\n  caller->>n0: Send quote\n  n0--)caller: Quote sent\n  caller->>n0: Accept quote\n  alt the customer signs before it expires\n    n0--)caller: Quote accepted\n  else it has expired (INV-T1)\n    Note over n0: —\n  end",
   "nodes": [
    { "node": "n0", "id": "01a0ffff-0000-7000-8000-000000000111", "title": "Quote", "type": "aggregate" },
    { "node": "n1", "id": "01a0ffff-0000-7000-8000-000000000131", "title": "Quote sent", "type": "domain-event" },

@@ -733,9 +733,9 @@
       // At its own size in a box that scrolls: fitted to a bubble, a wide picture's words shrink
       // below reading. A concept carries no attributes or methods, so its class has no empty bars.
       flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
-      // A sequence diagram is drawn once, at the size the mockup settled, with its actors only
-      // above; a state diagram keeps its own size like the others.
-      sequence: { useMaxWidth: false, mirrorActors: false, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12, actorMargin: 24, width: 104, height: 40, boxMargin: 6, messageMargin: 26, diagramMarginX: 8, diagramMarginY: 8 },
+      // A sequence diagram keeps its own size, its actors only above, wide enough that a branch's
+      // condition stays whole; a state diagram keeps its own size like the others.
+      sequence: { useMaxWidth: false, mirrorActors: false, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12, actorMargin: 24, width: 150, height: 40, boxMargin: 6, messageMargin: 26, diagramMarginX: 8, diagramMarginY: 8 },
       state: { useMaxWidth: false },
       // `strict` alone still lets DOMPurify pass an `<img src>` through a label; a label writes
       // only `b`, `br` and `small`, so an image is never a label and would be a request to
