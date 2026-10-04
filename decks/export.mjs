@@ -9,6 +9,18 @@
 // Playwright and pdf-lib are never imported. The package has no dependencies at all; the site
 // owns both and passes them in, the same way cards/export.mjs takes a `chromium`.
 //
+// A screenshot is pixels, so a slide's links did not survive it: the model a slide rests on, the
+// lockup in its corner and the chat button were all drawn and none could be followed. So before
+// each screenshot the page reports where every visible link and every chat opener sits, and each
+// becomes a link annotation over the same rectangle on the PDF page — the look is still the
+// screenshot's, and the rectangles are what a reader clicks. An address is resolved against the
+// page's canonical, never against the server this run started, which no reader can reach. A chat
+// opener is a button, not a link, so it gets the address that opens the chat where the reader
+// is: this deck, on this slide, with `?chat=open` and the PDF's language. A link to a family site
+// carries `lang` the way `blocks/lang.js` does at click time. A URI in a PDF is a string object,
+// not a name, and pdf-lib's own `PDFString` is the only way to make one, so the caller passes it
+// beside `PDFDocument`; a caller that does not gets the PDF it always got, without links.
+//
 // A deck used to open with `page.goto(pathToFileURL(...))`, because `deck.css` and
 // `deck-runtime.js` were fenced blocks copied straight into the page and nothing it drew
 // depended on being served. Both are now files a deck can link instead — `tokens.css` always,
@@ -57,7 +69,7 @@ export function validate(decks) {
 // ends. A caller that already has a server running (this package's own tests, or a future one)
 // may pass its base directly instead, but never a `file://` one: that is the one shape this
 // module used to open and no longer can, for the reason in the comment above the imports.
-export async function exportDecks({ chromium, PDFDocument, root, decks, base,
+export async function exportDecks({ chromium, PDFDocument, PDFString, root, decks, base,
                                     log = console.log, write = writeFileSync }) {
   validate(decks);
   if (typeof base === "string" && base.startsWith("file://")) {
@@ -93,10 +105,12 @@ export async function exportDecks({ chromium, PDFDocument, root, decks, base,
               s.forEach((el, k) => el.classList.toggle("active", k === n));
             }, i);
             await page.waitForTimeout(500);        // let the rise animation settle
+            const links = PDFString ? await page.evaluate(linksOnSlide, { n: i, lang, W, H }) : [];
             const png = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: W, height: H } });
             const img = await pdf.embedPng(png);
             const p = pdf.addPage([W, H]);
             p.drawImage(img, { x: 0, y: 0, width: W, height: H });
+            for (const l of links) p.node.addAnnot(pdf.context.register(pdf.context.obj(annotation(l, PDFString))));
           }
           const file = path.join(root, deck.dir, `${deck.slug}-${lang}.pdf`);
           write(file, await pdf.save());
@@ -120,4 +134,52 @@ export async function exportDecks({ chromium, PDFDocument, root, decks, base,
     }
   }
   return written;
+}
+
+// Runs in the page, so it is plain browser code and names nothing from this module. It returns
+// one entry per visible link or chat opener on slide `n` and the chrome around it, each a
+// rectangle in CSS pixels, which are the PDF page's points because the viewport is the page.
+// An element with no box — hidden by the rule above, or on a slide not shown — has none.
+export function linksOnSlide({ n, lang, W, H }) {
+  const FAMILY = /^(www\.)?(blust\.ch|companygraph\.io|guestgraph\.io)$/;
+  const canon = document.querySelector('link[rel="canonical"]');
+  const home = new URL(canon ? canon.getAttribute("href") : location.href, location.href);
+  const box = (el) => {
+    const r = el.getBoundingClientRect();
+    const x = Math.max(0, r.left), y = Math.max(0, r.top);
+    const w = Math.min(W, r.right) - x, h = Math.min(H, r.bottom) - y;
+    return w > 0 && h > 0 ? { x, y, w, h } : null;
+  };
+  const out = [];
+  for (const a of document.querySelectorAll("a[href]")) {
+    const b = box(a);
+    if (!b) continue;
+    let u;
+    try { u = new URL(a.getAttribute("href"), home); } catch (e) { continue; }
+    if (!/^(https?|mailto):$/.test(u.protocol)) continue;
+    if (FAMILY.test(u.hostname)) u.searchParams.set("lang", lang);
+    out.push({ ...b, url: u.href });
+  }
+  const chat = new URL(home.href);
+  chat.search = "";
+  chat.searchParams.set("chat", "open");
+  chat.searchParams.set("lang", lang);
+  chat.hash = n === 0 ? "" : "#" + (n < 10 ? "0" : "") + n;
+  for (const el of document.querySelectorAll(".rbchat-open, [data-chat-open]")) {
+    const b = box(el);
+    if (b) out.push({ ...b, url: chat.href });
+  }
+  return out;
+}
+
+// A link annotation over one rectangle, in the PDF's own coordinates: the origin is the page's
+// bottom left, so a rectangle measured from the top is turned over. No border, because the
+// screenshot already draws what the link looks like.
+export function annotation({ x, y, w, h, url }, PDFString) {
+  return {
+    Type: "Annot", Subtype: "Link",
+    Rect: [x, H - y - h, x + w, H - y],
+    Border: [0, 0, 0],
+    A: { Type: "Action", S: "URI", URI: PDFString.of(url) },
+  };
 }
