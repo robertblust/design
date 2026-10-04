@@ -67,7 +67,7 @@ The family's one modal: everything a page opens over itself opens here, the grap
 
 ## Chat
 
-A button at the foot of a prose page and the terminal it opens over the site's chat service, a card on a desk and a sheet on a phone. The endpoint and the model page are named on the script's own tag. Source: [assets/chat.css](../../assets/chat.css), [assets/chat.js](../../assets/chat.js), whose header gives the tag.
+A button at the foot of a page and the terminal it opens over the site's chat service, a card on a desk and a sheet on a phone. A deck shows the button on a desk and not on a phone, where its transport takes the bottom edge ([Decks](decks.md#transport)). The endpoint and the model page are named on the script's own tag. Source: [assets/chat.css](../../assets/chat.css), [assets/chat.js](../../assets/chat.js), whose header gives the tag.
 
 Where the chat service checks its answers, a claim the evidence does not carry is marked once the answer has finished, and only where its probability passes the threshold the service sends: a dotted underline, `--t-part` for a claim carried in part and `--t-bad` for the rest. Hover or keyboard focus shows its note in the panel's own tooltip box, the one under the header's buttons, with a name and one line; a tap does not, and on a phone the line under the answer says how many statements are not fully backed. With no threshold nothing is marked.
 
