@@ -22,10 +22,10 @@
 // lockup, a hello and numbered menus, a question prints at a prompt, and the command line takes a
 // number, /new, /clear, /help and the up arrow, none of which reaches the chat host.
 // Each picture the host drew arrives as its own event; all of them are drawn under the answer by
-// Mermaid, in order and fitted to the log when there are several, fetched from beside this file
-// the first time one arrives; each node links where the cite
-// line would, or a type to its schema's file where the host names one, and the picture is kept
-// with its answer in the tab like the rest of the turn.
+// Mermaid, in order and fitted to the log when there are several. Mermaid is fetched from beside
+// this file the first time a picture arrives; each node links where the cite line would, or a
+// type to its schema's file where the host names one, and the picture is kept with its answer
+// in the tab like the rest of the turn.
 // A page may carry a picture of its own too, written when its site builds: a figure with
 // `data-diagram` and the picture as JSON inside it, drawn the same way once it nears the
 // screen, whether or not the tag names a chat. Expanded, any picture zooms and pans.
@@ -125,7 +125,7 @@
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       modalClose: "Close \u00b7 Esc",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", reading: { context: "Arrows run from upstream to downstream, each naming the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -172,7 +172,7 @@
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       modalClose: "Schliessen \u00b7 Esc",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", reading: { context: "Die Pfeile laufen von upstream nach downstream und nennen je das Muster zwischen den beiden Kontexten.", aggregate: "Das Aggregate Root hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die es auslöst." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -795,8 +795,13 @@
   function nodeHref(model, n){
     return typeof n.url === "string" && /^https:\/\//.test(n.url) ? n.url : link(model, n.id);
   }
+  // A shape is a key the host sends, so only a word the widget itself wrote for it counts: a
+  // shape named "reading" or "toString" finds an object or a function, and neither is a word.
+  function shapeWord(map, shape){
+    return typeof shape === "string" && Object.prototype.hasOwnProperty.call(map, shape) && typeof map[shape] === "string" ? map[shape] : "";
+  }
   function diagramCaption(d, lang){
-    var name = strings(lang).diagram[d && d.shape] || "";
+    var name = shapeWord(strings(lang).diagram, d && d.shape);
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
@@ -982,7 +987,7 @@
     var caption = diagramCaption(fig.rbDiagram, langNow());
     fig.querySelector("figcaption span").textContent = caption;
     var reading = fig.querySelector(".rbchat-diagram-reading");
-    if (reading) reading.textContent = s.reading[fig.rbDiagram && fig.rbDiagram.shape] || "";
+    if (reading) reading.textContent = shapeWord(s.reading, fig.rbDiagram && fig.rbDiagram.shape);
     // The control always reads as Expand: what it opens is a dialog now, and the × that
     // closes it lives on the dialog, not here, so the button never toggles.
     b.textContent = "⤢"; b.setAttribute("aria-label", s.expand); b.setAttribute("data-tip", s.expand);
@@ -1200,6 +1205,14 @@
     else return;
     ev.preventDefault();
   }
+  // A click anywhere on a picture's box but a node's link opens it to be read; the link keeps
+  // its own meaning, and a picture already open has nothing more to open.
+  function openOnClick(fig){
+    fig.rbBox.addEventListener("click", function(ev){
+      if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
+      expandFigure(fig);
+    });
+  }
   function figure(d, fit){
     var fig = el("figure", "rbchat-diagram"), cap = el("figcaption"), full = el("button", "rbchat-diagram-full");
     full.type = "button"; full.addEventListener("click", function(){ expandFigure(fig); });
@@ -1208,15 +1221,12 @@
     fig.appendChild(cap); fig.appendChild(fig.rbBox);
     // Under a picture whose shape needs reading, one line says how; it is the widget's sentence,
     // in the page's language, never the host's or the model's.
-    if (strings(langNow()).diagram.reading[d.shape]) fig.appendChild(el("p", "rbchat-diagram-reading"));
+    if (shapeWord(strings(langNow()).diagram.reading, d.shape)) fig.appendChild(el("p", "rbchat-diagram-reading"));
     // Several pictures under one answer are each fitted to the log, so the whole answer is seen
     // at once, and a click anywhere but a node's link opens one to be read, as a page's does.
     if (fit) {
       fig.classList.add("rbchat-diagram-fit");
-      fig.rbBox.addEventListener("click", function(ev){
-        if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
-        expandFigure(fig);
-      });
+      openOnClick(fig);
     }
     fig.rbDiagram = d;
     // An answer's picture is drawn for the log's width, and once drawn, a picture above the
@@ -1262,10 +1272,7 @@
       // On the page the picture is a preview, fitted to the column however wide the flow is,
       // so a click anywhere on it but a node's link opens it to be read, as Expand does.
       fig.classList.add("rbchat-diagram-fit");
-      fig.rbBox.addEventListener("click", function(ev){
-        if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
-        expandFigure(fig);
-      });
+      openOnClick(fig);
       figures.push(fig);
       labelFigure(fig);
       // Drawn when the site built, links and all: nothing to fetch and nothing to wait for.
@@ -2123,7 +2130,8 @@
       var head = doneLine();
       ans.insertBefore(head, body);
       log.appendChild(ans);
-      // The pictures are drawn once the answer is in the log, since they are drawn for the log's width.
+      // The pictures are drawn once the answer is in the log, since they are drawn for the
+      // log's width.
       placeFigures(ans, body, pictures);
       ans.setAttribute("aria-live", "polite");
       // Once, on the finished answer: the names are linked in the text the visitor reads, not

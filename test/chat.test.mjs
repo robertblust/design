@@ -670,6 +670,8 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "concepts", title: null }, "en"), "Concepts");
   assert.equal(diagramCaption({ shape: "neighborhood", title: "Claim" }, "de"), "Verbindungen · Claim");
   assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
+  for (const shape of ["reading", "toString", "constructor"]) assert.equal(diagramCaption({ shape, title: "X" }, "en"), "X", shape);
+  assert.equal(diagramCaption({ shape: "reading", title: null }, "de"), "");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
   for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "neighborhood", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
