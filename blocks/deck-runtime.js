@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v8 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v9 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -270,7 +270,31 @@
     fitNotes();
   }
   window.addEventListener('resize', function(){ measureChrome(); fitNotes(); });
-  function go(n){ i = Math.max(0, Math.min(slides.length-1, n)); render(); }
+  function go(n){ i = Math.max(0, Math.min(slides.length-1, n)); render(); writeHash(); }
+
+  /* Every slide can be linked to. The address says the number the slide itself shows, in
+     its kicker and in the transport's display window, so `#03` opens the slide that reads
+     03 and someone reading a number off the screen can type it. `#3` is taken too, and a
+     number past the end lands on the last slide, as go() clamps everything else.
+
+     The address follows the deck with replaceState, not pushState: turning ten pages is
+     not ten places to go back through, and Back still leaves the talk. The title slide
+     writes no fragment at all, so the talk's own address stays the plain one. Writing
+     never fires `hashchange`; only someone editing the address does, and that moves the
+     deck the way a click would. A fragment that is not a number is left to the browser. */
+  function hashSlide(){
+    var m = /^#(\d{1,3})$/.exec(location.hash);
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function writeHash(){
+    var want = i === 0 ? '' : '#' + pad(i);
+    if (location.hash === want) return;
+    try { history.replaceState(history.state, '', location.pathname + location.search + want); } catch (e) {}
+  }
+  window.addEventListener('hashchange', function(){
+    var n = hashSlide();
+    if (n !== null && n !== i) manual(n);
+  });
 
   /* Turning the page by hand does not end the talk — the voice follows to the slide you
      landed on. JUMP_MS is why: it lets someone click through five slides and hear only the
@@ -351,8 +375,11 @@
   }, {passive:true});
 
   measureChrome();
+  var arrived = hashSlide();
+  if (arrived !== null) i = Math.max(0, Math.min(slides.length-1, arrived));
   setNotes(false);
   applyLang();
+  writeHash();
 
   /* ---------- narration ----------
      The speaker notes mix stage directions with what is actually said: the <em class='cue'>

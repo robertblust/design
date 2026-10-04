@@ -58,7 +58,7 @@ Desk: one composition, scaled               Phone: the reading view
 
 ## Runtime
 
-Everything a deck does: slide navigation, the language switch, the notes panel and narration. What differs between decks is only each talk's title and description in both languages, which the page declares above the block. Contract: [blocks/deck-runtime.js](../../blocks/deck-runtime.js).
+Everything a deck does: slide navigation, the language switch, the notes panel and narration. Every slide has an address, the number it shows: `#03` opens the slide whose kicker reads 03, and the address follows as the deck moves. What differs between decks is only each talk's title and description in both languages, which the page declares above the block. Contract: [blocks/deck-runtime.js](../../blocks/deck-runtime.js).
 
 ## Export
 
