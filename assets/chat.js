@@ -751,7 +751,9 @@
         primaryBorderColor: v("--c-mid"), nodeBorder: v("--c-mid"), lineColor: v("--dim"),
         // An edge label's own background: Mermaid draws it from this one variable in every
         // diagram kind this file uses, so the panel's raise reaches it without a CSS rule.
-        edgeLabelBackground: v("--raise")
+        edgeLabelBackground: v("--raise"),
+        // A note is the panel's own box, not Mermaid's yellow.
+        noteBkgColor: v("--raise"), noteBorderColor: v("--dim"), noteTextColor: v("--ink")
       }
     };
   }

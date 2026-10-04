@@ -691,16 +691,18 @@ test("a flow and a lifecycle draw as SVG in both themes, with no fallback source
   await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 2);
   const read = () => page.$$eval(".rbchat-diagram svg", (svgs) => svgs.map((svg, i) => {
     const shape = svg.querySelector(i === 0 ? "rect.actor" : "g.node rect");
-    return { text: [...svg.querySelectorAll("text, foreignObject")].map((t) => t.textContent).join(" "), fill: getComputedStyle(shape).fill };
+    return { note: i === 0 ? getComputedStyle(svg.querySelector("rect.note")).fill : null, text: [...svg.querySelectorAll("text, foreignObject")].map((t) => t.textContent).join(" "), fill: getComputedStyle(shape).fill };
   }));
   const dark = await read();
   assert.match(dark[0].text, /Send quote/);
   assert.match(dark[0].text, /expired/, "a branch's condition is drawn");
   assert.match(dark[0].text, /—/, "a branch that emits nothing shows a dash");
+  assert.equal(dark[0].note, "rgb(22, 30, 41)", "a note is the panel's raise, not Mermaid's yellow");
   assert.match(dark[1].text, /Accepted/);
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
   await page.waitForFunction((was) => [...document.querySelectorAll(".rbchat-diagram svg")].length === 2 && [...document.querySelectorAll(".rbchat-diagram svg")].every((svg, i) => getComputedStyle(svg.querySelector(i === 0 ? "rect.actor" : "g.node rect")).fill !== was[i]), dark.map((d) => d.fill));
   const light = await read();
+  assert.equal(light[0].note, "rgb(239, 236, 229)", "a note is the panel's raise in the light theme too");
   assert.match(light[0].text, /Quote accepted/);
   assert.match(light[1].text, /Expired/);
   assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
