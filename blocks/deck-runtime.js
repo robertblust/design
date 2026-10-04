@@ -1,4 +1,4 @@
-  /* ─── deck runtime · v9 · {{variant}} ───────────────────────────────────
+  /* ─── deck runtime · v10 · {{variant}} ───────────────────────────────────
      The deck's whole runtime — slide navigation, language switching, the notes panel
      and narration — generated from @robertblust/design. Editing it here does nothing,
      because the next `npm run design` overwrites it. Change it in the package.
@@ -352,8 +352,17 @@
 
   /* The deck is driven by the buttons. These keys stay because a presenter remote sends
      them — it is a clicker pretending to be a keyboard — and are deliberately not
-     advertised anywhere on screen. */
+     advertised anywhere on screen.
+
+     A key meant for a field is not a page turn. A deck carries the chat, and its textarea sat
+     under this handler: a space typed into a question turned the page and never reached the
+     text, and Home, End and the arrows moved the deck instead of the caret. So a key whose
+     target takes text, or sits in the chat's panel, is left to that target. */
+  function typing(t){
+    return !!(t && t.closest && (t.isContentEditable || t.closest('input, textarea, select, [contenteditable], .rbchat')));
+  }
   document.addEventListener('keydown', function(e){
+    if (typing(e.target)) return;
     if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){ manual(i+1); e.preventDefault(); }
     else if(e.key==='ArrowLeft'||e.key==='PageUp'){ manual(i-1); e.preventDefault(); }
     else if(e.key==='Home'){ restart(); e.preventDefault(); }
