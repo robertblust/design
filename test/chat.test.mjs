@@ -672,7 +672,16 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "later", title: "X" }, "en"), "X");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["concepts", "expand", "failed", "fit", "fitTip", "neighborhood", "process", "schema", "shut", "zoomIn", "zoomOut"]);
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "neighborhood", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
+});
+
+test("the two pictures of a bounded context are captioned, and each has a reading line, in both languages", () => {
+  assert.equal(diagramCaption({ shape: "context", title: "Quoting" }, "en"), "Context map · Quoting");
+  assert.equal(diagramCaption({ shape: "aggregate", title: "Quote" }, "en"), "Aggregate · Quote");
+  assert.equal(diagramCaption({ shape: "context", title: "Quoting" }, "de"), "Context Map · Quoting");
+  assert.equal(diagramCaption({ shape: "aggregate", title: "Quote" }, "de"), "Aggregat · Quote");
+  for (const lang of ["en", "de"]) for (const shape of ["context", "aggregate"]) assert.ok(strings(lang).diagram.reading[shape].length > 20, `${lang} ${shape}`);
+  assert.equal(strings("en").diagram.reading.process, undefined, "the older shapes keep no reading line");
 });
 
 test("any element carrying data-chat-open opens the panel, and the header says so", () => {
@@ -734,7 +743,7 @@ test("the place is kept as the page goes and given back where the conversation i
   // with no conversation to keep a place in, has none.
   const draw = src.slice(src.indexOf("function drawFigure(fig){"), src.indexOf("function labelFigure(fig){"));
   assert.match(draw, /if \(fig\.rbDrawn\) fig\.rbDrawn\(\);/, "a picture drawn late does not call back");
-  const answer = src.slice(src.indexOf("function figure(d){"), src.indexOf("function hydrate(){"));
+  const answer = src.slice(src.indexOf("function figure(d, fit){"), src.indexOf("function hydrate(){"));
   assert.match(answer, /fig\.rbDrawn = settle;/, "a picture drawn late moves the place away");
 });
 

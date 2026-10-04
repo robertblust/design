@@ -191,6 +191,7 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
    mermaidConfig's edgeLabelBackground instead of fought over here. */
 .rbchat-diagram-box svg .edgeLabel,.rbchat-diagram-box svg .edgeLabel p,.rbchat-diagram-box svg .edgeLabel text{color:var(--dim)!important;fill:var(--dim)!important}
 .rbchat-diagram-failed{margin:0;font-size:.85rem}
+.rbchat-diagram-reading{margin:.35rem .1rem 0;font-size:.8rem;line-height:1.4;color:var(--dim)}
 /* A page's own picture is a preview: fitted to the column, never past its own size, and
    opened by a click to be read; chat.js marks it. The rule reaches the box only while it is in
    its figure, so in the dialog the zoom has it whole. */
