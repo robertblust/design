@@ -195,5 +195,25 @@
    { "node": "n5", "id": "01a0ffff-0000-7000-8000-000000000131", "title": "Quote sent", "type": "domain-event" }
   ],
   "omitted": 0
+ },
+ "flow": {
+  "shape": "flow",
+  "title": "Quote",
+  "mermaid": "sequenceDiagram\n  participant caller as Caller\n  participant n0 as Quote\n  caller->>n0: Send quote\n  n0--)caller: Quote sent\n  caller->>n0: Accept quote\n  alt the customer signs before it expires\n    n0--)caller: Quote accepted\n  else it has expired (INV-T1)\n  end",
+  "nodes": [
+   { "node": "n0", "id": "01a0ffff-0000-7000-8000-000000000111", "title": "Quote", "type": "aggregate" },
+   { "node": "n1", "id": "01a0ffff-0000-7000-8000-000000000131", "title": "Quote sent", "type": "domain-event" },
+   { "node": "n2", "id": "01a0ffff-0000-7000-8000-000000000132", "title": "Quote accepted", "type": "domain-event" }
+  ],
+  "omitted": 0
+ },
+ "lifecycle": {
+  "shape": "lifecycle",
+  "title": "Quote",
+  "mermaid": "stateDiagram-v2\n  state \"Sent\" as s0\n  state \"Accepted\" as s1\n  state \"Expired\" as s2\n  [*] --> s0 : Send quote\n  s0 --> s1 : Accept quote\n  s0 --> s2\n  s1 --> [*]\n  s2 --> [*]",
+  "nodes": [
+   { "node": "n0", "id": "01a0ffff-0000-7000-8000-000000000111", "title": "Quote", "type": "aggregate" }
+  ],
+  "omitted": 0
  }
 }

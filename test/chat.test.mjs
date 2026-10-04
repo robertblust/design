@@ -674,7 +674,7 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "reading", title: null }, "de"), "");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "neighborhood", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "lifecycle", "neighborhood", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
 });
 
 test("the two pictures of a bounded context are captioned, and each has a reading line, in both languages", () => {
@@ -684,6 +684,22 @@ test("the two pictures of a bounded context are captioned, and each has a readin
   assert.equal(diagramCaption({ shape: "aggregate", title: "Quote" }, "de"), "Aggregat · Quote");
   for (const lang of ["en", "de"]) for (const shape of ["context", "aggregate"]) assert.ok(strings(lang).diagram.reading[shape].length > 20, `${lang} ${shape}`);
   assert.equal(strings("en").diagram.reading.process, undefined, "the older shapes keep no reading line");
+});
+
+test("a context's flow and lifecycle are captioned, and each has a reading line, in both languages", () => {
+  assert.equal(diagramCaption({ shape: "flow", title: "Quote" }, "en"), "Flow · Quote");
+  assert.equal(diagramCaption({ shape: "lifecycle", title: "Quote" }, "en"), "Lifecycle · Quote");
+  assert.equal(diagramCaption({ shape: "flow", title: "Quote" }, "de"), "Ablauf · Quote");
+  assert.equal(diagramCaption({ shape: "lifecycle", title: "Quote" }, "de"), "Lebenszyklus · Quote");
+  for (const lang of ["en", "de"]) for (const shape of ["flow", "lifecycle"]) assert.ok(strings(lang).diagram.reading[shape].length > 20, `${lang} ${shape}`);
+  assert.match(strings("en").diagram.reading.flow, /commands/);
+  assert.match(strings("de").diagram.reading.lifecycle, /Zustand/);
+});
+
+test("mermaidConfig sets the sequence and state diagrams to their own size", () => {
+  const cfg = mermaidConfig(() => "");
+  assert.deepEqual(cfg.sequence, { useMaxWidth: false, mirrorActors: false, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12, actorMargin: 24, width: 104, height: 40, boxMargin: 6, messageMargin: 26, diagramMarginX: 8, diagramMarginY: 8 });
+  assert.deepEqual(cfg.state, { useMaxWidth: false });
 });
 
 test("any element carrying data-chat-open opens the panel, and the header says so", () => {
