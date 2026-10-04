@@ -56,9 +56,13 @@ Desk: one composition, scaled               Phone: the reading view
                                              └──────────────┘
 ```
 
+## Rests on
+
+What a slide rests on: a row of chips under its headline, each naming a model entry the slide claims and opening it in the site's graph. Every deck draws them alike, and its PDF keeps each chip a link. Contract: [blocks/deck-rests.css](../../blocks/deck-rests.css).
+
 ## Runtime
 
-Everything a deck does: slide navigation, the language switch, the notes panel and narration. Every slide has an address, the number it shows: `#03` opens the slide whose kicker reads 03, and the address follows as the deck moves. What differs between decks is only each talk's title and description in both languages, which the page declares above the block. Contract: [blocks/deck-runtime.js](../../blocks/deck-runtime.js).
+Everything a deck does: slide navigation, the language switch, the notes panel and narration. Every slide has an address, the number it shows: `#03` opens the slide whose kicker reads 03, and the address follows as the deck moves. Every deck carries the chat, linking `chat.css` and loading `chat.js` with its site's `data-chat`; `design sync --check` refuses a deck that does not. What differs between decks is only each talk's title and description in both languages, which the page declares above the block. Contract: [blocks/deck-runtime.js](../../blocks/deck-runtime.js).
 
 ## Export
 

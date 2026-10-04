@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readConfig, planSync, applySync } from "../lib/sync.mjs";
+import { readConfig, planSync, applySync, decksWithoutChat } from "../lib/sync.mjs";
 import { GROUPS } from "../lib/groups.mjs";
 import { assemble } from "../lib/assemble.mjs";
 
@@ -171,4 +171,28 @@ test("the files group's variant choice moves the bytes it writes", () => {
   applySync(root, planSync(root, oneConfig), oneConfig);
   const entry = planSync(root, twoConfig).find((e) => e.to === "deck.css");
   assert.equal(entry.state, "differs", "deck.css did not change when lockup changed");
+});
+
+const CHAT_CSS = '<link rel="stylesheet" href="../../chat.css">';
+const CHAT_JS = '<script src="../../chat.js" data-chat="https://chat.example.test/chat" data-model="/"></script>';
+const DECK_JS = '<script src="../../deck.js" defer></script>';
+
+test("a deck that links chat.css and loads chat.js with its host carries the chat", () => {
+  const root = site({ "talks/a/index.html": `${CHAT_CSS}${DECK_JS}${CHAT_JS}` });
+  assert.deepEqual(decksWithoutChat(root), []);
+});
+
+test("a deck without the chat is named with what it lacks, and a page that is no deck is not judged", () => {
+  const root = site({
+    "talks/bare/index.html": DECK_JS,
+    "talks/no-css/index.html": `${DECK_JS}${CHAT_JS}`,
+    "talks/no-host/index.html": `${CHAT_CSS}${DECK_JS}<script src="../../chat.js"></script>`,
+    "index.html": "<p>a page with no deck</p>",
+    "node_modules/x/talks/index.html": DECK_JS,
+  });
+  assert.deepEqual(decksWithoutChat(root), [
+    { page: "talks/bare/index.html", missing: ["chat.css", "chat.js with data-chat"] },
+    { page: "talks/no-css/index.html", missing: ["chat.css"] },
+    { page: "talks/no-host/index.html", missing: ["chat.js with data-chat"] },
+  ]);
 });

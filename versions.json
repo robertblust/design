@@ -9,6 +9,7 @@
   "transport": "v10",
   "lockup": "v1",
   "fit": "v1",
+  "rests": "v1",
   "runtime": "v10",
   "themeBoot": "v5",
   "theme": "v5",
