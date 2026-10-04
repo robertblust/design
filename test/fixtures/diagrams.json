@@ -169,5 +169,31 @@
   ],
   "edges": 4,
   "omitted": 1
+ },
+ "context": {
+  "shape": "context",
+  "title": "Quoting",
+  "mermaid": "flowchart TB\n  n0[\"<small>«bounded-context» · core</small><br/><b>Quoting</b>\"]\n  n1[\"<small>«bounded-context» · supporting</small><br/>Catalog\"]\n  n2[\"<small>«bounded-context» · core</small><br/>Invoicing\"]\n  n3[\"<small>«bounded-context» · generic</small><br/>Ordering\"]\n  n1 -->|\"U → D · conformist\"| n0\n  n2 <-->|\"shared kernel\"| n0\n  n0 -->|\"U → D · customer/supplier\"| n3",
+  "nodes": [
+   { "node": "n0", "id": "01a0ffff-0000-7000-8000-0000000000bc", "title": "Quoting", "type": "bounded-context" },
+   { "node": "n1", "id": "01a0ffff-0000-7000-8000-000000000101", "title": "Catalog", "type": "bounded-context" },
+   { "node": "n2", "id": "01a0ffff-0000-7000-8000-000000000102", "title": "Invoicing", "type": "bounded-context" },
+   { "node": "n3", "id": "01a0ffff-0000-7000-8000-000000000103", "title": "Ordering", "type": "bounded-context" }
+  ],
+  "omitted": 0
+ },
+ "aggregate": {
+  "shape": "aggregate",
+  "title": "Quote",
+  "mermaid": "classDiagram\n  class n0[\"Quote\"] {\n    <<aggregate root>>\n    Number : string\n    Total : Money\n    Note #quot;a#quot; #35;1#58; #123;x#125; : string\n  }\n  class n1[\"Quote line\"] {\n    <<entity>>\n    Quantity : number\n  }\n  class n2[\"Money\"] {\n    <<value object>>\n    Amount : decimal\n    Currency : ISO 4217 code\n  }\n  class n3[\"Discount\"] {\n    <<value object>>\n  }\n  class n4[\"Quote accepted\"] {\n    <<domain event>>\n  }\n  class n5[\"Quote sent\"] {\n    <<domain event>>\n  }\n  n0 *-- \"1..*\" n1\n  n0 *-- \"1\" n2\n  n0 *-- n3\n  n1 --> n2 : one\n  n0 ..> n4 : emits\n  n0 ..> n5 : emits",
+  "nodes": [
+   { "node": "n0", "id": "01a0ffff-0000-7000-8000-000000000121", "title": "Quote", "type": "concept-design" },
+   { "node": "n1", "id": "01a0ffff-0000-7000-8000-000000000122", "title": "Quote line", "type": "concept-design" },
+   { "node": "n2", "id": "01a0ffff-0000-7000-8000-000000000123", "title": "Money", "type": "concept-design" },
+   { "node": "n3", "id": "01a0ffff-0000-7000-8000-000000000124", "title": "Discount", "type": "concept-design" },
+   { "node": "n4", "id": "01a0ffff-0000-7000-8000-000000000132", "title": "Quote accepted", "type": "domain-event" },
+   { "node": "n5", "id": "01a0ffff-0000-7000-8000-000000000131", "title": "Quote sent", "type": "domain-event" }
+  ],
+  "omitted": 0
  }
 }

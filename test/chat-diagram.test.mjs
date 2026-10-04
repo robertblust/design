@@ -81,6 +81,89 @@ test("a picture is drawn under its answer, captioned, each node a link to where 
   await page.close();
 });
 
+test("an answer bringing two pictures draws both, in order, each fitted and each opening full screen on a click", async () => {
+  const { page } = await asked([["diagram", PICTURES.context], ["diagram", PICTURES.aggregate], ["text", { text: "Quoting conforms to Catalog." }]], { viewport: { width: 1280, height: 900 } });
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 2);
+  assert.deepEqual(await page.$$eval(".rbchat-diagram figcaption span", (els) => els.map((e) => e.textContent)), ["Context map · Quoting", "Aggregate · Quote"]);
+  assert.deepEqual(await page.$$eval(".rbchat-diagram", (els) => els.map((f) => f.classList.contains("rbchat-diagram-fit"))), [true, true]);
+  for (const f of await page.$$(".rbchat-diagram")) {
+    const size = await f.$eval(".rbchat-diagram-box", (box) => ({ svg: box.querySelector("svg").getBoundingClientRect().width, box: box.clientWidth }));
+    assert.ok(size.svg <= size.box + 0.5, JSON.stringify(size));
+  }
+  assert.match(await page.textContent(".rbchat-diagram:nth-of-type(1) .rbchat-diagram-reading"), /upstream/);
+  const r = await page.$eval(".rbchat-diagram:nth-of-type(2) .rbchat-diagram-box svg", (svg) => { svg.scrollIntoView({ block: "center" }); const b = svg.getBoundingClientRect(); return { x: b.left + 2, y: b.top + 2 }; });
+  await page.mouse.click(r.x, r.y);
+  await page.waitForSelector("dialog.rbmodal[open] svg");
+  assert.match(await page.textContent("dialog.rbmodal[open]"), /Aggregate · Quote/);
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram .rbchat-diagram-box svg").length === 2 && !document.querySelector("dialog.rbmodal[open]"));
+  const back = await page.$eval(".rbchat-diagram:nth-of-type(2)", (f) => {
+    const box = f.querySelector(".rbchat-diagram-box"), svg = box.querySelector("svg"), reading = f.querySelector(".rbchat-diagram-reading");
+    return { width: svg.style.width, svg: svg.getBoundingClientRect().width, box: box.clientWidth, before: !!(box.compareDocumentPosition(reading) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  });
+  assert.equal(back.width, "");
+  assert.ok(back.svg <= back.box + 0.5, JSON.stringify(back));
+  assert.ok(back.before, "the box comes before the reading line again");
+  await page.close();
+});
+
+test("an answer bringing one picture draws it as before, at its own size, with no reading line for an older shape", async () => {
+  const { page } = await asked([["diagram", PICTURES.process], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  assert.equal(await page.$$eval(".rbchat-diagram-fit", (els) => els.length), 0);
+  assert.equal(await page.$$eval(".rbchat-diagram-reading", (els) => els.length), 0);
+  await page.close();
+});
+
+test("a picture whose shape names a property of the widget's own words gets no reading line", async () => {
+  const { page } = await asked([["diagram", { ...PICTURES.process, shape: "toString" }], ["text", { text: "Delivery." }]]);
+  await page.waitForSelector(".rbchat-diagram svg");
+  assert.equal(await page.$$eval(".rbchat-diagram-reading", (els) => els.length), 0);
+  await page.close();
+});
+
+test("a language switch relabels every picture's caption and reading line", async () => {
+  const { page } = await asked([["diagram", PICTURES.context], ["diagram", PICTURES.aggregate], ["text", { text: "Quoting." }]]);
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 2);
+  await page.evaluate(() => document.documentElement.setAttribute("lang", "de"));
+  await page.waitForFunction(() => [...document.querySelectorAll(".rbchat-diagram figcaption span")].map((e) => e.textContent).join("|") === "Context Map · Quoting|Aggregat · Quote");
+  assert.match(await page.textContent(".rbchat-diagram:nth-of-type(1) .rbchat-diagram-reading"), /Pfeile/);
+  assert.match(await page.textContent(".rbchat-diagram:nth-of-type(2) .rbchat-diagram-reading"), /Rauten/);
+  assert.deepEqual(await page.$$eval(".rbchat-diagram figcaption span", (els) => els.map((e) => e.textContent)), ["Context Map · Quoting", "Aggregat · Quote"]);
+  await page.close();
+});
+
+test("a second picture Mermaid cannot render falls back alone, and the first stays drawn", async () => {
+  const broken = { ...PICTURES.aggregate, mermaid: "classDiagram\n  class n0[\"Quote\"] {\n    <<aggregate root>>\n" };
+  const { page } = await asked([["diagram", PICTURES.context], ["diagram", broken], ["text", { text: "Quoting." }]]);
+  await page.waitForSelector(".rbchat-diagram-failed");
+  assert.equal(await page.$$eval(".rbchat-diagram:nth-of-type(1) svg", (els) => els.length), 1);
+  assert.equal(await page.$$eval(".rbchat-diagram:nth-of-type(2) .rbchat-diagram-failed", (els) => els.length), 1);
+  await page.close();
+});
+
+test("a conversation read back draws every picture again, and a turn kept with one picture under the old key too", async () => {
+  const { page } = await asked([["diagram", PICTURES.context], ["diagram", PICTURES.aggregate], ["text", { text: "Quoting." }]]);
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 2);
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg a").length > 0 && document.querySelectorAll(".rbchat-diagram").length === 2);
+  assert.deepEqual(await page.$$eval(".rbchat-diagram figcaption span", (els) => els.map((e) => e.textContent)), ["Context map · Quoting", "Aggregate · Quote"]);
+  // Leaving the page keeps the conversation again, so the old shape is written by a script that
+  // runs on the next load, before the widget reads the tab's storage.
+  await page.addInitScript(() => {
+    const raw = sessionStorage.getItem("chat");
+    const kept = raw && JSON.parse(raw);
+    const t = kept && kept.turns.find((x) => x.role === "assistant" && x.diagrams);
+    if (!t) return;
+    t.diagram = t.diagrams[0]; delete t.diagrams;
+    sessionStorage.setItem("chat", JSON.stringify(kept));
+  });
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram").length === 1 && document.querySelector(".rbchat-diagram svg"));
+  assert.equal(await page.textContent(".rbchat-diagram figcaption span"), "Context map · Quoting");
+  await page.close();
+});
+
 test("a picture of the schemas links each type to its schema's file and is captioned as the meta-model", async () => {
   const p = PICTURES.schema;
   const { page } = await asked([["diagram", p], ["text", { text: "A phase is nested in a process." }]]);
@@ -527,7 +610,7 @@ test("a page's picture is fitted to its column, and a click on it outside a node
   await page.waitForSelector("figure[data-diagram] svg");
   const size = await page.$eval("figure[data-diagram] .rbchat-diagram-box", (box) => ({ box: box.clientWidth, svg: box.querySelector("svg").getBoundingClientRect().width, scroll: box.scrollWidth }));
   assert.ok(size.svg <= size.box + 0.5 && size.scroll <= size.box, JSON.stringify(size));
-  const r = await page.$eval("figure[data-diagram] .rbchat-diagram-box svg", (svg) => { const b = svg.getBoundingClientRect(); return { x: b.left + 2, y: b.top + 2 }; });
+  const r = await page.$eval("figure[data-diagram] .rbchat-diagram-box svg", (svg) => { svg.scrollIntoView({ block: "center" }); const b = svg.getBoundingClientRect(); return { x: b.left + 2, y: b.top + 2 }; });
   await page.mouse.click(r.x, r.y);
   await page.waitForSelector("dialog.rbmodal[open] svg");
   await page.keyboard.press("Escape");

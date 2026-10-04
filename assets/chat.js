@@ -21,10 +21,11 @@
 // The panel is drawn as the tooling's terminal: a fresh conversation opens on the page's own
 // lockup, a hello and numbered menus, a question prints at a prompt, and the command line takes a
 // number, /new, /clear, /help and the up arrow, none of which reaches the chat host.
-// A picture the host drew arrives as its own event and is drawn under the answer by Mermaid,
-// fetched from beside this file the first time one arrives; each node links where the cite
-// line would, or a type to its schema's file where the host names one, and the picture is kept
-// with its answer in the tab like the rest of the turn.
+// Each picture the host drew arrives as its own event; all of them are drawn under the answer by
+// Mermaid, in order and fitted to the log when there are several. Mermaid is fetched from beside
+// this file the first time a picture arrives; each node links where the cite line would, or a
+// type to its schema's file where the host names one, and the picture is kept with its answer
+// in the tab like the rest of the turn.
 // A page may carry a picture of its own too, written when its site builds: a figure with
 // `data-diagram` and the picture as JSON inside it, drawn the same way once it nears the
 // screen, whether or not the tag names a chat. Expanded, any picture zooms and pans.
@@ -124,7 +125,7 @@
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       modalClose: "Close \u00b7 Esc",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -171,7 +172,7 @@
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       modalClose: "Schliessen \u00b7 Esc",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -794,8 +795,13 @@
   function nodeHref(model, n){
     return typeof n.url === "string" && /^https:\/\//.test(n.url) ? n.url : link(model, n.id);
   }
+  // A shape is a key the host sends, so only a word the widget itself wrote for it counts: a
+  // shape named "reading" or "toString" finds an object or a function, and neither is a word.
+  function shapeWord(map, shape){
+    return typeof shape === "string" && Object.prototype.hasOwnProperty.call(map, shape) && typeof map[shape] === "string" ? map[shape] : "";
+  }
   function diagramCaption(d, lang){
-    var name = strings(lang).diagram[d && d.shape] || "";
+    var name = shapeWord(strings(lang).diagram, d && d.shape);
     return d && d.title ? (name ? name + " · " + d.title : d.title) : name;
   }
 
@@ -980,6 +986,8 @@
     var s = strings(langNow()).diagram, b = fig.querySelector(".rbchat-diagram-full");
     var caption = diagramCaption(fig.rbDiagram, langNow());
     fig.querySelector("figcaption span").textContent = caption;
+    var reading = fig.querySelector(".rbchat-diagram-reading");
+    if (reading) reading.textContent = shapeWord(s.reading, fig.rbDiagram && fig.rbDiagram.shape);
     // The control always reads as Expand: what it opens is a dialog now, and the × that
     // closes it lives on the dialog, not here, so the button never toggles.
     b.textContent = "⤢"; b.setAttribute("aria-label", s.expand); b.setAttribute("data-tip", s.expand);
@@ -1197,12 +1205,29 @@
     else return;
     ev.preventDefault();
   }
-  function figure(d){
+  // A click anywhere on a picture's box but a node's link opens it to be read; the link keeps
+  // its own meaning, and a picture already open has nothing more to open.
+  function openOnClick(fig){
+    fig.rbBox.addEventListener("click", function(ev){
+      if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
+      expandFigure(fig);
+    });
+  }
+  function figure(d, fit){
     var fig = el("figure", "rbchat-diagram"), cap = el("figcaption"), full = el("button", "rbchat-diagram-full");
     full.type = "button"; full.addEventListener("click", function(){ expandFigure(fig); });
     cap.appendChild(el("span")); cap.appendChild(full);
     fig.rbBox = el("div", "rbchat-diagram-box");
     fig.appendChild(cap); fig.appendChild(fig.rbBox);
+    // Under a picture whose shape needs reading, one line says how; it is the widget's sentence,
+    // in the page's language, never the host's or the model's.
+    if (shapeWord(strings(langNow()).diagram.reading, d.shape)) fig.appendChild(el("p", "rbchat-diagram-reading"));
+    // Several pictures under one answer are each fitted to the log, so the whole answer is seen
+    // at once, and a click anywhere but a node's link opens one to be read, as a page's does.
+    if (fit) {
+      fig.classList.add("rbchat-diagram-fit");
+      openOnClick(fig);
+    }
     fig.rbDiagram = d;
     // An answer's picture is drawn for the log's width, and once drawn, a picture above the
     // kept place has taken its height, so the place is found again.
@@ -1212,6 +1237,12 @@
     figures.push(fig);
     labelFigure(fig); drawFigure(fig);
     return fig;
+  }
+  // An answer's pictures, in the order the host drew them, each after the one before.
+  function placeFigures(ans, after, list){
+    var at = after, fit = list.length > 1;
+    list.forEach(function(d){ var f = figure(d, fit); ans.insertBefore(f, at.nextSibling); at = f; });
+    return at;
   }
   if (window.MutationObserver) new MutationObserver(function(){
     figures = figures.filter(function(f){ return document.documentElement.contains(f); });
@@ -1241,10 +1272,7 @@
       // On the page the picture is a preview, fitted to the column however wide the flow is,
       // so a click anywhere on it but a node's link opens it to be read, as Expand does.
       fig.classList.add("rbchat-diagram-fit");
-      fig.rbBox.addEventListener("click", function(ev){
-        if (modalFig === fig || (ev.target.closest && ev.target.closest("a"))) return;
-        expandFigure(fig);
-      });
+      openOnClick(fig);
       figures.push(fig);
       labelFigure(fig);
       // Drawn when the site built, links and all: nothing to fetch and nothing to wait for.
@@ -2072,7 +2100,7 @@
     log.appendChild(wait); log.scrollTop = log.scrollHeight;
     var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
     ans.appendChild(body);
-    var acc = "", cites = [], names = [], cut = false, picture = null, fig = null, verdict = null, errored = false, ended = false;
+    var acc = "", cites = [], names = [], cut = false, pictures = [], verdict = null, errored = false, ended = false;
     function render(){ body.innerHTML = md(acc); numberColumns(body); }
     function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
@@ -2102,8 +2130,9 @@
       var head = doneLine();
       ans.insertBefore(head, body);
       log.appendChild(ans);
-      // The picture is drawn once the answer is in the log, since it is drawn for the log's width.
-      if (picture) { fig = figure(picture); ans.insertBefore(fig, body.nextSibling); }
+      // The pictures are drawn once the answer is in the log, since they are drawn for the
+      // log's width.
+      placeFigures(ans, body, pictures);
       ans.setAttribute("aria-live", "polite");
       // Once, on the finished answer: the names are linked in the text the visitor reads, not
       // in the Markdown, so nothing about the answer itself changes and the next render — a
@@ -2127,7 +2156,7 @@
       setTimeout(function(){ if (say) say.textContent = said; }, 60);
       stopRequest = null;
       messages.push({ role: "assistant", content: acc });
-      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagram: picture, verdict: checked });
+      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagrams: pictures, verdict: checked });
       ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
@@ -2154,9 +2183,8 @@
           else if (name === "cite") cites.push(data);
           else if (name === "names") (data && data.names || []).forEach(function(n){ if (n && n.id && n.title) names.push(n); });
           else if (name === "diagram" && data && typeof data.mermaid === "string") {
-            // The last picture a message brings is the one drawn: a second replaces the first.
-            // It is drawn in finish(), with the rest of the answer.
-            picture = data;
+            // Every picture a message brings is drawn, in the order it came, in finish().
+            pictures.push(data);
           }
           else if (name === "verdict" && data && Array.isArray(data.claims)) verdict = data;
           else if (name === "done") { cut = !!data.cut; ended = true; }
@@ -2211,12 +2239,13 @@
       var head = doneLine();
       ans.appendChild(head); ans.appendChild(body);
       var cites = t.cites || [];
-      // The same gate send() applies to a picture arriving live: a stored turn from before this
-      // gate existed, or one a bug wrote otherwise, keeps no picture rather than throwing.
-      var diagram = t.diagram && typeof t.diagram.mermaid === "string" ? t.diagram : null;
+      // A turn keeps its pictures as `diagrams`; one kept by an earlier release carries a single
+      // `diagram`, read as a list of one. The same gate as a live picture: one that is not a
+      // picture is dropped rather than thrown on.
+      var diagrams = (Array.isArray(t.diagrams) ? t.diagrams : t.diagram ? [t.diagram] : []).filter(function(d){ return d && typeof d.mermaid === "string"; });
       nameLinks(body, (t.names || []).concat(cites, heard(turns)), MODEL, document);
       linkQuestions(body);
-      if (diagram) ans.appendChild(figure(diagram));
+      placeFigures(ans, body, diagrams);
       var restored = markClaims(body, t.content, t.verdict || null);
       if (restored) ans.appendChild(claimLine(restored));
       if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
@@ -2224,7 +2253,7 @@
       var sha = commitOf(cites);
       if (sha) ans.appendChild(modelLine(sha, null));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagram: diagram, verdict: t.verdict || null });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagrams: diagrams, verdict: t.verdict || null });
     });
     // The rows the last answer offered, drawn now with the rest: read again from the model file
     // they would stand a moment after the page shows, push the log up, and differ on every page.
