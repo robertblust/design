@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import {
-  readConfig, planSync, applySync, CONFIG_NAME, planFences, applyFences,
+  readConfig, planSync, applySync, CONFIG_NAME, planFences, applyFences, decksWithoutChat,
 } from "../lib/sync.mjs";
 import { findFence, FenceError } from "../lib/rewrite.mjs";
 import { FENCES } from "../lib/fences.mjs";
@@ -245,6 +245,13 @@ function pinMismatch() {
   return m[1] === own ? null : { pinned: m[1], own };
 }
 const mismatch = pinMismatch();
+const chatless = decksWithoutChat(siteRoot);
+// Named on every run, written or checked: a sync cannot add the chat, so it says what is owed.
+function reportChatless() {
+  for (const d of chatless)
+    console.log(`  ✗ ${d.page}  is a deck without the chat — it lacks ${d.missing.join(" and ")}; ` +
+      `link ../../chat.css and load chat.js with this site's data-chat, as its other pages do`);
+}
 
 if (check) {
   if (mismatch) {
@@ -253,6 +260,10 @@ if (check) {
       `declares ${mismatch.own} — a release sets version in the package to its tag before tagging; ` +
       `if the pin is the newer one, re-install it.`);
     process.exit(1);
+  }
+  if (chatless.length) {
+    reportChatless();
+    if (!stale.length && !staleFences.length) process.exit(1);
   }
   if (!stale.length && !staleFences.length) {
     console.log(
@@ -291,6 +302,7 @@ if (check) {
 
 const written = applySync(siteRoot, entries, config);
 applyFences(siteRoot, fenceEntries);
+reportChatless();
 if (!written.length && !staleFences.length) {
   console.log(
     `  ✓ already in step — ${entries.length} file(s), ${fenceEntries.length} fence(s), nothing to write`);

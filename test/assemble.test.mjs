@@ -54,6 +54,7 @@ const FILE_PARTS = {
     ["link", () => null],
     ["deck lockup", (c) => c.lockup],
     ["deck transport", () => null],
+    ["deck rests", () => null],
   ],
   "deck.js": [
     ["theme", () => "deck"],
@@ -171,7 +172,7 @@ test("every assembled file opens with a comment naming each block it holds and t
     "tokens.css": ["tokens"],
     "page.css": ["reset", "link", "header", "title", "lines", "footer", "principles", "team", "surfaces", "index", "home"],
     "page.js": ["lang", "theme", "navFit"],
-    "deck.css": ["link", "lockup", "transport"],
+    "deck.css": ["link", "lockup", "transport", "rests"],
     "deck.js": ["theme", "runtime", "fit"],
   };
   for (const name of FILE_NAMES) {

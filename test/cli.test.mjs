@@ -277,3 +277,17 @@ test("sync --check holds the site's pin to the version this package declares", (
   const green = run(["sync", "--check"], root);
   assert.equal(green.code, 0, green.out);
 });
+
+test("sync --check refuses a deck without the chat, naming it, on a site whose files all match", () => {
+  const root = site({}, { groups: ["fonts"] });
+  run(["sync"], root);
+  fs.mkdirSync(path.join(root, "talks/a"), { recursive: true });
+  fs.writeFileSync(path.join(root, "talks/a/index.html"), '<script src="../../deck.js" defer></script>');
+  const r = run(["sync", "--check"], root);
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /talks\/a\/index\.html {2}is a deck without the chat — it lacks chat\.css and chat\.js with data-chat/);
+  fs.writeFileSync(path.join(root, "talks/a/index.html"),
+    '<link rel="stylesheet" href="../../chat.css"><script src="../../deck.js" defer></script>' +
+    '<script src="../../chat.js" data-chat="https://chat.example.test/chat"></script>');
+  assert.equal(run(["sync", "--check"], root).code, 0);
+});

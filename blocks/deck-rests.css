@@ -1,0 +1,21 @@
+  /* ─── deck rests · v1 · {{variant}} ─────────────────────────────────────
+     Generated from @robertblust/design — edit it there and run `npm run design`.
+
+     What a slide rests on: a row under its headline naming the model entries the slide
+     claims, each a chip that opens its entity in the site's graph. Every deck in the
+     family draws it the same way, and a PDF of the deck keeps each chip a link.
+
+       <div class="rests"><b class="mono" data-de="beruht auf">rests on</b>
+         <a href="../../?stage=expanded#<id>"><i>concept</i> Name</a></div>
+
+     The kind sits in an <i> before the name, in --dim, and the name in --c-mid, the
+     brand's color for anything one can press. */
+  .rests{display:flex; flex-wrap:wrap; align-items:center; gap:1cqmin; margin-top:3.4cqmin}
+  .rests b{font-weight:400; font-size:clamp(.78rem,1.45cqmin,1.05rem); letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin-right:.6cqmin}
+  .rests a{font-family:"Plex Mono", ui-monospace, monospace; font-size:clamp(.78rem,1.45cqmin,1.05rem);
+           border:1px solid var(--rule); background:var(--raise); border-radius:6px; padding:.3em .65em;
+           color:var(--c-mid); text-decoration:none; transition:border-color .15s ease}
+  .rests a:hover{border-color:var(--c-mid)}
+  .rests a:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px}
+  .rests a i{font-style:normal; color:var(--dim)}
+  /* ─── end deck rests ────────────────────────────────────────────────────*/
