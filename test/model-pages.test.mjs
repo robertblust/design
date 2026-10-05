@@ -53,3 +53,13 @@ test("pathEntriesOf lists every entry the privacy lineage draws, a processor onc
     ["Google Cloud", "activity:id-Keeping the chat's questions"],
   ]);
 });
+
+import { MODEL_PAGE_CHECKS } from "../verify/model-pages.mjs";
+
+test("no model-page check is named after a key every page spec already carries", () => {
+  // A site opts a page into a check by naming it in the page's spec, and the suite runs every
+  // check whose name the spec carries; a check named path ran on every page, since path is the
+  // page's own address.
+  for (const own of ["path", "title", "lang", "footer"]) assert.ok(!(own in MODEL_PAGE_CHECKS), `a check is named ${own}`);
+  assert.equal(typeof MODEL_PAGE_CHECKS.privacyPath, "function");
+});
