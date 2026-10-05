@@ -14,7 +14,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -510,7 +510,7 @@ test("the widget keeps what each question rests on and offers follow() after an 
   const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
   assert.match(fn, /g\.via\.indexOf\("Rests on\."\) !== 0/, "a question's rests-on edges are not read");
   const offer = src.slice(src.indexOf("function offerQuestions()"), src.indexOf("function hideQuestions()"));
-  assert.match(offer, /follow\(last\.cites, list, seen, langNow\(\), null, mentioned\(last\.content, heard\(turns\), list, messages\)\)/, "the chips do not follow the last answer");
+  assert.match(offer, /follow\(last\.cites, list, seen, answerLang\(turns, langNow\(\)\), null, mentioned\(last\.content, heard\(turns\), list, messages\)\)/, "the chips do not follow the last answer, in its language");
   assert.match(offer, /!list\.length\) return;/, "a site with no question still offers chips");
 });
 
@@ -597,8 +597,8 @@ test("the chip container carries an accessible name from the strings, in both la
   assert.equal(strings("de").questions, "Fragen für den Einstieg");
   assert.equal(strings("en").next, "Questions to ask next");
   assert.equal(strings("de").next, "Weitere Fragen");
-  assert.match(src, /qBox\.setAttribute\("aria-label", strings\(langNow\(\)\)\[qNext \? "next" : "questions"\]\)/, "the container's name is not read off the strings, or not by whether it follows an answer");
-  assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", qNext \? s\.next : s\.questions\);/, "relabel() does not carry a language switch to an open set of chips");
+  assert.match(src, /qBox\.setAttribute\("aria-label", strings\(lang\)\[qNext \? "next" : "questions"\]\)/, "the container's name is not read off the strings, or not by whether it follows an answer");
+  assert.match(src, /if \(qBox\) qBox\.setAttribute\("aria-label", strings\(answerLang\(turns, langNow\(\)\)\)\[qNext \? "next" : "questions"\]\);/, "relabel() does not carry a language switch to an open set of chips");
 });
 
 test("a row's label is set with textContent, and activating it sends exactly its question", () => {
@@ -1001,4 +1001,19 @@ test("the intro reads the conversation back to titles once, not once per questio
   const fn = src.slice(src.indexOf("function intro("), src.indexOf("function finishIntro("));
   assert.match(fn, /var seen = asTitles\(list, messages\);/, "the intro does not build the read-back once");
   assert.match(fn, /unasked\(\[q\.title\], seen\)/, "the intro rebuilds the read-back for every question");
+});
+
+// What follows an answer is offered in the answer's language, which the server names on done:
+// a German question on the English page is answered in German, and its chips are German too.
+test("answerLang is the last answer's language where the server named one, else the page's", () => {
+  assert.equal(answerLang([{ role: "user", content: "Was ist das?" }, { role: "assistant", content: "…", lang: "de" }], "en"), "de", "a German answer on the English page");
+  assert.equal(answerLang([{ role: "assistant", content: "…", lang: "en" }], "de"), "en", "an English answer on the German page");
+  assert.equal(answerLang([{ role: "assistant", content: "…", lang: "de" }, { role: "user", content: "and?" }], "en"), "en", "only an answer standing last speaks for what follows it");
+  assert.equal(answerLang([{ role: "assistant", content: "…" }], "de"), "de", "a server that names none leaves the page's");
+  assert.equal(answerLang([{ role: "assistant", content: "…", lang: "fr" }], "en"), "en", "and one the widget has no words for is not taken");
+  assert.equal(answerLang([{ role: "assistant", content: "…", lang: "constructor" }], "en"), "en", "nor a name an object inherits");
+  assert.equal(answerLang([], "de"), "de", "an empty conversation is the page's");
+  assert.match(src, /else if \(name === "done"\) \{ cut = !!data\.cut; ended = true; spoke = data && typeof data\.lang === "string" \? data\.lang : null; \}/, "done's language is not read");
+  assert.match(src, /verdict: checked, lang: spoke \}\);/, "the answer's turn does not keep its language");
+  assert.match(src, /verdict: t\.verdict \|\| null, lang: typeof t\.lang === "string" \? t\.lang : null \}\);/, "a restored turn loses its language, and the next page's chips switch back");
 });

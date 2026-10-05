@@ -32,8 +32,9 @@
 // Every sentence the widget writes is here, in both languages, so a refusal costs no tokens.
 //
 // Where the tag also names `data-questions-de`, the same read takes the site's reviewed German
-// for its question titles, and a German page offers and sends that German; which questions are
-// offered is still chosen by their titles.
+// for its question titles, and a German page offers and sends that German, as do the chips under
+// an answer the chat host says it wrote in German, whatever the page's language; which questions
+// are offered is still chosen by their titles.
 //
 //   rbChat.md(text)                    the subset, rendered
 //   rbChat.readEvents(response, fn)    the stream, one fn(name, data) per event
@@ -52,6 +53,7 @@
 //   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them
 //   rbChat.mentioned(content, names, items, messages)  the entities an answer writes, in its order, not yet asked about
 //   rbChat.follow(cites, items, messages, lang, random, named)  the three that follow an answer, or null
+//   rbChat.answerLang(turns, page)     the language what follows the last answer is offered in
 //   rbChat.mermaidConfig(read)         Mermaid's configuration, from the tokens `read` gives
 //   rbChat.nodeElement(svg, node)      the group Mermaid drew a node as, or null
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
@@ -558,6 +560,15 @@
     return title;
   }
 
+  // The language what follows an answer is offered in: the answer's own, which the server names
+  // on done, since a German question on the English page is answered in German and its chips
+  // should not switch back. Only an answer standing last speaks for what follows it; with none,
+  // or one from a server that names no language the widget has words for, the page's.
+  function answerLang(turns, page){
+    var last = turns && turns.length ? turns[turns.length - 1] : null;
+    return last && last.role === "assistant" && typeof last.lang === "string" && Object.prototype.hasOwnProperty.call(STRINGS, last.lang) ? last.lang : page;
+  }
+
   // The conversation with every visitor message that is a question's German read back as its
   // title, so unasked() and follow(), which compare titles, know the question was asked —
   // whether a chip sent it or the visitor typed the same words.
@@ -863,7 +874,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1522,7 +1533,7 @@
       .catch(function(){ clearTimeout(timer); return {}; });
   }
   // A question as this page offers it now, from the list the widget holds or the tab kept.
-  function asOffered(title){ return sayIn(qList || keptList() || [], langNow(), title); }
+  function asOffered(title, lang){ return sayIn(qList || keptList() || [], typeof lang === "string" ? lang : langNow(), title); }
   // The Try rows' facts, from the one fetch questions() makes: a tag without data-questions, or
   // a read that failed, leaves them empty, and the rows fall back to the meta-model alone.
   function facts(cb){ questions(function(){ cb(qFacts); }); }
@@ -1847,7 +1858,7 @@
       var seen = asTitles(list, messages);
       var open = unasked(list.map(function(q){ return q.title; }), seen);
       var last = turns[turns.length - 1];
-      var picked = (last && last.role === "assistant" && follow(last.cites, list, seen, langNow(), null, mentioned(last.content, heard(turns), list, messages))) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
+      var picked = (last && last.role === "assistant" && follow(last.cites, list, seen, answerLang(turns, langNow()), null, mentioned(last.content, heard(turns), list, messages))) || spread(list.filter(function(q){ return open.indexOf(q.title) !== -1; }), 3);
       if (!picked.length) return;
       offer(picked);
       if (qNext && !reading) log.scrollTop = log.scrollHeight; else settle();
@@ -1855,13 +1866,15 @@
   }
   function offer(picked){
     qNext = messages.length > 0;
+    // The chips follow the answer's language, the rest of the panel the page's.
+    var lang = answerLang(turns, langNow()), say = function(t){ return asOffered(t, lang); };
     qBox = el("div", "rbchat-next");
     qBox.setAttribute("role", "group");
-    qBox.setAttribute("aria-label", strings(langNow())[qNext ? "next" : "questions"]);
-    qBox.appendChild(el("p", "rbchat-label", strings(langNow()).askNext));
-    menu(qBox, picked.map(function(t){ return [asOffered(t)]; }), 0);
+    qBox.setAttribute("aria-label", strings(lang)[qNext ? "next" : "questions"]);
+    qBox.appendChild(el("p", "rbchat-label", strings(lang).askNext));
+    menu(qBox, picked.map(function(t){ return [say(t)]; }), 0);
     log.appendChild(qBox);
-    qPicked = picked.slice(); menuRows = picked.map(asOffered); keysLine();
+    qPicked = picked.slice(); menuRows = picked.map(say); keysLine();
   }
   // A message on its way makes any chips standing stale: the ones it answered are asked, and
   // the answer it brings is followed by a fresh three of its own.
@@ -1898,14 +1911,14 @@
       var lines = log.querySelectorAll(".rbchat-model");
       for (var m = 0; m < lines.length; m++) lines[m].textContent = modelText(lines[m].getAttribute("data-sha"), lines[m].getAttribute("data-secs"));
       var labels = log.querySelectorAll(".rbchat-next > .rbchat-label");
-      for (var b = 0; b < labels.length; b++) labels[b].textContent = s.askNext;
+      for (var b = 0; b < labels.length; b++) labels[b].textContent = strings(answerLang(turns, langNow())).askNext;
     }
     // A language switch redraws the intro in the new language, finished, where the log holds one.
     if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
     // The chips standing under an answer are drawn again from the titles they were picked as, so a
     // model question reads in the new language and a number key sends what its row now shows.
     if (qBox && qPicked && qPicked.length) { var was_ = qPicked.slice(); hideQuestions(); offer(was_); }
-    if (qBox) qBox.setAttribute("aria-label", qNext ? s.next : s.questions);
+    if (qBox) qBox.setAttribute("aria-label", strings(answerLang(turns, langNow()))[qNext ? "next" : "questions"]);
   }
   relabel();
   // The language control swaps <html lang>; every string follows on the next tick.
@@ -2106,7 +2119,7 @@
     log.appendChild(wait); log.scrollTop = log.scrollHeight;
     var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
     ans.appendChild(body);
-    var acc = "", cites = [], names = [], cut = false, pictures = [], verdict = null, errored = false, ended = false;
+    var acc = "", cites = [], names = [], cut = false, pictures = [], verdict = null, errored = false, ended = false, spoke = null;
     function render(){ body.innerHTML = md(acc); numberColumns(body); }
     function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
@@ -2162,7 +2175,7 @@
       setTimeout(function(){ if (say) say.textContent = said; }, 60);
       stopRequest = null;
       messages.push({ role: "assistant", content: acc });
-      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagrams: pictures, verdict: checked });
+      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagrams: pictures, verdict: checked, lang: spoke });
       ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
@@ -2193,7 +2206,7 @@
             pictures.push(data);
           }
           else if (name === "verdict" && data && Array.isArray(data.claims)) verdict = data;
-          else if (name === "done") { cut = !!data.cut; ended = true; }
+          else if (name === "done") { cut = !!data.cut; ended = true; spoke = data && typeof data.lang === "string" ? data.lang : null; }
           else if (name === "error") {
             var code = data && data.error && data.error.code, at = data && data.error && data.error.retryAt;
             if (!acc.trim()) {
@@ -2259,7 +2272,7 @@
       var sha = commitOf(cites);
       if (sha) ans.appendChild(modelLine(sha, null));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagrams: diagrams, verdict: t.verdict || null });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagrams: diagrams, verdict: t.verdict || null, lang: typeof t.lang === "string" ? t.lang : null });
     });
     // The rows the last answer offered, drawn now with the rest: read again from the model file
     // they would stand a moment after the page shows, push the log up, and differ on every page.
