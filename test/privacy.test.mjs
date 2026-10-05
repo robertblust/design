@@ -125,3 +125,58 @@ test("a page without the markers stops the build", () => {
   fs.writeFileSync(path.join(dir, "privacy/index.html"), "<html></html>");
   assert.throws(() => writePrivacy(PRIVACY_FIXTURE, { root: dir, site: "x" }), /privacy\/index\.html has no <!-- privacy:start -->/);
 });
+
+// Fix pass after the whole-branch review.
+import { retentionWords } from "../lib/render/privacy.mjs";
+import { item, proc } from "./fixtures/privacy.mjs";
+
+test("a retention that opens with a period gives it in digits, singular for one", () => {
+  assert.equal(retentionWords("Ninety days, and the weekly report is gone before them").en, "90 days");
+  assert.equal(retentionWords("Within 30 days of receipt").en, "30 days");
+  assert.equal(retentionWords("One day").en, "1 day");
+  assert.equal(retentionWords("One day").de, "1 Tag");
+});
+
+test("a retention whose period is not plain is drawn as written, never guessed", () => {
+  for (const r of ["Twenty-one days", "One hundred and eighty days", "Thirteen days", "A few days, at most 30 days", "As long as the contract runs"])
+    assert.deepEqual([retentionWords(r).en, retentionWords(r).fixed], [r, false], r);
+});
+
+test("an activity with no retention draws its legal basis alone and asks no German for it", () => {
+  const data = { ...PRIVACY_FIXTURE, entities: PRIVACY_FIXTURE.entities.map((e) => e.name === "Keeping the chat's questions" ? { ...e, fields: { "legal-basis": "contract" } } : e) };
+  assert.equal(pathOf(data, { site: "x" }).groups[3].how.en, "contract");
+  const strings = privacyStrings(data);
+  assert.ok(!strings.includes(""));
+  const de = (en) => { if (!strings.includes(en)) throw new Error(`no German for: "${en}"`); return `DE:${en}`; };
+  assert.doesNotThrow(() => into(data, { de }));
+});
+
+test("the storage groups say nothing is sent on its own, and cookies that they travel with each request", () => {
+  const p = pathOf(PRIVACY_FIXTURE, { site: "x" });
+  assert.equal(p.groups[0].how.en, "until you clear it · never sent on its own");
+  assert.equal(p.groups[1].how.en, "until the tab closes · never sent on its own");
+  const withCookie = { ...PRIVACY_FIXTURE, entities: [...PRIVACY_FIXTURE.entities, item("sid", "cookie", "A session.", { duration: "One year" })] };
+  assert.match(pathOf(withCookie, { site: "x" }).groups.find((g) => g.key === "cookie").how.en, /sent with each request to this site/);
+});
+
+test("a stored item's own duration reaches its line where it differs from its group's", () => {
+  const data = { ...PRIVACY_FIXTURE, entities: [...PRIVACY_FIXTURE.entities, item("seen", "local-storage", "When you last came.", { duration: "One year" }),
+    ...[]].map((e) => e.name === "lang" ? { ...e, fields: { ...e.fields, duration: "Until the visitor clears it" } } : e) };
+  const g = pathOf(data, { site: "x" }).groups[0];
+  assert.equal(g.entries.find((e) => e.name === "seen").line.en, "When you last came · One year");
+  assert.equal(g.entries.find((e) => e.name === "lang").line.en, "The language you chose");
+  assert.ok(privacyStrings(data).includes("One year"));
+});
+
+test("a Processors row with no Receives and a processor with no countries stop the build, naming the page", () => {
+  const noReceives = { ...PRIVACY_FIXTURE, entities: [...PRIVACY_FIXTURE.entities, act("Mail", "contract", "A year", [["Google Cloud"]])] };
+  assert.throws(() => pathOf(noReceives, { site: "x" }), /processing-activities\/Mail.*Receives/);
+  const noCountries = { ...PRIVACY_FIXTURE, entities: PRIVACY_FIXTURE.entities.map((e) => e.name === "Google Cloud" ? { ...e, fields: { ...e.fields, countries: [] } } : e) };
+  assert.throws(() => pathOf(noCountries, { site: "x" }), /data-processors\/Google Cloud.*countries/);
+});
+
+test("one key in two mechanisms gets two distinct button ids", () => {
+  const data = { ...PRIVACY_FIXTURE, entities: [...PRIVACY_FIXTURE.entities, item("lang", "session-storage", "Also here.")] };
+  const ids = pathOf(data, { site: "x" }).groups.flatMap((g) => g.entries.map((e) => e.slug));
+  assert.equal(new Set(ids).size, ids.length);
+});
