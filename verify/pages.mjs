@@ -402,7 +402,10 @@ export function pageChecks({ SITE, BASE }) {
         for (const [k, m] of window.__keys) seen.set(`${k}\u0000${m}`, [k, m]);
         return [...seen.values()];
       });
-      await page.evaluate(() => { try { localStorage.clear(); sessionStorage.clear(); } catch (e) {} });
+      // Leave the page as the rest of the suite expects it, storage empty. A page that saves its
+      // state as it unloads — the chat writes its conversation then — would write it back during
+      // the reload below, so this page's writes are switched off before storage is cleared.
+      await page.evaluate(() => { try { Storage.prototype.setItem = function () {}; localStorage.clear(); sessionStorage.clear(); } catch (e) {} });
       await page.goto(spec.absolute, { waitUntil: "networkidle" });
       if (!written.length)
         return "no write path was exercised — none of #lde/#len, #langDe/#langEn, " +
