@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { boardsOf } from "../verify/model-pages.mjs";
+import { pathEntriesOf } from "../verify/model-pages.mjs";
+import { PRIVACY_FIXTURE } from "./fixtures/privacy.mjs";
 
 // Two processes, so the ids take the slug. The one profile is an agent holding no seat, so both
 // seats are drawn as held by a person. The shapes are the parser's: a process lists its phases in
@@ -41,4 +43,13 @@ test("boardsOf reads each board's ids, headings, rows and gates from the data", 
 test("a single process draws unprefixed ids, as a one-process board has them", () => {
   const one = { entities: DATA.entities.filter((e) => e.name !== "Delivery" && e.name !== "Ship") };
   assert.deepEqual(boardsOf(one).map((b) => b.prefix), [""]);
+});
+
+test("pathEntriesOf lists every entry the privacy lineage draws, a processor once per activity naming it", () => {
+  const e = pathEntriesOf(PRIVACY_FIXTURE);
+  assert.deepEqual(e.map((x) => [x.name, x.maker]), [
+    ["lang", "local-storage"], ["theme", "local-storage"], ["chat", "session-storage"],
+    ["Google Cloud", "activity:id-Answering in the chat"], ["Anthropic", "activity:id-Answering in the chat"],
+    ["Google Cloud", "activity:id-Keeping the chat's questions"],
+  ]);
 });

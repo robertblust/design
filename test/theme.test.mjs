@@ -256,73 +256,58 @@ test("neither theme fence declares a parameter", () => {
 // `opensFromFile`'s spawned-process test already do in this package.
 const THEME_OPTS = { SITE: "https://x.test", BASE: "http://x.local" };
 
-test("storageKeys actually clicks the theme control, not merely names it behind a dead guard", async () => {
-  // A guard written as `if (await page.$("#thLight") && false)` still contains the string
-  // "#thLight" and the literal click call in source, so a `.toString()` test cannot tell it
-  // from working code. Recording what `page.click` is actually called with can.
+const PRIVACY_HTML = `<link rel="preload" as="fetch" href="../company.json" data-stage crossorigin>`;
+const artifactWith = (pairs) => ({ entities: pairs.map(([name, mechanism]) => ({ type: "stored-item", name, fields: { mechanism } })) });
+function stubFetch(pairs) {
+  return async (url) => String(url).endsWith("/privacy/")
+    ? { ok: true, text: async () => PRIVACY_HTML }
+    : { ok: true, json: async () => artifactWith(pairs) };
+}
+
+test("storageKeys actually clicks the theme control and opens the chat, not merely names them", async () => {
   const clicks = [];
   const fakePage = {
-    addInitScript: async () => {},
-    goto: async () => {},
-    $: async () => true,               // every control is "present"
-    click: async (sel) => { clicks.push(sel); },
-    focus: async () => {},
-    keyboard: { press: async () => {} },
-    evaluate: async () => [],
+    addInitScript: async () => {}, goto: async () => {}, $: async () => true,
+    click: async (sel) => { clicks.push(sel); }, focus: async () => {}, keyboard: { press: async () => {} },
+    waitForTimeout: async () => {}, evaluate: async () => [["theme", "local-storage"]],
   };
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ text: async () => "" });
+  globalThis.fetch = stubFetch([["theme", "local-storage"]]);
   try {
     await pageChecks(THEME_OPTS).storageKeys(fakePage, { absolute: "https://x.test/" });
-  } finally {
-    globalThis.fetch = realFetch;
-  }
-  assert.ok(clicks.includes("#thLight"), `#thLight was never clicked; clicks were ${JSON.stringify(clicks)}`);
-  assert.ok(clicks.includes("#thDark"), `#thDark was never clicked; clicks were ${JSON.stringify(clicks)}`);
+  } finally { globalThis.fetch = realFetch; }
+  for (const sel of ["#thLight", "#thDark", ".rbchat-open"]) assert.ok(clicks.includes(sel), `${sel} was never clicked; clicks were ${JSON.stringify(clicks)}`);
 });
 
-test("storageKeys reports an undeclared key, and passes when every written key is named", async () => {
-  // Fix round 2: the fake above always returns [] from evaluate, so `written` is empty
-  // inside the real check no matter what was clicked — the undeclared-key branch, which is
-  // the entire point of this check (the check exists to catch /privacy/ omitting a key a
-  // real visitor's browser writes), was never exercised. A reviewer replaced the check's
-  // whole tail with an unconditional `return null;` and the click test above stayed green,
-  // because it never looks at the return value. This fake instead returns a realistic
-  // written-key list from `evaluate`, and `fetch` is stubbed to return a `/privacy/` document
-  // that names some keys and not others, so both directions of the real comparison run.
-  //
-  // `storageKeys` calls `page.evaluate` twice — once to read the written keys, once to clear
-  // storage afterward — so the fake has to answer the first call with the key list and the
-  // second with something the check does not inspect.
-  async function run(writtenKeys, declaredText) {
+test("storageKeys fails on a key the model does not hold, by name and by mechanism, and passes when it holds each", async () => {
+  async function run(written, held, { chat = true } = {}) {
     let evalCalls = 0;
     const fakePage = {
-      addInitScript: async () => {},
-      goto: async () => {},
-      $: async () => true,
-      click: async () => {},
-      focus: async () => {},
-      keyboard: { press: async () => {} },
-      async evaluate() {
-        evalCalls += 1;
-        return evalCalls === 1 ? writtenKeys : undefined;
-      },
+      addInitScript: async () => {}, goto: async () => {},
+      $: async (sel) => (sel === ".rbchat-open" ? chat : true),
+      click: async () => {}, focus: async () => {}, keyboard: { press: async () => {} }, waitForTimeout: async () => {},
+      async evaluate() { evalCalls += 1; return evalCalls === 1 ? written : undefined; },
     };
     const realFetch = globalThis.fetch;
-    globalThis.fetch = async () => ({ text: async () => declaredText });
-    try {
-      return await pageChecks(THEME_OPTS).storageKeys(fakePage, { absolute: "https://x.test/" });
-    } finally {
-      globalThis.fetch = realFetch;
-    }
+    globalThis.fetch = stubFetch(held);
+    try { return await pageChecks(THEME_OPTS).storageKeys(fakePage, { absolute: "https://x.test/" }); }
+    finally { globalThis.fetch = realFetch; }
   }
+  const held = [["lang", "local-storage"], ["theme", "local-storage"], ["chat", "session-storage"]];
+  assert.equal(await run([["lang", "local-storage"], ["chat", "session-storage"]], held), null);
+  assert.match(await run([["chat-facts", "session-storage"]], held), /chat-facts/);
+  assert.match(await run([["chat", "local-storage"]], held), /chat.*local-storage/);
+  assert.equal(await run([["theme", "local-storage"]], held, { chat: false }), null, "a page with no chat still passes on its own keys");
+});
 
-  const clean = await run(["rb-lang", "rb-theme"], "<p>This site stores rb-lang and rb-theme.</p>");
-  assert.equal(clean, null, `every written key is declared; expected null, got ${JSON.stringify(clean)}`);
-
-  const dirty = await run(["rb-lang", "rb-theme", "rb-secret"], "<p>This site stores rb-lang and rb-theme.</p>");
-  assert.ok(dirty, "an undeclared key should have been reported, got null");
-  assert.match(dirty, /rb-secret/);
+test("storageKeys fails when /privacy/ names no model", async () => {
+  const fakePage = { addInitScript: async () => {}, goto: async () => {}, $: async () => true, click: async () => {},
+    focus: async () => {}, keyboard: { press: async () => {} }, waitForTimeout: async () => {}, evaluate: async () => [["theme", "local-storage"]] };
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, text: async () => "<p>no link</p>" });
+  try {
+    assert.match(await pageChecks(THEME_OPTS).storageKeys(fakePage, { absolute: "https://x.test/" }), /\/privacy\/ names no model/);
+  } finally { globalThis.fetch = realFetch; }
 });
 
 // contrast's page.evaluate callback is self-contained — it reads document.documentElement,
@@ -353,6 +338,7 @@ function makeContrastPage(palettes) {
     },
   };
 }
+
 
 test("contrast passes a fully AA palette and fails one where only --c-flag is under 4.5:1", async () => {
   const PASS_DARK = { "--ground": "#000000", "--ink": "#ffffff", "--dim": "#ffffff",
