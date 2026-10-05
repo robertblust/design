@@ -1,5 +1,5 @@
 // The checks that hold a page generated from a model to the model it was generated from: the
-// team board and the surfaces lineage. They were a site's own until a second site drew them, and
+// team board, the surfaces lineage and the privacy path. They were a site's own until a second site drew them, and
 // each hard-coded that site's model — its row count, its phase names, its gate count — so they
 // read everything they expect from the artifact the page names instead, through the same helpers
 // the renderers use. Only reading the page happens in the browser.
@@ -9,6 +9,14 @@
 // hold it. Nothing else could see that: the link is written by a script when a card opens, and
 // every other check passed with it pointing anywhere.
 import { processesOf, phasesOf, seatsOf, marksOf, procSlug } from "../lib/render/team.mjs";
+import { pathOf } from "../lib/render/privacy.mjs";
+
+// Every entry the privacy lineage draws, in drawing order: a key under its mechanism, a processor
+// under each activity whose Processors table names it. A processor named twice is two entries
+// with one id, so the drawing is compared by id and group together.
+export function pathEntriesOf(data) {
+  return pathOf(data, { site: "" }).groups.flatMap((g) => g.entries.map((e) => ({ id: e.id, name: e.name, maker: g.key })));
+}
 
 // Each board the page must carry: its id prefix, its process's name, its phase headings, and each
 // row's name and gate count, in the order the renderer draws them. One process draws unprefixed
@@ -68,6 +76,44 @@ async function provenance(page, data) {
   if (said !== data.commit.slice(0, 7)) bad.push(`the provenance line reads @${said}, the artifact is at ${data.commit.slice(0, 7)}`);
   if (!href.includes("/tree/" + data.commit + "/")) bad.push("the provenance link is not pinned to the artifact's commit");
   return bad;
+}
+
+// The comparison the surfaces lineage and the privacy path share, run in the page: every entry the
+// model wants drawn under its group, the wire count, a choice opening its card, the address it
+// leaves. An entry is found by its id and its group, because the privacy path draws one processor
+// under each activity that names it.
+async function drawnAgainst(page, want, noun) {
+  return page.evaluate(async ({ want, noun }) => {
+      const bad = [];
+      const btns = [...document.querySelectorAll("#lineage .ln-s")];
+      if (btns.length !== want.length) bad.push(`the drawing has ${btns.length} ${noun}s, the model ${want.length}`);
+      for (const s of want) {
+        const b = btns.find((x) => x.getAttribute("data-id") === s.id && x.getAttribute("data-maker") === s.maker);
+        if (!b) { bad.push(`${s.name} is not drawn`); continue; }
+        if (b.getAttribute("data-maker") !== s.maker) bad.push(`${s.name} sits under ${b.getAttribute("data-maker")}, not ${s.maker}`);
+        const group = b.closest(".ln-group").querySelector(".ln-maker").getAttribute("data-maker");
+        if (group !== s.maker) bad.push(`${s.name} is nested under ${group}, not ${s.maker}`);
+        if (b.querySelector(".nm").textContent.trim() !== s.name) bad.push(`${s.id} is labeled ${b.querySelector(".nm").textContent}`);
+      }
+      const panel = document.getElementById("lnpanel");
+      if (!panel.hidden || panel.querySelector(".cbody").textContent.trim()) bad.push(`a card is shown before a ${noun} was chosen`);
+      const wires = document.querySelectorAll("#wires path").length;
+      const makers = document.querySelectorAll(".ln-maker").length;
+      if (wires !== makers + btns.length) bad.push(`${wires} wires for ${makers} makers and ${btns.length} ${noun}s`);
+      const pick = btns.find((b) => b.getAttribute("data-maker") === "hand") || btns[0];
+      if (!pick) return { bad, id: null };
+      pick.click();
+      await new Promise((r) => setTimeout(r, 300));
+      const h3 = panel.querySelector(".cbody h3");
+      const name = pick.querySelector(".nm").textContent.trim();
+      if (panel.hidden || !h3 || h3.textContent.trim() !== name) bad.push(`choosing ${name} did not draw its card`);
+      if (/\*\*/.test(panel.querySelector(".cbody").textContent)) bad.push(`${name}'s card prints markdown asterisks`);
+      if (pick.getAttribute("aria-pressed") !== "true") bad.push(`${name} is not pressed once chosen`);
+      if (location.hash !== "#" + pick.id) bad.push(`choosing ${name} left the address at ${location.hash || "no hash"}`);
+      const lit = document.querySelectorAll("#wires path.on").length;
+      if (lit !== 2) bad.push(`choosing ${name} lit ${lit} wires, not 2`);
+      return { bad, id: pick.id };
+    }, { want, noun });
 }
 
 export const MODEL_PAGE_CHECKS = {
@@ -165,39 +211,28 @@ export const MODEL_PAGE_CHECKS = {
     bad.push(...sameArtifact(await stageTarget(page), art));
     const want = art.data.entities.filter((e) => e.type === "surface").map((s) => ({
       id: s.id, name: s.name, maker: s.fields.production === "written" ? "hand" : s.fields["built-by"] }));
-    const inPage = await page.evaluate(async (want) => {
-      const bad = [];
-      const btns = [...document.querySelectorAll("#lineage .ln-s")];
-      if (btns.length !== want.length) bad.push(`the drawing has ${btns.length} surfaces, the model ${want.length}`);
-      for (const s of want) {
-        const b = btns.find((x) => x.getAttribute("data-id") === s.id);
-        if (!b) { bad.push(`${s.name} is not drawn`); continue; }
-        if (b.getAttribute("data-maker") !== s.maker) bad.push(`${s.name} sits under ${b.getAttribute("data-maker")}, not ${s.maker}`);
-        const group = b.closest(".ln-group").querySelector(".ln-maker").getAttribute("data-maker");
-        if (group !== s.maker) bad.push(`${s.name} is nested under ${group}, not ${s.maker}`);
-        if (b.querySelector(".nm").textContent.trim() !== s.name) bad.push(`${s.id} is labeled ${b.querySelector(".nm").textContent}`);
-      }
-      const panel = document.getElementById("lnpanel");
-      if (!panel.hidden || panel.querySelector(".cbody").textContent.trim()) bad.push("a card is shown before a surface was chosen");
-      const wires = document.querySelectorAll("#wires path").length;
-      const makers = document.querySelectorAll(".ln-maker").length;
-      if (wires !== makers + btns.length) bad.push(`${wires} wires for ${makers} makers and ${btns.length} surfaces`);
-      const pick = btns.find((b) => b.getAttribute("data-maker") === "hand") || btns[0];
-      if (!pick) return { bad, id: null };
-      pick.click();
-      await new Promise((r) => setTimeout(r, 300));
-      const h3 = panel.querySelector(".cbody h3");
-      const name = pick.querySelector(".nm").textContent.trim();
-      if (panel.hidden || !h3 || h3.textContent.trim() !== name) bad.push(`choosing ${name} did not draw its card`);
-      if (/\*\*/.test(panel.querySelector(".cbody").textContent)) bad.push(`${name}'s card prints markdown asterisks`);
-      if (pick.getAttribute("aria-pressed") !== "true") bad.push(`${name} is not pressed once chosen`);
-      if (location.hash !== "#" + pick.id) bad.push(`choosing ${name} left the address at ${location.hash || "no hash"}`);
-      const lit = document.querySelectorAll("#wires path.on").length;
-      if (lit !== 2) bad.push(`choosing ${name} lit ${lit} wires, not 2`);
-      return { bad, id: pick.id };
-    }, want);
+    const inPage = await drawnAgainst(page, want, "surface");
     bad.push(...inPage.bad);
     // A link must land: arriving with a hash chooses that surface.
+    if (inPage.id) {
+      await page.goto(spec.absolute + "#" + inPage.id, { waitUntil: "networkidle" });
+      await page.waitForTimeout(300);
+      const landed = await page.evaluate((id) => document.getElementById(id).getAttribute("aria-pressed") === "true"
+        && !!document.querySelector("#lnpanel .cbody h3"), inPage.id);
+      if (!landed) bad.push(`arriving on #${inPage.id} did not choose it`);
+    }
+    return bad.length ? bad.join("; ") : null;
+  },
+  // The privacy page's lineage, held to the stored items, activities and processors the artifact
+  // holds: every entry drawn under its group, the wires, the card a choice opens, a hash landing.
+  async path(page, spec) {
+    await page.goto(spec.absolute, { waitUntil: "networkidle" });
+    const art = await artifact(page);
+    if (!art) return "the page names no data";
+    const bad = await provenance(page, art.data);
+    bad.push(...sameArtifact(await stageTarget(page), art));
+    const inPage = await drawnAgainst(page, pathEntriesOf(art.data), "entry");
+    bad.push(...inPage.bad);
     if (inPage.id) {
       await page.goto(spec.absolute + "#" + inPage.id, { waitUntil: "networkidle" });
       await page.waitForTimeout(300);
