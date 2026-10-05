@@ -57,6 +57,7 @@
     "./render/questions": "./lib/render/questions.mjs",
     "./render/team": "./lib/render/team.mjs",
     "./render/surfaces": "./lib/render/surfaces.mjs",
+    "./render/privacy": "./lib/render/privacy.mjs",
     "./render/home": "./lib/render/home.mjs",
     "./render/ids": "./lib/render/ids.mjs"
   },
