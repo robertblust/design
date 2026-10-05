@@ -30,7 +30,7 @@ A fence is a block a page carries between two markers; a whole file is assembled
 | Footer | [blocks/footer.css](../../blocks/footer.css), [blocks/footer-credit.css](../../blocks/footer-credit.css) | fence `prose footer`, in `page.css` | [Blocks](blocks.md#footer) |
 | Principles | [blocks/principles.css](../../blocks/principles.css) | fence `principles`, in `page.css` | [Blocks](blocks.md#principles) |
 | Team board | [blocks/team.css](../../blocks/team.css) | fence `team`, in `page.css` | [Blocks](blocks.md#team-board) |
-| Surfaces lineage | [blocks/surfaces.css](../../blocks/surfaces.css), [blocks/surfaces.js](../../blocks/surfaces.js) | fences `surfaces` in `page.css`, `surfaces lineage` | [Blocks](blocks.md#surfaces-lineage) |
+| Surfaces lineage, privacy path | [blocks/surfaces.css](../../blocks/surfaces.css), [blocks/surfaces.js](../../blocks/surfaces.js) | fences `surfaces` in `page.css`, `surfaces lineage` | [Blocks](blocks.md#surfaces-lineage), [Privacy path](blocks.md#privacy-path) |
 | Index list | [blocks/index.css](../../blocks/index.css) | fence `index`, in `page.css` | [Blocks](blocks.md#index-list) |
 | Home sections | [blocks/home.css](../../blocks/home.css) | fence `home`, in `page.css` | [Blocks](blocks.md#home-sections) |
 | Stage contract | [blocks/stage.css](../../blocks/stage.css) | fence `stage contract` | [Blocks](blocks.md#stage-contract) |

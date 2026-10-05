@@ -1,4 +1,4 @@
-  /* ─── surfaces lineage · v2 · {{variant}} ───────────────────────────────
+  /* ─── surfaces lineage · v3 · {{variant}} ───────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The lineage's behavior on /surfaces/: the wires drawn from where the nodes landed, a
@@ -42,7 +42,8 @@
       if (getComputedStyle(svg).display === "none") return;
       var on = current && current.getAttribute("data-maker"), out = [], m = at(model);
       [].forEach.call(document.querySelectorAll(".ln-maker"), function(mk){
-        var key = mk.getAttribute("data-maker"), a = at(mk), cls = key === "hand" ? "hand" : "";
+        var key = mk.getAttribute("data-maker"), a = at(mk),
+            cls = mk.closest(".ln-group").classList.contains("hand") ? "hand" : "";
         out.push('<path class="' + cls + (on === key ? " on" : "") + '" d="' + curve(m.r, m.y, a.l - 8, a.y) + '"/>');
         var right = at(mk.querySelector(".who")).r + 10;
         btns.forEach(function(b){

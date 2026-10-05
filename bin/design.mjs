@@ -25,6 +25,7 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
        design german apply <page> <edits.json>
        design german stale <base> <head>
        design german questions <model.json>
+       design german privacy <model.json>
 
   sync            copy this package's files into the site
   sync --check    compare only, exit 1 if a copy has drifted (this is what CI runs)
@@ -42,7 +43,8 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
   german german   the same without the English, for a role that must not read it
   german apply    write {id: value} back into the page; refuses an unknown id or a broken attribute
   german stale    fail where an English edit between two commits left its German unchanged
-  german questions every question title of a model or company file, as JSON, for the translator`;
+  german questions every question title of a model or company file, as JSON, for the translator
+  german privacy   every model string the privacy page's lineage translates, as JSON, for the translator`;
 
 function fail(message, code) {
   console.error(message);
@@ -70,6 +72,16 @@ if (argv[0] === "german") {
   // The translator's list for a site's build/questions.de.json: every title the build will hold
   // the file to, from the same artifact the site's pages are built from. A company file carries
   // the model under `company`, as companygraph.io's does.
+  if (sub === "privacy") {
+    if (!a) fail(USAGE, 2);
+    const { privacyStrings } = await import("../lib/render/privacy.mjs");
+    let j;
+    try { j = JSON.parse(readPage(a)); } catch { fail(`  ✗ design german privacy: ${a} is not JSON`, 2); }
+    const model = j && Array.isArray(j.entities) ? j : j && j.company && Array.isArray(j.company.entities) ? j.company : null;
+    if (!model) fail(`  ✗ design german privacy: ${a} holds no model — pass the model.json or company.json the site's pages are built from`, 2);
+    console.log(JSON.stringify(privacyStrings(model), null, 2));
+    process.exit(0);
+  }
   if (sub === "questions") {
     if (!a) fail(USAGE, 2);
     const { questionTitles } = await import("../lib/render/questions.mjs");

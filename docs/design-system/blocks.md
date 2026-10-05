@@ -137,6 +137,10 @@ The lineage `/surfaces/` draws: the model, the makers under it, the surfaces eac
 └──────────────────────────────────────────────────────┘
 ```
 
+## Privacy path
+
+The lineage a privacy page draws under "Where your data goes": the visit on the left, the keys the browser keeps grouped by how long they last and each processing activity in the middle, and under each its keys or the data processors it hands data to, with what each receives. It is the surfaces lineage's markup and behavior, so the page carries the `surfaces lineage` fence, `card.js`, `STAGE_PAGE`, a `link[data-stage]` to the artifact, `#lnpanel`, `#lnhint` and `#srclink` as /surfaces/ does, and `render/privacy` writes the drawing between `<!-- privacy:start -->` and `<!-- privacy:end -->`. A page's own `.card` rules must not reach `#lnpanel .card`; give a page's own boxes a class of their own.
+
 ## Index list
 
 The list a section's index page draws under its title, one row per talk on `/talks/` or post on `/blog/`. Contract: [blocks/index.css](../../blocks/index.css).
