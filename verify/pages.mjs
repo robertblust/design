@@ -367,49 +367,52 @@ export function pageChecks({ SITE, BASE }) {
       }
       return problems.length ? problems.join("; ") : null;
     },
-    // The privacy page says "that is everything that gets stored" and then lists the keys. It
-    // was true until the divider started remembering its width, and nothing noticed — the claim
-    // is prose and the keys are in a script, so the two could only be compared by hand.
-    //
-    // This drives the page instead of reading it: every write to localStorage is recorded, the
-    // page is then made to do the things that write — switch language, move the divider — and
-    // each key that turns up must be named on the privacy page. A key the page does not declare
-    // is the failure; a key it declares and never writes is not, because a claim to store
-    // something is not a claim anyone is harmed by.
+    // The privacy page draws the keys a browser keeps from the model, so the model is what a key
+    // has to be promised in. This drives the page instead of reading it: every write to
+    // localStorage and sessionStorage is recorded with its mechanism, the page is made to do the
+    // things that write — switch language and theme, move the divider, open the chat without
+    // sending — and each key that turns up must be a stored item of that name and mechanism in
+    // the artifact /privacy/ names. A stored item never seen written is reported and not failed,
+    // because some keys are written only after a visitor acts: a figure an answer draws, a panel
+    // resized. The chat was the gap the prose version never closed: it did not open the chat, so
+    // a key the chat writes went unseen.
     async storageKeys(page, spec) {
-      const declared = await (await fetch(new URL("/privacy/", spec.absolute).href)).text();
+      const privacyUrl = new URL("/privacy/", spec.absolute).href;
+      const html = await (await fetch(privacyUrl)).text();
+      const href = (html.match(/<link\b[^>]*\bdata-stage\b[^>]*>/) || [""])[0].match(/\bhref="([^"]+)"/);
+      if (!href) return "/privacy/ names no model — it carries no link[data-stage] to the artifact its lineage is drawn from";
+      const data = await (await fetch(new URL(href[1], privacyUrl).href)).json();
+      const held = new Set(data.entities.filter((e) => e.type === "stored-item").map((e) => `${e.name}\u0000${e.fields.mechanism}`));
       await page.addInitScript(() => {
         window.__keys = [];
         const real = Storage.prototype.setItem;
-        Storage.prototype.setItem = function (k, v) { window.__keys.push(k); return real.call(this, k, v); };
+        Storage.prototype.setItem = function (k, v) {
+          window.__keys.push([k, this === window.sessionStorage ? "session-storage" : "local-storage"]);
+          return real.call(this, k, v);
+        };
       });
       await page.goto(spec.absolute, { waitUntil: "networkidle" });
-      // The write paths this suite knows about, each present-or-skip: prose pages carry the
-      // language control as #lde/#len, a deck carries the same control as #langDe/#langEn, the
-      // theme control is #thLight/#thDark on either, and the model page's divider is #gutter.
-      // A page matching none of these has nothing here to exercise its storage — the
-      // zero-writes check below is what actually catches that, so this list is free to be
-      // incomplete without the gap going silent again.
       if (await page.$("#lde")) { await page.click("#lde"); await page.click("#len"); }
       if (await page.$("#langDe")) { await page.click("#langDe"); await page.click("#langEn"); }
       if (await page.$("#thLight")) { await page.click("#thLight"); await page.click("#thDark"); }
       if (await page.$("#gutter")) { await page.focus("#gutter"); await page.keyboard.press("ArrowLeft"); }
-      const written = await page.evaluate(() => [...new Set(window.__keys)]);
-      // Leave the page as the rest of the suite expects it, storage included.
-      await page.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
+      if (await page.$(".rbchat-open")) { await page.click(".rbchat-open"); await page.waitForTimeout(500); }
+      const written = await page.evaluate(() => {
+        const seen = new Map();
+        for (const [k, m] of window.__keys) seen.set(`${k}\u0000${m}`, [k, m]);
+        return [...seen.values()];
+      });
+      await page.evaluate(() => { try { localStorage.clear(); sessionStorage.clear(); } catch (e) {} });
       await page.goto(spec.absolute, { waitUntil: "networkidle" });
-      // This is the other half of the check, and the one a page armed with storageKeys used to
-      // have no way to fail: a page that writes nothing and a page whose trigger this check
-      // failed to find are indistinguishable from the outside, and both used to return a clean
-      // pass. Every page armed with storageKeys is here because it is known to write
-      // `lang` on its language control, so zero observed writes means the
-      // control above was not found or not exercised — not that the page has nothing to declare.
       if (!written.length)
         return "no write path was exercised — none of #lde/#len, #langDe/#langEn, " +
-               "#thLight/#thDark or #gutter produced a write on this page; add its control to the list above";
-      const undeclared = written.filter((k) => !declared.includes(k));
+               "#thLight/#thDark, #gutter or .rbchat-open produced a write on this page; add its control to the list above";
+      const seen = new Set(written.map(([k, m]) => `${k}\u0000${m}`));
+      const unseen = [...held].filter((x) => !seen.has(x)).map((x) => x.replace("\u0000", " in "));
+      if (unseen.length) console.log(`  · storageKeys: ${spec.absolute} did not write ${unseen.join(", ")} in this run`);
+      const undeclared = written.filter(([k, m]) => !held.has(`${k}\u0000${m}`)).map(([k, m]) => `${k} in ${m}`);
       return undeclared.length
-        ? `writes ${undeclared.join(", ")}, which /privacy/ does not name`
+        ? `writes ${undeclared.join(", ")}, which the model /privacy/ is drawn from holds no stored item for`
         : null;
     },
     // Every text token has to clear AA against the ground of the theme it belongs to. Read from
