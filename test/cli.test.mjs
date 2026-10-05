@@ -9,6 +9,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import http from "node:http";
 
 import { GROUPS } from "../lib/groups.mjs";
 import { blockFor } from "../lib/fences.mjs";
@@ -290,4 +291,40 @@ test("sync --check refuses a deck without the chat, naming it, on a site whose f
     '<link rel="stylesheet" href="../../chat.css"><script src="../../deck.js" defer></script>' +
     '<script src="../../chat.js" data-chat="https://chat.example.test/chat"></script>');
   assert.equal(run(["sync", "--check"], root).code, 0);
+});
+
+// design serve: the server a site's suite runs against. It is started the way a site's verify
+// list starts it, in the background, and must answer, redirect a directory, and stop on SIGTERM.
+test("design serve answers on the port it is given, redirects a bare directory and stops on SIGTERM", async () => {
+  const { spawn } = await import("node:child_process");
+  const root = site({ "index.html": "<p>home</p>", "talks/a/index.html": "<p>talk</p>" });
+  const port = await new Promise((ok) => { const s = http.createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => ok(p)); }); });
+  const child = spawn(process.execPath, [CLI, "serve", "--port", String(port)], { cwd: root });
+  // Killed whatever happens below: a failed assertion with the server still running would hold
+  // the test runner open forever rather than fail.
+  try {
+    const printed = await new Promise((ok, no) => {
+      const t = setTimeout(() => no(new Error("design serve printed no address within 5s")), 5000);
+      child.stdout.once("data", (d) => { clearTimeout(t); ok(String(d).trim()); });
+    });
+    assert.equal(printed, `http://127.0.0.1:${port}`);
+    const home = await fetch(`${printed}/`);
+    assert.equal(home.status, 200);
+    assert.equal(await home.text(), "<p>home</p>");
+    const bare = await fetch(`${printed}/talks/a?lang=de`, { redirect: "manual" });
+    assert.equal(bare.status, 301);
+    assert.equal(bare.headers.get("location"), "/talks/a/?lang=de");
+    assert.equal((await fetch(`${printed}/missing.html`)).status, 404);
+    const exited = new Promise((ok) => child.once("exit", (code) => ok(code)));
+    child.kill("SIGTERM");
+    assert.equal(await exited, 0);
+  } finally {
+    if (child.exitCode === null) child.kill("SIGKILL");
+  }
+});
+
+test("design serve refuses an argument it does not take", () => {
+  assert.equal(run(["serve", "--port"], process.cwd()).code, 2);
+  assert.equal(run(["serve", "--port", "x"], process.cwd()).code, 2);
+  assert.equal(run(["serve", "--porr", "1"], process.cwd()).code, 2);
 });

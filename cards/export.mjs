@@ -74,8 +74,9 @@ const TYPES = {
 
 // Exported so the routing this run actually depends on — a type served wrong, a directory
 // index, a 404, a path kept inside root — is verified by hitting a real listening server, not
-// by re-deriving what its handler is supposed to do.
-export function serve(root) {
+// by re-deriving what its handler is supposed to do. It is also what `design serve` runs, the
+// server a site's own suite is checked against, so `port` may name the port a caller chose.
+export function serve(root, port = 0) {
   const rootResolved = path.resolve(root);
   const srv = http.createServer((req, res) => {
     try {
@@ -97,6 +98,15 @@ export function serve(root) {
         res.end();
         return;
       }
+      // A directory asked for without its trailing slash is sent to the address with one, as
+      // any static host does, so its relative links resolve inside it and not beside it.
+      if (fs.statSync(file).isDirectory()) {
+        const [p, q] = req.url.split(/(?=[?#])/);
+        res.statusCode = 301;
+        res.setHeader("location", p + "/" + (q || ""));
+        res.end();
+        return;
+      }
       res.setHeader("content-type", TYPES[path.extname(file)] || "application/octet-stream");
       res.end(fs.readFileSync(file));
     } catch {
@@ -105,7 +115,7 @@ export function serve(root) {
     }
   });
   // Port 0 asks the OS for a free one, so two runs cannot collide and nothing has to be reserved.
-  return new Promise((ok) => srv.listen(0, "127.0.0.1", () => ok(srv)));
+  return new Promise((ok, no) => { srv.once("error", no); srv.listen(port, "127.0.0.1", () => ok(srv)); });
 }
 
 export async function exportCards({ chromium, recipe, log = console.log }) {
