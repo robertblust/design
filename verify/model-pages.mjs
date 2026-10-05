@@ -225,7 +225,9 @@ export const MODEL_PAGE_CHECKS = {
   },
   // The privacy page's lineage, held to the stored items, activities and processors the artifact
   // holds: every entry drawn under its group, the wires, the card a choice opens, a hash landing.
-  async path(page, spec) {
+  // Named privacyPath and not path: a page opts in by naming the check in its spec, and every
+  // spec already carries path, its own address, so a check of that name ran on every page.
+  async privacyPath(page, spec) {
     await page.goto(spec.absolute, { waitUntil: "networkidle" });
     const art = await artifact(page);
     if (!art) return "the page names no data";
