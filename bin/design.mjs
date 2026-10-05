@@ -20,6 +20,7 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
        design sitemap [--check]
        design indexnow <base> <head> [--dry-run]
        design links [--external] [--base <url>]
+       design serve [--port <n>]
        design german extract|german <page>
        design german apply <page> <edits.json>
        design german stale <base> <head>
@@ -36,6 +37,8 @@ const USAGE = `usage: design sync [--check] [--site <dir>]
   links --external
                   check every link to another site and report it, exit 1 only if the check could not run
   --base <url>    where the site is served (default: http://127.0.0.1:8000)
+  serve           serve the site from the current directory until stopped, printing its address
+  --port <n>      the port to serve on (default: one the system picks)
   german extract  every German value of a page by id, with its English, as JSON
   german german   the same without the English, for a role that must not read it
   german apply    write {id: value} back into the page; refuses an unknown id or a broken attribute
@@ -200,6 +203,30 @@ if (argv[0] === "links") {
   } catch (e) {
     fail(`  ✗ ${e.message}`, 1);
   }
+}
+
+// The server a site's suite is checked against, on the developer's machine as in CI. It is the
+// same server the card and deck exporters already start for themselves. Python's http.server,
+// which the sites ran before, reset connections on macOS while a page was still loading: two
+// of eight full runs of companygraph.io's suite failed on a font or chat.js that never arrived,
+// and fifteen runs against this one failed none. It prints its address and runs until it is
+// stopped; started as `./node_modules/.bin/design serve &`, its PID is the server's own.
+if (argv[0] === "serve") {
+  const at = argv.indexOf("--port");
+  if (argv.length !== (at === -1 ? 1 : 3) || (at !== -1 && !/^\d+$/.test(argv[at + 1] || ""))) fail(USAGE, 2);
+  const { serve } = await import("../cards/export.mjs");
+  let srv;
+  try {
+    srv = await serve(process.cwd(), at === -1 ? 0 : Number(argv[at + 1]));
+  } catch (e) {
+    fail(`  ✗ design serve could not listen: ${e.message}`, 1);
+  }
+  console.log(`http://127.0.0.1:${srv.address().port}`);
+  const stop = () => srv.close(() => process.exit(0));
+  process.on("SIGTERM", stop);
+  process.on("SIGINT", stop);
+  // Held here until a signal stops the server, so nothing below, which is sync, ever runs.
+  await new Promise(() => {});
 }
 
 if (argv[0] !== "sync") fail(USAGE, 2);

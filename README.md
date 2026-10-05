@@ -250,6 +250,12 @@ jobs:
 
 The last step needs no wait before it: the command waits for the server itself.
 
+## Serving the site
+
+`design serve` serves the site from the current directory until it is stopped, on `--port` or on a port the system picks, and prints its address. It is the server the card and deck exporters start for themselves, and the one a site's pin verify list starts before `npm run verify` and `design links`, started as `./node_modules/.bin/design serve --port $PORT &` so the PID the list stops is the server's own and not a wrapper's. A folder asked for without its closing `/` is redirected to it, as GitHub Pages does.
+
+It replaces `python3 -m http.server` on the machine a person runs the list on. On macOS that server reset connections while a page was still loading, and a font or `chat.js` that never arrived failed a page with nothing wrong with it: two of eight full runs of companygraph.io's suite, where fifteen runs against this one failed none. CI on Linux has not shown the fault and still serves with Python.
+
 ## A warning about `stage.js` and `card.js`
 
 `stage.js` and `card.js` are the shared files no deck loads — a deck draws static SVG and needs neither. **Never link a deck to `stage.js`, `card.js` or `stage.css`.** They are reached only by served prose pages, through a plain `<link>` and `<script src>`.
