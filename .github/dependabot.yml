@@ -4,6 +4,9 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    # Family pins move with the resync, never with Dependabot: conventions/PINS.md, Dependabot.
+    ignore:
+      - dependency-name: "*robertblust/conventions*"
     schedule:
       interval: "weekly"
     groups:
