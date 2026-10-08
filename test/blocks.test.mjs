@@ -459,6 +459,23 @@ test("the design check's header measurements are the header contract's", () => {
   assert.ok(check.includes(`want("the bar's min-height", got.barMin, "${floor[1]}px")`), "verify/design.mjs expects another floor");
 });
 
+// The tight row's values are written in verify/design.mjs as pixels at the link's 12.16px, and
+// the contract writes them in rem and em. Read out of the contract here, so a new gap or
+// letter-spacing there turns this red instead of every tightened page on the three sites.
+test("the design check's tight row is the header contract's tight row", () => {
+  const css = fs.readFileSync(path.join(PKG, "blocks/header.css"), "utf8");
+  const check = fs.readFileSync(path.join(PKG, "verify/design.mjs"), "utf8");
+  const tight = css.match(/:root\[data-nav="tight"\] nav\{gap:([\d.]+)rem; letter-spacing:([\d.]+)em\}/);
+  assert.ok(tight, "the header contract no longer sets the tight row where this reads it");
+  const size = css.match(/\n  nav\{display:flex; [^}]*?font-size:([\d.]+)rem;/);
+  assert.ok(size, "the header contract no longer sets the nav's font-size where this reads it");
+  const px = (n) => `${Math.round(n * 1e4) / 1e4}px`;
+  const gap = px(parseFloat(tight[1]) * 16);
+  const spacing = px(parseFloat(size[1]) * 16 * parseFloat(tight[2]));
+  assert.ok(check.includes(`tight ? "${gap}"`), `verify/design.mjs expects another tight gap than ${gap}`);
+  assert.ok(check.includes(`tight ? "${spacing}"`), `verify/design.mjs expects another tight letter-spacing than ${spacing}`);
+});
+
 test("on a phone the deck transport hides the chat's button, over chat.css's own rule", () => {
   const css = blockFor("deck transport", null);
   const phone = css.slice(css.indexOf("@media (max-width: 860px), (max-aspect-ratio: 4/5){"));

@@ -1,4 +1,4 @@
-  /* ─── nav fit · v2 · {{variant}} ──────────────────────────────────────
+  /* ─── nav fit · v3 · {{variant}} ──────────────────────────────────────
      Whether the header row fits, measured rather than declared. Generated from
      @robertblust/design — editing it here does nothing, because the next `npm run design`
      overwrites it. Change it in the package.
@@ -21,7 +21,14 @@
 
      `flex-wrap` comes off for the read too. The bar wraps by rule, and a wrapped child reports
      the width it was given rather than the width it wants, so a wrapped row measures as
-     fitting. With `nowrap` the overflow is real and `scrollWidth` is the width the row needs.
+     fitting. With `nowrap` the overflow is real.
+
+     Whether it is real is read in fractions of a pixel. `scrollWidth` and `clientWidth` are
+     integers, and a row that needs a fraction more than the bar has rounds to the bar's own
+     integer and reads as fitting: on guestgraph.io at 1001px the bar was 860.875px, the row
+     needed a little more, both read 861, and the row wrapped onto two lines with nothing
+     tightened. So the row's right edge is read from its items' boxes and held against the
+     bar's content edge, and the integers stay as well for overflow no item's box shows.
 
      It runs on load, on resize, when the fonts arrive — a row measured in the fallback face is
      measured at the wrong width — and when `<html lang>` changes, which is the case that
@@ -47,15 +54,31 @@
         "the body, after the theme fence, not in the head beside theme boot.");
     }
     var pending = false;
+    // The right edge of what the bar holds, fractional. `display:contents` draws no box, so its
+    // children stand for it; an element with no box at all (`display:none`) holds nothing.
+    function edge(el){
+      var right = -Infinity;
+      for (var i = 0; i < el.children.length; i++) {
+        var child = el.children[i];
+        if (getComputedStyle(child).display === "contents") right = Math.max(right, edge(child));
+        else if (child.getClientRects().length) right = Math.max(right, child.getBoundingClientRect().right);
+      }
+      return right;
+    }
+    function overflows(){
+      var box = bar.getBoundingClientRect(), style = getComputedStyle(bar);
+      var room = box.right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
+      return edge(bar) > room || bar.scrollWidth > bar.clientWidth;
+    }
     function fit(){
       pending = false;
       root.removeAttribute("data-nav");
       var wrap = bar.style.flexWrap;
       bar.style.flexWrap = "nowrap";
-      var over = bar.scrollWidth > bar.clientWidth;
+      var over = overflows();
       if (over) {
         root.setAttribute("data-nav", "tight");
-        over = bar.scrollWidth > bar.clientWidth;
+        over = overflows();
       }
       bar.style.flexWrap = wrap;
       if (over) root.setAttribute("data-nav", "compact");

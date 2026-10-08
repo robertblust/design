@@ -304,6 +304,7 @@ export const DESIGN_CHECKS = {
         svgW:      box ? Math.round(box.width  * 1e3) / 1e3 : null,
         svgH:      box ? Math.round(box.height * 1e3) / 1e3 : null,
         navGap:    px(nav, "gap"),
+        navState:  document.documentElement.getAttribute("data-nav"),
         size:      px(link, "fontSize"),
         weight:    px(link, "fontWeight"),
         spacing:   px(link, "letterSpacing"),
@@ -316,6 +317,13 @@ export const DESIGN_CHECKS = {
     const want = (label, actual, expected) => {
       if (actual !== expected) wrong.push(`${label} is ${actual}, expected ${expected}`);
     };
+    // `nav fit` sets data-nav="tight" when the wide row does not fit, and the header contract
+    // draws that row with a gap of 1.2rem and letter-spacing of .11em, against 1.9rem and .14em
+    // wide: 19.2px and 12.16px * .11 = 1.3376px, held to the contract's rule by a test in
+    // blocks.test.mjs. The page says which row it is on, and the check wants that row's values;
+    // wanting the wide ones always reported every page nav fit had tightened as broken. A
+    // compact row is measured as before: its nav draws no box, and the values stay the wide ones.
+    const tight = got.navState === "tight";
     if (!got.inShell) wrong.push(`header sits in ${got.parent}, expected a .shell`);
     want("header padding-top", got.padTop, "9.6px");
     want("header padding-bottom", got.padBottom, "9.6px");
@@ -328,12 +336,12 @@ export const DESIGN_CHECKS = {
       want(".brand svg height", got.svgH, 28);
     }
     if (!got.hasNav) wrong.push("there is no nav in the header");
-    else want("nav gap", got.navGap, "30.4px");
+    else want("nav gap", got.navGap, tight ? "19.2px" : "30.4px");
     if (!got.hasLink) wrong.push("the nav carries no link to measure");
     else {
       want("the first nav link's font-size", got.size, "12.16px");
       want("the first nav link's font-weight", got.weight, "500");
-      want("the first nav link's letter-spacing", got.spacing, "1.7024px");
+      want("the first nav link's letter-spacing", got.spacing, tight ? "1.3376px" : "1.7024px");
       want("the first nav link's text-transform", got.transform, "uppercase");
     }
     return wrong.length ? wrong.join("; ") : null;

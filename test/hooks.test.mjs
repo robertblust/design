@@ -131,7 +131,10 @@ function fakeElement() {
     setAttribute() {}, getAttribute: () => null, removeAttribute() {}, hasAttribute: () => false,
     toggleAttribute() {}, addEventListener() {}, removeEventListener() {},
     querySelector: () => null, querySelectorAll: () => [], closest: () => null,
-    getBoundingClientRect: () => ({ top: 0, left: 0, width: 0, height: 0 }),
+    getBoundingClientRect: () => ({ top: 0, left: 0, right: 0, width: 0, height: 0 }),
+    // nav fit reads the row's boxes in fractions of a pixel: items, their boxes, and the bar's
+    // padding. A bar with no items and no box asks nothing of the page.
+    children: [], getClientRects: () => [],
   };
 }
 
@@ -156,7 +159,7 @@ function fakeDocument({ slides = [] } = {}) {
 // Runs `src` (the bytes assemble() returns) as a whole file would load: `window` and
 // `document` are the only two names a site's own page ever gives it, plus the handful of
 // bare browser globals every block already assumed when it ran fenced (MutationObserver,
-// Audio, localStorage, location, history) — none of which are page scope, all of which a
+// Audio, localStorage, location, history, getComputedStyle) — none of which are page scope, all of which a
 // real browser always supplies. Restores globalThis afterward either way.
 // `after`, when given, runs before globalThis is restored — carryLang and carryTheme read
 // `localStorage` as a bare global at call time, not as a value they closed over, so a click
@@ -178,10 +181,12 @@ function loadAssembled(src, { rb, seedTheme, after } = {}) {
     window: globalThis.window, document: globalThis.document,
     MutationObserver: globalThis.MutationObserver, Audio: globalThis.Audio,
     localStorage: globalThis.localStorage, location: globalThis.location, history: globalThis.history,
+    getComputedStyle: globalThis.getComputedStyle,
   };
   Object.assign(globalThis, {
     window: win, document: doc, MutationObserver: MutationObserverStub, Audio: AudioStub,
     localStorage: localStorageStub, location: { ...LOCATION }, history: { replaceState() {} },
+    getComputedStyle: () => ({ display: "block", paddingRight: "0px", borderRightWidth: "0px" }),
   });
   try {
     new Function(src)();
