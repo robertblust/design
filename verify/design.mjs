@@ -321,8 +321,8 @@ export const DESIGN_CHECKS = {
     // draws that row with a gap of 1.2rem and letter-spacing of .11em, against 1.9rem and .14em
     // wide: 19.2px and 12.16px * .11 = 1.3376px, held to the contract's rule by a test in
     // blocks.test.mjs. The page says which row it is on, and the check wants that row's values;
-    // wanting the wide ones always reported every page nav fit had tightened as broken. A
-    // compact row is measured as before: its nav draws no box, and the values stay the wide ones.
+    // wanting the wide values there would report every tightened page as broken. A compact row
+    // is measured as before: its nav draws no box, and the values stay the wide ones.
     const tight = got.navState === "tight";
     if (!got.inShell) wrong.push(`header sits in ${got.parent}, expected a .shell`);
     want("header padding-top", got.padTop, "9.6px");

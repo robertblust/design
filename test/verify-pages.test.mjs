@@ -1084,7 +1084,7 @@ test("the header contract collapses on a measurement, not on a width", () => {
   assert.match(js, /removeAttribute\("data-nav"\)/, "it never measures in the wide state");
   assert.match(js, /flexWrap = "nowrap"/,
     "it measures a row that may wrap, where a wrapped child reports the width it was given");
-  assert.match(js, /edge\(bar\) > room/, "it does not compare need against room in fractions of a pixel");
+  assert.match(js, /edge\(bar\) - room >= UNIT/, "it does not compare need against room in fractions of a pixel");
   assert.match(js, /scrollWidth > bar\.clientWidth/, "it drops the integer comparison, which sees overflow no item's box shows");
   assert.match(js, /attributeFilter: \["lang"\]/,
     "it never re-measures when the language changes, which is the case that started this");

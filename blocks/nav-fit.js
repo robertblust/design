@@ -24,11 +24,13 @@
      fitting. With `nowrap` the overflow is real.
 
      Whether it is real is read in fractions of a pixel. `scrollWidth` and `clientWidth` are
-     integers, and a row that needs a fraction more than the bar has rounds to the bar's own
-     integer and reads as fitting: on guestgraph.io at 1001px the bar was 860.875px, the row
-     needed a little more, both read 861, and the row wrapped onto two lines with nothing
-     tightened. So the row's right edge is read from its items' boxes and held against the
-     bar's content edge, and the integers stay as well for overflow no item's box shows.
+     integers, so a row that needs a fraction of a pixel more than the bar has can round to the
+     bar's own integer, read as fitting, and wrap. So the row's right edge is read from its
+     items' boxes, margin included, and held against the bar's content edge. Layout keeps
+     lengths to a 64th of a pixel where computed style reports them as declared, so padding,
+     border and margin are cut to that grid before they are added, and a row counts as over
+     only by a whole layout unit or more. The integers stay as well, for overflow no item's box
+     shows.
 
      It runs on load, on resize, when the fonts arrive — a row measured in the fallback face is
      measured at the wrong width — and when `<html lang>` changes, which is the case that
@@ -54,21 +56,27 @@
         "the body, after the theme fence, not in the head beside theme boot.");
     }
     var pending = false;
+    // A length as layout holds it: computed style says 9.6px, layout keeps 9.59375.
+    var UNIT = 1 / 64;
+    function laid(value){ return Math.floor((parseFloat(value) || 0) / UNIT) * UNIT; }
     // The right edge of what the bar holds, fractional. `display:contents` draws no box, so its
-    // children stand for it; an element with no box at all (`display:none`) holds nothing.
+    // children stand for it; an element with no box at all (`display:none`) holds nothing. An
+    // item's trailing margin is part of what it needs.
     function edge(el){
       var right = -Infinity;
       for (var i = 0; i < el.children.length; i++) {
-        var child = el.children[i];
-        if (getComputedStyle(child).display === "contents") right = Math.max(right, edge(child));
-        else if (child.getClientRects().length) right = Math.max(right, child.getBoundingClientRect().right);
+        var child = el.children[i], style = getComputedStyle(child);
+        if (style.display === "contents") right = Math.max(right, edge(child));
+        else if (child.getClientRects().length) {
+          right = Math.max(right, child.getBoundingClientRect().right + laid(style.marginRight));
+        }
       }
       return right;
     }
     function overflows(){
       var box = bar.getBoundingClientRect(), style = getComputedStyle(bar);
-      var room = box.right - parseFloat(style.paddingRight) - parseFloat(style.borderRightWidth);
-      return edge(bar) > room || bar.scrollWidth > bar.clientWidth;
+      var room = box.right - laid(style.paddingRight) - laid(style.borderRightWidth);
+      return edge(bar) - room >= UNIT || bar.scrollWidth > bar.clientWidth;
     }
     function fit(){
       pending = false;
