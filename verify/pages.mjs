@@ -695,7 +695,7 @@ export function pageChecks({ SITE, BASE }) {
       // because a reader who wants the interface wants it before the argument for it; the rest
       // run from the ideas to the small print. `Blog` sits between the record and the talks: what
       // was written comes before what was spoken, and both come after the record they draw on.
-      const ORDER = ["CLI", "Team", "Principles", "Surfaces", "API", "Ideas", "Model", "Timeline", "Example", "Blog", "Talks", "Billing", "Privacy"];
+      const ORDER = ["CLI", "Principles", "Processes", "Surfaces", "API", "Ideas", "Model", "Timeline", "Example", "Blog", "Talks", "Billing", "Privacy"];
       return await page.evaluate(order => {
         const nav = document.querySelector("nav");
         if (!nav) return "there is no nav";

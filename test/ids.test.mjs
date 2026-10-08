@@ -46,8 +46,8 @@ test("the refresh and the fallback link are relative to the stage, and no canoni
 test("an entity whose id is still its address gets no page, since it has no stable id to publish", () => {
   const files = idPages(MODEL([
     entity("decisions/old", "decisions/old", "Old"),
-    { id: "roles/owner", name: "Owner", type: "role" },
-    entity(A, "roles/maker", "Maker"),
+    { id: "seats/owner", name: "Owner", type: "seat" },
+    entity(A, "seats/maker", "Maker"),
   ]), { origin: ORIGIN, stage: "/model/" });
   assert.deepEqual(files.map((f) => f.path), [`id/${A}/index.html`]);
 });

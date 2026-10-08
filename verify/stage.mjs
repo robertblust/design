@@ -224,7 +224,7 @@ export const STAGE_CHECKS = {
     if (hash !== fromAt) return `hash is ${JSON.stringify(hash)}, expected ${fromAt}`;
     // An entity is one node, however many edges reach it. `neighbourhood()` placed a node per
     // edge, so a profile's skill came back once for the claim and once per evidence row, a
-    // phase's role once per field naming it, and a phase's own process twice: in the spine
+    // phase's seat once per field naming it, and a phase's own process twice: in the spine
     // that owns it and again in the band of what refers to it, where the second copy also took
     // the spine's position. The data says where to look, so nothing here names a page: a
     // focus with two edges to one entity in either direction, and a focus its owner refers to
@@ -253,7 +253,7 @@ export const STAGE_CHECKS = {
     }
     // A reference is a link on the card whether the field holds one name or a list of them. The
     // card linked each entry of a list and wrote a single value as text, so a phase's owner and
-    // the phase it gates to read as plain words beside a list of linked roles, although the
+    // the phase it gates to read as plain words beside a list of linked seats, although the
     // parser had drawn an edge for each. The data says where to look: the first entity with a
     // single-valued field its own edge was drawn for, focused through the address.
     const single = data.entities.map((en) => {

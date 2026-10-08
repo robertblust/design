@@ -42,12 +42,12 @@ function hrefFor(data, surfaceId, id) {
 const MODEL = (entities) => ({ commit: "0".repeat(40), repo: "o/r", entities, edges: [] });
 
 test("a surface's card links the stage at the address of what it names", () => {
-  const [boss, maker] = withStableIds(MODEL([{ id: "roles/boss", type: "role", name: "Boss" },
-    { id: "roles/maker", type: "role", name: "Maker" }])).entities;
-  assert.equal(hrefFor(MODEL([boss, maker]), boss.id, maker.id), "../model/?stage=expanded#roles/maker");
+  const [boss, maker] = withStableIds(MODEL([{ id: "seats/boss", type: "seat", name: "Boss" },
+    { id: "seats/maker", type: "seat", name: "Maker" }])).entities;
+  assert.equal(hrefFor(MODEL([boss, maker]), boss.id, maker.id), "../model/?stage=expanded#seats/maker");
 });
 
 test("a model with no address links the stage at the id, which is its path", () => {
-  const boss = { id: "roles/boss", type: "role", name: "Boss" };
-  assert.equal(hrefFor(MODEL([boss]), boss.id, boss.id), "../model/?stage=expanded#roles/boss");
+  const boss = { id: "seats/boss", type: "seat", name: "Boss" };
+  assert.equal(hrefFor(MODEL([boss]), boss.id, boss.id), "../model/?stage=expanded#seats/boss");
 });

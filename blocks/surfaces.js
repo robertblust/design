@@ -21,7 +21,7 @@
   // The nodes are in the markup; the lines and the cards are not. A line is drawn from where two
   // nodes landed, which only the browser knows, and says nothing the nesting of the lists does not.
   // A card is rendered when its surface is chosen and again when the language changes, as a seat's
-  // card is on /team/.
+  // card is on /processes/.
   (function(){
     var box = document.getElementById("lineage"), svg = document.getElementById("wires"),
         model = document.getElementById("lnmodel"), panel = document.getElementById("lnpanel"),

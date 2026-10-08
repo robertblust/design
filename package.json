@@ -55,7 +55,7 @@
     "./render/german": "./lib/render/german.mjs",
     "./render/principles": "./lib/render/principles.mjs",
     "./render/questions": "./lib/render/questions.mjs",
-    "./render/team": "./lib/render/team.mjs",
+    "./render/processes": "./lib/render/processes.mjs",
     "./render/surfaces": "./lib/render/surfaces.mjs",
     "./render/privacy": "./lib/render/privacy.mjs",
     "./render/home": "./lib/render/home.mjs",

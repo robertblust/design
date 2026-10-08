@@ -7,7 +7,7 @@ import { PRIVACY_FIXTURE } from "./fixtures/privacy.mjs";
 // Two processes, so the ids take the slug. The one profile is an agent holding no seat, so both
 // seats are drawn as held by a person. The shapes are the parser's: a process lists its phases in
 // a table with a Phase column, and a phase names its process as its owner.
-const role = (name) => ({ id: `roles/${name.toLowerCase()}`, type: "role", name, fields: {}, sections: [] });
+const seat = (name) => ({ id: `seats/${name.toLowerCase()}`, type: "seat", name, fields: {}, sections: [] });
 const proc = (name, phases) => ({
   id: `processes/${name.toLowerCase().replace(/ /g, "-")}`, type: "process", name,
   path: `model/processes/${name}.md`, fields: { owner: "Owner" },
@@ -18,9 +18,9 @@ const phase = (procName, name, f) => ({
   owner: `processes/${procName.toLowerCase().replace(/ /g, "-")}`,
 });
 const DATA = { entities: [
-  role("Owner"), role("Requestor"),
+  seat("Owner"), seat("Requestor"),
   { id: "profiles/ai-agent", type: "profile", name: "AI agent", path: "model/profiles/ai-agent.md",
-    fields: { nature: "agent", roles: [] }, sections: [] },
+    fields: { nature: "agent", seats: [] }, sections: [] },
   proc("Feature request", ["Raise", "Answer"]),
   phase("Feature request", "Raise", { owner: "Requestor" }),
   phase("Feature request", "Answer", { owner: "Owner", "gate-approvers": ["Owner"] }),

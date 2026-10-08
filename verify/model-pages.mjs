@@ -1,5 +1,5 @@
 // The checks that hold a page generated from a model to the model it was generated from: the
-// team board, the surfaces lineage and the privacy path. They were a site's own until a second site drew them, and
+// Processes board, the surfaces lineage and the privacy path. They were a site's own until a second site drew them, and
 // each hard-coded that site's model — its row count, its phase names, its gate count — so they
 // read everything they expect from the artifact the page names instead, through the same helpers
 // the renderers use. Only reading the page happens in the browser.
@@ -8,7 +8,7 @@
 // names must draw the same artifact, or a seat or a surface opens onto a stage that does not
 // hold it. Nothing else could see that: the link is written by a script when a card opens, and
 // every other check passed with it pointing anywhere.
-import { processesOf, phasesOf, seatsOf, marksOf, procSlug } from "../lib/render/team.mjs";
+import { processesOf, phasesOf, seatsOf, marksOf, procSlug } from "../lib/render/processes.mjs";
 import { pathOf } from "../lib/render/privacy.mjs";
 
 // Every entry the privacy lineage draws, in drawing order: a key under its mechanism, a processor
@@ -29,9 +29,9 @@ export function boardsOf(data) {
       prefix: procs.length > 1 ? `${procSlug(proc.name)}-` : "",
       name: proc.name,
       phases: phasesOf(data, proc).map((p) => p.name),
-      rows: seatsOf(data, proc).map(({ role }) => ({
-        name: role.name,
-        gates: marks[role.name].filter((m) => m.includes("ga")).length,
+      rows: seatsOf(data, proc).map(({ seat }) => ({
+        name: seat.name,
+        gates: marks[seat.name].filter((m) => m.includes("ga")).length,
       })),
     };
   });
