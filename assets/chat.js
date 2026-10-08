@@ -168,8 +168,8 @@
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
-        list: "Liste {list} als Tabelle", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
-        lists: { kpi: "die KPIs", seat: "die Rollen", product: "die Produkte", decision: "die Entscheidungen", value: "die Werte" }
+        list: "Liste {list} als Tabelle auf", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
+        lists: { kpi: "die KPIs", seat: "die Sitze", product: "die Produkte", decision: "die Entscheide", value: "die Werte" }
       },
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",

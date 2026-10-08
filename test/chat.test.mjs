@@ -844,7 +844,7 @@ test("the Try rows are the meta-model, a process the model holds, and a list it 
     ["List the KPIs as a table", "one row each, every name a link into the model"]
   ]);
   assert.deepEqual(tryRows(facts, "de", () => 0).map((r) => r[0]),
-    ["Zeig mir das Meta-Modell", "Zeig mir den Prozess Answering Schritt für Schritt", "Liste die KPIs als Tabelle"]);
+    ["Zeig mir das Meta-Modell", "Zeig mir den Prozess Answering Schritt für Schritt", "Liste die KPIs als Tabelle auf"]);
 });
 
 test("a model without a process or a long enough list leaves those rows out, and no model leaves the meta-model alone", () => {
