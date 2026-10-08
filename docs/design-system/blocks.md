@@ -23,7 +23,7 @@ The row at the top of every prose page: the site's mark, its links and the langu
 ```text
 Desk
 ┌───────────────────────────────────────────────────────────────────────────────────────┐
-│ ▣ Wordmark   CLI  Team  Principles  Surfaces  …  Blog  Talks  Privacy   [EN│DE] [☼│☾] │
+│ ▣ Wordmark   CLI  Principles  Processes  Surfaces  …  Talks  Privacy    [EN│DE] [☼│☾] │
 └───────────────────────────────────────────────────────────────────────────────────────┘
   └ the site's own ┘ └──────────────── nav a ─────────────────────────┘  └ .seg ┘ └ .seg.theme
 
@@ -94,9 +94,9 @@ The values `/principles/` lists, one `article.value` each, as the model's render
   Next value
 ```
 
-## Team board
+## Processes board
 
-The board `/team/` draws for each process: who holds its seats, the seats against the phases, what each seat does in each phase, and each seat's card. Contract: [blocks/team.css](../../blocks/team.css); the card in the drawer is opened by the [model card](#model-card).
+The board `/processes/` draws for each process: who holds its seats, the seats against the phases, what each seat does in each phase, and each seat's card. Contract: [blocks/processes.css](../../blocks/processes.css); the card in the drawer is opened by the [model card](#model-card).
 
 ```text
 ┌──────────────────────────────────────────────────────────────────┐

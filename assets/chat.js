@@ -122,7 +122,7 @@
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
         list: "List {list} as a table", listGets: "one row each, every name a link into the model",
-        lists: { kpi: "the KPIs", role: "the roles", product: "the products", decision: "the decisions", value: "the values" }
+        lists: { kpi: "the KPIs", seat: "the seats", product: "the products", decision: "the decisions", value: "the values" }
       },
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
@@ -169,7 +169,7 @@
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
         list: "Liste {list} als Tabelle", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
-        lists: { kpi: "die KPIs", role: "die Rollen", product: "die Produkte", decision: "die Entscheidungen", value: "die Werte" }
+        lists: { kpi: "die KPIs", seat: "die Rollen", product: "die Produkte", decision: "die Entscheidungen", value: "die Werte" }
       },
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
@@ -631,7 +631,7 @@
   // the answer cited entities of one type only, T, the first of them E, the third is E's
   // neighbors (with nothing named, T's schema comes before them), and what room the answer's entities leave goes to T's schema, then to a question
   // of the model's that rests on E, else one that rests on anything of type T. The schema chip
-  // names E with T after it, "Owner (role)", so a visitor reads which schema it is without
+  // names E with T after it, "Owner (seat)", so a visitor reads which schema it is without
   // knowing the type's name; the type is written as its own name in both languages, as the chat
   // writes it. Each is offered only where no visitor message asked it and it fits the box; a
   // chip left out that way is filled from spread() over the questions still open, so three show
@@ -850,7 +850,7 @@
   // The Try rows: what the chat is built to answer, each with what comes back. The meta-model
   // always; a process only where the model holds one, picked at random; a list only of a kind
   // the model holds at least three of, the first in this order, so no row names what is not there.
-  var LIST_TYPES = ["kpi", "role", "product", "decision", "value"];
+  var LIST_TYPES = ["kpi", "seat", "product", "decision", "value"];
   function tryRows(facts, lang, random){
     var t = strings(lang).try, rows = [[t.metaModel, t.metaModelGets]];
     var ps = facts && Array.isArray(facts.processes) ? facts.processes : [];

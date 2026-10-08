@@ -115,14 +115,14 @@ test("a skill chip carries the level claimed by the entity above it on disk, fou
     path: `model/${address}.md`, fields: { source: "Local" }, sections: [], ...extra });
   const profile = ent(1, "profiles/rb", "profile", "Rob", { sections: [{ heading: "Skills", text: "",
     tables: [{ caption: null, columns: ["Skill", "Level"], rows: [["Java", "Expert"]] }] }] });
-  const role = ent(2, "profiles/rb/roles/dev", "role", "Developer", { owner: uuidOf(1),
+  const exp = ent(2, "profiles/rb/2019-dev", "experience", "Developer", { owner: uuidOf(1),
     fields: { source: "Local", skills: ["Java"] } });
   const skill = ent(3, "skills/java", "skill", "Java", { fields: { source: "Local", group: "Languages" } });
   const lv = [ent(4, "levels/basic", "level", "Basic", { fields: { rank: "1" } }),
     ent(5, "levels/expert", "level", "Expert", { fields: { rank: "2" } })];
   const rbCard = load("../images/");
   const body = new El("div"), foot = new El("span");
-  rbCard.render(role, body, foot, { data: { entities: [profile, role, skill, ...lv], edges: [], commit: "abc", repo: "o/r" }, lang: "en", link: () => new El("a") });
+  rbCard.render(exp, body, foot, { data: { entities: [profile, exp, skill, ...lv], edges: [], commit: "abc", repo: "o/r" }, lang: "en", link: () => new El("a") });
   const marks = find(body, (n) => n.className === "lv");
   assert.equal(marks.length, 1, "the chip carries no level marks");
   assert.deepEqual(marks[0].kids.map((k) => k.className), ["on", "on"]);

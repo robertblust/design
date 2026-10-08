@@ -8,7 +8,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
-import { renderPicture } from "../lib/render/team.mjs";
+import { renderPicture } from "../lib/render/processes.mjs";
 import { TERMINAL } from "./fixtures/terminal.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -25,7 +25,7 @@ body{background:var(--ground);color:var(--ink)}
 </style><style>${TERMINAL}</style><link rel="stylesheet" href="/chat.css"></head><body><p>A page.</p>
 <script src="/chat.js" data-chat="/chat" data-model="/model/" defer></script></body></html>`;
 
-// A page built with a picture of its own, as the team page is: the figure writeTeam writes, far
+// A page built with a picture of its own, as the Processes page is: the figure writeProcesses writes, far
 // enough below the fold that it is out of sight, and a tag naming no chat.
 const BUILT = PAGE.replace('<p>A page.</p>', `<p>A page.</p><div style="height:3000px"></div>\n${renderPicture(PICTURES.process)}`)
   .replace('<script src="/chat.js" data-chat="/chat" data-model="/model/" defer>', '<script src="/chat.js" data-model="/model/" defer>');

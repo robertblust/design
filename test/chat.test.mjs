@@ -259,7 +259,7 @@ function domDoc(lang = "en") {
 const kids = (e) => e.children;
 const CITES = [
   { id: "skills/data-modeling", title: "Data modeling", url: "https://github.com/robertblust/mental-model/blob/4d14ec2a1b2c3d4e5f60718293a4b5c6d7e8f901/skills/data-modeling.md" },
-  { id: "roles/cdo", title: "CDO", url: null },
+  { id: "seats/cdo", title: "CDO", url: null },
 ];
 
 test("the line opens with the page's icon where it has one, and with the words where it has none", () => {
@@ -283,7 +283,7 @@ test("every cite is a title link to the model page, and a cite with a URL carrie
   const links = kids(line).filter((c) => c.tag === "a" && c.className === "rbchat-cite");
   assert.deepEqual(links.map((a) => [a.textContent, a.href]), [
     ["Data modeling", "/model/?stage=expanded#skills/data-modeling"],
-    ["CDO", "/model/?stage=expanded#roles/cdo"],
+    ["CDO", "/model/?stage=expanded#seats/cdo"],
   ]);
   const marks = kids(line).filter((c) => c.tag === "a" && c.className === "rbchat-gh");
   assert.equal(marks.length, 1, "one cite has a URL, one has none");
@@ -837,7 +837,7 @@ test("a bare number picks its row, and anything else is sent as typed", () => {
 });
 
 test("the Try rows are the meta-model, a process the model holds, and a list it holds three of", () => {
-  const facts = { processes: ["Answering"], counts: { role: 4, kpi: 5, product: 1 } };
+  const facts = { processes: ["Answering"], counts: { seat: 4, kpi: 5, product: 1 } };
   assert.deepEqual(tryRows(facts, "en", () => 0), [
     ["Show me the meta-model", "a diagram of the types and how they refer to each other"],
     ["Walk me through the Answering process", "its steps as a flow, the loops back included"],
@@ -848,8 +848,8 @@ test("the Try rows are the meta-model, a process the model holds, and a list it 
 });
 
 test("a model without a process or a long enough list leaves those rows out, and no model leaves the meta-model alone", () => {
-  assert.deepEqual(tryRows({ processes: [], counts: { kpi: 2, role: 3 } }, "en", () => 0).map((r) => r[0]),
-    ["Show me the meta-model", "List the roles as a table"]);
+  assert.deepEqual(tryRows({ processes: [], counts: { kpi: 2, seat: 3 } }, "en", () => 0).map((r) => r[0]),
+    ["Show me the meta-model", "List the seats as a table"]);
   assert.deepEqual(tryRows(null, "en").map((r) => r[0]), ["Show me the meta-model"]);
   assert.deepEqual(tryRows({}, "en").map((r) => r[0]), ["Show me the meta-model"]);
 });
@@ -877,7 +877,7 @@ test("every new sentence exists in both languages", () => {
     for (const k of ["send", "last", "pick", "help"]) assert.ok(s.keys[k], `${lang}.keys.${k}`);
     assert.equal(s.help.length, 4);
     for (const k of ["metaModel", "metaModelGets", "process", "processGets", "list", "listGets"]) assert.ok(s.try[k], `${lang}.try.${k}`);
-    for (const t of ["kpi", "role", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
+    for (const t of ["kpi", "seat", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
   }
 });
 
@@ -963,7 +963,7 @@ test("a link names a place in the graph where it resolves to the model page, exp
   assert.equal(graphTarget("../model/?stage=expanded#people/rob", "/model/", here), "people/rob");
   assert.equal(graphTarget("/model/?stage=expanded#skills/java%20programming", "/model/", here), "skills/java programming");
   assert.equal(graphTarget("https://blust.ch/model/?lang=de&stage=expanded#x", "/model/", here), "x");
-  assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/team/"), "identity");
+  assert.equal(graphTarget("/?stage=expanded#identity", "/", "https://companygraph.io/processes/"), "identity");
   assert.equal(graphTarget("../model/#people/rob", "/model/", here), null, "a link that does not ask for the stage expanded");
   assert.equal(graphTarget("../model/?stage=expanded", "/model/", here), null, "no place named");
   assert.equal(graphTarget("https://example.org/model/?stage=expanded#x", "/model/", here), null, "another site");

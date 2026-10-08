@@ -234,7 +234,7 @@ function rbStage(data) {
   }
 
   // One entity, one node. A focus can reach the same entity by several edges — a profile's
-  // claim on a skill and each evidence row under it, three fields of a phase naming one role,
+  // claim on a skill and each evidence row under it, three fields of a phase naming one seat,
   // the process that owns a phase and also lists it — and what the canvas draws is entities,
   // so each is placed once. Everything is keyed by id downstream: the positions a line is
   // drawn between and the join that enters and exits nodes. A second node for one entity was

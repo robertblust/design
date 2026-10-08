@@ -986,22 +986,44 @@ test("navOrder's rule names Blog between Timeline and Talks", () => {
 // CLI is first, by the owner's decision: a reader who came to set the thing up wants the
 // command before anything a site says about it, and a site without a CLI page loses nothing, since
 // the rule is filtered to the items a site has. After it the order is read right to left: the
-// switcher sits at the edge and each step left is more the site's own subject, and nothing is
-// more the site's own subject than who does the work, so Team comes next and nothing else may
-// be inserted before it. Principles follows it, because what
-// the work is held to belongs to a site as closely as who does it; Surfaces comes after both,
-// since where the work is published is a consequence of them and precedes any one thing
-// published there.
-test("navOrder's rule puts CLI first, then Team and Principles", () => {
+// switcher sits at the edge and each step left is more the site's own subject. Principles comes
+// next, because what the work is held to comes before how it is done; Processes follows it, with
+// the seats each process names; Surfaces comes after both, since where the work is published is a
+// consequence of them and precedes any one thing published there.
+test("navOrder's rule puts CLI first, then Principles and Processes", () => {
   const src = pageChecks(OPTS).navOrder.toString();
   const m = /const ORDER = \[([^\]]+)\]/.exec(src);
   assert.ok(m, "navOrder has no ORDER list");
   const order = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
   assert.equal(order[0], "CLI");
-  assert.equal(order.indexOf("Team"), 1);
-  assert.equal(order.indexOf("Principles"), 2);
+  assert.equal(order.indexOf("Principles"), 1);
+  assert.equal(order.indexOf("Processes"), 2);
   assert.equal(order.indexOf("Surfaces"), 3);
   assert.equal(order.indexOf("API"), 4);
+  assert.ok(!order.includes("Team"), "the Team page is not in the shared order");
+});
+
+// The check itself, run on a page: the rule above is a list, and this is the list doing its work.
+// A nav that has Principles and then Processes passes; the same two the other way round fails,
+// and says which order the rule wants.
+async function navOrderOf(names) {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`<!doctype html><nav>${names.map((n) => `<a href="/${n.toLowerCase()}/">${n}</a>`).join("")}<span id="langind"></span></nav>`);
+    return await pageChecks(OPTS).navOrder(page);
+  } finally {
+    await browser.close();
+  }
+}
+
+test("navOrder passes Principles then Processes and fails Processes then Principles", async () => {
+  assert.equal(await navOrderOf(["Principles", "Processes"]), null);
+  assert.equal(await navOrderOf(["CLI", "Principles", "Processes", "Surfaces"]), null);
+  const swapped = await navOrderOf(["Processes", "Principles"]);
+  assert.equal(typeof swapped, "string", "Processes before Principles passed");
+  assert.match(swapped, /order is Processes · Principles; the rule is Principles · Processes/);
+  assert.match(await navOrderOf(["Team", "Principles"]), /not named by the order rule: Team/);
 });
 
 test("the header contract's order comment names exactly what navOrder enforces", () => {

@@ -20,8 +20,8 @@ test("names exactly the fences this release ships", () => {
   assert.deepEqual([...FENCE_NAMES].sort(),
     ["deck fit", "deck lockup", "deck rests", "deck runtime", "deck transport", "design tokens",
      "header contract", "home", "index", "language", "lines", "link", "model card", "nav fit",
-     "principles", "prose footer", "prose reset", "stage contract", "surfaces",
-     "surfaces lineage", "team", "theme", "theme boot", "title contract"]);
+     "principles", "processes", "prose footer", "prose reset", "stage contract", "surfaces",
+     "surfaces lineage", "theme", "theme boot", "title contract"]);
 });
 
 test("every block source exists", () => {

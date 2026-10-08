@@ -65,7 +65,7 @@ function readPage() {
 }
 
 // Runs in the page: opens every card the page offers and returns the links the cards wrote that
-// were not on the page before. Team and the timeline have an Open all, one per board on Team, and
+// were not on the page before. The Processes page and the timeline have an Open all, one per board on Processes, and
 // each is pressed once; Surfaces opens a card per surface; a stage opens one per node, by the hash
 // it reads. Null when the page offers none of these.
 async function openCards({ ids, settleMs, stepMs }) {

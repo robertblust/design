@@ -1,20 +1,20 @@
-  /* ─── model card · v3 · {{variant}} ─────────────────────────────────────
+  /* ─── model card · v4 · {{variant}} ─────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The card glue for a board of seats: a seat's card is rendered by card.js the first time
      its row opens, again when the language has changed since, and on arrival at a seat's
-     address. It moved here from /team/ with four things generalized and nothing else: where a
-     card's links go, the rows it wires (every board's, not one board's), the Open-all button
-     (one per board), and the name it gives card.js.
+     address. It moved here from a page's own script with four things generalized and nothing
+     else: where a card's links go, the rows it wires (every board's, not one board's), the
+     Open-all button (one per board), and the name it gives card.js.
 
      This block has a contract with the page around it that `design:check` cannot see, because
      the check only compares bytes between the markers. The page must load card.js before it
      and declare, above this fence in the same script:
 
        var STAGE_PAGE = "../model/";   // the page that draws this model on the stage
-       var MODEL_CARD = "team";        // the name card.js reports a failed read under
+       var MODEL_CARD = "processes";     // the name card.js reports a failed read under
 
-     and carry what lib/render/team.mjs writes, plus the provenance line
+     and carry what lib/render/processes.mjs writes, plus the provenance line
      (`#srclink` with its `data-src`, and `#srccommit`) that every model page has.
   */
   // The seats are in the markup; the cards are not. A card per seat at rest would be a copy of
@@ -49,7 +49,7 @@
       // card is its own element, so remembering the seat left the second row's card empty.
       var seen = {};
       function ensure(d){
-        var id = d.getAttribute("data-role"), L = lang();
+        var id = d.getAttribute("data-seat"), L = lang();
         if (seen[d.id] === L) return;
         rbCard.render(byId[id], d.querySelector(".cbody"), d.querySelector(".cfoot span"),
           { data: data, lang: L, link: goLink });
@@ -61,7 +61,7 @@
       rows.forEach(function (d) {
         d.addEventListener("toggle", function(){ if (d.open) ensure(d); });
       });
-      // A link must land: arriving on /team/#reviewer opens that seat rather than scrolling to a
+      // A link must land: arriving on /processes/#reviewer opens that seat rather than scrolling to a
       // shut row whose name is all the visitor sees.
       function fromHash(){
         var id = location.hash.slice(1); if (!id) return;

@@ -2,7 +2,7 @@
 // than on the real model: a test that reads model.json would pass for the wrong reason the
 // day the model changes.
 //
-// Principles and Team move here with the tests that cover them. The jsonld renderer is not
+// Principles and Processes move here with the tests that cover them. The jsonld renderer is not
 // moving and its tests stay in blust.ch. Surfaces moves as source in this task; its own tests
 // do not move with it, apart from the one test below that reads all three renderers together:
 // left in blust.ch it would fail with ENOENT the day a later task deletes blust.ch's copies.
@@ -133,33 +133,33 @@ test("a missing German string stops the build, with the caller's message", () =>
   assert.throws(() => princInto(PRINCIPLES_FIXTURE, { de: () => { throw new Error("no German for: Ay"); } }), /no German for: Ay/);
 });
 
-// ── the team board ────────────────────────────────────────────────────────────────────
-import { writeTeam, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/team.mjs";
+// ── the Processes board ────────────────────────────────────────────────────────────────────
+import { writeProcesses, marksOf, phasesOf, processesOf, seatsOf } from "../lib/render/processes.mjs";
 import { writeSurfaces } from "../lib/render/surfaces.mjs";
 
-import { TEAM_FIXTURE, TEAM_BY_ADDRESS, idAt } from "./fixtures/team.mjs";
+import { PROCESSES_FIXTURE, PROCESSES_BY_ADDRESS, idAt } from "./fixtures/processes.mjs";
 import { withStableIds, uuidOf } from "./fixtures/stable-ids.mjs";
-export { TEAM_FIXTURE };
+export { PROCESSES_FIXTURE };
 
-export function renderTeamInto(fixture, opts = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-team-"));
-  fs.mkdirSync(path.join(dir, "team"));
-  fs.writeFileSync(path.join(dir, "team/index.html"),
-    "<html><body><p class=\"tagline\">t</p>\n<!-- team-note:start -->\n<!-- team-note:end -->\n" +
-    "<div class=\"lbl\">The team</div>\n<!-- team:start -->\n<!-- team:end --></body></html>");
-  writeTeam(fixture, { ...opts, root: dir });
-  return fs.readFileSync(path.join(dir, "team/index.html"), "utf8");
+export function renderProcessesInto(fixture, opts = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-processes-"));
+  fs.mkdirSync(path.join(dir, "processes"));
+  fs.writeFileSync(path.join(dir, "processes/index.html"),
+    "<html><body><p class=\"tagline\">t</p>\n<!-- processes-note:start -->\n<!-- processes-note:end -->\n" +
+    "<div class=\"lbl\">The processes</div>\n<!-- processes:start -->\n<!-- processes:end --></body></html>");
+  writeProcesses(fixture, { ...opts, root: dir });
+  return fs.readFileSync(path.join(dir, "processes/index.html"), "utf8");
 }
 
-// A second process beside TEAM_FIXTURE's "Doing": one phase, naming Boss, whom Doing names too,
+// A second process beside PROCESSES_FIXTURE's "Doing": one phase, naming Boss, whom Doing names too,
 // and Helper, whom Doing does not and no profile holds. So a seat on two boards and a seat no
 // profile holds both occur.
 const TWO_PROCESS_FIXTURE = withStableIds({
-  ...TEAM_BY_ADDRESS,
+  ...PROCESSES_BY_ADDRESS,
   entities: [
-    ...TEAM_BY_ADDRESS.entities,
-    { id: "roles/helper", type: "role", name: "Helper", tagline: "Helps.",
-      path: "model/roles/helper.md", fields: {}, sections: [] },
+    ...PROCESSES_BY_ADDRESS.entities,
+    { id: "seats/helper", type: "seat", name: "Helper", tagline: "Helps.",
+      path: "model/seats/helper.md", fields: {}, sections: [] },
     { id: "processes/e", type: "process", name: "Else", tagline: "Another way.",
       path: "model/processes/e/e.md", fields: { owner: "Boss" },
       sections: [{ heading: "Phases", text: "", tables: [{ caption: null, columns: ["Phase"], rows: [["Three"]] }] }] },
@@ -169,16 +169,16 @@ const TWO_PROCESS_FIXTURE = withStableIds({
   ],
 });
 const PROCESS_IDS = ["processes/d", "processes/e"].map((a) => idAt(TWO_PROCESS_FIXTURE, a));
-export const regionOf = (page) => page.slice(page.indexOf("<!-- team:start -->"), page.indexOf("<!-- team:end -->"));
+export const regionOf = (page) => page.slice(page.indexOf("<!-- processes:start -->"), page.indexOf("<!-- processes:end -->"));
 
-// What the renderer drew for TEAM_FIXTURE at c365772, before it could draw more than one
-// process: captured from that commit's code, not written by hand. A seat's data-role is its
-// role's id, which was its address then; it is read off the data now.
-const BEFORE_ONE_PROCESS = "<!-- team:start -->\n      <div class=\"hdrail\"><div class=\"whos\">\n        <div class=\"hw\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><div><div class=\"nm\">A Person</div><div class=\"lbl\">human · holds 1 of 3</div></div></div>\n        <div class=\"hw\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><div><div class=\"nm\">An Agent</div><div class=\"lbl\">agent · holds 2 of 3</div></div></div>\n      </div><button class=\"openall\" id=\"openall\" type=\"button\" data-de=\"Alle öffnen\">Open all</button></div>\n      <div class=\"grid\" id=\"board\">\n        <div class=\"ghead\"><span class=\"lbl\">Seat</span><span><span class=\"phnum\">01</span><span class=\"phname\">One</span></span><span><span class=\"phnum\">02</span><span class=\"phname\">Two</span></span></div>\n        <details class=\"human\" id=\"boss\" data-role=\"roles/boss\">\n          <summary aria-label=\"Boss, human. executes Two. approves the gate of One, Two.\"><span class=\"sname\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><span class=\"tw\">Boss</span></span><span><i class=\"g ga\"></i></span><span><i class=\"g ex\"></i><i class=\"g ga\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"maker\" data-role=\"roles/maker\">\n          <summary aria-label=\"Maker, agent. executes One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Maker</span></span><span><i class=\"g ex\"></i></span><span></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"checker\" data-role=\"roles/checker\">\n          <summary aria-label=\"Checker, agent. executes Two. supports One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Checker</span></span><span><i class=\"g su\"></i></span><span><i class=\"g ex\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n      </div>\n      <div class=\"legend\"><span><i class=\"g ex\"></i> <span data-de=\"führt die Phase aus\">executes the phase</span></span><span><i class=\"g su\"></i> <span data-de=\"unterstützt sie\">supports it</span></span><span><i class=\"g ga\"></i> <span data-de=\"gibt ihr Gate frei\">approves its gate</span></span><span><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg> <span data-de=\"Mensch\">human</span></span><span><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg> <span data-de=\"Agent\">agent</span></span></div>\n      <dl class=\"phases\">\n        <dt><span class=\"phnum\">01</span><span class=\"phname\">One</span></dt>\n        <dd>First.</dd>\n        <dt><span class=\"phnum\">02</span><span class=\"phname\">Two</span></dt>\n        <dd>Second.</dd>\n      </dl>\n      "
-  .replace(/data-role="([^"]+)"/g, (m, address) => `data-role="${idAt(TEAM_FIXTURE, address)}"`);
+// What the renderer drew for PROCESSES_FIXTURE at c365772, before it could draw more than one
+// process: captured from that commit's code, not written by hand. A row's data-seat is its
+// seat's id, which was its address then and is read off the data now; the attribute's name is today's.
+const BEFORE_ONE_PROCESS = "<!-- processes:start -->\n      <div class=\"hdrail\"><div class=\"whos\">\n        <div class=\"hw\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><div><div class=\"nm\">A Person</div><div class=\"lbl\">human · holds 1 of 3</div></div></div>\n        <div class=\"hw\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><div><div class=\"nm\">An Agent</div><div class=\"lbl\">agent · holds 2 of 3</div></div></div>\n      </div><button class=\"openall\" id=\"openall\" type=\"button\" data-de=\"Alle öffnen\">Open all</button></div>\n      <div class=\"grid\" id=\"board\">\n        <div class=\"ghead\"><span class=\"lbl\">Seat</span><span><span class=\"phnum\">01</span><span class=\"phname\">One</span></span><span><span class=\"phnum\">02</span><span class=\"phname\">Two</span></span></div>\n        <details class=\"human\" id=\"boss\" data-seat=\"seats/boss\">\n          <summary aria-label=\"Boss, human. executes Two. approves the gate of One, Two.\"><span class=\"sname\"><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg><span class=\"tw\">Boss</span></span><span><i class=\"g ga\"></i></span><span><i class=\"g ex\"></i><i class=\"g ga\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"maker\" data-seat=\"seats/maker\">\n          <summary aria-label=\"Maker, agent. executes One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Maker</span></span><span><i class=\"g ex\"></i></span><span></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n        <details id=\"checker\" data-seat=\"seats/checker\">\n          <summary aria-label=\"Checker, agent. executes Two. supports One. approves no gate.\"><span class=\"sname\"><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg><span class=\"tw\">Checker</span></span><span><i class=\"g su\"></i></span><span><i class=\"g ex\"></i></span></summary>\n          <div class=\"drawer\"><div class=\"card\"><div class=\"cbody\"></div><div class=\"cfoot\"><span></span></div></div></div>\n        </details>\n      </div>\n      <div class=\"legend\"><span><i class=\"g ex\"></i> <span data-de=\"führt die Phase aus\">executes the phase</span></span><span><i class=\"g su\"></i> <span data-de=\"unterstützt sie\">supports it</span></span><span><i class=\"g ga\"></i> <span data-de=\"gibt ihr Gate frei\">approves its gate</span></span><span><svg class=\"mk human\" aria-hidden=\"true\"><use href=\"#m-human\"/></svg> <span data-de=\"Mensch\">human</span></span><span><svg class=\"mk agent\" aria-hidden=\"true\"><use href=\"#m-agent\"/></svg> <span data-de=\"Agent\">agent</span></span></div>\n      <dl class=\"phases\">\n        <dt><span class=\"phnum\">01</span><span class=\"phname\">One</span></dt>\n        <dd>First.</dd>\n        <dt><span class=\"phnum\">02</span><span class=\"phname\">Two</span></dt>\n        <dd>Second.</dd>\n      </dl>\n      "
+  .replace(/data-seat="([^"]+)"/g, (m, address) => `data-seat="${idAt(PROCESSES_FIXTURE, address)}"`);
 
 test("a site that passes no diagram draws no picture, and the board is what it was", () => {
-  assert.ok(!renderTeamInto(TEAM_FIXTURE).includes("data-diagram"));
+  assert.ok(!renderProcessesInto(PROCESSES_FIXTURE).includes("data-diagram"));
 });
 
 test("each process's picture sits under its tagline and before its head rail, in its own section, as the chat's figure with the picture as JSON", () => {
@@ -187,7 +187,7 @@ test("each process's picture sits under its tagline and before its head rail, in
     seen.push(proc.id);
     return { title: proc.name, mermaid: `flowchart LR\n  n0["<b>${proc.name}</b>"]`, nodes: [{ node: "n0", id: proc.id, title: proc.name, type: "phase" }], links: [], edges: 0 };
   };
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE, { diagram }));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE, { diagram }));
   assert.deepEqual(seen, PROCESS_IDS);
   const sections = html.split('<section class="proc"').slice(1);
   sections.forEach((sec, i) => {
@@ -196,7 +196,7 @@ test("each process's picture sits under its tagline and before its head rail, in
     assert.ok(sec.includes(`<figcaption><span>Process · ${name}</span><button class="rbchat-diagram-full" type="button"`), sec);
     assert.ok(sec.includes('<div class="rbchat-diagram-box"></div>'));
     // The board's name names the picture's file, for the drawing at build to find it by.
-    assert.ok(sec.includes(`<figure class="rbchat-diagram" data-diagram data-model="../model/" data-picture="${name.toLowerCase()}">`), "the model page, relative to the team page");
+    assert.ok(sec.includes(`<figure class="rbchat-diagram" data-diagram data-model="../model/" data-picture="${name.toLowerCase()}">`), "the model page, relative to the Processes page");
     const json = JSON.parse(sec.match(/<script type="application\/json">(.*)<\/script>/)[1]);
     assert.deepEqual(json, { shape: "process", title: name, mermaid: `flowchart LR\n  n0["<b>${name}</b>"]`,
       nodes: [{ node: "n0", id: ["processes/d", "processes/e"][i], title: name }] });
@@ -209,61 +209,61 @@ test("each process's picture sits under its tagline and before its head rail, in
 // the site's model, writes the node's address where the model gives one; a node the model does
 // not hold, or a model with no addresses yet, keeps the id the host gave.
 test("a picture's node links by its entity's address, and by the host's id where the model gives none", () => {
-  const phase = idAt(TEAM_FIXTURE, "processes/d/phases/one");
+  const phase = idAt(PROCESSES_FIXTURE, "processes/d/phases/one");
   const diagram = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [
     { node: "n0", id: phase, title: "One" },
     { node: "n1", id: "0199a3c2-7f00-7000-8000-ffffffffffff", title: "Elsewhere" },
   ] });
   const nodesOf = (fixture) => {
-    const html = regionOf(renderTeamInto(fixture, { diagram }));
+    const html = regionOf(renderProcessesInto(fixture, { diagram }));
     return JSON.parse(html.match(/<script type="application\/json">(.*)<\/script>/)[1]).nodes;
   };
   assert.notEqual(phase, "processes/d/phases/one", "the fixture's id is not its address");
-  assert.deepEqual(nodesOf(TEAM_FIXTURE).map((n) => n.id), ["processes/d/phases/one", "0199a3c2-7f00-7000-8000-ffffffffffff"]);
+  assert.deepEqual(nodesOf(PROCESSES_FIXTURE).map((n) => n.id), ["processes/d/phases/one", "0199a3c2-7f00-7000-8000-ffffffffffff"]);
   // Before stable ids the id is the address, and no entity carries `address`: the id stands.
   const byAddress = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [{ node: "n0", id: "processes/d/phases/one", title: "One" }] });
-  const html = regionOf(renderTeamInto(TEAM_BY_ADDRESS, { diagram: byAddress }));
+  const html = regionOf(renderProcessesInto(PROCESSES_BY_ADDRESS, { diagram: byAddress }));
   assert.equal(JSON.parse(html.match(/<script type="application\/json">(.*)<\/script>/)[1]).nodes[0].id, "processes/d/phases/one");
 });
 
 test("a site whose model is drawn elsewhere names that page, and the picture links there", () => {
   const diagram = () => ({ title: "Doing", mermaid: "flowchart LR", nodes: [] });
-  assert.ok(regionOf(renderTeamInto(TEAM_FIXTURE, { diagram, model: "../" })).includes('<figure class="rbchat-diagram" data-diagram data-model="../" data-picture="doing">'));
+  assert.ok(regionOf(renderProcessesInto(PROCESSES_FIXTURE, { diagram, model: "../" })).includes('<figure class="rbchat-diagram" data-diagram data-model="../" data-picture="doing">'));
 });
 
 test("no title can close the script a picture's JSON sits in", () => {
   const diagram = () => ({ title: "</script><b>x", mermaid: "flowchart LR", nodes: [] });
-  const html = regionOf(renderTeamInto(TEAM_FIXTURE, { diagram }));
+  const html = regionOf(renderProcessesInto(PROCESSES_FIXTURE, { diagram }));
   const script = html.slice(html.indexOf('<script type="application/json">'));
   assert.equal(script.indexOf("</script>"), script.lastIndexOf("</script>"));
   assert.equal(JSON.parse(script.slice(script.indexOf(">") + 1, script.indexOf("</script>"))).title, "</script><b>x");
 });
 
 test("a model with two processes draws two boards, in the order the artifact lists them", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE));
   const boards = [...html.matchAll(/<div class="grid" id="([a-z-]*)board">/g)].map((m) => m[1]);
   assert.deepEqual(boards, ["doing-", "else-"]);
 });
 
 test("each board carries only the phases of its own process", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE));
   const elseBoard = html.slice(html.indexOf('id="else"'));
   assert.match(elseBoard, /Three/);
   assert.doesNotMatch(elseBoard, /<span class="phname">One<\/span>/);
 });
 
 test("no two elements share an id when a seat sits on two boards", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE));
   const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length, `duplicate ids: ${ids}`);
 });
 
 test("a model with one process draws exactly the board it drew before this change", () => {
-  assert.equal(regionOf(renderTeamInto(TEAM_FIXTURE)), BEFORE_ONE_PROCESS);
+  assert.equal(regionOf(renderProcessesInto(PROCESSES_FIXTURE)), BEFORE_ONE_PROCESS);
 });
 
 test("a seat the process names and no profile holds is drawn as human, with no name", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE));
   const at = html.indexOf('id="else-helper"');
   assert.ok(at > 0, "the seat no profile holds is on its board");
   const row = html.slice(html.lastIndexOf("<details", at), html.indexOf("</details>", at));
@@ -272,14 +272,14 @@ test("a seat the process names and no profile holds is drawn as human, with no n
 });
 
 test("a board shows only the seats its own process names", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE));
   const elseBoard = html.slice(html.indexOf('id="else"'));
   assert.doesNotMatch(elseBoard, /id="else-maker"/);
   assert.match(elseBoard, /id="else-helper"/);
 });
 
 test("a person's seats come first, then the seats no profile holds, then an agent's", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE));
   const elseBoard = html.slice(html.indexOf('id="else"'));
   const order = [...elseBoard.matchAll(/<details[^>]* id="else-([a-z-]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order, ["boss", "helper"]);
@@ -290,32 +290,32 @@ test("the seat that owns the process leads its board, before a person's seats", 
   // comes first. Made Else's owner, Helper leads instead.
   const f = structuredClone(TWO_PROCESS_FIXTURE);
   f.entities.find((e) => e.address === "processes/e").fields.owner = "Helper";
-  const elseBoard = regionOf(renderTeamInto(f)).slice(regionOf(renderTeamInto(f)).indexOf('id="else"'));
+  const elseBoard = regionOf(renderProcessesInto(f)).slice(regionOf(renderProcessesInto(f)).indexOf('id="else"'));
   const order = [...elseBoard.matchAll(/<details[^>]* id="else-([a-z-]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order, ["helper", "boss"]);
 });
 
 test("a site's order draws the processes it names first, in that order", () => {
-  const html = regionOf(renderTeamInto(TWO_PROCESS_FIXTURE, { order: ["Else"] }));
+  const html = regionOf(renderProcessesInto(TWO_PROCESS_FIXTURE, { order: ["Else"] }));
   const boards = [...html.matchAll(/<div class="grid" id="([a-z-]*)board">/g)].map((m) => m[1]);
   assert.deepEqual(boards, ["else-", "doing-"]);
 });
 
 test("an order naming a process the model does not hold is an error", () => {
-  assert.throws(() => renderTeamInto(TWO_PROCESS_FIXTURE, { order: ["Elsewhere"] }), /does not hold: Elsewhere/);
+  assert.throws(() => renderProcessesInto(TWO_PROCESS_FIXTURE, { order: ["Elsewhere"] }), /does not hold: Elsewhere/);
 });
 
 test("the board no longer needs a profile to hold a seat", () => {
-  const noProfiles = { ...TEAM_FIXTURE, entities: TEAM_FIXTURE.entities.filter((e) => e.type !== "profile") };
-  assert.doesNotThrow(() => renderTeamInto(noProfiles));
+  const noProfiles = { ...PROCESSES_FIXTURE, entities: PROCESSES_FIXTURE.entities.filter((e) => e.type !== "profile") };
+  assert.doesNotThrow(() => renderProcessesInto(noProfiles));
 });
 
 test("phasesOf follows the rows of the process's Phases table, not the folder listing", () => {
-  assert.deepEqual(phasesOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).map((p) => p.name), ["One", "Two"]);
+  assert.deepEqual(phasesOf(PROCESSES_FIXTURE, processesOf(PROCESSES_FIXTURE)[0]).map((p) => p.name), ["One", "Two"]);
 });
 
 test("a Phases section with no table of phases is an error, not an empty board", () => {
-  const f = structuredClone(TEAM_FIXTURE);
+  const f = structuredClone(PROCESSES_FIXTURE);
   f.entities.find((e) => e.type === "process").sections = [{ heading: "Phases", text: "", tables: [] }];
   assert.throws(() => phasesOf(f, processesOf(f)[0]), /lists no phase/);
 });
@@ -323,60 +323,60 @@ test("a Phases section with no table of phases is an error, not an empty board",
 test("phasesOf reads a phase's name within its own process", () => {
   // Core 0.31.0: a name of an owned type is unique within its owner, so another process may hold
   // a phase of the same name. Placed first, it is what an unscoped lookup would find.
-  const f = structuredClone(TEAM_FIXTURE);
+  const f = structuredClone(PROCESSES_FIXTURE);
   f.entities.unshift({ id: uuidOf(255), address: "processes/x/phases/one", type: "phase", name: "One",
     tagline: "Elsewhere.", path: "model/processes/x/phases/one.md", owner: uuidOf(254), fields: {}, sections: [] });
   assert.deepEqual(phasesOf(f, processesOf(f)[0]).map((p) => p.id),
-    [idAt(TEAM_FIXTURE, "processes/d/phases/one"), idAt(TEAM_FIXTURE, "processes/d/phases/two")]);
+    [idAt(PROCESSES_FIXTURE, "processes/d/phases/one"), idAt(PROCESSES_FIXTURE, "processes/d/phases/two")]);
 });
 
 test("seatsOf puts the human profile's seats first", () => {
-  assert.deepEqual(seatsOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).map((s) => s.role.name), ["Boss", "Maker", "Checker"]);
+  assert.deepEqual(seatsOf(PROCESSES_FIXTURE, processesOf(PROCESSES_FIXTURE)[0]).map((s) => s.seat.name), ["Boss", "Maker", "Checker"]);
 });
 
 test("marksOf reads executes, supports and approves off each phase", () => {
-  const m = marksOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]);
+  const m = marksOf(PROCESSES_FIXTURE, processesOf(PROCESSES_FIXTURE)[0]);
   assert.deepEqual(m.Maker, [["ex"], []]);
   assert.deepEqual(m.Checker, [["su"], ["ex"]]);
   assert.deepEqual(m.Boss, [["ga"], ["ex", "ga"]]);
 });
 
 test("marksOf falls back to owner when a phase names no executed-by", () => {
-  const f = structuredClone(TEAM_FIXTURE);
+  const f = structuredClone(PROCESSES_FIXTURE);
   const two = f.entities.find((e) => e.address === "processes/d/phases/two");
   delete two.fields["executed-by"];
   assert.deepEqual(marksOf(f, processesOf(f)[0]).Boss, [["ga"], ["ex", "ga"]]);
 });
 
 test("marksOf orders a cell executes, supports, approves — never file order", () => {
-  assert.deepEqual(marksOf(TEAM_FIXTURE, processesOf(TEAM_FIXTURE)[0]).Boss[1], ["ex", "ga"]);
+  assert.deepEqual(marksOf(PROCESSES_FIXTURE, processesOf(PROCESSES_FIXTURE)[0]).Boss[1], ["ex", "ga"]);
 });
 
 test("a phase the model does not hold is an error, not a missing column", () => {
-  const f = structuredClone(TEAM_FIXTURE);
+  const f = structuredClone(PROCESSES_FIXTURE);
   f.entities = f.entities.filter((e) => e.address !== "processes/d/phases/two");
   assert.throws(() => phasesOf(f, processesOf(f)[0]), /names a phase the model does not hold: Two/);
 });
 
 test("every row says itself in words, because the grid is not a table", () => {
-  const html = renderTeamInto(TEAM_FIXTURE);
+  const html = renderProcessesInto(PROCESSES_FIXTURE);
   assert.match(html, /aria-label="Boss, human\. executes Two\. approves the gate of One, Two\."/);
   assert.match(html, /aria-label="Maker, agent\. executes One\. approves no gate\."/);
   assert.match(html, /aria-label="Checker, agent\. executes Two\. supports One\. approves no gate\."/);
 });
 
 test("the board carries one details per seat, with its slug as an address", () => {
-  const html = renderTeamInto(TEAM_FIXTURE);
+  const html = renderProcessesInto(PROCESSES_FIXTURE);
   assert.equal((html.match(/<details/g) || []).length, 3);
-  assert.ok(html.includes(`<details class="human" id="boss" data-role="${idAt(TEAM_FIXTURE, "roles/boss")}">`), html);
-  assert.ok(html.includes(`<details id="checker" data-role="${idAt(TEAM_FIXTURE, "roles/checker")}">`), html);
+  assert.ok(html.includes(`<details class="human" id="boss" data-seat="${idAt(PROCESSES_FIXTURE, "seats/boss")}">`), html);
+  assert.ok(html.includes(`<details id="checker" data-seat="${idAt(PROCESSES_FIXTURE, "seats/checker")}">`), html);
 });
 
 test("the note that says why a region does not translate has one home", () => {
   const princ = fs.readFileSync(new URL("../lib/render/principles.mjs", import.meta.url), "utf8");
-  const team = fs.readFileSync(new URL("../lib/render/team.mjs", import.meta.url), "utf8");
+  const processes = fs.readFileSync(new URL("../lib/render/processes.mjs", import.meta.url), "utf8");
   const surf = fs.readFileSync(new URL("../lib/render/surfaces.mjs", import.meta.url), "utf8");
-  for (const [name, src] of [["principles.mjs", princ], ["team.mjs", team], ["surfaces.mjs", surf]]) {
+  for (const [name, src] of [["principles.mjs", princ], ["processes.mjs", processes], ["surfaces.mjs", surf]]) {
     assert.match(src, /from "\.\/note\.mjs"/, `${name} does not import the note`);
     assert.ok(!/Generated from the model, so the words below/.test(src),
       `${name} carries its own copy of the note`);
@@ -384,12 +384,12 @@ test("the note that says why a region does not translate has one home", () => {
 });
 
 test("the note lands in the title block, above the section label and the board", () => {
-  const html = renderTeamInto(TEAM_FIXTURE);
+  const html = renderProcessesInto(PROCESSES_FIXTURE);
   // It is about the page, not about the figure, so it reads before the label rather than under
   // it — where /model/ and /principles/ put theirs. Written from here and not typed into the
   // page, so the sentence keeps one home.
   const note = html.indexOf('<p class="note"');
-  const label = html.indexOf('class="lbl">The team');
+  const label = html.indexOf('class="lbl">The processes');
   const board = html.indexOf('<div class="grid"');
   assert.ok(note > 0, "the note was not written");
   assert.ok(note < label, "the note must read before the section label");
@@ -397,15 +397,15 @@ test("the note lands in the title block, above the section label and the board",
 });
 
 test("a page missing either marker is an error, not a page half-generated", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-team-"));
-  fs.mkdirSync(path.join(dir, "team"));
-  fs.writeFileSync(path.join(dir, "team/index.html"),
-    "<html><body><!-- team:start -->\n<!-- team:end --></body></html>");
-  assert.throws(() => writeTeam(TEAM_FIXTURE, { root: dir }), /team-note:start/);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-processes-"));
+  fs.mkdirSync(path.join(dir, "processes"));
+  fs.writeFileSync(path.join(dir, "processes/index.html"),
+    "<html><body><!-- processes:start -->\n<!-- processes:end --></body></html>");
+  assert.throws(() => writeProcesses(PROCESSES_FIXTURE, { root: dir }), /processes-note:start/);
 });
 
 test("the board is followed by what each phase is, in the model's own words", () => {
-  const html = renderTeamInto(TEAM_FIXTURE);
+  const html = renderProcessesInto(PROCESSES_FIXTURE);
   // The columns name the phases; until this block nothing on the page said what any of them
   // was for, because the page carries no tooltip.
   assert.match(html, /<dl class="phases">/);
@@ -449,7 +449,7 @@ test("a surface's button is anchored by its address, and carries its id to open 
 
 test("a writer refuses to run without the site's root", () => {
   const data = { entities: [], commit: "0".repeat(40), repo: "x/y" };
-  assert.throws(() => writeTeam(data, {}), /needs the site's root/);
+  assert.throws(() => writeProcesses(data, {}), /needs the site's root/);
   assert.throws(() => writePrinciples(data, {}), /needs the site's root/);
   assert.throws(() => writeSurfaces(data, {}), /needs the site's root/);
 });
@@ -462,10 +462,10 @@ test("the generated note says the rest of the site is bilingual, not the rest of
 });
 
 // ── a seat held by more than one profile ──────────────────────────────────────────────────────
-// A role names nobody and any number of profiles may list it, so a seat can have several
-// holders. TEAM_FIXTURE's agent holds Maker and Checker; each case below adds a holder.
+// A seat names nobody and any number of profiles may list it, so a seat can have several
+// holders. PROCESSES_FIXTURE's agent holds Maker and Checker; each case below adds a holder.
 const withProfile = (fields, name = "Another Agent", address = "profiles/b") => {
-  const f = structuredClone(TEAM_FIXTURE);
+  const f = structuredClone(PROCESSES_FIXTURE);
   f.entities.splice(2, 0, { id: uuidOf(187), address, type: "profile", name, tagline: "A third line.",
     path: `model/${address}/${address.split("/")[1]}.md`, fields, sections: [] });
   return f;
@@ -477,19 +477,19 @@ const rowOf = (html, id) => {
 const railOf = (html) => html.slice(html.indexOf('<div class="whos">'), html.indexOf("</div><button"));
 
 test("seatsOf keeps every profile that holds a seat, not only the first", () => {
-  const f = withProfile({ nature: "agent", roles: ["Maker"] });
-  const maker = seatsOf(f, processesOf(f)[0]).find((s) => s.role.name === "Maker");
+  const f = withProfile({ nature: "agent", seats: ["Maker"] });
+  const maker = seatsOf(f, processesOf(f)[0]).find((s) => s.seat.name === "Maker");
   assert.deepEqual(maker.holders.map((p) => p.name), ["An Agent", "Another Agent"]);
 });
 
 test("a seat no profile holds has no holders", () => {
   const f = structuredClone(TWO_PROCESS_FIXTURE);
-  const helper = seatsOf(f, processesOf(f)[1]).find((s) => s.role.name === "Helper");
+  const helper = seatsOf(f, processesOf(f)[1]).find((s) => s.seat.name === "Helper");
   assert.deepEqual(helper.holders, []);
 });
 
 test("profiles holding the same seats on a board share one entry on its rail", () => {
-  const html = regionOf(renderTeamInto(withProfile({ nature: "agent", roles: ["Maker", "Checker"] })));
+  const html = regionOf(renderProcessesInto(withProfile({ nature: "agent", seats: ["Maker", "Checker"] })));
   const rail = railOf(html);
   assert.match(rail, /<div class="nm">An Agent, Another Agent<\/div><div class="lbl">agents · share 2 of 3<\/div>/);
   assert.match(rail, /<span class="stack"><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><svg class="mk agent"/);
@@ -497,7 +497,7 @@ test("profiles holding the same seats on a board share one entry on its rail", (
 });
 
 test("profiles holding different seats keep an entry each, and each counts a shared seat", () => {
-  const html = regionOf(renderTeamInto(withProfile({ nature: "agent", roles: ["Maker"] })));
+  const html = regionOf(renderProcessesInto(withProfile({ nature: "agent", seats: ["Maker"] })));
   const rail = railOf(html);
   assert.match(rail, /<div class="nm">An Agent<\/div><div class="lbl">agent · holds 2 of 3<\/div>/);
   assert.match(rail, /<div class="nm">Another Agent<\/div><div class="lbl">agent · holds 1 of 3<\/div>/);
@@ -505,7 +505,7 @@ test("profiles holding different seats keep an entry each, and each counts a sha
 });
 
 test("a shared seat's row carries a stacked mark and names its holders in words", () => {
-  const html = regionOf(renderTeamInto(withProfile({ nature: "agent", roles: ["Maker"] })));
+  const html = regionOf(renderProcessesInto(withProfile({ nature: "agent", seats: ["Maker"] })));
   const row = rowOf(html, "maker");
   assert.match(row, /<span class="sname"><span class="stack"><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><\/span><span class="tw">Maker<\/span>/);
   assert.match(row, /aria-label="Maker, agent, held by An Agent and Another Agent\. executes One\. approves no gate\."/);
@@ -513,14 +513,14 @@ test("a shared seat's row carries a stacked mark and names its holders in words"
 });
 
 test("a seat a person shares with an agent is a person's row, the person's mark in front", () => {
-  const f = structuredClone(TEAM_FIXTURE);
-  f.entities.find((e) => e.address === "profiles/p").fields.roles = ["Boss", "Checker"];
-  const html = regionOf(renderTeamInto(f));
+  const f = structuredClone(PROCESSES_FIXTURE);
+  f.entities.find((e) => e.address === "profiles/p").fields.seats = ["Boss", "Checker"];
+  const html = regionOf(renderProcessesInto(f));
   const row = rowOf(html, "checker");
   assert.match(row, /<details class="human" id="checker"/);
   assert.match(row, /<span class="stack"><svg class="mk agent"[^>]*><use href="#m-agent"\/><\/svg><svg class="mk human"[^>]*><use href="#m-human"\/><\/svg><\/span>/);
   assert.match(row, /aria-label="Checker, human and agent, held by A Person and An Agent\./);
-  assert.deepEqual(seatsOf(f, processesOf(f)[0]).map((s) => s.role.name), ["Boss", "Checker", "Maker"]);
+  assert.deepEqual(seatsOf(f, processesOf(f)[0]).map((s) => s.seat.name), ["Boss", "Checker", "Maker"]);
   const rail = railOf(html);
   assert.match(rail, /<div class="nm">A Person<\/div><div class="lbl">human · holds 2 of 3<\/div>/);
   assert.match(rail, /<div class="nm">An Agent<\/div><div class="lbl">agent · holds 2 of 3<\/div>/);
@@ -529,22 +529,22 @@ test("a seat a person shares with an agent is a person's row, the person's mark 
 // ── pictures drawn at build ───────────────────────────────────────────────────────────
 import { pictureStamp, picturePath, keptPicture, tokenized, PLACEHOLDERS } from "../lib/pictures.mjs";
 
-const ONE_PICTURE = () => ({ title: "Doing", mermaid: "flowchart LR\n  n0[Doing]", nodes: [{ node: "n0", id: idAt(TEAM_FIXTURE, "processes/d"), title: "Doing" }] });
+const ONE_PICTURE = () => ({ title: "Doing", mermaid: "flowchart LR\n  n0[Doing]", nodes: [{ node: "n0", id: idAt(PROCESSES_FIXTURE, "processes/d"), title: "Doing" }] });
 // The picture as the page writes it, and so as it is drawn and stamped: its node by the address.
 const ONE_WRITTEN = () => ({ mermaid: ONE_PICTURE().mermaid, nodes: [{ node: "n0", id: "processes/d", title: "Doing" }] });
-// A site root with a team page, and a chat.js and mermaid.min.js whose bytes the stamp reads.
-function siteWithTeam() {
+// A site root with a Processes page, and a chat.js and mermaid.min.js whose bytes the stamp reads.
+function siteWithProcesses() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "rb-pictures-"));
-  fs.mkdirSync(path.join(dir, "team"));
-  fs.writeFileSync(path.join(dir, "team/index.html"),
-    "<html><body><p class=\"tagline\">t</p>\n<!-- team-note:start -->\n<!-- team-note:end -->\n<!-- team:start -->\n<!-- team:end --></body></html>");
+  fs.mkdirSync(path.join(dir, "processes"));
+  fs.writeFileSync(path.join(dir, "processes/index.html"),
+    "<html><body><p class=\"tagline\">t</p>\n<!-- processes-note:start -->\n<!-- processes-note:end -->\n<!-- processes:start -->\n<!-- processes:end --></body></html>");
   fs.writeFileSync(path.join(dir, "chat.js"), "// chat");
   fs.writeFileSync(path.join(dir, "mermaid.min.js"), "// mermaid");
   return dir;
 }
 function drawnFor(dir, svg = '<svg id="rbchat-picture-doing"><rect fill="var(--raise)"/></svg>') {
   const d = ONE_WRITTEN();
-  const file = path.join(dir, picturePath("team/index.html", "doing"));
+  const file = path.join(dir, picturePath("processes/index.html", "doing"));
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, svg + "\n");
   fs.writeFileSync(file.replace(/\.svg$/, ".sha"), pictureStamp(d, dir) + "\n");
@@ -553,7 +553,7 @@ function drawnFor(dir, svg = '<svg id="rbchat-picture-doing"><rect fill="var(--r
 const quiet = (fn) => { const was = console.error; console.error = () => {}; try { return fn(); } finally { console.error = was; } };
 
 test("a picture's stamp moves with its source, its nodes and either file that draws it, and nothing else", () => {
-  const dir = siteWithTeam(), d = { mermaid: "flowchart LR", nodes: [{ node: "n0", id: "x" }] };
+  const dir = siteWithProcesses(), d = { mermaid: "flowchart LR", nodes: [{ node: "n0", id: "x" }] };
   const was = pictureStamp(d, dir);
   assert.equal(pictureStamp({ ...d, title: "a caption is no input" }, dir), was);
   assert.notEqual(pictureStamp({ ...d, mermaid: "flowchart TB" }, dir), was);
@@ -576,26 +576,26 @@ test("the placeholders come back as the tokens, a translucent one as a mix, and 
 });
 
 test("a picture drawn from what the page shows now is written into its box, and the box says it is drawn", () => {
-  const dir = siteWithTeam(), svg = drawnFor(dir);
-  const html = quiet(() => { writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE }); return fs.readFileSync(path.join(dir, "team/index.html"), "utf8"); });
+  const dir = siteWithProcesses(), svg = drawnFor(dir);
+  const html = quiet(() => { writeProcesses(PROCESSES_FIXTURE, { root: dir, diagram: ONE_PICTURE }); return fs.readFileSync(path.join(dir, "processes/index.html"), "utf8"); });
   assert.ok(html.includes(`<div class="rbchat-diagram-box" data-drawn>${svg}</div>`), html);
-  assert.deepEqual(quiet(() => writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true })), []);
+  assert.deepEqual(quiet(() => writeProcesses(PROCESSES_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true })), []);
 });
 
 test("a picture not drawn, or drawn from something else, leaves its box empty and fails the check", () => {
-  const dir = siteWithTeam();
+  const dir = siteWithProcesses();
   const said = [];
   const was = console.error; console.error = (m) => said.push(m);
   try {
-    writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE });
-    assert.ok(fs.readFileSync(path.join(dir, "team/index.html"), "utf8").includes('<div class="rbchat-diagram-box"></div>'));
+    writeProcesses(PROCESSES_FIXTURE, { root: dir, diagram: ONE_PICTURE });
+    assert.ok(fs.readFileSync(path.join(dir, "processes/index.html"), "utf8").includes('<div class="rbchat-diagram-box"></div>'));
     // The page matches what would be written, and the check still fails: only the drawing can
     // bring the picture back, and nothing else would say so.
-    assert.deepEqual(writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["team/index.html"]);
+    assert.deepEqual(writeProcesses(PROCESSES_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["processes/index.html"]);
     drawnFor(dir);
     fs.writeFileSync(path.join(dir, "chat.js"), "// a chat.js the picture was not drawn with");
-    assert.equal(keptPicture(dir, "team/index.html", "doing", ONE_WRITTEN()), null);
-    assert.deepEqual(writeTeam(TEAM_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["team/index.html"]);
+    assert.equal(keptPicture(dir, "processes/index.html", "doing", ONE_WRITTEN()), null);
+    assert.deepEqual(writeProcesses(PROCESSES_FIXTURE, { root: dir, diagram: ONE_PICTURE, check: true }), ["processes/index.html"]);
   } finally { console.error = was; }
-  assert.ok(said.every((m) => /team\/pictures\/doing\.svg .*run: npm run pictures/.test(m)), said.join("\n"));
+  assert.ok(said.every((m) => /processes\/pictures\/doing\.svg .*run: npm run pictures/.test(m)), said.join("\n"));
 });
