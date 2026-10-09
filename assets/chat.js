@@ -127,7 +127,7 @@
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       modalClose: "Close \u00b7 Esc",
-      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", flow: "Flow", lifecycle: "Lifecycle", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits.", flow: "Solid arrows are commands sent to the aggregate, dashed arrows the events it emits; a box names the condition of each branch.", lifecycle: "Each arrow is a step from one state to the next, labeled with the command that takes it where there is one." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
+      diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", flow: "Flow", lifecycle: "Lifecycle", organization: "Organization", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits.", flow: "Solid arrows are commands sent to the aggregate, dashed arrows the events it emits; a box names the condition of each branch.", lifecycle: "Each arrow is a step from one state to the next, labeled with the command that takes it where there is one.", organization: "Solid arrows run from a lead to the leads below; a dashed line joins staff to the head they serve; a dashed box is an open position, beside a lead the search for a successor; agents stand in the shaded frame." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
         too_much: "The conversation has grown too long to send; start a new one.",
@@ -174,7 +174,7 @@
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       modalClose: "Schliessen \u00b7 Esc",
-      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", flow: "Ablauf", lifecycle: "Lebenszyklus", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst.", flow: "Durchgezogene Pfeile sind Befehle an das Aggregat, gestrichelte die Ereignisse, die es auslöst; ein Kasten nennt die Bedingung jedes Zweigs.", lifecycle: "Jeder Pfeil ist ein Schritt von einem Zustand zum nächsten, beschriftet mit dem Befehl, der ihn auslöst, wo es einen gibt." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
+      diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", flow: "Ablauf", lifecycle: "Lebenszyklus", organization: "Organisation", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst.", flow: "Durchgezogene Pfeile sind Befehle an das Aggregat, gestrichelte die Ereignisse, die es auslöst; ein Kasten nennt die Bedingung jedes Zweigs.", lifecycle: "Jeder Pfeil ist ein Schritt von einem Zustand zum nächsten, beschriftet mit dem Befehl, der ihn auslöst, wo es einen gibt.", organization: "PROVISIONAL – the translator writes this line from the reviewed English." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
         too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
@@ -785,7 +785,7 @@
   // Tolerant of a label Mermaid renders differently: an empty run is left unwrapped.
   function wrapNodeName(p){
     var kids = [].slice.call(p.childNodes), hasSmall = false, i;
-    for (i = 0; i < kids.length; i++) if (kids[i].nodeType === 1 && kids[i].tagName === "SMALL") { hasSmall = true; break; }
+    for (i = 0; i < kids.length; i++) if (kids[i].nodeType === 1 && (kids[i].tagName === "SMALL" || (kids[i].classList && kids[i].classList.contains("label-icon")))) { hasSmall = true; break; }
     function wrap(run){
       if (!run.length) return;
       var span = document.createElement("span");
@@ -798,6 +798,8 @@
     for (i = 0; i < kids.length; i++) {
       var k = kids[i];
       if (k.nodeType === 1 && (k.tagName === "SMALL" || k.tagName === "BR")) { wrap(run); run = []; }
+      // A nature's mark Mermaid set before the name stays outside the span a hover underlines.
+      else if (k.nodeType === 1 && k.classList && k.classList.contains("label-icon")) { wrap(run); run = []; }
       else run.push(k);
     }
     wrap(run);
@@ -898,12 +900,29 @@
   // The picture the one modal holds, its handle, and the zoom controls it carries in its head.
   var modalFig = null, modalHandle = null, zoomBar = null, zoomIn = null, zoomOut = null, zoomFit = null;
 
+  // The two natures' marks, lib/marks.mjs's own, which a test holds this copy to. The host writes
+  // `fak:fa-human` or `fak:fa-agent` before a person's name, and Mermaid swaps the token for the
+  // mark before it measures the label, so the box fits it. Registered once per Mermaid, whoever
+  // loaded it; each body is wrapped in a group whose class chat.css colors.
+  var MARKS = {
+    human: '<circle cx="8" cy="4.6" r="3.1" fill="currentColor"/><path d="M1.6 15.4a6.4 6.4 0 0 1 12.8 0z" fill="currentColor"/>',
+    agent: '<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="5.4" width="12" height="8.6" rx="2.6"/><path d="M8 5.4V3.2"/></g><circle cx="8" cy="2.1" r="1.1" fill="currentColor"/><circle cx="5.7" cy="9.6" r="1.05" fill="currentColor"/><circle cx="10.3" cy="9.6" r="1.05" fill="currentColor"/>'
+  };
+  function withMarks(m){
+    if (m && typeof m.registerIconPacks === "function" && !m.rbMarks) {
+      var icons = {};
+      Object.keys(MARKS).forEach(function(k){ icons[k] = { body: '<g class="rbchat-mark ' + k + '">' + MARKS[k] + "</g>" }; });
+      m.registerIconPacks([{ name: "fak", icons: { prefix: "fak", width: 16, height: 16, icons: icons } }]);
+      m.rbMarks = true;
+    }
+    return m;
+  }
   function loadMermaid(){
-    if (window.mermaid) return Promise.resolve(window.mermaid);
+    if (window.mermaid) return Promise.resolve(withMarks(window.mermaid));
     if (!mermaidLoad) mermaidLoad = new Promise(function(resolve, reject){
       var s = document.createElement("script");
       s.src = new URL("mermaid.min.js", tag.src).href;
-      s.onload = function(){ if (window.mermaid) resolve(window.mermaid); else reject(new Error("mermaid.min.js set no mermaid")); };
+      s.onload = function(){ if (window.mermaid) resolve(withMarks(window.mermaid)); else reject(new Error("mermaid.min.js set no mermaid")); };
       // A failed fetch is not remembered: the next picture tries again.
       s.onerror = function(){ mermaidLoad = null; reject(new Error("mermaid.min.js did not load")); };
       document.head.appendChild(s);

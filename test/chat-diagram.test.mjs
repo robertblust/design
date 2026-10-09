@@ -708,3 +708,35 @@ test("a flow and a lifecycle draw as SVG in both themes, with no fallback source
   assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
   await page.close();
 });
+
+test("an organization draws each person's mark inside their box, outside the underlined name, in its nature's color", async () => {
+  const { page } = await asked([["diagram", PICTURES.organization], ["text", { text: "Billing Run Team." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  const boxes = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.map((g) => {
+    const icon = g.querySelector(".label-icon"), mark = g.querySelector(".rbchat-mark"), name = g.querySelector(".rbchat-node-name");
+    const box = g.querySelector("rect").getBoundingClientRect(), label = g.querySelector(".nodeLabel").getBoundingClientRect();
+    return {
+      nature: mark && mark.getAttribute("class"), color: mark && getComputedStyle(mark).color, inName: !!(name && icon && name.contains(icon)),
+      name: name && name.textContent.trim(), fits: label.width <= box.width && icon.getBoundingClientRect().right <= box.right,
+    };
+  }));
+  assert.deepEqual(boxes.map((b) => [b.nature, b.name, b.inName, b.fits]), [["rbchat-mark human", "Mira Halvorsen", false, true], ["rbchat-mark agent", "AI Agent", false, true]]);
+  assert.notEqual(boxes[0].color, boxes[1].color, "a person's mark and an agent's are two brightnesses");
+  const [frame, agents] = await page.$$eval(".rbchat-diagram svg .cluster rect", (rs) => rs.map((r) => getComputedStyle(r).fill));
+  assert.notEqual(agents, frame, "the agents' frame is shaded apart from its group's");
+  assert.equal(agents, await page.$eval(".rbchat-diagram-box", (b) => { const t = document.createElement("i"); t.style.color = "var(--press)"; b.appendChild(t); const c = getComputedStyle(t).color; t.remove(); return c; }), "with the panel's press color");
+  assert.equal(await page.$eval(".rbchat-diagram figcaption span", (s) => s.textContent), "Organization · Billing Run Team");
+  assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /agents stand in the shaded frame/);
+  await page.close();
+});
+
+test("the company's org chart draws its open positions as dashed, unfilled boxes, and no fallback source", async () => {
+  const { page } = await asked([["diagram", PICTURES.company], ["text", { text: "Beacon." }]]);
+  await page.waitForSelector(".rbchat-diagram svg g.node.open");
+  const open = await page.$$eval(".rbchat-diagram svg g.node.open", (gs) => gs.map((g) => { const r = g.querySelector("rect"); return [getComputedStyle(r).strokeDasharray, getComputedStyle(r).fill]; }));
+  assert.equal(open.length, 3);
+  for (const [dash, fill] of open) { assert.notEqual(dash, "none"); assert.equal(fill, "none"); }
+  assert.equal(await page.$$eval(".rbchat-diagram svg .label-icon", (els) => els.length), 4, "four people, four marks; an opening has none");
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
