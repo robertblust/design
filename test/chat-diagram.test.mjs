@@ -745,6 +745,22 @@ test("an organization's agents stand side by side in their frame, in the order l
   await page.close();
 });
 
+test("a title holding Mermaid's icon syntax draws as text, in a frame and in a box, and the only marks are the person's", async () => {
+  const { page } = await asked([["diagram", PICTURES.escaped], ["text", { text: "Ops." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  // Mermaid draws a registered `fak` mark as an svg holding the widget's `.rbchat-mark`, and any
+  // other icon pack as an `<i>` with its Font Awesome class: a title that was read as one is the latter.
+  const icons = await page.$$eval(".rbchat-diagram svg .label-icon", (els) => els.map((el) => !!el.querySelector(".rbchat-mark.human")));
+  assert.deepEqual(icons, [true], "one person, one mark, and nothing else the pack draws");
+  assert.equal(await page.$$eval(".rbchat-diagram i.fas, .rbchat-diagram i[class*='fa-']", (els) => els.length), 0, "no Font Awesome icon from a title");
+  // The eye reads `fas:` then `fa-x`; the zero-width space between them is invisible.
+  const seen = (s) => s.replace(/\u200b/g, "").trim();
+  assert.equal(seen(await page.$eval(".rbchat-diagram svg .cluster-label", (el) => el.textContent)), "Ops fas:fa-x");
+  assert.equal(seen(await page.$eval(".rbchat-diagram svg g.node .rbchat-node-name", (el) => el.textContent)), "Lead fas:fa-x");
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
+
 test("the company's org chart draws its open positions as dashed, unfilled boxes, and no fallback source", async () => {
   const { page } = await asked([["diagram", PICTURES.company], ["text", { text: "Beacon." }]]);
   await page.waitForSelector(".rbchat-diagram svg g.node.open");

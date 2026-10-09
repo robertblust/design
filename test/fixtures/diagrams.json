@@ -257,5 +257,15 @@
    { "node": "n6", "id": "01a1199f-e00b-7a2a-9466-9f6a96ffe718", "title": "Head of Product", "type": "job" }
   ],
   "omitted": 1
+ },
+ "escaped": {
+  "shape": "organization",
+  "title": "Ops fas:fa-x",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Ops fas:#8203;fa-x\"]\n    n0[\"fak:fa-human <b>Lead fas:#8203;fa-x</b><br/><small>Backend Engineer</small>\"]:::lead\n  end\n  classDef lead stroke-width:2px",
+  "nodes": [
+   { "node": "g0", "id": "01a1152c-3863-79ba-8430-755ed2dec49d", "title": "Ops fas:fa-x", "type": "group" },
+   { "node": "n0", "id": "01a02f53-2408-7291-ac16-087fcdee4d72", "title": "Lead fas:fa-x", "type": "profile" }
+  ],
+  "omitted": 0
  }
 }
