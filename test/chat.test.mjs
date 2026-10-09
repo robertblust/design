@@ -1024,8 +1024,13 @@ test("an organization is captioned and has a reading line in both languages, and
   assert.equal(diagramCaption({ shape: "organization", title: "Maintainers" }, "en"), "Organization · Maintainers");
   for (const lang of ["en", "de"]) assert.ok(strings(lang).diagram.reading.organization.length > 20, lang);
   assert.match(strings("en").diagram.reading.organization, /dashed box is an open position/);
-  assert.doesNotMatch(strings("de").diagram.reading.organization, /PROVISIONAL/, "the German is the translator's, made from the reviewed English");
   assert.deepEqual(Object.keys(MARKS), ["human", "agent"]);
   for (const [k, body] of Object.entries(MARKS)) assert.ok(src.includes(`${k}: '${body}'`), `chat.js carries the ${k} mark as lib/marks.mjs draws it`);
   assert.match(src, /registerIconPacks\(\[\{ name: "fak"/);
+});
+
+// Apart from the test above so that the placeholder cannot hide the marks check: this one fails
+// until the translator has written the line, and nothing else waits on it.
+test("the German is the translator's: an organization's reading line is no placeholder", () => {
+  assert.doesNotMatch(strings("de").diagram.reading.organization, /PROVISIONAL/, "the German is the translator's, made from the reviewed English");
 });
