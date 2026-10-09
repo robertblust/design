@@ -730,6 +730,21 @@ test("an organization draws each person's mark inside their box, outside the und
   await page.close();
 });
 
+test("an organization's agents stand side by side in their frame, in the order listed", async () => {
+  const { page } = await asked([["diagram", PICTURES.agents], ["text", { text: "Billing Run Team." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  const agents = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.filter((g) => g.querySelector(".rbchat-mark.agent")).map((g) => {
+    const r = g.querySelector("rect").getBoundingClientRect();
+    return { name: g.querySelector(".nodeLabel b").textContent.trim(), left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+  }));
+  assert.equal(agents.length, 2);
+  const [first, second] = agents.sort((a, b) => a.left - b.left);
+  assert.deepEqual([first.name, second.name], ["AI Agent", "Review Agent"], "the order the host listed them in");
+  assert.ok(first.top < second.bottom && second.top < first.bottom, `the two boxes share a row: ${JSON.stringify(agents)}`);
+  assert.ok(first.right <= second.left, `and do not overlap sideways: ${JSON.stringify(agents)}`);
+  await page.close();
+});
+
 test("the company's org chart draws its open positions as dashed, unfilled boxes, and no fallback source", async () => {
   const { page } = await asked([["diagram", PICTURES.company], ["text", { text: "Beacon." }]]);
   await page.waitForSelector(".rbchat-diagram svg g.node.open");

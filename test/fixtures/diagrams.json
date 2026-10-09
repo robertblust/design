@@ -227,6 +227,18 @@
   ],
   "omitted": 0
  },
+ "agents": {
+  "shape": "organization",
+  "title": "Billing Run Team",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Billing Run Team\"]\n    n0[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Backend Engineer</small>\"]:::lead\n    subgraph g0a [\" \"]\n      direction LR\n      n1[\"fak:fa-agent <b>AI Agent</b>\"]\n      n2[\"fak:fa-agent <b>Review Agent</b>\"]\n      n1 ~~~ n2\n    end\n    n0 ~~~ g0a\n  end\n  class g0a agents\n  classDef lead stroke-width:2px\n  classDef agents stroke-dasharray:2 3",
+  "nodes": [
+   { "node": "g0", "id": "01a1152c-3863-79ba-8430-755ed2dec49c", "title": "Billing Run Team", "type": "group" },
+   { "node": "n0", "id": "01a02f53-2408-7291-ac16-087fcdee4d71", "title": "Mira Halvorsen", "type": "profile" },
+   { "node": "n1", "id": "01a0a6b8-7e80-78af-b202-d3733bdd650c", "title": "AI Agent", "type": "profile" },
+   { "node": "n2", "id": "01a0ffff-0000-7000-8000-0000000000d2", "title": "Review Agent", "type": "profile" }
+  ],
+  "omitted": 0
+ },
  "company": {
   "shape": "organization",
   "title": null,
