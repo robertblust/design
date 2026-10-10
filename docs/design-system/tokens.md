@@ -40,7 +40,7 @@ Every other token is a surface, not a meaning, and belongs to one family.
 
 A page reads the page family and never defines a token of its own; the modal re-points the page family at the terminal's, so whatever it holds draws in the terminal's colors.
 
-In the terminal family `--t-good` and `--t-bad` say an answer's state, and `--t-part`, between them, underlines a claim of an answer that its evidence carries only in part. It is a mark and never text, so it is held to 3:1 against `--t-card`, the answer's ground; every other claim the evidence does not carry is underlined in `--t-bad`.
+In the terminal family `--t-good` and `--t-bad` say an answer's state, and `--t-part`, between them, underlines a claim of an answer that its evidence carries only in part. It is a mark and never text, so it is held to 3:1 against `--t-card`, the answer's ground; every other claim the evidence does not carry is underlined in `--t-bad`. A question a link carries, waiting for the visitor to send it, is a thing to act on, so it takes `--t-accent`, the terminal's interactive color, and stands out by an edge wider than an answer's and a single ring as it arrives rather than by a second hue. It never takes `--t-part`: in the panel that color already marks a claim its evidence carries only in part, and a question is not a claim.
 
 ## Faces
 
