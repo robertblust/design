@@ -93,6 +93,24 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
 /* A finished answer, as the tooling prints a finished step: a rail in the terminal's green and a
    head line with the tick, on a card a step lighter than the terminal, so the one thing the model
    wrote stands apart from the question and the menus around it. It has no animation of any kind. */
+/* A question a link carries, waiting for the visitor: a card framed as an answer is, its edge the
+   accent at 3px where an answer's is the state color at 1.5px, its line in the accent as a thing
+   to act on, and one ring as it arrives. The accent is what every control is; --t-part is not
+   used, since in this panel it underlines a claim the evidence carries only in part. */
+.rbchat-ask{margin:.2rem 0 1rem;display:grid;gap:.55rem;padding:.7rem .9rem .8rem;background:var(--t-card);border:1px solid var(--t-edge);border-left:3px solid var(--t-accent);border-radius:0 8px 8px 0}
+.rbchat-ask p{margin:0}
+.rbchat-ask-from{color:var(--t-accent)}
+.rbchat-ask-q{color:var(--t-strong);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--t-sel);padding:.45rem .7rem;border-radius:6px}
+.rbchat-ask-q::before{content:"\203a  ";color:var(--t-accent)}
+.rbchat-ask-row{display:flex;gap:.45rem;flex-wrap:wrap}
+.rbchat-ask-row button{font:inherit;font-size:.95em;padding:.3rem .65rem;border-radius:6px;border:1px solid var(--t-line);background:transparent;color:var(--t-ink);cursor:pointer}
+.rbchat-ask-row button:hover{border-color:var(--t-accent)}
+.rbchat-ask-row button:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px}
+.rbchat-ask-row .rbchat-ask-go{background:var(--t-accent);border-color:var(--t-accent);color:var(--t-bg);font-weight:600}
+@media (prefers-reduced-motion:no-preference){
+  .rbchat-ask{animation:rbchat-ask-ring 1.6s ease-out .3s 1 both}
+  @keyframes rbchat-ask-ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--t-accent) 55%,transparent)}100%{box-shadow:0 0 0 10px color-mix(in srgb,var(--t-accent) 0%,transparent)}}
+}
 .rbchat-assistant{margin:.4rem 0 0 .35rem;padding:.55rem .9rem .55rem .95rem;border-left:1.5px solid var(--t-good);background:var(--t-card);border-radius:0 8px 8px 0}
 .rbchat-done{margin:0 0 .35rem;color:var(--t-dim)}
 .rbchat-tick{color:var(--t-good)}
