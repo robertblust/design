@@ -44,6 +44,7 @@
 //   rbChat.heard(turns)                every name and cite the conversation's answers brought
 //   rbChat.refocus(window)             whether the cursor goes back after an answer
 //   rbChat.asked(location.search)      the address without ?chat=open, or null if it has none
+//   rbChat.linkQuestion(location.search)  the question ?ask= carries and the address without it, or null
 //   rbChat.when(retryAt, now, lang)    when a limit lifts, in the visitor's language and time
 //   rbChat.refusalText(code, retryAt, …)  the refusal sentence, ending with that moment where there is one
 //   rbChat.citeLine(cites, model, icon, doc)  the line under an answer: the icon, each title, each mark
@@ -127,6 +128,7 @@
       again: { sentence: "You can ask again {when}.", minute: "in a minute", minutes: "in {n} minutes", at: "at {time}", tomorrow: "tomorrow at {time}", day: "on {day} at {time}" },
       github: "{title} on GitHub", commit: "commit {sha}",
       modalClose: "Close \u00b7 Esc",
+      ask: { from: "The link you opened asks:", label: "A question from the link you opened", send: "Send", edit: "Edit", discard: "Discard" },
       diagram: { concepts: "Concepts", process: "Process", neighborhood: "Connections", schema: "Meta-model", context: "Context map", aggregate: "Aggregate", flow: "Flow", lifecycle: "Lifecycle", organization: "Organization", reading: { context: "One-way arrows run from upstream to downstream; each arrow names the pattern between the two contexts.", aggregate: "The root holds what the diamonds join; the dashed arrows are the events it emits.", flow: "Solid arrows are commands sent to the aggregate, dashed arrows the events it emits; a box names the condition of each branch.", lifecycle: "Each arrow is a step from one state to the next, labeled with the command that takes it where there is one.", organization: "Solid arrows run from a lead to the leads below; a dashed line joins staff to the head they serve; a dashed box is an open position, beside a lead the search for a successor; agents stand in the shaded frame." }, expand: "Open full screen", shut: "Close full screen", zoomIn: "Zoom in", zoomOut: "Zoom out", fit: "Fit", fitTip: "Fit to the screen", failed: "The diagram could not be drawn; this is its source." },
       refusal: {
         too_long: "That message is over 1,000 characters.",
@@ -174,6 +176,7 @@
       again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       modalClose: "Schliessen \u00b7 Esc",
+      ask: { from: "Der Link, den Sie geöffnet haben, enthält diese Frage:", label: "Eine Frage aus dem Link, den Sie geöffnet haben", send: "Senden", edit: "Bearbeiten", discard: "Verwerfen" },
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", flow: "Ablauf", lifecycle: "Lebenszyklus", organization: "Organisation", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst.", flow: "Durchgezogene Pfeile sind Befehle an das Aggregat, gestrichelte die Ereignisse, die es auslöst; ein Kasten nennt die Bedingung jedes Zweigs.", lifecycle: "Jeder Pfeil ist ein Schritt von einem Zustand zum nächsten, beschriftet mit dem Befehl, der ihn auslöst, wo es einen gibt.", organization: "Durchgezogene Pfeile laufen von einer Führungskraft zu den Führungskräften darunter; eine gestrichelte Linie verbindet eine Stabsstelle mit der Leitung, der sie zuarbeitet; ein gestrichelter Kasten ist eine offene Stelle, neben einer Führungskraft die Suche nach ihrer Nachfolge; Software-Agenten stehen im farbig hinterlegten Rahmen." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
@@ -523,6 +526,21 @@
     var re = /([?&])chat=open(&|$)/;
     if (!re.test(search || "")) return null;
     return search.replace(re, "$1").replace(/[?&]$/, "");
+  }
+
+  // A link may carry a question too, with ?ask=, so a post can send a reader to one answer. The
+  // question is never sent on arrival: the panel opens with it waiting under the notice that says
+  // nothing is sent until the visitor sends, and the visitor sends, edits or discards it. Read
+  // once and taken out of the address, as chat=open is. This gives the question, trimmed, and the
+  // query string without the parameter; the question is null where it is empty, longer than a
+  // message may be, or not decodable, and the whole is null where the address carries no ask.
+  function linkQuestion(search){
+    var re = /([?&])ask=([^&#]*)(&|$)/, m = re.exec(search || "");
+    if (!m) return null;
+    var question = null;
+    try { question = decodeURIComponent(m[2].replace(/\+/g, " ")).trim(); } catch (e) { question = null; }
+    if (!question || question.length > LIMIT) question = null;
+    return { question: question, rest: search.replace(re, "$1").replace(/[?&]$/, "") };
   }
 
   // n items of a list, at random and without repeats: a Fisher–Yates shuffle of a copy, cut to
@@ -876,7 +894,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1437,6 +1455,7 @@
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
+  var linkAsk = null, askEl = null;
   var messages = [], turns = [], busy = false, panel = null, log = null, input = null, notice = null, title = null, closeBtn = null, grip = null, newBtn = null, keysEl = null, say = null;
   // The place a restore owes the visitor, held until the log is shown and every picture above it
   // has drawn, and let go the moment the visitor scrolls, sends or starts afresh: from then on
@@ -1756,6 +1775,34 @@
   // What the intro drew at random, kept for its conversation, so a language switch redraws the
   // same process and questions in the other language rather than drawing again.
   var introPick = null;
+  // The question a link carries, waiting: a card the visitor acts on, built from the strings and
+  // never from markup, so whatever the link says is shown as text. Send hands it to send() as if
+  // typed, Edit puts it in the input to change, and Discard drops it. Under the notice while the
+  // intro stands, since that is what the visitor reads first; at the end of a conversation the
+  // tab already holds, since the intro is then out of sight above it.
+  function askCard(){
+    var s = strings(langNow()).ask, card = el("div", "rbchat-ask"), row = el("div", "rbchat-ask-row");
+    card.setAttribute("role", "group"); card.setAttribute("aria-label", s.label);
+    card.appendChild(el("p", "rbchat-ask-from", s.from));
+    card.appendChild(el("p", "rbchat-ask-q", linkAsk));
+    var go = el("button", "rbchat-ask-go", s.send), edit = el("button", "", s.edit), drop = el("button", "", s.discard);
+    go.type = edit.type = drop.type = "button";
+    go.appendChild(el("span", "rbchat-ask-key", " \u23ce")).setAttribute("aria-hidden", "true");
+    edit.setAttribute("data-ask", "edit"); drop.setAttribute("data-ask", "discard");
+    row.appendChild(go); row.appendChild(edit); row.appendChild(drop); card.appendChild(row);
+    function done(){ var q = linkAsk; linkAsk = null; askEl = null; if (card.parentNode) card.parentNode.removeChild(card); return q; }
+    go.addEventListener("click", function(){ input.value = done(); send(); });
+    edit.addEventListener("click", function(){ input.value = done(); input.focus(); });
+    drop.addEventListener("click", function(){ done(); if (refocus(window)) input.focus(); });
+    askEl = card;
+    return card;
+  }
+  function showAsk(){
+    if (!linkAsk || (askEl && askEl.isConnected)) return;
+    log.appendChild(askCard());
+    log.scrollTop = log.scrollHeight;
+  }
+
   function intro(play){
     introRun++;
     var mine = introRun, s = strings(langNow()), lock = lockupOf(document);
@@ -1777,6 +1824,7 @@
     hello.appendChild(el("span", "rbchat-h2", lines[1]));
     introEl.appendChild(hello);
     notice = el("p", "rbchat-notice"); introEl.appendChild(notice); writeNotice();
+    if (linkAsk && !messages.length) introEl.appendChild(askCard());
     var groups = el("div", "rbchat-groups"); introEl.appendChild(groups);
     var promptLine = el("p", "rbchat-prompt-line", "› " + s.prompt + " ");
     // The block cursor waits here while the intro plays, and hands over to the command line.
@@ -2311,11 +2359,15 @@
   // click: open() focuses the input, which on a touch screen would raise the keyboard over a page
   // the visitor has not read yet, so there the focus is taken back at once, where refocus says.
   (function arrive(){
-    var rest = asked(location.search);
-    if (rest === null) return;
+    var rest = asked(location.search), link = linkQuestion(rest === null ? location.search : rest);
+    if (rest === null && !link) return;
+    if (link) { rest = link.rest; linkAsk = link.question; }
     try { history.replaceState(null, "", location.pathname + rest + location.hash); } catch (err) {}
-    if (panel && !panel.hidden) return;
-    open();
-    if (!refocus(window)) input.blur();
+    if (!panel || panel.hidden) open();
+    showAsk();
+    // A waiting question takes the focus on a desk, so Enter sends it; on a touch screen nothing
+    // keeps it, as the panel opened by an address never raises the keyboard.
+    if (!refocus(window)) { input.blur(); return; }
+    if (askEl) askEl.querySelector(".rbchat-ask-go").focus({ preventScroll: true });
   })();
 })();

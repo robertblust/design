@@ -15,7 +15,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -126,6 +126,20 @@ test("the cursor goes back after an answer only where there is a fine pointer, s
   assert.equal(refocus(win(true)), true);
   assert.equal(refocus(win(false)), false);
   assert.equal(refocus({}), true, "a browser without matchMedia keeps the old behavior");
+});
+
+test("linkQuestion reads ?ask= as the question a link carries, and gives the address without it", () => {
+  assert.equal(linkQuestion(""), null);
+  assert.equal(linkQuestion(undefined), null);
+  assert.equal(linkQuestion("?lang=de"), null);
+  assert.equal(linkQuestion("?asked=x"), null, "a longer name is another parameter");
+  assert.deepEqual(linkQuestion("?ask=who%20leads%20Engineering%3F"), { question: "who leads Engineering?", rest: "" });
+  assert.deepEqual(linkQuestion("?lang=de&ask=wer+leitet+Product%3F&theme=dark"), { question: "wer leitet Product?", rest: "?lang=de&theme=dark" });
+  assert.deepEqual(linkQuestion("?ask=%20%20show%20me%20%20"), { question: "show me", rest: "" }, "trimmed");
+  assert.deepEqual(linkQuestion("?ask=%20%20"), { question: null, rest: "" }, "an empty question still leaves the address");
+  assert.deepEqual(linkQuestion("?ask=%E0%A4%A"), { question: null, rest: "" }, "a malformed escape is no question");
+  assert.equal(linkQuestion("?ask=" + "a".repeat(1000)).question.length, 1000);
+  assert.deepEqual(linkQuestion("?ask=" + "a".repeat(1001)), { question: null, rest: "" }, "longer than a message may be is no question");
 });
 
 test("asked gives the address without ?chat=open, and null where the address never asked", () => {
@@ -1033,4 +1047,13 @@ test("an organization is captioned and has a reading line in both languages, and
 // until the translator has written the line, and nothing else waits on it.
 test("the German is the translator's: an organization's reading line is no placeholder", () => {
   assert.doesNotMatch(strings("de").diagram.reading.organization, /PROVISIONAL/, "the German is the translator's, made from the reviewed English");
+});
+
+test("a link's question card has its strings in both languages", () => {
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).ask).sort(), ["discard", "edit", "from", "label", "send"], lang);
+  assert.equal(strings("en").ask.from, "The link you opened asks:");
+});
+
+test("the German of a link's question card is the translator's: no placeholder", () => {
+  for (const [k, v] of Object.entries(strings("de").ask)) assert.doesNotMatch(v, /PROVISIONAL/, `de ask.${k} is the translator's, made from the reviewed English`);
 });
