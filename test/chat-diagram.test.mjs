@@ -771,3 +771,36 @@ test("the company's org chart draws its open positions as dashed, unfilled boxes
   assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
   await page.close();
 });
+
+test("a system draws the element's mark in each box at the firm brightness, links its cylinders and its service, and sets the middle apart", async () => {
+  const { page } = await asked([["diagram", PICTURES.system], ["text", { text: "The Billing service." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  const marks = await page.$$eval(".rbchat-diagram svg .rbchat-mark", (ms) => ms.map((m) => [m.getAttribute("class"), getComputedStyle(m).color]));
+  assert.deepEqual(marks.map((m) => m[0]), ["rbchat-mark element application-component", "rbchat-mark element node", "rbchat-mark element application-component"]);
+  const firm = await page.$eval(".rbchat-diagram-box", (b) => { const t = document.createElement("i"); t.style.color = "var(--c-firm)"; b.appendChild(t); const c = getComputedStyle(t).color; t.remove(); return c; });
+  for (const [, color] of marks) assert.equal(color, firm);
+  for (const n of PICTURES.system.nodes) {
+    const href = await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
+    assert.equal(href, `/model/?stage=expanded#${n.id}`, n.title);
+  }
+  const widths = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.map((g) => [g.classList.contains("middle"), getComputedStyle(g.querySelector("rect, path, polygon")).strokeWidth]));
+  const [middle, other] = [widths.find((w) => w[0])[1], widths.find((w) => !w[0])[1]];
+  assert.ok(parseFloat(middle) > parseFloat(other), `the middle's border is heavier: ${middle} over ${other}`);
+  assert.equal(await page.$eval(".rbchat-diagram figcaption span", (s) => s.textContent), "Landscape · Billing service");
+  assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /what it runs on/);
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
+
+test("what a system holds is captioned and read, and a planned system is dashed", async () => {
+  const { page } = await asked([["diagram", PICTURES.holds], ["diagram", PICTURES.planned], ["text", { text: "The Invoice mailer." }]]);
+  // A mark is a nested svg of its own, so only the box's direct child counts a picture.
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram-box > svg").length === 2);
+  const captions = await page.$$eval(".rbchat-diagram figcaption span", (ss) => ss.map((s) => s.textContent));
+  assert.deepEqual(captions, ["Data held · Invoice mailer", "Landscape · Billing service"]);
+  assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /whose copy leads/);
+  const dash = await page.$eval(".rbchat-diagram svg g.node.planned rect", (r) => getComputedStyle(r).strokeDasharray);
+  assert.notEqual(dash, "none");
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});

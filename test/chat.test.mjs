@@ -690,7 +690,7 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "reading", title: null }, "de"), "");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "lifecycle", "neighborhood", "organization", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "holds", "lifecycle", "neighborhood", "organization", "process", "reading", "schema", "shut", "system", "zoomIn", "zoomOut"]);
 });
 
 test("the two pictures of a bounded context are captioned, and each has a reading line, in both languages", () => {
@@ -1038,8 +1038,8 @@ test("an organization is captioned and has a reading line in both languages, and
   assert.equal(diagramCaption({ shape: "organization", title: "Maintainers" }, "en"), "Organization · Maintainers");
   for (const lang of ["en", "de"]) assert.ok(strings(lang).diagram.reading.organization.length > 20, lang);
   assert.match(strings("en").diagram.reading.organization, /dashed box is an open position/);
-  assert.deepEqual(Object.keys(MARKS), ["human", "agent"]);
-  for (const [k, body] of Object.entries(MARKS)) assert.ok(src.includes(`${k}: '${body}'`), `chat.js carries the ${k} mark as lib/marks.mjs draws it`);
+  assert.deepEqual(Object.keys(MARKS), ["human", "agent", "application-component", "node", "system-software", "device", "equipment", "communication-network"]);
+  for (const [k, body] of Object.entries(MARKS)) assert.ok(src.includes(`${/^[a-z]+$/.test(k) ? k : JSON.stringify(k)}: '${body}'`), `chat.js carries the ${k} mark as lib/marks.mjs draws it`);
   assert.match(src, /registerIconPacks\(\[\{ name: "fak"/);
 });
 
@@ -1056,4 +1056,16 @@ test("a link's question card has its strings in both languages", () => {
 
 test("the German of a link's question card is the translator's: no placeholder", () => {
   for (const [k, v] of Object.entries(strings("de").ask)) assert.doesNotMatch(v, /PROVISIONAL/, `de ask.${k} is the translator's, made from the reviewed English`);
+});
+
+test("a system's two pictures are captioned and have reading lines in both languages", () => {
+  assert.equal(diagramCaption({ shape: "system", title: "Chat server" }, "en"), "Landscape · Chat server");
+  assert.equal(diagramCaption({ shape: "holds", title: "Chat server" }, "en"), "Data held · Chat server");
+  for (const lang of ["en", "de"]) for (const shape of ["system", "holds"]) assert.ok(strings(lang).diagram.reading[shape].length > 20, `${lang} ${shape}`);
+  assert.match(strings("en").diagram.reading.system, /a dotted line joins a system to what it runs on/);
+  assert.match(strings("en").diagram.reading.holds, /a heavy arrow marks the system whose copy leads/);
+});
+
+test("the German is the translator's: a system's reading lines are no placeholder", () => {
+  for (const shape of ["system", "holds"]) assert.doesNotMatch(strings("de").diagram.reading[shape], /PROVISIONAL/, `${shape}: the German is the translator's, made from the reviewed English`);
 });

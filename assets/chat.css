@@ -211,11 +211,13 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
 .rbchat-diagram-failed{margin:0;font-size:.85rem}
 /* An org chart's marks: Mermaid sets the host's token as an svg.label-icon before a person's name,
    sized to the text; a person's mark is the firm brightness and an agent's the mid, as the
-   Processes page draws them, and both beat the linked label's own color. An open position is a
+   Processes page draws them, and both beat the linked label's own color; a system's element mark
+   is the firm brightness too, since a system is a thing and not an agent. An open position is a
    dashed box with no fill, and the frame the agents of a group stand in is shaded. */
 .rbchat-diagram-box svg .label-icon{width:1.15em;height:1.15em;vertical-align:-.2em;margin-right:.3em}
 .rbchat-diagram-box svg .rbchat-mark.human{color:var(--c-firm,var(--ink))!important}
 .rbchat-diagram-box svg .rbchat-mark.agent{color:var(--c-mid)!important}
+.rbchat-diagram-box svg .rbchat-mark.element{color:var(--c-firm,var(--ink))!important}
 .rbchat-diagram-box svg .node.open rect{fill:none!important}
 .rbchat-diagram-box svg .cluster.agents rect{fill:var(--press)!important}
 .rbchat-diagram-reading{margin:.35rem .1rem 0;font-size:.8rem;line-height:1.4;color:var(--dim)}
