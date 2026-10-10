@@ -779,6 +779,14 @@ test("a system draws the element's mark in each box at the firm brightness, link
   assert.deepEqual(marks.map((m) => m[0]), ["rbchat-mark element application-component", "rbchat-mark element node", "rbchat-mark element application-component"]);
   const firm = await page.$eval(".rbchat-diagram-box", (b) => { const t = document.createElement("i"); t.style.color = "var(--c-firm)"; b.appendChild(t); const c = getComputedStyle(t).color; t.remove(); return c; });
   for (const [, color] of marks) assert.equal(color, firm);
+  // The mark stays outside the name a hover underlines, and the box is drawn wide enough for both.
+  const boxes = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.filter((g) => g.querySelector(".label-icon")).map((g) => {
+    const icon = g.querySelector(".label-icon"), name = g.querySelector(".rbchat-node-name");
+    const box = g.querySelector("rect").getBoundingClientRect(), labelBox = g.querySelector(".nodeLabel").getBoundingClientRect();
+    return { inName: !!(name && name.contains(icon)), fits: labelBox.width <= box.width && icon.getBoundingClientRect().right <= box.right };
+  }));
+  assert.equal(boxes.length, 3);
+  for (const b of boxes) assert.deepEqual(b, { inName: false, fits: true });
   for (const n of PICTURES.system.nodes) {
     const href = await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href"));
     assert.equal(href, `/model/?stage=expanded#${n.id}`, n.title);
