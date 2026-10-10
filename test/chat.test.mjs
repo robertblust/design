@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { MARKS } from "../lib/marks.mjs";
 
 const PKG = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
@@ -675,7 +676,7 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "reading", title: null }, "de"), "");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "lifecycle", "neighborhood", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "lifecycle", "neighborhood", "organization", "process", "reading", "schema", "shut", "zoomIn", "zoomOut"]);
 });
 
 test("the two pictures of a bounded context are captioned, and each has a reading line, in both languages", () => {
@@ -1016,4 +1017,20 @@ test("answerLang is the last answer's language where the server named one, else 
   assert.match(src, /else if \(name === "done"\) \{ cut = !!data\.cut; ended = true; spoke = data && typeof data\.lang === "string" \? data\.lang : null; \}/, "done's language is not read");
   assert.match(src, /verdict: checked, lang: spoke \}\);/, "the answer's turn does not keep its language");
   assert.match(src, /verdict: t\.verdict \|\| null, lang: typeof t\.lang === "string" \? t\.lang : null \}\);/, "a restored turn loses its language, and the next page's chips switch back");
+});
+
+test("an organization is captioned and has a reading line in both languages, and the widget's marks are lib/marks.mjs's", () => {
+  assert.equal(diagramCaption({ shape: "organization", title: null }, "en"), "Organization");
+  assert.equal(diagramCaption({ shape: "organization", title: "Maintainers" }, "en"), "Organization · Maintainers");
+  for (const lang of ["en", "de"]) assert.ok(strings(lang).diagram.reading.organization.length > 20, lang);
+  assert.match(strings("en").diagram.reading.organization, /dashed box is an open position/);
+  assert.deepEqual(Object.keys(MARKS), ["human", "agent"]);
+  for (const [k, body] of Object.entries(MARKS)) assert.ok(src.includes(`${k}: '${body}'`), `chat.js carries the ${k} mark as lib/marks.mjs draws it`);
+  assert.match(src, /registerIconPacks\(\[\{ name: "fak"/);
+});
+
+// Apart from the test above so that the placeholder cannot hide the marks check: this one fails
+// until the translator has written the line, and nothing else waits on it.
+test("the German is the translator's: an organization's reading line is no placeholder", () => {
+  assert.doesNotMatch(strings("de").diagram.reading.organization, /PROVISIONAL/, "the German is the translator's, made from the reviewed English");
 });

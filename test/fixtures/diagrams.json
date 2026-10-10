@@ -215,5 +215,57 @@
    { "node": "n0", "id": "01a0ffff-0000-7000-8000-000000000111", "title": "Quote", "type": "aggregate" }
   ],
   "omitted": 0
+ },
+ "organization": {
+  "shape": "organization",
+  "title": "Billing Run Team",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Billing Run Team\"]\n    n0[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Backend Engineer</small>\"]:::lead\n    subgraph g0a [\" \"]\n      n1[\"fak:fa-agent <b>AI Agent</b>\"]\n    end\n    n0 ~~~ g0a\n  end\n  class g0a agents\n  classDef lead stroke-width:2px\n  classDef agents stroke-dasharray:2 3",
+  "nodes": [
+   { "node": "g0", "id": "01a1152c-3863-79ba-8430-755ed2dec49c", "title": "Billing Run Team", "type": "group" },
+   { "node": "n0", "id": "01a02f53-2408-7291-ac16-087fcdee4d71", "title": "Mira Halvorsen", "type": "profile" },
+   { "node": "n1", "id": "01a0a6b8-7e80-78af-b202-d3733bdd650c", "title": "AI Agent", "type": "profile" }
+  ],
+  "omitted": 0
+ },
+ "agents": {
+  "shape": "organization",
+  "title": "Billing Run Team",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Billing Run Team\"]\n    n0[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Backend Engineer</small>\"]:::lead\n    subgraph g0a [\" \"]\n      direction LR\n      n1[\"fak:fa-agent <b>AI Agent</b>\"]\n      n2[\"fak:fa-agent <b>Review Agent</b>\"]\n      n1 ~~~ n2\n    end\n    n0 ~~~ g0a\n  end\n  class g0a agents\n  classDef lead stroke-width:2px\n  classDef agents stroke-dasharray:2 3",
+  "nodes": [
+   { "node": "g0", "id": "01a1152c-3863-79ba-8430-755ed2dec49c", "title": "Billing Run Team", "type": "group" },
+   { "node": "n0", "id": "01a02f53-2408-7291-ac16-087fcdee4d71", "title": "Mira Halvorsen", "type": "profile" },
+   { "node": "n1", "id": "01a0a6b8-7e80-78af-b202-d3733bdd650c", "title": "AI Agent", "type": "profile" },
+   { "node": "n2", "id": "01a0ffff-0000-7000-8000-0000000000d2", "title": "Review Agent", "type": "profile" }
+  ],
+  "omitted": 0
+ },
+ "company": {
+  "shape": "organization",
+  "title": null,
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Management\"]\n    n0[\"fak:fa-human <b>Ines Marchetti</b><br/><small>Managing Director</small>\"]:::lead\n    n1[\"fak:fa-human <b>Jonas Whitcombe</b><br/><small>Executive Assistant</small>\"]\n    n0 -.- n1\n  end\n  subgraph g1 [\"Legal\"]\n    n2[\"<b>Legal Counsel</b>\"]:::open\n  end\n  subgraph g2 [\"Engineering\"]\n    n3[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Engineering Lead</small>\"]:::lead\n    n4[\"<b>Backend Engineer</b><br/><small>× 2</small>\"]:::open\n    n3 ~~~ n4\n  end\n  subgraph g3 [\"Product\"]\n    n5[\"fak:fa-human <b>Tomas Reyes</b><br/><small>Head of Product</small>\"]:::lead\n    n6[\"<b>Head of Product</b>\"]:::open\n  end\n  n0 -.- n2\n  n0 --> n3\n  n0 --> n5\n  classDef lead stroke-width:2px\n  classDef open stroke-dasharray:5 4",
+  "nodes": [
+   { "node": "g0", "id": "01a1152c-3800-7600-a961-2992dc0f3e2d", "title": "Management", "type": "group" },
+   { "node": "n0", "id": "01a11fec-8792-73f8-b030-92147dae4f65", "title": "Ines Marchetti", "type": "profile" },
+   { "node": "n1", "id": "01a11fec-87c0-7d80-8aa2-fa64547264dc", "title": "Jonas Whitcombe", "type": "profile" },
+   { "node": "g1", "id": "01a11fcc-a579-7c38-88e9-0784850f3e77", "title": "Legal", "type": "group" },
+   { "node": "n2", "id": "01a11fcc-a49f-7fff-ba50-805be7c54c60", "title": "Legal Counsel", "type": "job" },
+   { "node": "g2", "id": "01a1152c-3830-7c3f-b3ad-3761dc40528c", "title": "Engineering", "type": "group" },
+   { "node": "n3", "id": "01a02f53-2408-7291-ac16-087fcdee4d71", "title": "Mira Halvorsen", "type": "profile" },
+   { "node": "n4", "id": "01a1199f-df7d-7d7d-90ae-03cd52174cbf", "title": "Backend Engineer", "type": "job" },
+   { "node": "g3", "id": "01a11732-685a-77fa-b329-a53090054f37", "title": "Product", "type": "group" },
+   { "node": "n5", "id": "01a03a2c-2de8-73b4-9058-8664caea919a", "title": "Tomas Reyes", "type": "profile" },
+   { "node": "n6", "id": "01a1199f-e00b-7a2a-9466-9f6a96ffe718", "title": "Head of Product", "type": "job" }
+  ],
+  "omitted": 1
+ },
+ "escaped": {
+  "shape": "organization",
+  "title": "Ops fas:fa-x",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Ops fas:#8203;fa-x\"]\n    n0[\"fak:fa-human <b>Lead fas:#8203;fa-x</b><br/><small>Backend Engineer</small>\"]:::lead\n  end\n  classDef lead stroke-width:2px",
+  "nodes": [
+   { "node": "g0", "id": "01a1152c-3863-79ba-8430-755ed2dec49d", "title": "Ops fas:fa-x", "type": "group" },
+   { "node": "n0", "id": "01a02f53-2408-7291-ac16-087fcdee4d72", "title": "Lead fas:fa-x", "type": "profile" }
+  ],
+  "omitted": 0
  }
 }

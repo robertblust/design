@@ -88,6 +88,11 @@ const ALLOW = new Set([
   "smaller", "taller", "fuller", "duller", "installer", "installers", "propeller", "stroller",
   "misspelled", "misspelling",
 ]);
+// The one place "Organisation" is correct: the German caption the widget's STRINGS carry for the
+// organization shape. It is taken out of a line before the scan, as that exact token, so the same
+// word anywhere else, in an English sentence or beside another key, is still reported.
+const GERMAN_CAPTION = 'organization: "Organisation"';
+const britishIn = (line) => [...line.replace(GERMAN_CAPTION, "").matchAll(BRITISH)].map((m) => m[0]).filter((w) => !ALLOW.has(w.toLowerCase()));
 const seen = new Map();
 function scan(rel) {
   const abs = path.join(PKG, rel);
@@ -96,13 +101,10 @@ function scan(rel) {
   if (!/\.(mjs|js|css|md)$/.test(rel) && rel !== "NOTICE") return;
   const lines = fs.readFileSync(abs, "utf8").split("\n");
   lines.forEach((line, i) => {
-    for (const m of line.matchAll(BRITISH)) {
-      const w = m[0].toLowerCase();
-      if (ALLOW.has(w)) continue;
-      // Every -ise hit is British only when an -ize form exists; the allow list carries the
-      // exceptions, so anything left is reported and the list is what gets extended.
-      seen.set(`${rel}:${i + 1}`, [...(seen.get(`${rel}:${i + 1}`) || []), m[0]]);
-    }
+    // Every -ise hit is British only when an -ize form exists; the allow list carries the
+    // exceptions, so anything left is reported and the list is what gets extended.
+    const found = britishIn(line);
+    if (found.length) seen.set(`${rel}:${i + 1}`, found);
   });
 }
 
@@ -110,4 +112,12 @@ test("everything the package ships is American English", () => {
   for (const rel of SCAN) scan(rel);
   const report = [...seen].map(([at, ws]) => `${at}  ${ws.join(", ")}`).join("\n");
   assert.equal(seen.size, 0, "British spellings:\n" + report);
+});
+
+test("the German caption is the one place Organisation passes, and the British form is caught in English", () => {
+  assert.deepEqual(britishIn('lifecycle: "Lebenszyklus", organization: "Organisation", reading: {'), []);
+  assert.deepEqual(britishIn("// the organisation draws its groups"), ["organisation"]);
+  assert.deepEqual(britishIn('const caption = "Organisation";'), ["Organisation"]);
+  assert.deepEqual(britishIn('organization: "Organisation", note: "an organisation chart"'), ["organisation"]);
+  assert.deepEqual(britishIn("teilweise, otherwise"), []);
 });

@@ -708,3 +708,66 @@ test("a flow and a lifecycle draw as SVG in both themes, with no fallback source
   assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
   await page.close();
 });
+
+test("an organization draws each person's mark inside their box, outside the underlined name, in its nature's color", async () => {
+  const { page } = await asked([["diagram", PICTURES.organization], ["text", { text: "Billing Run Team." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  const boxes = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.map((g) => {
+    const icon = g.querySelector(".label-icon"), mark = g.querySelector(".rbchat-mark"), name = g.querySelector(".rbchat-node-name");
+    const box = g.querySelector("rect").getBoundingClientRect(), label = g.querySelector(".nodeLabel").getBoundingClientRect();
+    return {
+      nature: mark && mark.getAttribute("class"), color: mark && getComputedStyle(mark).color, inName: !!(name && icon && name.contains(icon)),
+      name: name && name.textContent.trim(), fits: label.width <= box.width && icon.getBoundingClientRect().right <= box.right,
+    };
+  }));
+  assert.deepEqual(boxes.map((b) => [b.nature, b.name, b.inName, b.fits]), [["rbchat-mark human", "Mira Halvorsen", false, true], ["rbchat-mark agent", "AI Agent", false, true]]);
+  assert.notEqual(boxes[0].color, boxes[1].color, "a person's mark and an agent's are two brightnesses");
+  const [frame, agents] = await page.$$eval(".rbchat-diagram svg .cluster rect", (rs) => rs.map((r) => getComputedStyle(r).fill));
+  assert.notEqual(agents, frame, "the agents' frame is shaded apart from its group's");
+  assert.equal(agents, await page.$eval(".rbchat-diagram-box", (b) => { const t = document.createElement("i"); t.style.color = "var(--press)"; b.appendChild(t); const c = getComputedStyle(t).color; t.remove(); return c; }), "with the panel's press color");
+  assert.equal(await page.$eval(".rbchat-diagram figcaption span", (s) => s.textContent), "Organization · Billing Run Team");
+  assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /agents stand in the shaded frame/);
+  await page.close();
+});
+
+test("an organization's agents stand side by side in their frame, in the order listed", async () => {
+  const { page } = await asked([["diagram", PICTURES.agents], ["text", { text: "Billing Run Team." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  const agents = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.filter((g) => g.querySelector(".rbchat-mark.agent")).map((g) => {
+    const r = g.querySelector("rect").getBoundingClientRect();
+    return { name: g.querySelector(".nodeLabel b").textContent.trim(), left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+  }));
+  assert.equal(agents.length, 2);
+  const [first, second] = agents.sort((a, b) => a.left - b.left);
+  assert.deepEqual([first.name, second.name], ["AI Agent", "Review Agent"], "the order the host listed them in");
+  assert.ok(first.top < second.bottom && second.top < first.bottom, `the two boxes share a row: ${JSON.stringify(agents)}`);
+  assert.ok(first.right <= second.left, `and do not overlap sideways: ${JSON.stringify(agents)}`);
+  await page.close();
+});
+
+test("a title holding Mermaid's icon syntax draws as text, in a frame and in a box, and the only marks are the person's", async () => {
+  const { page } = await asked([["diagram", PICTURES.escaped], ["text", { text: "Ops." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  // Mermaid draws a registered `fak` mark as an svg holding the widget's `.rbchat-mark`, and any
+  // other icon pack as an `<i>` with its Font Awesome class: a title that was read as one is the latter.
+  const icons = await page.$$eval(".rbchat-diagram svg .label-icon", (els) => els.map((el) => !!el.querySelector(".rbchat-mark.human")));
+  assert.deepEqual(icons, [true], "one person, one mark, and nothing else the pack draws");
+  assert.equal(await page.$$eval(".rbchat-diagram i.fas, .rbchat-diagram i[class*='fa-']", (els) => els.length), 0, "no Font Awesome icon from a title");
+  // The eye reads `fas:` then `fa-x`; the zero-width space between them is invisible.
+  const seen = (s) => s.replace(/\u200b/g, "").trim();
+  assert.equal(seen(await page.$eval(".rbchat-diagram svg .cluster-label", (el) => el.textContent)), "Ops fas:fa-x");
+  assert.equal(seen(await page.$eval(".rbchat-diagram svg g.node .rbchat-node-name", (el) => el.textContent)), "Lead fas:fa-x");
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
+
+test("the company's org chart draws its open positions as dashed, unfilled boxes, and no fallback source", async () => {
+  const { page } = await asked([["diagram", PICTURES.company], ["text", { text: "Beacon." }]]);
+  await page.waitForSelector(".rbchat-diagram svg g.node.open");
+  const open = await page.$$eval(".rbchat-diagram svg g.node.open", (gs) => gs.map((g) => { const r = g.querySelector("rect"); return [getComputedStyle(r).strokeDasharray, getComputedStyle(r).fill]; }));
+  assert.equal(open.length, 3);
+  for (const [dash, fill] of open) { assert.notEqual(dash, "none"); assert.equal(fill, "none"); }
+  assert.equal(await page.$$eval(".rbchat-diagram svg .label-icon", (els) => els.length), 4, "four people, four marks; an opening has none");
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
