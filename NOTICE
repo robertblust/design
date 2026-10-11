@@ -47,3 +47,9 @@ a font name.
   Upstream: Octicons — https://github.com/primer/octicons
   Copyright (c) GitHub Inc.
   License: MIT, in assets/octicons.LICENSE.txt
+
+ArchiMate® is a registered trademark of The Open Group. The six element marks in lib/marks.mjs,
+carried by assets/chat.js, are this package's own drawings of the common symbols the ArchiMate
+notation uses for those elements, made so a reader who knows the notation reads the mark; no
+figure of the ArchiMate Specification is reproduced, and nothing here is certified by The Open
+Group.
