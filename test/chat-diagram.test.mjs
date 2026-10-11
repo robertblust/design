@@ -730,6 +730,23 @@ test("an organization draws each person's mark inside their box, outside the und
   await page.close();
 });
 
+// Who directs an agent is a dotted arrow from the person's box to the agent's, one per Direction
+// row the host read (companygraph/meta-model#343); an agent with none is directed by everyone in
+// the frame, which the reading line says, and the arrows leave the agents side by side.
+test("an organization's Direction is a dotted arrow from a person to the agent, the agents still side by side, and the reading line says so", async () => {
+  const { page } = await asked([["diagram", PICTURES.directed], ["text", { text: "Billing Run Team." }]]);
+  await page.waitForSelector(".rbchat-diagram svg .label-icon");
+  const arrows = await page.$$eval(".rbchat-diagram svg path.flowchart-link", (ps) => ps.filter((p) => getComputedStyle(p).strokeDasharray !== "none" && p.getAttribute("marker-end")).length);
+  assert.equal(arrows, 3, "three dotted arrows, one per row");
+  const tops = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.filter((g) => g.querySelector(".rbchat-mark.agent")).map((g) => Math.round(g.querySelector("rect").getBoundingClientRect().top)));
+  assert.equal(tops.length, 2);
+  assert.equal(tops[0], tops[1], "the agents stand side by side");
+  assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /a dotted arrow from a person to an agent says who directs it/);
+  await page.evaluate(() => document.documentElement.setAttribute("lang", "de"));
+  await page.waitForFunction(() => /gepunkteter Pfeil/.test(document.querySelector(".rbchat-diagram-reading").textContent));
+  await page.close();
+});
+
 test("an organization's agents stand side by side in their frame, in the order listed", async () => {
   const { page } = await asked([["diagram", PICTURES.agents], ["text", { text: "Billing Run Team." }]]);
   await page.waitForSelector(".rbchat-diagram svg .label-icon");

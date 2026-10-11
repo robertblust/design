@@ -48,7 +48,7 @@
  "typed": {
   "shape": "neighborhood",
   "title": "Neighborhood",
-  "mermaid": "flowchart LR\n  n0[\"<small>«concept»</small><br/>Concept A\"]\n  n1[\"<small>«concept»</small><br/>Concept B\"]\n  n0 -->|\"domain\"| n1",
+  "mermaid": "flowchart LR\n  n0[\"<small>\u00abconcept\u00bb</small><br/>Concept A\"]\n  n1[\"<small>\u00abconcept\u00bb</small><br/>Concept B\"]\n  n0 -->|\"domain\"| n1",
   "nodes": [
    {
     "node": "n0",
@@ -183,7 +183,7 @@
  "context": {
   "shape": "context",
   "title": "Quoting",
-  "mermaid": "flowchart TB\n  n0[\"<small>«bounded-context» · core</small><br/><b>Quoting</b>\"]\n  n1[\"<small>«bounded-context» · supporting</small><br/>Catalog\"]\n  n2[\"<small>«bounded-context» · core</small><br/>Invoicing\"]\n  n3[\"<small>«bounded-context» · generic</small><br/>Ordering\"]\n  n1 -->|\"U → D · conformist\"| n0\n  n2 <-->|\"shared kernel\"| n0\n  n0 -->|\"U → D · customer/supplier\"| n3",
+  "mermaid": "flowchart TB\n  n0[\"<small>\u00abbounded-context\u00bb \u00b7 core</small><br/><b>Quoting</b>\"]\n  n1[\"<small>\u00abbounded-context\u00bb \u00b7 supporting</small><br/>Catalog\"]\n  n2[\"<small>\u00abbounded-context\u00bb \u00b7 core</small><br/>Invoicing\"]\n  n3[\"<small>\u00abbounded-context\u00bb \u00b7 generic</small><br/>Ordering\"]\n  n1 -->|\"U \u2192 D \u00b7 conformist\"| n0\n  n2 <-->|\"shared kernel\"| n0\n  n0 -->|\"U \u2192 D \u00b7 customer/supplier\"| n3",
   "nodes": [
    {
     "node": "n0",
@@ -259,7 +259,7 @@
  "flow": {
   "shape": "flow",
   "title": "Quote",
-  "mermaid": "sequenceDiagram\n  participant caller as Caller\n  participant n0 as Quote\n  caller->>n0: Send quote\n  n0--)caller: Quote sent\n  caller->>n0: Accept quote\n  alt the customer signs before it expires\n    n0--)caller: Quote accepted\n  else it has expired (INV-T1)\n    Note over n0: —\n  end",
+  "mermaid": "sequenceDiagram\n  participant caller as Caller\n  participant n0 as Quote\n  caller->>n0: Send quote\n  n0--)caller: Quote sent\n  caller->>n0: Accept quote\n  alt the customer signs before it expires\n    n0--)caller: Quote accepted\n  else it has expired (INV-T1)\n    Note over n0: \u2014\n  end",
   "nodes": [
    {
     "node": "n0",
@@ -357,7 +357,7 @@
  "company": {
   "shape": "organization",
   "title": null,
-  "mermaid": "flowchart TB\n  subgraph g0 [\"Management\"]\n    n0[\"fak:fa-human <b>Ines Marchetti</b><br/><small>Managing Director</small>\"]:::lead\n    n1[\"fak:fa-human <b>Jonas Whitcombe</b><br/><small>Executive Assistant</small>\"]\n    n0 -.- n1\n  end\n  subgraph g1 [\"Legal\"]\n    n2[\"<b>Legal Counsel</b>\"]:::open\n  end\n  subgraph g2 [\"Engineering\"]\n    n3[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Engineering Lead</small>\"]:::lead\n    n4[\"<b>Backend Engineer</b><br/><small>× 2</small>\"]:::open\n    n3 ~~~ n4\n  end\n  subgraph g3 [\"Product\"]\n    n5[\"fak:fa-human <b>Tomas Reyes</b><br/><small>Head of Product</small>\"]:::lead\n    n6[\"<b>Head of Product</b>\"]:::open\n  end\n  n0 -.- n2\n  n0 --> n3\n  n0 --> n5\n  classDef lead stroke-width:2px\n  classDef open stroke-dasharray:5 4",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Management\"]\n    n0[\"fak:fa-human <b>Ines Marchetti</b><br/><small>Managing Director</small>\"]:::lead\n    n1[\"fak:fa-human <b>Jonas Whitcombe</b><br/><small>Executive Assistant</small>\"]\n    n0 -.- n1\n  end\n  subgraph g1 [\"Legal\"]\n    n2[\"<b>Legal Counsel</b>\"]:::open\n  end\n  subgraph g2 [\"Engineering\"]\n    n3[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Engineering Lead</small>\"]:::lead\n    n4[\"<b>Backend Engineer</b><br/><small>\u00d7 2</small>\"]:::open\n    n3 ~~~ n4\n  end\n  subgraph g3 [\"Product\"]\n    n5[\"fak:fa-human <b>Tomas Reyes</b><br/><small>Head of Product</small>\"]:::lead\n    n6[\"<b>Head of Product</b>\"]:::open\n  end\n  n0 -.- n2\n  n0 --> n3\n  n0 --> n5\n  classDef lead stroke-width:2px\n  classDef open stroke-dasharray:5 4",
   "nodes": [
    {
     "node": "g0",
@@ -451,7 +451,7 @@
  "system": {
   "shape": "system",
   "title": "Billing service",
-  "mermaid": "flowchart LR\n  n0[\"fak:fa-application-component <b>Billing service</b><br/><small>«Service»</small>\"]:::middle\n  n1[\"fak:fa-node <b>Beacon cluster</b><br/><small>«Platform»</small>\"]\n  n0 -.- n1\n  n2[\"fak:fa-application-component <b>Invoice mailer</b><br/><small>«SaaS»</small>\"]\n  n0 -->|\"Feed endpoint · Invoice · REST\"| n2\n  n3([\"Invoice feed\"])\n  n0 --o n3\n  n4[(\"Invoice record<br/><small>Invoice</small>\")]\n  n0 ==>|\"master\"| n4\n  n5[(\"Invoice line\")]\n  n0 ==>|\"master\"| n5\n  n6[(\"Credit note\")]\n  n0 ==>|\"master\"| n6\n  n7[(\"Pricing rule\")]\n  n0 ==>|\"master\"| n7\n  n8[(\"Customer\")]\n  n0 -.->|\"reads\"| n8\n  n9[(\"Usage record\")]\n  n0 -.->|\"reads\"| n9\n  classDef middle stroke-width:2px",
+  "mermaid": "flowchart LR\n  n0[\"fak:fa-application-component <b>Billing service</b><br/><small>\u00abService\u00bb</small>\"]:::middle\n  n1[\"fak:fa-node <b>Beacon cluster</b><br/><small>\u00abPlatform\u00bb</small>\"]\n  n0 -.- n1\n  n2[\"fak:fa-application-component <b>Invoice mailer</b><br/><small>\u00abSaaS\u00bb</small>\"]\n  n0 -->|\"Feed endpoint \u00b7 Invoice \u00b7 REST\"| n2\n  n3([\"Invoice feed\"])\n  n0 --o n3\n  n4[(\"Invoice record<br/><small>Invoice</small>\")]\n  n0 ==>|\"master\"| n4\n  n5[(\"Invoice line\")]\n  n0 ==>|\"master\"| n5\n  n6[(\"Credit note\")]\n  n0 ==>|\"master\"| n6\n  n7[(\"Pricing rule\")]\n  n0 ==>|\"master\"| n7\n  n8[(\"Customer\")]\n  n0 -.->|\"reads\"| n8\n  n9[(\"Usage record\")]\n  n0 -.->|\"reads\"| n9\n  classDef middle stroke-width:2px",
   "nodes": [
    {
     "node": "n0",
@@ -519,7 +519,7 @@
  "holds": {
   "shape": "holds",
   "title": "Invoice mailer",
-  "mermaid": "flowchart LR\n  n0[\"fak:fa-application-component <b>Invoice mailer</b><br/><small>«SaaS»</small>\"]:::middle\n  n1[(\"Invoice record<br/><small>Invoice</small>\")]\n  n0 -.->|\"reads\"| n1\n  n2[(\"Customer\")]\n  n0 -.->|\"reads\"| n2\n  n3[\"fak:fa-application-component <b>Billing service</b><br/><small>«Service»</small>\"]\n  n3 ==>|\"master\"| n1\n  n3 -.->|\"reads\"| n2\n  classDef middle stroke-width:2px",
+  "mermaid": "flowchart LR\n  n0[\"fak:fa-application-component <b>Invoice mailer</b><br/><small>\u00abSaaS\u00bb</small>\"]:::middle\n  n1[(\"Invoice record<br/><small>Invoice</small>\")]\n  n0 -.->|\"reads\"| n1\n  n2[(\"Customer\")]\n  n0 -.->|\"reads\"| n2\n  n3[\"fak:fa-application-component <b>Billing service</b><br/><small>\u00abService\u00bb</small>\"]\n  n3 ==>|\"master\"| n1\n  n3 -.->|\"reads\"| n2\n  classDef middle stroke-width:2px",
   "nodes": [
    {
     "node": "n0",
@@ -551,7 +551,7 @@
  "planned": {
   "shape": "system",
   "title": "Billing service",
-  "mermaid": "flowchart LR\n  n0[\"fak:fa-application-component <b>Billing service</b><br/><small>«Service»</small>\"]:::middle\n  n1[\"fak:fa-node <b>Beacon cluster</b><br/><small>«Platform»</small>\"]\n  n0 -.- n1\n  n2[\"fak:fa-application-component <b>Archive</b><br/><small>«SaaS»</small>\"]:::planned\n  n0 -->|\"Invoice · SFTP\"| n2\n  n3[\"fak:fa-application-component <b>Invoice mailer</b><br/><small>«SaaS»</small>\"]\n  n0 -->|\"Feed endpoint · Invoice · REST\"| n3\n  n4([\"Invoice feed\"])\n  n0 --o n4\n  n5[(\"Invoice record<br/><small>Invoice</small>\")]\n  n0 ==>|\"master\"| n5\n  n6[(\"Invoice line\")]\n  n0 ==>|\"master\"| n6\n  n7[(\"Credit note\")]\n  n0 ==>|\"master\"| n7\n  n8[(\"Pricing rule\")]\n  n0 ==>|\"master\"| n8\n  n9[(\"Customer\")]\n  n0 -.->|\"reads\"| n9\n  n10[(\"Usage record\")]\n  n0 -.->|\"reads\"| n10\n  classDef middle stroke-width:2px\n  classDef planned stroke-dasharray:5 4",
+  "mermaid": "flowchart LR\n  n0[\"fak:fa-application-component <b>Billing service</b><br/><small>\u00abService\u00bb</small>\"]:::middle\n  n1[\"fak:fa-node <b>Beacon cluster</b><br/><small>\u00abPlatform\u00bb</small>\"]\n  n0 -.- n1\n  n2[\"fak:fa-application-component <b>Archive</b><br/><small>\u00abSaaS\u00bb</small>\"]:::planned\n  n0 -->|\"Invoice \u00b7 SFTP\"| n2\n  n3[\"fak:fa-application-component <b>Invoice mailer</b><br/><small>\u00abSaaS\u00bb</small>\"]\n  n0 -->|\"Feed endpoint \u00b7 Invoice \u00b7 REST\"| n3\n  n4([\"Invoice feed\"])\n  n0 --o n4\n  n5[(\"Invoice record<br/><small>Invoice</small>\")]\n  n0 ==>|\"master\"| n5\n  n6[(\"Invoice line\")]\n  n0 ==>|\"master\"| n6\n  n7[(\"Credit note\")]\n  n0 ==>|\"master\"| n7\n  n8[(\"Pricing rule\")]\n  n0 ==>|\"master\"| n8\n  n9[(\"Customer\")]\n  n0 -.->|\"reads\"| n9\n  n10[(\"Usage record\")]\n  n0 -.->|\"reads\"| n10\n  classDef middle stroke-width:2px\n  classDef planned stroke-dasharray:5 4",
   "nodes": [
    {
     "node": "n0",
@@ -621,5 +621,60 @@
    }
   ],
   "omitted": 0
+ },
+ "directed": {
+  "shape": "organization",
+  "title": "Billing Run Team",
+  "mermaid": "flowchart TB\n  subgraph g0 [\"Billing Run Team\"]\n    n0[\"fak:fa-human <b>Mira Halvorsen</b><br/><small>Backend Engineer</small>\"]:::lead\n    n1[\"fak:fa-human <b>Tomas Reyes</b><br/><small>Head of Product</small>\"]\n    subgraph g0a [\" \"]\n      direction LR\n      n2[\"fak:fa-agent <b>AI Agent</b>\"]\n      n3[\"fak:fa-agent <b>Build Agent</b>\"]\n    end\n    n0 -.-> n2\n    n1 -.-> n2\n    n0 -.-> n3\n    n0 ~~~ n1\n    n1 ~~~ g0a\n  end\n  class g0a agents\n  classDef lead stroke-width:2px\n  classDef agents stroke-dasharray:2 3",
+  "nodes": [
+   {
+    "node": "g0",
+    "id": "01a1152c-3863-79ba-8430-755ed2dec49c",
+    "title": "Billing Run Team",
+    "type": "group"
+   },
+   {
+    "node": "n0",
+    "id": "01a02f53-2408-7291-ac16-087fcdee4d71",
+    "title": "Mira Halvorsen",
+    "type": "profile"
+   },
+   {
+    "node": "n1",
+    "id": "01a0ffff-0000-7000-8000-0000000000e1",
+    "title": "Tomas Reyes",
+    "type": "profile"
+   },
+   {
+    "node": "n2",
+    "id": "01a0a6b8-7e80-78af-b202-d3733bdd650c",
+    "title": "AI Agent",
+    "type": "profile"
+   },
+   {
+    "node": "n3",
+    "id": "01a0ffff-0000-7000-8000-0000000000e2",
+    "title": "Build Agent",
+    "type": "profile"
+   }
+  ],
+  "omitted": 0,
+  "links": [
+   {
+    "from": "n0",
+    "to": "n2",
+    "label": "directs"
+   },
+   {
+    "from": "n1",
+    "to": "n2",
+    "label": "directs"
+   },
+   {
+    "from": "n0",
+    "to": "n3",
+    "label": "directs"
+   }
+  ]
  }
 }
