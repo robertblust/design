@@ -98,7 +98,7 @@
     en: {
       open: "Ask the model", close: "Close", title: "Ask the model", size: "Resize the chat",
       placeholder: "Ask about the model…", waiting: "Asking…",
-      notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
+      ai: "An AI answers here, not a person.", notice: "Your message and the conversation so far go to {host}, which asks the model and Claude through Anthropic's API. Nothing is sent until you press send. The conversation stays in this tab, so it is still here on the next page, and closing the tab ends it.",
       privacy: "Privacy", privacyHref: "/privacy/", from: "From the model",
       questions: "Questions to start with", next: "Questions to ask next",
       follow: { schema: "Show me the schema of {title} ({type})", neighbors: "Show me the neighbors of {title}", more: "Tell me more about {title}" },
@@ -149,7 +149,7 @@
     de: {
       open: "Das Modell fragen", close: "Schliessen", title: "Das Modell fragen", size: "Grösse des Chats ändern",
       placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
-      notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
+      ai: "Hier antwortet eine KI, keine Person.", notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       questions: "Fragen für den Einstieg", next: "Weitere Fragen",
       follow: { schema: "Zeig mir das Schema von {title} ({type})", neighbors: "Zeig mir die Nachbarn von {title}", more: "Erzähl mir mehr über {title}" },
@@ -1968,8 +1968,10 @@
   });
   document.body.appendChild(button);
 
-  // The notice, in the intro now, as a comment line: where the message goes, and the privacy page.
-  function writeNotice(){ if (!notice) return; var s = strings(langNow()); notice.innerHTML = esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>"; }
+  // The notice, in the intro, under its rail: first that an AI answers and not a person, the sentence
+  // the EU AI Act asks a chat to say before the first message, then where the message goes, and the
+  // privacy page.
+  function writeNotice(){ if (!notice) return; var s = strings(langNow()); notice.innerHTML = '<b class="rbchat-ai">' + esc(s.ai) + "</b> " + esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>"; }
   function relabel(){
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);

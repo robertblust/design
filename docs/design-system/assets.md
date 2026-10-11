@@ -69,6 +69,8 @@ The family's one modal: everything a page opens over itself opens here, the grap
 
 A button at the foot of a page and the terminal it opens over the site's chat service, a card on a desk and a sheet on a phone. A deck shows the button on a desk and not on a phone, where its transport takes the bottom edge ([Decks](decks.md#transport)). The endpoint and the model page are named on the script's own tag. Source: [assets/chat.css](../../assets/chat.css), [assets/chat.js](../../assets/chat.js), whose header gives the tag.
 
+A fresh conversation opens on the intro, and its notice is the one line there that is not a menu: it carries a rail in `--t-part` ([Tokens](tokens.md#token-families)) and opens, in the panel's ink, with the sentence that an AI answers and not a person, which the EU AI Act asks a chat to say before the first message; where the message goes and the privacy page follow in the dim of a comment. The sentences are the widget's own in both languages, in `chat.js`.
+
 An address can ask for the chat, so a post can send its reader to the panel or to one answer: `?chat=open` opens the panel, and `?ask=` opens it with a question waiting, with `?chat=open` or without it. The page reads either once and takes it out of the address, so a reload or a shared address does not ask again. Nothing is sent on arrival, as the intro's notice says: the question waits in `.rbchat-ask`, a card under that notice and above what the panel offers to try, or at the end of the log where the tab already holds a conversation, and Send hands it to the chat as if typed, Edit puts it in the input and Discard drops it. On a desk Send takes the focus, so Enter sends; on a touch screen nothing is focused, so no keyboard rises over the page. The question is trimmed and set as text, never as markup, and one that is empty, too long for a message or not decodable opens the panel without a card.
 
 Where the chat service checks its answers, a claim the evidence does not carry is marked once the answer has finished, and only where its probability passes the threshold the service sends: a dotted underline, `--t-part` for a claim carried in part and `--t-bad` for the rest. Hover or keyboard focus shows its note in the panel's own tooltip box, the one under the header's buttons, with a name and one line; a tap does not, and on a phone the line under the answer says how many statements are not fully backed. With no threshold nothing is marked.
@@ -78,6 +80,11 @@ Desk                                            Phone
                 ┌───────────────────────────┐   ┌──────────────────────────┐
                 │ chat · blust.ch   [+]  ×  │   │ chat · blust.ch  [+]  ×  │  ← .rbchat-head
                 ├───────────────────────────┤   ├──────────────────────────┤
+                │ ▣ the site's lockup       │   │ ▣ the site's lockup      │  ← .rbchat-intro, kept at the
+                │ Hello. I answer from …    │   │ Hello. I answer from …   │    top of the log
+                │ ┃ An AI answers here,     │   │ ┃ An AI answers here,    │  ← .rbchat-notice: the amber
+                │ ┃ not a person. Your …    │   │ ┃ not a person. …        │    rail, the sentence in ink,
+                │ 1 Show me the meta-model  │   │ 1 Show me the meta-model │    the rest dim; then the menus
                 │ > the visitor's question  │   │ > question               │
                 │                           │   │                          │  ← .rbchat-log
                 │ The answer, drawn whole:  │   │ The answer …             │
