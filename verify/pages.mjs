@@ -1185,14 +1185,15 @@ export function pageChecks({ SITE, BASE }) {
         ["stem", stems],
       ];
 
-      // English: the body, cloned and stripped of code, scripts and styles, read as
+      // English: the body, cloned and stripped of code, scripts, styles and drawings, read as
       // textContent and not innerText. A deck keeps every slide in the DOM and shows one;
       // innerText on the live body would read the visible slide and let the rest through.
       // The clone is detached anyway, and a detached node's innerText is textContent, so this
-      // names what happens instead of leaning on it.
+      // names what happens instead of leaning on it. A drawing is notation, not prose: a picture
+      // the chat or a page draws writes a UML stereotype «bounded-context» in either language.
       const rendered = await page.evaluate(() => {
         const clone = document.body.cloneNode(true);
-        clone.querySelectorAll("code, pre, script, style").forEach(el => el.remove());
+        clone.querySelectorAll("code, pre, script, style, svg").forEach(el => el.remove());
         return {
           text: clone.textContent,
           title: document.title,

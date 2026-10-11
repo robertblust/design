@@ -753,6 +753,13 @@ test("typography reads German and English notes cold, English text from the body
   assert.match(src, /code/);
 });
 
+test("typography leaves a drawing out of the English it reads, as it leaves code out", () => {
+  // A drawn picture is notation, not prose: a UML stereotype is written «bounded-context» in
+  // either language, and the guillemets in it are no English typography to correct.
+  const src = pageChecks(OPTS).typography.toString().replace(/\/\/.*$/gm, "");
+  assert.match(src, /querySelectorAll\("[^"]*\bsvg\b[^"]*"\)\.forEach\(el => el\.remove\(\)\)/);
+});
+
 test("typography names each hit with its side and its context", async () => {
   // A stub page and a stub fetch: the check must work from what it reads, not from Playwright.
   const html = `<html lang="en"><body><p data-de="Der Weg — „hier“ ist es.">The way – it is.</p>
