@@ -80,6 +80,11 @@ Desk                                            Phone
                 ┌───────────────────────────┐   ┌──────────────────────────┐
                 │ chat · blust.ch   [+]  ×  │   │ chat · blust.ch  [+]  ×  │  ← .rbchat-head
                 ├───────────────────────────┤   ├──────────────────────────┤
+                │ ▣ the site's lockup       │   │ ▣ the site's lockup      │  ← .rbchat-intro, kept at the
+                │ Hello. I answer from …    │   │ Hello. I answer from …   │    top of the log
+                │ ┃ An AI answers here,     │   │ ┃ An AI answers here,    │  ← .rbchat-notice: the amber
+                │ ┃ not a person. Your …    │   │ ┃ not a person. …        │    rail, the sentence in ink,
+                │ 1 Show me the meta-model  │   │ 1 Show me the meta-model │    the rest dim; then the menus
                 │ > the visitor's question  │   │ > question               │
                 │                           │   │                          │  ← .rbchat-log
                 │ The answer, drawn whole:  │   │ The answer …             │

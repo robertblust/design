@@ -23,3 +23,7 @@ Two jobs, both required by the ruleset on `main`: `test`, this repository's own 
 ## What every change here costs downstream
 
 A change to any synced file is at least a minor release, and three sites re-sync from it. Read *Releasing* in the README before editing a block, and never edit a fence in a site.
+
+## The map follows the change
+
+`docs/design-system/` is the map of what ships: what each part is, what it looks like and where it ships. A change to a block, an asset or a token that changes what a part is or how it looks changes the map in the same pull request, the sentence and the wireframe both, because a map that lags its territory is read as true until someone walks the ground. `test/design-system-docs.test.mjs` holds the map to the files that ship and to the color roles; nothing holds it to the words, so those are yours to keep.
