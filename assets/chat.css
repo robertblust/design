@@ -266,8 +266,12 @@ figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:1.1rem 0 1
 .rbchat-sub{font-size:.8rem;color:var(--t-dim)}
 .rbchat-hello{margin:0 0 .5rem}
 .rbchat-h2{color:var(--t-dim)}
-.rbchat-notice{margin:0 0 .9rem;color:var(--t-dim)}
-.rbchat-notice::before{content:"# "}
+/* The notice carries a rail in the terminal's amber, as an answer carries one in its green, and the
+   one sentence the law asks for, that an AI answers, stands first in the panel's ink; the rest stays
+   dim. The rail is a frame and not a verdict on the words, which is what the same amber under a
+   claim is. */
+.rbchat-notice{margin:0 0 .9rem;padding-left:.7rem;border-left:2px solid var(--t-part);color:var(--t-dim)}
+.rbchat-ai{font-weight:400;color:var(--t-ink)}
 .rbchat-label{margin:.5rem 0 0;color:var(--t-dim)}
 .rbchat-prompt-line{margin:.6rem 0 0;color:var(--t-strong)}
 .rbchat-menu{display:flex;flex-direction:column}
