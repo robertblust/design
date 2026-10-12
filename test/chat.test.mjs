@@ -690,7 +690,7 @@ test("the caption names the shape in the page's language, then what it was drawn
   assert.equal(diagramCaption({ shape: "reading", title: null }, "de"), "");
   assert.equal(diagramCaption({ shape: "schema", title: null }, "en"), "Meta-model");
   assert.equal(diagramCaption({ shape: "schema", title: "phase" }, "de"), "Meta-Modell · phase");
-  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "holds", "lifecycle", "neighborhood", "organization", "process", "reading", "schema", "shut", "system", "zoomIn", "zoomOut"]);
+  for (const lang of ["en", "de"]) assert.deepEqual(Object.keys(strings(lang).diagram).sort(), ["aggregate", "concepts", "context", "expand", "failed", "fit", "fitTip", "flow", "holds", "lifecycle", "neighborhood", "organization", "process", "reading", "requirements", "scenario", "schema", "shut", "system", "usecase", "zoomIn", "zoomOut"]);
 });
 
 test("the two pictures of a bounded context are captioned, and each has a reading line, in both languages", () => {
@@ -1038,7 +1038,7 @@ test("an organization is captioned and has a reading line in both languages, and
   assert.equal(diagramCaption({ shape: "organization", title: "Maintainers" }, "en"), "Organization · Maintainers");
   for (const lang of ["en", "de"]) assert.ok(strings(lang).diagram.reading.organization.length > 20, lang);
   assert.match(strings("en").diagram.reading.organization, /dashed box is an open position/);
-  assert.deepEqual(Object.keys(MARKS), ["human", "agent", "application-component", "node", "system-software", "device", "equipment", "communication-network"]);
+  assert.deepEqual(Object.keys(MARKS), ["human", "agent", "actor", "application-component", "node", "system-software", "device", "equipment", "communication-network"]);
   for (const [k, body] of Object.entries(MARKS)) assert.ok(src.includes(`${/^[a-z]+$/.test(k) ? k : JSON.stringify(k)}: '${body}'`), `chat.js carries the ${k} mark as lib/marks.mjs draws it`);
   assert.match(src, /registerIconPacks\(\[\{ name: "fak"/);
 });
@@ -1068,4 +1068,18 @@ test("a system's two pictures are captioned and have reading lines in both langu
 
 test("the German is the translator's: a system's reading lines are no placeholder", () => {
   for (const shape of ["system", "holds"]) assert.doesNotMatch(strings("de").diagram.reading[shape], /PROVISIONAL/, `${shape}: the German is the translator's, made from the reviewed English`);
+});
+
+test("a use case's three pictures are captioned and have reading lines in both languages", () => {
+  assert.equal(diagramCaption({ shape: "usecase", title: "Download an invoice" }, "en"), "Use case · Download an invoice");
+  assert.equal(diagramCaption({ shape: "scenario", title: "Download an invoice" }, "en"), "Scenario · Download an invoice");
+  assert.equal(diagramCaption({ shape: "requirements", title: "Invoice download" }, "en"), "Requirements · Invoice download");
+  for (const lang of ["en", "de"]) for (const shape of ["usecase", "scenario", "requirements"]) assert.ok(strings(lang).diagram.reading[shape].length > 20, `${lang} ${shape}`);
+  assert.match(strings("en").diagram.reading.usecase, /The actor stands outside the frame, which is the use case's scope/);
+  assert.match(strings("en").diagram.reading.scenario, /a dashed box is an extension, the condition first and what happens then/);
+  assert.match(strings("en").diagram.reading.requirements, /an arrow runs to what it applies to, a dotted one to a rule it follows/);
+});
+
+test("the German is the translator's: a use case's reading lines are no placeholder", () => {
+  for (const shape of ["usecase", "scenario", "requirements"]) assert.doesNotMatch(strings("de").diagram.reading[shape], /PROVISIONAL/, `${shape}: the German is the translator's, made from the reviewed English`);
 });

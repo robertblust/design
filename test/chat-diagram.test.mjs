@@ -829,3 +829,43 @@ test("what a system holds is captioned and read, and a planned system is dashed"
   assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
   await page.close();
 });
+
+test("a use case draws its actor outlined at the firm brightness, links its boxes and hexagon, and weighs a must over a should", async () => {
+  const { page } = await asked([["diagram", PICTURES.usecase], ["diagram", PICTURES["req-actor"]], ["text", { text: "Download an invoice." }]]);
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram-box > svg").length === 2);
+  const marks = await page.$$eval(".rbchat-diagram svg .rbchat-mark", (ms) => ms.map((m) => [m.getAttribute("class"), getComputedStyle(m).color, m.querySelector("circle").getAttribute("fill")]));
+  assert.deepEqual(marks.map((m) => m[0]), ["rbchat-mark actor", "rbchat-mark human"]);
+  const firm = await page.$eval(".rbchat-diagram-box", (b) => { const t = document.createElement("i"); t.style.color = "var(--c-firm)"; b.appendChild(t); const c = getComputedStyle(t).color; t.remove(); return c; });
+  assert.deepEqual(marks.map((m) => m[1]), [firm, firm]);
+  assert.deepEqual(marks.map((m) => m[2]), ["none", "currentColor"], "the actor is outlined, a person filled");
+  // Every node is linked, the string actor's box is not, and the seat's box in the second picture is.
+  for (const n of PICTURES.usecase.nodes) assert.equal(await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href")), `/model/?stage=expanded#${n.id}`, n.title);
+  assert.equal(await page.$$eval('.rbchat-diagram svg a[aria-label="Payer"]', (as) => as.length), 0);
+  assert.equal(await page.$$eval('.rbchat-diagram svg a[aria-label="Billing Clerk"]', (as) => as.length), 1);
+  const weights = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.map((g) => [g.getAttribute("class"), getComputedStyle(g.querySelector("rect, path, polygon")).strokeWidth]));
+  const must = weights.find((w) => / must/.test(w[0])), plain = weights.find((w) => !/ must| middle/.test(w[0]));
+  assert.ok(must && plain && parseFloat(must[1]) > parseFloat(plain[1]), `a must is heavier: ${JSON.stringify([must, plain])}`);
+  const captions = await page.$$eval(".rbchat-diagram figcaption span", (ss) => ss.map((s) => s.textContent));
+  assert.deepEqual(captions, ["Use case · Download an invoice", "Use case · Download an invoice"]);
+  assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /a hexagon is a requirement it is held to/);
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
+
+test("a scenario links a step to its seat, leaves its extension boxes unfilled, and its requirements picture is captioned and read", async () => {
+  const { page } = await asked([["diagram", PICTURES["scenario-seat"]], ["diagram", PICTURES.requirements], ["text", { text: "Download an invoice." }]]);
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram-box > svg").length === 2);
+  const captions = await page.$$eval(".rbchat-diagram figcaption span", (ss) => ss.map((s) => s.textContent));
+  assert.deepEqual(captions, ["Scenario · Download an invoice", "Requirements · A copy is the invoice as issued"]);
+  const [step] = PICTURES["scenario-seat"].nodes;
+  assert.equal(await page.$eval(`.rbchat-diagram svg a[aria-label="${step.title}"]`, (a) => a.getAttribute("href")), `/model/?stage=expanded#${step.id}`);
+  // A node draws its shape's rect and a label background: the first is the box.
+  const ext = await page.$$eval(".rbchat-diagram svg g.node.ext", (gs) => gs.map((g) => { const r = g.querySelector("rect"); return [getComputedStyle(r).fill, getComputedStyle(r).strokeDasharray]; }));
+  assert.equal(ext.length, 2);
+  for (const [fill, dash] of ext) { assert.equal(fill, "none"); assert.notEqual(dash, "none"); }
+  const readings = await page.$$eval(".rbchat-diagram-reading", (ps) => ps.map((p) => p.textContent));
+  assert.match(readings[0], /The rounded box is the trigger/);
+  assert.match(readings[1], /in a frame for its kind/);
+  assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
+  await page.close();
+});
