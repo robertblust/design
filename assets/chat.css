@@ -213,12 +213,15 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
    sized to the text; a person's mark is the firm brightness and an agent's the mid, as the
    Processes page draws them, and both beat the linked label's own color; a system's element mark
    is the firm brightness too, since a system is a thing and not an agent. An open position is a
-   dashed box with no fill, and the frame the agents of a group stand in is shaded. */
+   dashed box with no fill, as is a scenario's extension, and the frame the agents of a group
+   stand in is shaded. */
 .rbchat-diagram-box svg .label-icon{width:1.15em;height:1.15em;vertical-align:-.2em;margin-right:.3em}
 .rbchat-diagram-box svg .rbchat-mark.human{color:var(--c-firm,var(--ink))!important}
 .rbchat-diagram-box svg .rbchat-mark.agent{color:var(--c-mid)!important}
+.rbchat-diagram-box svg .rbchat-mark.actor{color:var(--c-firm,var(--ink))!important}
 .rbchat-diagram-box svg .rbchat-mark.element{color:var(--c-firm,var(--ink))!important}
 .rbchat-diagram-box svg .node.open rect{fill:none!important}
+.rbchat-diagram-box svg .node.ext rect{fill:none!important}
 .rbchat-diagram-box svg .cluster.agents rect{fill:var(--press)!important}
 .rbchat-diagram-reading{margin:.35rem .1rem 0;font-size:.8rem;line-height:1.4;color:var(--dim)}
 /* A page's own picture is a preview: fitted to the column, never past its own size, and
