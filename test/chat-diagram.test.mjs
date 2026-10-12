@@ -849,6 +849,12 @@ test("a use case draws its actor outlined at the firm brightness, links its boxe
   assert.ok(must && plain && parseFloat(must[1]) > parseFloat(plain[1]), `a must is heavier than a should: ${JSON.stringify([must, plain])}`);
   const captions = await page.$$eval(".rbchat-diagram figcaption span", (ss) => ss.map((s) => s.textContent));
   assert.deepEqual(captions, ["Use case · Download an invoice", "Use case · Download an invoice"]);
+  // The scope frame stands off the ground, which the modal shares: the press color, bordered with the accent.
+  const token = (name) => page.$eval(".rbchat-diagram-box", (b, name) => { const t = document.createElement("i"); t.style.color = `var(${name})`; b.appendChild(t); const c = getComputedStyle(t).color; t.remove(); return c; }, name);
+  const frames = await page.$$eval(".rbchat-diagram svg .cluster rect", (rs) => rs.map((r) => [getComputedStyle(r).fill, getComputedStyle(r).stroke]));
+  assert.equal(frames.length, 2, "one scope frame per picture");
+  assert.deepEqual(frames, [[await token("--press"), await token("--c-mid")], [await token("--press"), await token("--c-mid")]]);
+  assert.notEqual(frames[0][0], await token("--ground"), "the frame is not the ground, which the modal is");
   assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /a hexagon is a requirement it is held to/);
   assert.equal(await page.$$eval(".rbchat-diagram-failed, .rbchat-diagram pre", (els) => els.length), 0);
   await page.close();
