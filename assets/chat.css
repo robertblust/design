@@ -214,7 +214,12 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
    Processes page draws them, and both beat the linked label's own color; a system's element mark
    is the firm brightness too, since a system is a thing and not an agent. An open position is a
    dashed box with no fill, as is a scenario's extension, and the frame the agents of a group
-   stand in is shaded. */
+   stand in is shaded. A frame that stands on the ground, a use case's scope and a requirement
+   kind's, is shaded the same way with the accent as its border: Mermaid fills a frame with the
+   ground, the modal's own color, and in the dark theme draws its border black, so the frame
+   would not read. The host names a frame by its subgraph id, which Mermaid keeps at the end of
+   the cluster's own, and that is what the selector reads; an organization's groups, named
+   g0 and on, stay on the ground so that the agents' frame inside them stands apart. */
 .rbchat-diagram-box svg .label-icon{width:1.15em;height:1.15em;vertical-align:-.2em;margin-right:.3em}
 .rbchat-diagram-box svg .rbchat-mark.human{color:var(--c-firm,var(--ink))!important}
 .rbchat-diagram-box svg .rbchat-mark.agent{color:var(--c-mid)!important}
@@ -223,6 +228,7 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
 .rbchat-diagram-box svg .node.open rect{fill:none!important}
 .rbchat-diagram-box svg .node.ext rect{fill:none!important}
 .rbchat-diagram-box svg .cluster.agents rect{fill:var(--press)!important}
+.rbchat-diagram-box svg .cluster:is([id$="-scope"],[id$="-functional"],[id$="-quality"],[id$="-constraint"]) rect{fill:var(--press)!important;stroke:var(--c-mid)!important}
 .rbchat-diagram-reading{margin:.35rem .1rem 0;font-size:.8rem;line-height:1.4;color:var(--dim)}
 /* A page's own picture is a preview: fitted to the column, never past its own size, and
    opened by a click to be read; chat.js marks it. The rule reaches the box only while it is in
