@@ -842,9 +842,11 @@ test("a use case draws its actor outlined at the firm brightness, links its boxe
   for (const n of PICTURES.usecase.nodes) assert.equal(await page.$eval(`.rbchat-diagram svg a[aria-label="${n.title}"]`, (a) => a.getAttribute("href")), `/model/?stage=expanded#${n.id}`, n.title);
   assert.equal(await page.$$eval('.rbchat-diagram svg a[aria-label="Payer"]', (as) => as.length), 0);
   assert.equal(await page.$$eval('.rbchat-diagram svg a[aria-label="Billing Clerk"]', (as) => as.length), 1);
-  const weights = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.map((g) => [g.getAttribute("class"), getComputedStyle(g.querySelector("rect, path, polygon")).strokeWidth]));
+  // The hexagons are the requirements: the second picture holds a must and a should.
+  const weights = await page.$$eval(".rbchat-diagram svg g.node", (gs) => gs.filter((g) => g.querySelector("polygon")).map((g) => [g.getAttribute("class"), getComputedStyle(g.querySelector("polygon")).strokeWidth]));
   const must = weights.find((w) => / must/.test(w[0])), plain = weights.find((w) => !/ must| middle/.test(w[0]));
-  assert.ok(must && plain && parseFloat(must[1]) > parseFloat(plain[1]), `a must is heavier: ${JSON.stringify([must, plain])}`);
+  assert.equal(weights.length, 3, "three hexagons over the two pictures");
+  assert.ok(must && plain && parseFloat(must[1]) > parseFloat(plain[1]), `a must is heavier than a should: ${JSON.stringify([must, plain])}`);
   const captions = await page.$$eval(".rbchat-diagram figcaption span", (ss) => ss.map((s) => s.textContent));
   assert.deepEqual(captions, ["Use case · Download an invoice", "Use case · Download an invoice"]);
   assert.match(await page.$eval(".rbchat-diagram-reading", (p) => p.textContent), /a hexagon is a requirement it is held to/);
@@ -853,15 +855,16 @@ test("a use case draws its actor outlined at the firm brightness, links its boxe
 });
 
 test("a scenario links a step to its seat, leaves its extension boxes unfilled, and its requirements picture is captioned and read", async () => {
-  const { page } = await asked([["diagram", PICTURES["scenario-seat"]], ["diagram", PICTURES.requirements], ["text", { text: "Download an invoice." }]]);
-  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram-box > svg").length === 2);
+  const { page } = await asked([["diagram", PICTURES["scenario-seat"]], ["diagram", PICTURES.requirements], ["diagram", PICTURES.scenario], ["text", { text: "Download an invoice." }]]);
+  await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram-box > svg").length === 3);
   const captions = await page.$$eval(".rbchat-diagram figcaption span", (ss) => ss.map((s) => s.textContent));
-  assert.deepEqual(captions, ["Scenario · Download an invoice", "Requirements · A copy is the invoice as issued"]);
+  assert.deepEqual(captions, ["Scenario · Download an invoice", "Requirements · A copy is the invoice as issued", "Scenario · Download an invoice"]);
+  assert.equal(await page.$$eval(".rbchat-diagram svg a", (as) => as.length), 3, "the seat's step and the requirements picture's two nodes are the links over the three pictures");
   const [step] = PICTURES["scenario-seat"].nodes;
   assert.equal(await page.$eval(`.rbchat-diagram svg a[aria-label="${step.title}"]`, (a) => a.getAttribute("href")), `/model/?stage=expanded#${step.id}`);
   // A node draws its shape's rect and a label background: the first is the box.
   const ext = await page.$$eval(".rbchat-diagram svg g.node.ext", (gs) => gs.map((g) => { const r = g.querySelector("rect"); return [getComputedStyle(r).fill, getComputedStyle(r).strokeDasharray]; }));
-  assert.equal(ext.length, 2);
+  assert.equal(ext.length, 4, "two extensions in each scenario");
   for (const [fill, dash] of ext) { assert.equal(fill, "none"); assert.notEqual(dash, "none"); }
   const readings = await page.$$eval(".rbchat-diagram-reading", (ps) => ps.map((p) => p.textContent));
   assert.match(readings[0], /The rounded box is the trigger/);
