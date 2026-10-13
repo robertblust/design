@@ -35,9 +35,10 @@
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { serve } from "../cards/export.mjs";
+import { FRAME, LANGS, HIDE, SETTLE } from "./recipe.mjs";
 
-const W = 1280, H = 720;
-const LANGS = ["de", "en"];
+// The frame, the languages, the hide rule and the waits are recipe.mjs's, which hashes them.
+const W = FRAME.width, H = FRAME.height;
 
 // The vocabulary a deck may use. Borrowed from cards/export.mjs and for the same reason: an
 // unknown key is a knob that silently does nothing, and a deck list is edited by hand.
@@ -84,19 +85,16 @@ export async function exportDecks({ chromium, PDFDocument, PDFString, root, deck
     const browser = await chromium.launch();
     try {
       for (const deck of decks) {
-        const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
+        const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: FRAME.deviceScaleFactor });
         await page.goto(`${siteBase}/${deck.dir}/`, { waitUntil: "networkidle" });
-        // Hide the controls, not the credit: .name lives inside .chrome, and hiding the whole
-        // bar took the byline off every printed page. A transport in a PDF advertises buttons
-        // that do nothing; a byline is the one part of that bar a printed page still wants.
-        await page.addStyleTag({ content: `.transport,.bar,.notes{display:none!important}\n     /* a still image should not be waiting out a transition it does not want */\n     .slide.active > *{animation:none!important}` });
+        await page.addStyleTag({ content: HIDE });
         const count = await page.evaluate(() => document.querySelectorAll(".slide").length);
 
         for (const lang of LANGS) {
           // the decks have no keyboard shortcuts any more — click the transport's language
           // toggle. The rule above hides it, so click it through the DOM, not the pointer.
           await page.evaluate(l => document.getElementById(l === "de" ? "langDe" : "langEn").click(), lang);
-          await page.waitForTimeout(400);
+          await page.waitForTimeout(SETTLE.language);
 
           const pdf = await PDFDocument.create();
           for (let i = 0; i < count; i++) {
@@ -104,7 +102,7 @@ export async function exportDecks({ chromium, PDFDocument, PDFString, root, deck
               const s = Array.from(document.querySelectorAll(".slide"));
               s.forEach((el, k) => el.classList.toggle("active", k === n));
             }, i);
-            await page.waitForTimeout(500);        // let the rise animation settle
+            await page.waitForTimeout(SETTLE.slide);   // let the rise animation settle
             const links = PDFString ? await page.evaluate(linksOnSlide, { n: i, lang, W, H }) : [];
             const png = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: W, height: H } });
             const img = await pdf.embedPng(png);
