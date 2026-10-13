@@ -1,4 +1,4 @@
-  /* ─── surfaces · v1 · {{variant}} ─────────────────────────────────────────
+  /* ─── surfaces · v2 · {{variant}} ─────────────────────────────────────────
      Generated from @robertblust/design — edit it there and run `npm run design`.
 
      The lineage /surfaces/ draws: the model, the makers under it, and the surfaces each
@@ -18,7 +18,10 @@
   .lineage{position:relative; display:grid; grid-template-columns:minmax(0,13rem) minmax(0,1fr);
            column-gap:clamp(3rem,7vw,6rem); align-items:center; margin-top:1.4rem}
   .wires{position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none}
-  .wires path{fill:none; stroke:var(--rule); stroke-width:1.5; transition:stroke .2s ease}
+  /* A wire at rest is the candidate color, as the stage's resting edge is. --rule draws the
+     boxes, which their text holds in place; a wire in it was a hairline with nothing beside it,
+     and on the dark ground it was lost. */
+  .wires path{fill:none; stroke:var(--c-weak); stroke-width:1.5; transition:stroke .2s ease}
   .wires path.hand{stroke-dasharray:5 5}
   /* --c-path is the token for exactly this: the way back to the root from what is focused. */
   .wires path.on{stroke:var(--c-path); stroke-width:2}
@@ -56,9 +59,9 @@
     .wires{display:none}
     .lineage{grid-template-columns:minmax(0,1fr); row-gap:0}
     .ln-model{justify-self:start}
-    .ln-groups{gap:0; margin-left:1rem; padding:1.2rem 0 0 1.1rem; border-left:1.5px solid var(--rule)}
+    .ln-groups{gap:0; margin-left:1rem; padding:1.2rem 0 0 1.1rem; border-left:1.5px solid var(--c-weak)}
     .ln-group{grid-template-columns:minmax(0,1fr); padding-bottom:1.2rem}
-    .ln-surfaces{margin-left:.7rem; padding-left:1rem; border-left:1.5px solid var(--rule)}
+    .ln-surfaces{margin-left:.7rem; padding-left:1rem; border-left:1.5px solid var(--c-weak)}
     .ln-group.hand .ln-surfaces{border-left-style:dashed}
   }
   /* ─── end surfaces ─────────────────────────────────────────────────────── */
