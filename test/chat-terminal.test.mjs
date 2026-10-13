@@ -29,6 +29,16 @@ const MANY = { commit: "ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f", repo: "compan
   ...["A", "B", "C"].map((n) => ({ id: "kpis/" + n, type: "kpi", name: n })),
   ...["One?", "Two?", "Three?", "Four?", "Five?", "Six?"].map((n) => ({ id: "questions/" + n, type: "question", name: n }))
 ], edges: [] };
+const PACKED = { commit: "ffb11a52dc8a5ff2a46cbbd43ab8be8930797f6f", repo: "companygraph/mental-model", core: "0.69.0", entities: [
+  { id: "g1", type: "group", name: "Maintainers" },
+  { id: "s1", type: "system", name: "Chat server" }, { id: "s2", type: "system", name: "Claude API" },
+  { id: "u1", type: "use-case", name: "Ask the company a question" },
+  { id: "p1", type: "product", name: "CompanyGraph Core" }, { id: "r1", type: "requirement", name: "No call changes the model" },
+  { id: "k1", type: "question-kind", name: "This chat", fields: { rank: "50" } }, { id: "k2", type: "question-kind", name: "Fit", fields: { rank: "10" } },
+  { id: "k3", type: "question-kind", name: "Terms", fields: { rank: "30" } }, { id: "k4", type: "question-kind", name: "Getting started", fields: { rank: "20" } },
+  { id: "q1", type: "question", name: "Who answers this chat?", fields: { kind: "This chat" } }, { id: "q2", type: "question", name: "What problem does it solve?", fields: { kind: "Fit" } },
+  { id: "q3", type: "question", name: "What does it cost?", fields: { kind: "Terms" } }, { id: "q4", type: "question", name: "How do I start?", fields: { kind: "Getting started" } }
+], edges: [{ from: "s1", to: "s2", via: "Connects to.System" }] };
 const MARKED = `<header><a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="g"><stop offset="0" stop-color="red"/></linearGradient></defs><rect id="plate" x="2" y="2" width="20" height="20" fill="url(#g)"/><use href="#plate"/></svg><b>Company<span>Graph</span></b></a></header>`;
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 
@@ -59,6 +69,7 @@ before(async () => {
       "/noq": ["text/html", page(BRAND).replace(' data-questions="/model.json"', "")],
       "/many": ["text/html", page(BRAND).replace("/model.json", "/many.json")], "/many.json": ["application/json", JSON.stringify(MANY)],
       "/marked": ["text/html", page(MARKED)],
+      "/packed": ["text/html", page(BRAND).replace("/model.json", "/packed.json")], "/packed.json": ["application/json", JSON.stringify(PACKED)],
       "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")] };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
@@ -467,6 +478,36 @@ test("the next menu's label is Ask next, and a language switch relabels the answ
   await p.waitForFunction(() => document.querySelector(".rbchat-done").textContent === "✓ beantwortet");
   assert.match(await p.$eval(".rbchat-model", (m) => m.textContent), /^Modell 3f2a1c9/);
   assert.equal(await p.$eval(".rbchat-next .rbchat-label", (l) => l.textContent), "Fragen Sie weiter");
+  await close();
+});
+
+test("a model written with packs opens on what it holds, and its first question is of the kind it ranks first", async () => {
+  const ASKS = [/^Show me the organization$/, /^Show me the landscape of Chat server$/, /^Show me the use case Ask the company a question$/, /^Show me the requirements of CompanyGraph Core$/];
+  const offered = new Set();
+  for (let i = 0; i < 12; i++) {
+    const { p, close } = await tab("/packed");
+    await open(p);
+    await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+    const rows = await p.$$eval(".rbchat-intro .rbchat-row .rbchat-q", (q) => q.map((x) => x.textContent));
+    assert.equal(rows[0], "Show me the meta-model");
+    for (const r of rows.slice(1, 3)) { assert.ok(ASKS.some((a) => a.test(r)), `not a row the model backs: ${r}`); offered.add(r); }
+    assert.equal(rows[3], "What problem does it solve?", "the first question is of the kind ranked first");
+    await close();
+  }
+  assert.ok(offered.size >= 3, `the openings vary: ${[...offered]}`);
+});
+
+test("the picks a model with packs opened on come back with the conversation on the next page", async () => {
+  const { p, close } = await tab("/packed");
+  await open(p);
+  await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+  const picks = () => p.$$eval(".rbchat-intro .rbchat-row .rbchat-q", (q) => q.map((x) => x.textContent));
+  const first = await picks();
+  for (let i = 0; i < 3; i++) {
+    await p.reload();
+    await p.waitForFunction(() => document.querySelectorAll(".rbchat-intro .rbchat-row").length === 6);
+    assert.deepEqual(await picks(), first);
+  }
   await close();
 });
 

@@ -15,7 +15,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -393,6 +393,30 @@ test("spread fills from the rest when fewer kinds than chips exist, never repeat
   }
 });
 
+// Where the model ranks its kinds, the first chip is always of the kind it ranks first, the one
+// its owner says a visitor asks first; the others still span the rest at random.
+const RK = (title, kind, rank) => ({ title, kind, rank });
+const RANKED = [RK("c1", "This chat", 50), RK("f1", "Fit", 10), RK("f2", "Fit", 10), RK("g1", "Getting started", 20), RK("t1", "Terms", 30)];
+
+test("spread opens on the kind the model ranks first, and spans two more", () => {
+  const kindOf = Object.fromEntries(RANKED.map((q) => [q.title, q.kind]));
+  const rest = new Set();
+  for (let i = 0; i < 300; i++) {
+    const got = spread(RANKED, 3);
+    assert.equal(kindOf[got[0]], "Fit", `first of ${got}`);
+    assert.equal(new Set(got.map((t) => kindOf[t])).size, 3);
+    got.slice(1).forEach((t) => rest.add(kindOf[t]));
+  }
+  assert.deepEqual([...rest].sort(), ["Getting started", "Terms", "This chat"]);
+});
+
+test("once the first kind is asked out, the next rank leads, and a kind without a rank never does", () => {
+  assert.equal(spread(RANKED.filter((q) => q.kind !== "Fit"), 3)[0], "g1");
+  const mixed = [Q("x1", "Unranked"), RK("t1", "Terms", 30), Q("y1", "Other")];
+  for (let i = 0; i < 100; i++) assert.equal(spread(mixed, 3)[0], "t1");
+  assert.deepEqual(spread(RANKED, 0), []);
+});
+
 test("spread with no kinds is pick under the same random, so a model without kinds is offered as before", () => {
   const plain = ["a", "b", "c", "d", "e"].map((t) => Q(t, null));
   const seq = () => { let s = 0; return () => ((s = (s * 9301 + 49297) % 233280) / 233280); };
@@ -557,7 +581,7 @@ test("a title is a question entity's name, filtered to a non-empty string no lon
   assert.match(fn, /Array\.isArray\(j\.entities\)/, "a body without an entities array is not read as no questions");
   assert.match(fn, /e\.type === "question"/, "a title is not drawn from an entity of type question");
   assert.match(fn, /typeof e\.name === "string" && e\.name\.length > 0/, "an empty or non-string name is not filtered out");
-  assert.match(fn, /map\(function\(e\)\{ return \{ id: typeof e\.id === "string" \? e\.id : null, title: e\.name, kind: e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null, rests: rests\[e\.id\] \|\| \[\] \}; \}\)/, "the title is not the entity's own name, kept with its id, its kind and what it rests on");
+  assert.match(fn, /map\(function\(e\)\{ var kind = e\.fields && typeof e\.fields\.kind === "string" \? e\.fields\.kind : null; return \{ id: typeof e\.id === "string" \? e\.id : null, title: e\.name, kind: kind, rank: kind !== null && kind in ranks \? ranks\[kind\] : null, rests: rests\[e\.id\] \|\| \[\] \}; \}\)/, "the title is not the entity's own name, kept with its id, its kind and what it rests on");
   assert.match(fn, /filter\(function\(q\)\{ return q\.title\.length <= LIMIT; \}\)/, "a title longer than the send limit is not dropped");
 });
 
@@ -869,6 +893,83 @@ test("a model without a process or a long enough list leaves those rows out, and
   assert.deepEqual(tryRows({}, "en").map((r) => r[0]), ["Show me the meta-model"]);
 });
 
+// What a model written with packs holds is offered beside the process and the list: its
+// organization, a system's landscape, a use case and what a product is held to, each only where
+// the model has it, two of them at an opening so the menu stays three rows.
+const PACKED = { processes: ["Answering"], counts: { kpi: 5, group: 1, system: 2, "use-case": 2, requirement: 3, product: 1 },
+  names: { system: ["Chat server", "MCP server"], "use-case": ["Ask the company a question", "Keep the company's model"], product: ["CompanyGraph Core"] } };
+const POOL = ["process", "organization", "landscape", "usecase", "requirements", "list"];
+
+test("tryPick offers two of what the model holds, in one order, however the random falls", () => {
+  const seen = new Set();
+  for (let i = 0; i < 400; i++) {
+    const got = tryPick(PACKED);
+    assert.equal(got.length, 2);
+    const at = got.map((g) => POOL.indexOf(g.key));
+    assert.ok(at[0] >= 0 && at[0] < at[1], `out of order: ${JSON.stringify(got)}`);
+    got.forEach((g) => seen.add(g.key));
+  }
+  assert.deepEqual([...seen].sort(), [...POOL].sort(), "every row the model can back is offered at some opening");
+});
+
+test("a pick names what it asks about, from what the model holds", () => {
+  for (let i = 0; i < 400; i++) for (const g of tryPick(PACKED)) {
+    if (g.key === "process") assert.equal(g.name, "Answering");
+    if (g.key === "organization") assert.equal(g.name, undefined);
+    if (g.key === "landscape") assert.ok(PACKED.names.system.includes(g.name), g.name);
+    if (g.key === "usecase") assert.ok(PACKED.names["use-case"].includes(g.name), g.name);
+    if (g.key === "requirements") assert.equal(g.name, "CompanyGraph Core");
+    if (g.key === "list") assert.equal(g.name, "kpi");
+  }
+});
+
+test("a model without a pack is offered what it was before, and a type without a name to ask about offers no row", () => {
+  assert.deepEqual(tryPick({ processes: ["Answering"], counts: { seat: 4, kpi: 5, product: 1 } }, () => 0), [{ key: "process", name: "Answering" }, { key: "list", name: "kpi" }]);
+  assert.deepEqual(tryPick({ processes: [], counts: { system: 2, "use-case": 1, requirement: 4 }, names: {} }), []);
+  assert.deepEqual(tryPick({ processes: [], counts: { requirement: 4 }, names: { product: ["P"] } }), [{ key: "requirements", name: "P" }]);
+  assert.deepEqual(tryPick({ processes: [], counts: { product: 1 }, names: { product: ["P"] } }), [], "a product nothing is required of has no requirements to show");
+  assert.deepEqual(tryPick(null), []);
+});
+
+test("the landscape row names a system the model writes a connection on, and any system where it writes none", () => {
+  const ents = [{ id: "s1", type: "system", name: "Chat server" }, { id: "s2", type: "system", name: "Claude API" }, { id: "p", type: "product", name: "P" }, { id: "s3", type: "system", name: "" }];
+  assert.deepEqual(connected(ents, [{ from: "s1", to: "s2", via: "Connects to.System" }, { from: "p", to: "s2", via: "Connects to.System" }]), ["Chat server"]);
+  assert.deepEqual(connected(ents, [{ from: "s1", to: "s2", via: "part-of" }]), ["Chat server", "Claude API"]);
+  assert.deepEqual(connected(ents, null), ["Chat server", "Claude API"]);
+  assert.deepEqual(connected(null, null), []);
+});
+
+test("the Try rows word each pick with what comes back, the meta-model first", () => {
+  const tries = [{ key: "process", name: "Answering" }, { key: "organization" }, { key: "landscape", name: "Chat server" }, { key: "usecase", name: "Ask the company a question" }, { key: "requirements", name: "CompanyGraph Core" }, { key: "list", name: "kpi" }];
+  assert.deepEqual(tryRows({ tries }, "en"), [
+    ["Show me the meta-model", "a diagram of the types and how they refer to each other"],
+    ["Walk me through the Answering process", "its steps as a flow, the loops back included"],
+    ["Show me the organization", "its units as a chart, with who leads each and who sits in it"],
+    ["Show me the landscape of Chat server", "what it runs on, what it connects to and the data it keeps"],
+    ["Show me the use case Ask the company a question", "who it serves, what it includes and what it asks of the product"],
+    ["Show me the requirements of CompanyGraph Core", "what it is held to, every requirement a link into the model"],
+    ["List the KPIs as a table", "one row each, every name a link into the model"]
+  ]);
+});
+
+test("both languages word every row, the German as the German pipeline left it", () => {
+  assert.deepEqual(Object.keys(strings("de").try).sort(), Object.keys(strings("en").try).sort());
+  const tries = [{ key: "organization" }, { key: "landscape", name: "Chat server" }, { key: "usecase", name: "Ask the company a question" }, { key: "requirements", name: "CompanyGraph Core" }];
+  assert.deepEqual(tryRows({ tries }, "de"), [
+    ["Zeig mir das Meta-Modell", "ein Diagramm der Typen und wie sie aufeinander verweisen"],
+    ["Zeig mir die Organisation", "die Einheiten als Organigramm: wer sie jeweils leitet und wer dazugehört"],
+    ["Zeig mir die Landschaft von Chat server", "worauf das System läuft, womit es verbunden ist und welche Daten es hält"],
+    ["Zeig mir den Anwendungsfall Ask the company a question", "wem er dient, was er einbindet und was er vom Produkt verlangt"],
+    ["Zeig mir die Anforderungen an CompanyGraph Core", "woran das Produkt gemessen wird, jede Anforderung ein Link ins Modell"]
+  ]);
+});
+
+test("picks kept with the conversation are drawn as kept, and one this widget has no words for is left out", () => {
+  const kept = { tries: [{ key: "landscape", name: "Chat server" }], processes: ["Answering"], counts: { kpi: 9 } };
+  assert.deepEqual(tryRows(kept, "en", () => 0).map((r) => r[0]), ["Show me the meta-model", "Show me the landscape of Chat server"]);
+  assert.deepEqual(tryRows({ tries: [{ key: "later", name: "x" }, { key: "list", name: "later" }] }, "en").map((r) => r[0]), ["Show me the meta-model"]);
+});
+
 test("the commit is the first cite URL's blob segment, cut to seven, and no URL means none", () => {
   assert.equal(commitOf([{ url: null }, { url: "https://github.com/o/r/blob/3f2a1c9e0b1d/x.md" }]), "3f2a1c9");
   assert.equal(commitOf([{ url: "https://github.com/o/r/tree/main/x" }]), null);
@@ -898,7 +999,11 @@ test("every new sentence exists in both languages", () => {
 
 test("the one read of the model file also keeps its process names and how many of each type it holds", () => {
   const fn = src.slice(src.indexOf("function questions(cb)"), src.indexOf("function offerQuestions()"));
-  assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts, versions: versionsOf\(j\) \};/, "the process names are not kept");
+  assert.match(fn, /qFacts = \{ processes: entities\.filter\(function\(e\)\{ return e && e\.type === "process" && typeof e\.name === "string" && e\.name\.length > 0; \}\)\.map\(function\(e\)\{ return e\.name; \}\), counts: counts, names: names, versions: versionsOf\(j\) \};/, "the process names are not kept");
+  assert.match(fn, /if \(NAMED_TYPES\.indexOf\(e\.type\) >= 0 && e\.name\.length <= NAME_LIMIT\) \(names\[e\.type\] = names\[e\.type\] \|\| \[\]\)\.push\(e\.name\);/, "the names a row asks about are not kept");
+  assert.match(fn, /if \(e\.type === "question-kind" && e\.fields && e\.fields\.rank != null && String\(e\.fields\.rank\)\.trim\(\) !== "" && isFinite\(Number\(e\.fields\.rank\)\)\) ranks\[e\.name\] = Number\(e\.fields\.rank\);/, "a kind's rank is not read from the model");
+  assert.match(src, /var NAMED_TYPES = \["use-case", "product"\], NAME_LIMIT = 120;/, "the types a row names are not the two the rows word by name alone");
+  assert.match(fn, /names\.system = connected\(entities, j && j\.edges\);/, "the systems a landscape row names are not the connected ones");
   assert.match(fn, /if \(e && typeof e\.type === "string"\) counts\[e\.type\] = \(counts\[e\.type\] \|\| 0\) \+ 1;/, "the counts per type are not kept");
   assert.match(src, /function facts\(cb\)\{ questions\(function\(\)\{ cb\(qFacts\); \}\); \}/, "facts() does not share the one fetch");
   assert.equal((src.match(/fetch\(QUESTIONS,/g) || []).length, 1, "the model file is read twice");
