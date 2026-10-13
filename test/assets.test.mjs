@@ -188,6 +188,13 @@ test("a classed link in the card or the chat has the family's one link style by 
   assert.doesNotMatch(stage, /\.cfoot a\{[^}]*color|\.ledger \.none a\{/, "the stage styles an unclassed link itself");
 });
 
+test("a scrollbar in the chat or the card is the surface's own dim on no track, never the browser's pale bar", () => {
+  const rest = (css, sel) => { const r = css.slice(css.indexOf(sel)); return r.slice(0, r.indexOf("}")); };
+  // On the panel, not the log: the property inherits, so a table, a picture's box and the input follow.
+  assert.match(rest(asset("assets/chat.css"), ".rbchat{"), /scrollbar-color:var\(--t-dim\) transparent/, "the chat's scrollbars are the browser's own");
+  assert.match(rest(asset("assets/stage.css"), ".cbody{"), /scrollbar-color:var\(--dim\) transparent/, "the card's scrollbar is the browser's own");
+});
+
 test("the stage carries a history control that acts on the browser's history and nothing else", () => {
   const js = asset("assets/stage.js"), css = asset("assets/stage.css");
   assert.match(js, /hist\.className = "history"/, "stage.js does not build the control");

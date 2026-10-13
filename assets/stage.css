@@ -67,7 +67,9 @@
   .gutter:hover::before, .gutter:focus-visible::before, .gutter.dragging::before{background:var(--c-mid)}
   .gutter:focus{outline:none}
   .card{display:flex; flex-direction:column; min-height:0; border:1.5px solid var(--c-mid); border-radius:12px; background:var(--raise)}
-  .cbody{flex:1; min-height:0; overflow:auto; padding:1.3rem 1.4rem}
+  /* The card's scrollbar in the page's colors, for a browser that draws one at all times and
+     would otherwise paint its own pale bar on a dark card. */
+  .cbody{flex:1; min-height:0; overflow:auto; padding:1.3rem 1.4rem; scrollbar-color:var(--dim) transparent}
   .cfoot{border-top:1px solid var(--rule); padding:.8rem 1.4rem; min-height:2.6rem;
          display:flex; align-items:center; justify-content:space-between; gap:1rem}
   .cfoot a{font-family:"Plex Mono",monospace; font-size:.78rem; letter-spacing:.06em}
