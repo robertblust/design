@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import zlib from "node:zlib";
 import { PDFDocument, PDFString } from "pdf-lib";
 
-import { pagesOf, samePages, annotation } from "../decks/export.mjs";
+import { pagesOf, samePages, annotation, wholePDF } from "../decks/export.mjs";
 
 // A small but real PNG in one color, as test/cards-check.test.mjs builds one.
 function crc32(buf) {
@@ -95,4 +95,15 @@ test("a page with no picture on it is read as null and is the same as nothing", 
   const pages = await read(await saved([{ links: [LINK] }]));
   assert.equal(pages[0].picture, null);
   assert.equal(samePages(pages, pages), false);
+});
+
+test("a PDF is whole only if it ends as a PDF ends", async () => {
+  // Why the exporter asks: pdf-lib loads a file cut short of its last line and reads every page
+  // of it, so nothing but the end says a run died while writing it.
+  const bytes = await saved(DECK);
+  const cut = bytes.subarray(0, bytes.lastIndexOf("%%EOF"));
+  assert.equal(wholePDF(bytes), true);
+  assert.equal(wholePDF(cut), false);
+  assert.equal(wholePDF(Buffer.alloc(0)), false);
+  assert.equal(samePages(await read(bytes), await read(cut)), true, "pdf-lib reads the cut file as whole, which is why the end is checked");
 });

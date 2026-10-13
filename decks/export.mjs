@@ -83,10 +83,18 @@ export function samePages(a, b) {
     p.links.length === b[i].links.length && p.links.every((l, k) => l === b[i].links[k]));
 }
 
-// Is the PDF on disk, page for page, the one just rendered? A file that is not there, or that
-// cannot be read as a PDF — one a dead run left half written — is not, and is written again.
+// Does the file end as a PDF ends? pdf-lib reads a file's objects in order and does not need
+// its end, so a PDF a dead run cut short of its last bytes loads whole and every page of it
+// compares the same; a reader that does need the end refuses it. Every PDF closes with `%%EOF`,
+// so one that does not was never finished.
+export function wholePDF(bytes) {
+  return Buffer.from(bytes).subarray(-32).toString("latin1").trimEnd().endsWith("%%EOF");
+}
+
+// Is the PDF on disk, page for page, the one just rendered? A file that is not there, that a
+// dead run left without its end, or that cannot be read as a PDF is not, and is written again.
 async function unchanged(PDFDocument, had, bytes, readPages) {
-  if (had === null) return false;
+  if (had === null || !wholePDF(had)) return false;
   let before;
   try { before = readPages(await PDFDocument.load(had)); } catch (e) { return false; }
   return samePages(before, readPages(await PDFDocument.load(bytes)));

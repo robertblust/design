@@ -66,7 +66,7 @@ function harness({ slides = 3, links = [], failShot = 0 } = {}) {
           picture: p.drawn.img.png, links: p.annots.map((a) => a.ref.A.URI.str) }))); },
       };
     },
-    load: async (buf) => ({ held: JSON.parse(buf.toString()) }),
+    load: async (buf) => ({ held: JSON.parse(buf.toString().replace(/\n%%EOF\n$/, "")) }),
   };
   const files = [];
   const stamps = [];
@@ -83,8 +83,9 @@ function harness({ slides = 3, links = [], failShot = 0 } = {}) {
   return { calls, logs, written, files, stamps, disk, events, io, chromium, PDFDocument };
 }
 
-// A PDF as the fake holds one: its pages, each a picture and its links' addresses.
-const pdfBytes = (pages) => Buffer.from(JSON.stringify(pages));
+// A PDF as the fake holds one: its pages, each a picture and its links' addresses, and the
+// line every PDF ends with, which the exporter reads before it trusts a file on disk.
+const pdfBytes = (pages) => Buffer.from(JSON.stringify(pages) + "\n%%EOF\n");
 const onDisk = (rel) => path.join(ROOT, rel);
 
 test("a deck with an unknown key is rejected rather than silently ignored", () => {
@@ -298,10 +299,23 @@ test("a file with a different number of pages is written", async () => {
 
 test("a file on disk that cannot be read as a PDF is written again, and nothing throws", async () => {
   const h = harness({ slides: 1 });
-  h.disk.set(onDisk("talks/intro/g-de.pdf"), Buffer.from("half a PDF, from a run that died"));
+  // Whole by its last line, so it is the load that refuses it and not the check before it.
+  h.disk.set(onDisk("talks/intro/g-de.pdf"), Buffer.from("no PDF at all\n%%EOF\n"));
   const out = await exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, root: ROOT, decks: ONE, ...h.io });
   assert.deepEqual(out.map((o) => o.kept), [false, false]);
   assert.equal(h.files.length, 2);
+});
+
+test("a file a dead run cut short of its end is written again, though its pages read the same", async () => {
+  // pdf-lib reads a file's objects in order and does not need its end, so a PDF that lost its
+  // last bytes loads whole and every page of it compares the same. The fake loads it too.
+  const h = harness({ slides: 2 });
+  const whole = pdfBytes(still(2));
+  h.disk.set(onDisk("talks/intro/g-de.pdf"), whole.subarray(0, whole.lastIndexOf("%%EOF")));
+  h.disk.set(onDisk("talks/intro/g-en.pdf"), whole);
+  const out = await exportDecks({ chromium: h.chromium, PDFDocument: h.PDFDocument, root: ROOT, decks: ONE, ...h.io });
+  assert.deepEqual(out.map((o) => o.kept), [false, true]);
+  assert.deepEqual(h.files.map((f) => path.basename(f.file)), ["g-de.pdf"]);
 });
 
 test("the stamp is written after both of a deck's PDFs, once", async () => {
