@@ -13,13 +13,17 @@
    the terminal's own, the `--t-*` tokens, which the one modal reads too. The page's tokens are
    defined again inside the panel from the terminal's, so every rule below that reads a token,
    and Mermaid, which reads them from the figure, draws in the terminal's colors with no second
-   copy of each rule. Dark by default and light where the page is, as the tokens are. */
+   copy of each rule. Dark by default and light where the page is, as the tokens are. A scrollbar
+   is the terminal's too: a browser that draws one at all times, as one on Windows does, would
+   paint its own pale bar down a dark panel. `scrollbar-color` inherits, so one line here reaches
+   the log, a wide table, a picture's box and the input. */
 .rbchat{--ground:var(--t-bg);--raise:var(--t-top);--rule:var(--t-line);--ink:var(--t-ink);--dim:var(--t-dim);--c-mid:var(--t-accent);--c-firm:var(--t-strong);--press:var(--t-sel);
   position:fixed;right:max(1rem,env(safe-area-inset-right));bottom:max(1rem,env(safe-area-inset-bottom));z-index:61;
   width:min(31rem,calc(100vw - 2rem));height:min(46rem,calc(100vh - 2rem));display:flex;flex-direction:column;
   background:var(--t-bg);color:var(--t-ink);border:1.5px solid var(--t-edge);border-radius:12px;
   box-shadow:0 18px 60px var(--deck-drop);overflow:hidden;
-  font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55}
+  font-family:"Plex Mono",ui-monospace,Menlo,monospace;font-size:.8rem;line-height:1.55;
+  scrollbar-color:var(--t-dim) transparent}
 .rbchat[hidden]{display:none}
 /* The panel's empty frame, painted from the first frame of a page the visitor arrives at with the
    chat open, until chat.js has built the panel over it: theme boot sets `data-chat-waiting` to the

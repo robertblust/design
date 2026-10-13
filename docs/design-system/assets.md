@@ -33,6 +33,8 @@ Phone, below the breakpoint
 
 The stage's file also draws the timeline's ledger, a row per experience with its card opening under it, under the ledger's own comment.
 
+Where a browser draws a scrollbar at all times, as one on Windows does, the card's is `--dim` on no track, so a dark card never carries the browser's pale bar.
+
 ## Card
 
 One entity rendered into a body and a foot, the same wherever it appears: beside the stage, under a ledger row, in a seat's drawer, in the surfaces panel. It knows no page; what it cannot read off the entity it takes from its caller. Source: [assets/card.js](../../assets/card.js), whose header lists its calls.
@@ -68,6 +70,8 @@ The family's one modal: everything a page opens over itself opens here, the grap
 ## Chat
 
 A button at the foot of a page and the terminal it opens over the site's chat service, a card on a desk and a sheet on a phone. A deck shows the button on a desk and not on a phone, where its transport takes the bottom edge ([Decks](decks.md#transport)). The endpoint and the model page are named on the script's own tag. Source: [assets/chat.css](../../assets/chat.css), [assets/chat.js](../../assets/chat.js), whose header gives the tag.
+
+A scrollbar inside the panel is the terminal's too: `--t-dim` on no track, set once on the panel and inherited by the log, a wide table, a picture's box and the input. It shows where a browser draws a scrollbar at all times, as one on Windows does, and would otherwise paint its own pale bar down a dark panel.
 
 A fresh conversation opens on the intro, and its notice is the one line there that is not a menu: it carries a rail in `--t-part` ([Tokens](tokens.md#token-families)) and opens, in the panel's ink, with the sentence that an AI answers and not a person, which the EU AI Act asks a chat to say before the first message; where the message goes and the privacy page follow in the dim of a comment. The sentences are the widget's own in both languages, in `chat.js`.
 
