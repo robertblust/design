@@ -88,11 +88,13 @@ const ALLOW = new Set([
   "smaller", "taller", "fuller", "duller", "installer", "installers", "propeller", "stroller",
   "misspelled", "misspelling",
 ]);
-// The one place "Organisation" is correct: the German caption the widget's STRINGS carry for the
-// organization shape. It is taken out of a line before the scan, as that exact token, so the same
-// word anywhere else, in an English sentence or beside another key, is still reported.
+// The two places "Organisation" is correct: the German caption the widget's STRINGS carry for the
+// organization shape, and the German ask of the opening row that draws it. Each is taken out of a
+// line before the scan, as that exact token, so the same word anywhere else, in an English
+// sentence or beside another key, is still reported.
 const GERMAN_CAPTION = 'organization: "Organisation"';
-const britishIn = (line) => [...line.replace(GERMAN_CAPTION, "").matchAll(BRITISH)].map((m) => m[0]).filter((w) => !ALLOW.has(w.toLowerCase()));
+const GERMAN_ASK = 'organization: "Zeig mir die Organisation"';
+const britishIn = (line) => [...line.replace(GERMAN_CAPTION, "").replace(GERMAN_ASK, "").matchAll(BRITISH)].map((m) => m[0]).filter((w) => !ALLOW.has(w.toLowerCase()));
 const seen = new Map();
 function scan(rel) {
   const abs = path.join(PKG, rel);
@@ -114,8 +116,10 @@ test("everything the package ships is American English", () => {
   assert.equal(seen.size, 0, "British spellings:\n" + report);
 });
 
-test("the German caption is the one place Organisation passes, and the British form is caught in English", () => {
+test("the German caption and the German ask are the two places Organisation passes, and the British form is caught in English", () => {
   assert.deepEqual(britishIn('lifecycle: "Lebenszyklus", organization: "Organisation", reading: {'), []);
+  assert.deepEqual(britishIn('organization: "Zeig mir die Organisation", organizationGets: "die Einheiten als Organigramm"'), []);
+  assert.deepEqual(britishIn('landscape: "Zeig mir die Organisation"'), ["Organisation"]);
   assert.deepEqual(britishIn("// the organisation draws its groups"), ["organisation"]);
   assert.deepEqual(britishIn('const caption = "Organisation";'), ["Organisation"]);
   assert.deepEqual(britishIn('organization: "Organisation", note: "an organisation chart"'), ["organisation"]);

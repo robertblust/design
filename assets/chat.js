@@ -51,7 +51,7 @@
 //   rbChat.iconOf(doc)                 the page's icon, for the head of that line
 //   rbChat.pick(list, n, random)       n items of list, uniformly at random and without repeats
 //   rbChat.unasked(list, messages)     the titles no visitor message in the conversation has asked
-//   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them
+//   rbChat.spread(items, n, random)    the titles offered, one per kind where the model groups them, its first-ranked kind first
 //   rbChat.mentioned(content, names, items, messages)  the entities an answer writes, in its order, not yet asked about
 //   rbChat.follow(cites, items, messages, lang, random, named)  the three that follow an answer, or null
 //   rbChat.answerLang(turns, page)     the language what follows the last answer is offered in
@@ -62,6 +62,8 @@
 //   rbChat.lockupOf(doc)               the header's mark and name, split as the page splits it, or null
 //   rbChat.command(text)               "new", "help" or null, for the command line's own words
 //   rbChat.picked(text, rows)          the row a bare number picks, or the text as typed
+//   rbChat.tryPick(facts, random)      what an opening offers after the meta-model, two of what the model holds
+//   rbChat.connected(entities, edges)  the systems a landscape row may name
 //   rbChat.tryRows(facts, lang, random)  the intro's asks, each with what comes back
 //   rbChat.commitOf(cites)             the commit the answer was read at, or null
 //   rbChat.seconds(ms)                 the spinner's count
@@ -122,6 +124,10 @@
       try: {
         metaModel: "Show me the meta-model", metaModelGets: "a diagram of the types and how they refer to each other",
         process: "Walk me through the {name} process", processGets: "its steps as a flow, the loops back included",
+        organization: "Show me the organization", organizationGets: "its units as a chart, with who leads each and who sits in it",
+        landscape: "Show me the landscape of {name}", landscapeGets: "what it runs on, what it connects to and the data it keeps",
+        usecase: "Show me the use case {name}", usecaseGets: "who it serves, what it includes and what it asks of the product",
+        requirements: "Show me the requirements of {name}", requirementsGets: "what it is held to, every requirement a link into the model",
         list: "List {list} as a table", listGets: "one row each, every name a link into the model",
         lists: { kpi: "the KPIs", seat: "the seats", product: "the products", decision: "the decisions", value: "the values" }
       },
@@ -170,6 +176,10 @@
       try: {
         metaModel: "Zeig mir das Meta-Modell", metaModelGets: "ein Diagramm der Typen und wie sie aufeinander verweisen",
         process: "Zeig mir den Prozess {name} Schritt für Schritt", processGets: "die Schritte als Ablauf, samt Rücksprüngen",
+        organization: "Zeig mir die Organisation", organizationGets: "die Einheiten als Organigramm: wer sie jeweils leitet und wer dazugehört",
+        landscape: "Zeig mir die Landschaft von {name}", landscapeGets: "worauf das System läuft, womit es verbunden ist und welche Daten es hält",
+        usecase: "Zeig mir den Anwendungsfall {name}", usecaseGets: "wem er dient, was er einbindet und was er vom Produkt verlangt",
+        requirements: "Zeig mir die Anforderungen an {name}", requirementsGets: "woran das Produkt gemessen wird, jede Anforderung ein Link ins Modell",
         list: "Liste {list} als Tabelle auf", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
         lists: { kpi: "die KPIs", seat: "die Sitze", product: "die Produkte", decision: "die Entscheide", value: "die Werte" }
       },
@@ -601,7 +611,9 @@
 
   // The chips as a span of what the model answers: where its questions name a kind, three kinds
   // are picked at random and one question from each, so a visitor sees three sorts of question
-  // rather than three that may all be about one thing. Fewer kinds than chips fill from what is
+  // rather than three that may all be about one thing. Where the model ranks its kinds, the first
+  // chip is of the kind it ranks first among those still open, the one its owner says a visitor
+  // asks first, and the others span the rest at random. Fewer kinds than chips fill from what is
   // left, and a model whose questions name no kind is offered exactly as pick() offers it, so a
   // site that takes this before its model groups anything loses nothing.
   function spread(items, n, random){
@@ -609,9 +621,16 @@
     var list = (items || []).filter(function(q){ return q && typeof q.title === "string"; });
     var kinded = list.filter(function(q){ return typeof q.kind === "string" && q.kind; });
     if (!kinded.length) return pick(list.map(function(q){ return q.title; }), n, rnd);
-    var byKind = {}, kinds = [];
-    kinded.forEach(function(q){ if (!byKind[q.kind]) { byKind[q.kind] = []; kinds.push(q.kind); } byKind[q.kind].push(q.title); });
-    var chosen = pick(kinds, n, rnd).map(function(k){ return pick(byKind[k], 1, rnd)[0]; });
+    var byKind = {}, kinds = [], rankOf = Object.create(null), first = null;
+    kinded.forEach(function(q){
+      if (!byKind[q.kind]) { byKind[q.kind] = []; kinds.push(q.kind); }
+      byKind[q.kind].push(q.title);
+      if (typeof q.rank === "number" && isFinite(q.rank) && !(rankOf[q.kind] <= q.rank)) rankOf[q.kind] = q.rank;
+    });
+    kinds.forEach(function(k){ if (k in rankOf && (first === null || rankOf[k] < rankOf[first])) first = k; });
+    var count = Math.max(0, Number(n) || 0);
+    var order = first !== null && count > 0 ? [first].concat(pick(kinds.filter(function(k){ return k !== first; }), count - 1, rnd)) : pick(kinds, n, rnd);
+    var chosen = order.map(function(k){ return pick(byKind[k], 1, rnd)[0]; });
     var taken = {};
     chosen.forEach(function(t){ taken[t] = true; });
     var rest = list.map(function(q){ return q.title; }).filter(function(t){ return !taken[t]; });
@@ -874,17 +893,71 @@
     return i >= 0 && i < rows.length ? rows[i] : t;
   }
   // The Try rows: what the chat is built to answer, each with what comes back. The meta-model
-  // always; a process only where the model holds one, picked at random; a list only of a kind
-  // the model holds at least three of, the first in this order, so no row names what is not there.
+  // always, then two of what the model holds, picked at random: one of its processes, its
+  // organization where it holds a group, the landscape of one of its systems, one of its use
+  // cases, what one of its products is held to where it holds a requirement, and a list of a
+  // kind it holds at least three of, the first in LIST_TYPES' order. No row names what the model
+  // does not have, and a model that holds only a process and a list is offered both, as before.
   var LIST_TYPES = ["kpi", "seat", "product", "decision", "value"];
+  var TRY_ROWS = 3;
+  // What a row asks about by name, a name short enough to stand in a row: a use case and a
+  // product as the model names them, and a system as connected() chooses it.
+  var NAMED_TYPES = ["use-case", "product"], NAME_LIMIT = 120;
+  // The systems a landscape row may name: those the model writes a connection on, since a
+  // landscape is what a system takes its data from and one that takes none draws alone; where
+  // the model writes no connection at all, every system.
+  function connected(entities, edges){
+    var nameOf = {}, all = [], on = {};
+    (Array.isArray(entities) ? entities : []).forEach(function(e){
+      if (!e || e.type !== "system" || typeof e.name !== "string" || !e.name.length || e.name.length > NAME_LIMIT) return;
+      all.push(e.name);
+      if (typeof e.id === "string") nameOf[e.id] = e.name;
+    });
+    (Array.isArray(edges) ? edges : []).forEach(function(g){
+      if (g && typeof g.via === "string" && g.via.indexOf("Connects to.") === 0 && typeof nameOf[g.from] === "string") on[nameOf[g.from]] = true;
+    });
+    var linked = all.filter(function(n){ return on[n] === true; });
+    return linked.length ? linked : all;
+  }
+  // What an opening offers after the meta-model, as { key, name }: `key` names the row's words in
+  // strings().try and `name` what it asks about, so the picks are kept with the conversation and
+  // drawn again in either language. They stand in one order however the random falls.
+  function tryPick(facts, random){
+    var rnd = typeof random === "function" ? random : Math.random;
+    var f = facts || {}, counts = f.counts || {}, names = f.names || {}, pool = [];
+    function named(type){ return Array.isArray(names[type]) ? names[type] : []; }
+    function one(list){ return pick(list, 1, rnd)[0]; }
+    var ps = Array.isArray(f.processes) ? f.processes : [];
+    if (ps.length) pool.push({ key: "process", name: one(ps) });
+    if ((counts.group || 0) >= 1) pool.push({ key: "organization" });
+    if (named("system").length) pool.push({ key: "landscape", name: one(named("system")) });
+    if (named("use-case").length) pool.push({ key: "usecase", name: one(named("use-case")) });
+    if ((counts.requirement || 0) >= 1 && named("product").length) pool.push({ key: "requirements", name: one(named("product")) });
+    for (var i = 0; i < LIST_TYPES.length; i++) {
+      if ((counts[LIST_TYPES[i]] || 0) >= 3) { pool.push({ key: "list", name: LIST_TYPES[i] }); break; }
+    }
+    var at = pick(pool.map(function(_, n){ return n; }), TRY_ROWS - 1, rnd).sort(function(x, y){ return x - y; });
+    return at.map(function(n){ return pool[n]; });
+  }
+  // The rows as the page's language words them. `facts.tries` is the picks an opening already
+  // made, drawn as they stand; without it the picks are made here. A pick this widget has no
+  // words for, kept in the tab by another release, is left out rather than drawn half.
   function tryRows(facts, lang, random){
     var t = strings(lang).try, rows = [[t.metaModel, t.metaModelGets]];
-    var ps = facts && Array.isArray(facts.processes) ? facts.processes : [];
-    if (ps.length) rows.push([t.process.replace("{name}", pick(ps, 1, random)[0]), t.processGets]);
-    var counts = facts && facts.counts || {};
-    for (var i = 0; i < LIST_TYPES.length; i++) {
-      if ((counts[LIST_TYPES[i]] || 0) >= 3) { rows.push([t.list.replace("{list}", t.lists[LIST_TYPES[i]]), t.listGets]); break; }
-    }
+    var tries = facts && Array.isArray(facts.tries) ? facts.tries : tryPick(facts, random);
+    tries.forEach(function(p){
+      if (!p || typeof p.key !== "string") return;
+      var ask = t[p.key], gets = t[p.key + "Gets"];
+      if (typeof ask !== "string" || typeof gets !== "string") return;
+      if (p.key === "list") {
+        if (typeof t.lists[p.name] !== "string") return;
+        ask = ask.replace("{list}", function(){ return t.lists[p.name]; });
+      } else if (ask.indexOf("{name}") >= 0) {
+        if (typeof p.name !== "string" || !p.name) return;
+        ask = ask.replace("{name}", function(){ return p.name; });
+      }
+      rows.push([ask, gets]);
+    });
     return rows;
   }
   // The commit the answer was read at: the first cite whose URL names one.
@@ -900,7 +973,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1482,7 +1555,7 @@
   // container currently in the log, if any, and `qNext` whether it follows an answer rather than
   // opening an empty conversation, which is all that tells its two names apart. `qPicked` is
   // the titles that box offers, kept with the conversation while it stands.
-  var qList = null, qFetch = null, qBox = null, qPicked = null, qNext = false, qFacts = { processes: [], counts: {}, versions: null };
+  var qList = null, qFetch = null, qBox = null, qPicked = null, qNext = false, qFacts = { processes: [], counts: {}, names: {}, versions: null };
   var Q_TIMEOUT = 8000;
 
   // The titles to offer, read from the site's own parsed model rather than asked of the chat
@@ -1521,14 +1594,22 @@
             // of each type the model holds, so a row never names what the model does not have.
             var counts = {};
             entities.forEach(function(e){ if (e && typeof e.type === "string") counts[e.type] = (counts[e.type] || 0) + 1; });
-            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts, versions: versionsOf(j) };
+            // What a row asks about by name, and the rank the model gives each kind of question.
+            var names = {}, ranks = Object.create(null);
+            entities.forEach(function(e){
+              if (!e || typeof e.name !== "string" || !e.name.length) return;
+              if (NAMED_TYPES.indexOf(e.type) >= 0 && e.name.length <= NAME_LIMIT) (names[e.type] = names[e.type] || []).push(e.name);
+              if (e.type === "question-kind" && e.fields && e.fields.rank != null && String(e.fields.rank).trim() !== "" && isFinite(Number(e.fields.rank))) ranks[e.name] = Number(e.fields.rank);
+            });
+            names.system = connected(entities, j && j.edges);
+            qFacts = { processes: entities.filter(function(e){ return e && e.type === "process" && typeof e.name === "string" && e.name.length > 0; }).map(function(e){ return e.name; }), counts: counts, names: names, versions: versionsOf(j) };
             (j && Array.isArray(j.edges) ? j.edges : []).forEach(function(g){
               if (!g || types[g.from] !== "question" || typeof g.via !== "string" || g.via.indexOf("Rests on.") !== 0) return;
               (rests[g.from] = rests[g.from] || []).push({ id: g.to, type: types[g.to] || null });
             });
             return entities
               .filter(function(e){ return e && e.type === "question" && typeof e.name === "string" && e.name.length > 0; })
-              .map(function(e){ return { id: typeof e.id === "string" ? e.id : null, title: e.name, kind: e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null, rests: rests[e.id] || [] }; })
+              .map(function(e){ var kind = e.fields && typeof e.fields.kind === "string" ? e.fields.kind : null; return { id: typeof e.id === "string" ? e.id : null, title: e.name, kind: kind, rank: kind !== null && kind in ranks ? ranks[kind] : null, rests: rests[e.id] || [] }; })
               .filter(function(q){ return q.title.length <= LIMIT; });
           });
         })
@@ -1850,8 +1931,10 @@
         if (mine !== introRun || !introEl) return;
         var t = strings(langNow());
         var seen = asTitles(list, messages);
-        if (!introPick) introPick = { processes: f.processes.length ? pick(f.processes, 1) : [], questions: spread(list.filter(function(q){ return unasked([q.title], seen).length; }), 3) };
-        var rows = tryRows({ processes: introPick.processes, counts: f.counts }, langNow());
+        if (!introPick) introPick = { tries: tryPick(f), questions: spread(list.filter(function(q){ return unasked([q.title], seen).length; }), 3) };
+        // Picks kept by a release that kept a process alone are made again, once.
+        if (!Array.isArray(introPick.tries)) introPick.tries = tryPick(f);
+        var rows = tryRows({ tries: introPick.tries }, langNow());
         groups.appendChild(el("p", "rbchat-label", t.tryLabel));
         menu(groups, rows, 0);
         var picked = introPick.questions.map(function(q){ return [asOffered(q)]; });
@@ -2331,8 +2414,8 @@
     // Only a panel restored open shows its intro now; a closed one gets it from open(), since
     // the intro reads the model file and that read waits for the panel.
     reading = was.at && typeof was.at.turn === "number" ? was.at : { end: true };
-    // The intro's picks, so it offers the same process and questions it offered on the last page.
-    if (was.pick && Array.isArray(was.pick.processes) && Array.isArray(was.pick.questions)) introPick = was.pick;
+    // The intro's picks, so it offers the same rows and questions it offered on the last page.
+    if (was.pick && Array.isArray(was.pick.questions)) introPick = was.pick;
     was.turns.forEach(function(t){
       if (t.role === "user") { var u = bubble("user"); u.textContent = t.content; u.setAttribute("data-turn", turns.length); messages.push({ role: "user", content: t.content }); turns.push({ role: "user", content: t.content }); return; }
       var ans = bubble("assistant"), body = el("div", "rbchat-body");
