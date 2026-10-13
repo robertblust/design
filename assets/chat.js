@@ -759,6 +759,11 @@
     return {
       // The classic look is flat, as the family draws: the default draws shadows and gradients.
       startOnLoad: false, securityLevel: "strict", theme: "base", look: "classic", fontFamily: font,
+      // Mermaid draws a rounded node and a cylinder from a seed, and where this is left at its
+      // default of 0 it takes a random one for each render, so the same picture came out a few
+      // pixels different every time. A fixed seed makes a picture the same wherever and whenever
+      // it is drawn, which a deck's PDF is compared by.
+      handDrawnSeed: 1,
       // At its own size in a box that scrolls: fitted to a bubble, a wide picture's words shrink
       // below reading. A concept carries no attributes or methods, so its class has no empty bars.
       flowchart: { useMaxWidth: false }, class: { useMaxWidth: false, hideEmptyMembersBox: true },
