@@ -32,12 +32,73 @@
 // than reimplemented, exactly as its own comment there already invites: the routing this run
 // depends on — a type served wrong, a path kept inside root — is a static-file server this
 // package already ships and already tests, not a second copy of one.
-import { writeFileSync } from "node:fs";
+import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { serve } from "../cards/export.mjs";
+import { FRAME, LANGS, HIDE, SETTLE, pdfOf, stamp as stampDeck } from "./recipe.mjs";
 
-const W = 1280, H = 720;
-const LANGS = ["de", "en"];
+// The frame, the languages, the hide rule and the waits are recipe.mjs's, which hashes them.
+const W = FRAME.width, H = FRAME.height;
+
+const readIfThere = (file) => (fs.existsSync(file) ? fs.readFileSync(file) : null);
+
+// What each page of a deck PDF holds, read from a document pdf-lib has loaded: the picture, as a
+// digest of the bytes the PDF stores for it, and the links over it, each as the PDF writes it.
+// Nothing but the document is used, so no class of pdf-lib's is needed beside the PDFDocument a
+// caller already hands in: a dictionary is walked by its entries, and a name is compared as the
+// string it prints. A page whose picture cannot be found has `picture: null`, which samePages
+// never calls the same as anything, so a PDF some other tool made is written again rather than
+// kept on the strength of two empty digests.
+export function pagesOf(doc) {
+  const ctx = doc.context;
+  const named = (dict, name) => {
+    for (const [key, value] of dict.entries()) if (String(key) === "/" + name) return ctx.lookup(value);
+    return undefined;
+  };
+  return doc.getPages().map((page) => {
+    const resources = named(page.node, "Resources");
+    const xobjects = resources && named(resources, "XObject");
+    const h = crypto.createHash("sha256");
+    let pictures = 0;
+    for (const [, ref] of xobjects ? xobjects.entries() : []) {
+      const stream = ctx.lookup(ref);
+      if (!stream || !stream.contents) continue;
+      h.update(stream.contents);
+      pictures += 1;
+    }
+    const annots = named(page.node, "Annots");
+    return {
+      picture: pictures ? h.digest("hex") : null,
+      links: annots ? annots.asArray().map((ref) => String(ctx.lookup(ref)).replace(/\s+/g, " ")) : [],
+    };
+  });
+}
+
+// Exact, on purpose: a machine that rasterizes a slide differently writes the file again, which
+// costs a commit and misleads nobody. A looser comparison could keep a file that had changed.
+export function samePages(a, b) {
+  return a.length === b.length && a.every((p, i) =>
+    p.picture !== null && p.picture === b[i].picture &&
+    p.links.length === b[i].links.length && p.links.every((l, k) => l === b[i].links[k]));
+}
+
+// Does the file end as a PDF ends? pdf-lib reads a file's objects in order and does not need
+// its end, so a PDF a dead run cut short of its last bytes loads whole and every page of it
+// compares the same; a reader that does need the end refuses it. Every PDF closes with `%%EOF`,
+// so one that does not was never finished.
+export function wholePDF(bytes) {
+  return Buffer.from(bytes).subarray(-32).toString("latin1").trimEnd().endsWith("%%EOF");
+}
+
+// Is the PDF on disk, page for page, the one just rendered? A file that is not there, that a
+// dead run left without its end, or that cannot be read as a PDF is not, and is written again.
+async function unchanged(PDFDocument, had, bytes, readPages) {
+  if (had === null || !wholePDF(had)) return false;
+  let before;
+  try { before = readPages(await PDFDocument.load(had)); } catch (e) { return false; }
+  return samePages(before, readPages(await PDFDocument.load(bytes)));
+}
 
 // The vocabulary a deck may use. Borrowed from cards/export.mjs and for the same reason: an
 // unknown key is a knob that silently does nothing, and a deck list is edited by hand.
@@ -70,7 +131,8 @@ export function validate(decks) {
 // may pass its base directly instead, but never a `file://` one: that is the one shape this
 // module used to open and no longer can, for the reason in the comment above the imports.
 export async function exportDecks({ chromium, PDFDocument, PDFString, root, decks, base,
-                                    log = console.log, write = writeFileSync }) {
+                                    log = console.log, write = fs.writeFileSync,
+                                    read = readIfThere, stamp = stampDeck, readPages = pagesOf }) {
   validate(decks);
   if (typeof base === "string" && base.startsWith("file://")) {
     throw new Error("exportDecks serves root over http itself now and no longer opens a " +
@@ -84,19 +146,16 @@ export async function exportDecks({ chromium, PDFDocument, PDFString, root, deck
     const browser = await chromium.launch();
     try {
       for (const deck of decks) {
-        const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
+        const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: FRAME.deviceScaleFactor });
         await page.goto(`${siteBase}/${deck.dir}/`, { waitUntil: "networkidle" });
-        // Hide the controls, not the credit: .name lives inside .chrome, and hiding the whole
-        // bar took the byline off every printed page. A transport in a PDF advertises buttons
-        // that do nothing; a byline is the one part of that bar a printed page still wants.
-        await page.addStyleTag({ content: `.transport,.bar,.notes{display:none!important}\n     /* a still image should not be waiting out a transition it does not want */\n     .slide.active > *{animation:none!important}` });
+        await page.addStyleTag({ content: HIDE });
         const count = await page.evaluate(() => document.querySelectorAll(".slide").length);
 
         for (const lang of LANGS) {
           // the decks have no keyboard shortcuts any more — click the transport's language
           // toggle. The rule above hides it, so click it through the DOM, not the pointer.
           await page.evaluate(l => document.getElementById(l === "de" ? "langDe" : "langEn").click(), lang);
-          await page.waitForTimeout(400);
+          await page.waitForTimeout(SETTLE.language);
 
           const pdf = await PDFDocument.create();
           for (let i = 0; i < count; i++) {
@@ -104,7 +163,7 @@ export async function exportDecks({ chromium, PDFDocument, PDFString, root, deck
               const s = Array.from(document.querySelectorAll(".slide"));
               s.forEach((el, k) => el.classList.toggle("active", k === n));
             }, i);
-            await page.waitForTimeout(500);        // let the rise animation settle
+            await page.waitForTimeout(SETTLE.slide);   // let the rise animation settle
             const links = PDFString ? await page.evaluate(linksOnSlide, { n: i, lang, W, H }) : [];
             const png = await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: W, height: H } });
             const img = await pdf.embedPng(png);
@@ -112,11 +171,25 @@ export async function exportDecks({ chromium, PDFDocument, PDFString, root, deck
             p.drawImage(img, { x: 0, y: 0, width: W, height: H });
             for (const l of links) p.node.addAnnot(pdf.context.register(pdf.context.obj(annotation(l, PDFString))));
           }
-          const file = path.join(root, deck.dir, `${deck.slug}-${lang}.pdf`);
-          write(file, await pdf.save());
-          log(`  ✓ ${path.relative(root, file)}  (${count} slides)`);
-          written.push({ file, pages: count });
+          const file = path.join(root, pdfOf(deck, lang));
+          const bytes = await pdf.save();
+          // A PDF whose every page holds the picture and the links the file on disk already
+          // has is left alone: nearly every release of this package moves a file every deck
+          // links, and writing each PDF again would put megabytes into a site's history for a
+          // change most of them do not show.
+          const kept = await unchanged(PDFDocument, read(file), bytes, readPages);
+          if (kept) {
+            log(`  = ${path.relative(root, file)}  (${count} slides, kept)`);
+          } else {
+            write(file, bytes);
+            log(`  ✓ ${path.relative(root, file)}  (${count} slides)`);
+          }
+          written.push({ file, pages: count, kept });
         }
+        // After both languages are decided and never before: a run that dies half way leaves
+        // the deck reported stale. Written whether or not either file was, since the stamp says
+        // what the PDFs were checked against, not when they were written.
+        stamp(deck, root);
         await page.close();
       }
     } finally {

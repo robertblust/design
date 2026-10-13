@@ -119,7 +119,7 @@ The board `/processes/` draws for each process: who holds its seats, the seats a
 
 ## Surfaces lineage
 
-The lineage `/surfaces/` draws: the model, the makers under it, the surfaces each maker produces, and the wires between them, with the chosen surface's card below. Contract: [blocks/surfaces.css](../../blocks/surfaces.css) for the drawing, [blocks/surfaces.js](../../blocks/surfaces.js) for its behavior and what it needs from the page.
+The lineage `/surfaces/` draws: the model, the makers under it, the surfaces each maker produces, and the wires between them, with the chosen surface's card below. A wire at rest is `--c-weak`, as the stage's resting edge is, and the wires back to the model from the chosen surface are `--c-path`; on a narrow screen the wires become the tree's rules in the same color. Contract: [blocks/surfaces.css](../../blocks/surfaces.css) for the drawing, [blocks/surfaces.js](../../blocks/surfaces.js) for its behavior and what it needs from the page.
 
 ```text
                     ┌───────────────┐

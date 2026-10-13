@@ -66,7 +66,9 @@ Four modules under `cards/`, imported rather than generated. The rule at the top
 | `cards/check` | `checkCards(recipeModule)` — staleness and the dark-background check; returns a count |
 | `cards/export` | `exportCards({ chromium, recipe })` — the renderer; takes a `chromium`, never imports one |
 | `cards/recipe-tests` | `checkRecipe(recipeModule)` — 32 shared assertions about a site's recipe |
-| `decks/export` | `exportDecks({ chromium, PDFDocument, root, decks })` — renders each deck to a 16:9 PDF fallback; takes a `chromium` and a `PDFDocument`, never imports either |
+| `decks/export` | `exportDecks({ chromium, PDFDocument, root, decks })` — renders each deck to a 16:9 PDF fallback, leaves a PDF alone when every page of it came out as it was, and stamps the deck; takes a `chromium` and a `PDFDocument`, never imports either |
+| `decks/recipe` | `sourcesOf`, `recipe`, `stampOf`, `state`, `stamp`, `pdfOf`, and the exporter's knobs, `FRAME`, `LANGS`, `HIDE` and `SETTLE`; `root` is always a parameter |
+| `decks/check` | `checkDecks({ decks, root })` — a stamp that is missing or stale and a PDF that is not on disk; returns a count |
 
 A site keeps one file with real content — `og-recipe.mjs`, holding its `REPO_ROOT`, its frame, its hide rules and its card list — and three thin callers:
 
@@ -84,6 +86,20 @@ export const { sources, recipe, stampOf, state, stamp } = recipeFor(REPO_ROOT);
 **Copy each site's `FRAME` verbatim.** The recipe hashes every key of a card, so one added key moves every `og.sha` in that repository. No two sites' frames are interchangeable: blust.ch and companygraph.io carry `clipY` and no `deviceScaleFactor`, guestgraph.io the reverse.
 
 **`og:check` and `test:og` run after `npm ci`.** They import this package, which is not on disk before that. They still run before `npx playwright install`, because `cards/check.mjs` imports only `node:` builtins and needs no browser — a property asserted by importing it from a child process in a directory with no `node_modules` above it, rather than by grepping for imports.
+
+**A deck's PDFs carry a stamp too.** `npm run pdf` writes `pdf.sha` beside each deck, the hash of the deck's page, every file of the repository the page names, `mermaid.min.js` where it names `chat.js`, the deck's entry and the exporter's own knobs, and `checkDecks` fails a deck whose stamp is not that hash. A site keeps its decks in one file, `decks.mjs`, which its `export-pdf.mjs` and its `pdf-check.mjs` both import, because a list kept twice is a deck added to one and not the other:
+
+```js
+// pdf-check.mjs
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { checkDecks } from "@robertblust/design/decks/check";
+import { decks } from "./decks.mjs";
+
+if (checkDecks({ decks, root: path.dirname(fileURLToPath(import.meta.url)) })) process.exit(1);
+```
+
+`pdf:check` runs where `og:check` does, after `npm ci` and before the browser is installed. The exporter compares each PDF it renders with the file on disk page by page and writes only one that differs, so a re-pin that moves a file every deck links commits the stamps and the PDFs that changed, not every PDF. The comparison is exact, and it holds for a slide with a drawn picture only because `chat.js` gives Mermaid a fixed seed.
 
 ## Fences
 

@@ -81,6 +81,20 @@ test("a picture is drawn under its answer, captioned, each node a link to where 
   await page.close();
 });
 
+test("the same picture drawn in two tabs is the same markup", async () => {
+  // A use case holds a rounded node, the shape Mermaid draws from its seed. A deck's PDF is kept
+  // only when its slides come out as they were, so a picture that differed on every render
+  // would have its deck's PDFs written again on every export.
+  const drawn = [];
+  for (let i = 0; i < 2; i++) {
+    const { page } = await asked([["diagram", PICTURES.usecase], ["text", { text: "One use case." }]]);
+    await page.waitForSelector(".rbchat-diagram svg");
+    drawn.push(await page.$eval(".rbchat-diagram .rbchat-diagram-box", (box) => box.innerHTML));
+    await page.close();
+  }
+  assert.equal(drawn[0], drawn[1]);
+});
+
 test("an answer bringing two pictures draws both, in order, each fitted and each opening full screen on a click", async () => {
   const { page } = await asked([["diagram", PICTURES.context], ["diagram", PICTURES.aggregate], ["text", { text: "Quoting conforms to Catalog." }]], { viewport: { width: 1280, height: 900 } });
   await page.waitForFunction(() => document.querySelectorAll(".rbchat-diagram svg").length === 2);

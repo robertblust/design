@@ -47,6 +47,8 @@
     "./pictures": "./lib/pictures.mjs",
     "./cards/recipe-tests": "./cards/recipe-tests.mjs",
     "./decks/export": "./decks/export.mjs",
+    "./decks/recipe": "./decks/recipe.mjs",
+    "./decks/check": "./decks/check.mjs",
     "./verify/pin": "./verify/pin.mjs",
     "./verify/links": "./verify/links.mjs",
     "./crawl": "./lib/crawl.mjs",
@@ -65,6 +67,7 @@
     "test": "node --test \"test/*.test.mjs\""
   },
   "devDependencies": {
+    "pdf-lib": "^1.17.1",
     "playwright": "^1.63.0"
   }
 }

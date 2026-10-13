@@ -687,6 +687,12 @@ test("Mermaid is configured strict, from the tokens, and never from an empty one
   assert.match(bare.fontFamily, /sans-serif/);
 });
 
+test("Mermaid draws from a fixed seed, so a picture is the same on every render", () => {
+  // Left at Mermaid's default of 0, each render takes a random seed, and a picture holding a
+  // rounded node or a cylinder came out a few pixels different every time it was drawn.
+  assert.equal(mermaidConfig(() => "").handDrawnSeed, 1);
+});
+
 test("a node is found by the id Mermaid gives it, in either kind of diagram, and a name that is no node finds nothing", () => {
   const svg = { querySelectorAll: () => [{ id: "rbchat-diagram-3-flowchart-n1-1" }, { id: "rbchat-diagram-3-flowchart-n10-10" }, { id: "rbchat-diagram-4-classId-n2-7" }] };
   assert.equal(nodeElement(svg, "n1").id, "rbchat-diagram-3-flowchart-n1-1");
