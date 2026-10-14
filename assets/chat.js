@@ -1872,9 +1872,10 @@
   var introPick = null;
   // The question a link carries, waiting: a card the visitor acts on, built from the strings and
   // never from markup, so whatever the link says is shown as text. Send hands it to send() as if
-  // typed, Edit puts it in the input to change, and Discard drops it. Under the notice while the
-  // intro stands, since that is what the visitor reads first; at the end of a conversation the
-  // tab already holds, since the intro is then out of sight above it.
+  // typed, Edit puts it in the input to change, and Discard drops it. It stands right after the
+  // intro's prompt line, where a question the visitor typed would stand, so the hello, the notice
+  // and what the panel offers read in the order they always do and the question is the last thing
+  // in the log; at the end of a conversation the tab already holds, for the same reason.
   function askCard(){
     var s = strings(langNow()).ask, card = el("div", "rbchat-ask"), row = el("div", "rbchat-ask-row");
     card.setAttribute("role", "group"); card.setAttribute("aria-label", s.label);
@@ -1892,9 +1893,10 @@
     askEl = card;
     return card;
   }
+  // Wherever the card stands it is the last thing in the log, so the log's end is where it shows.
   function showAsk(){
-    if (!linkAsk || (askEl && askEl.isConnected)) return;
-    log.appendChild(askCard());
+    if (!linkAsk) return;
+    if (!(askEl && askEl.isConnected)) log.appendChild(askCard());
     log.scrollTop = log.scrollHeight;
   }
 
@@ -1919,11 +1921,11 @@
     hello.appendChild(el("span", "rbchat-h2", lines[1]));
     introEl.appendChild(hello);
     notice = el("p", "rbchat-notice"); introEl.appendChild(notice); writeNotice();
-    if (linkAsk && !messages.length) introEl.appendChild(askCard());
     var groups = el("div", "rbchat-groups"); introEl.appendChild(groups);
     var promptLine = el("p", "rbchat-prompt-line", "› " + s.prompt + " ");
     // The block cursor waits here while the intro plays, and hands over to the command line.
     promptLine.appendChild(el("span", "rbchat-cur")); introEl.appendChild(promptLine);
+    if (linkAsk && !messages.length) introEl.appendChild(askCard());
     log.insertBefore(introEl, log.firstChild);
     if (!play || still()) finishIntro();
     facts(function(f){
@@ -1956,6 +1958,8 @@
         // A restored conversation has moved past the intro: its menus are spent, and the rows a
         // number picks stay those of the menu after the last answer.
         if (messages.length) spendIntro(); else { menuRows = rows.concat(picked).map(function(r){ return r[0]; }); keysLine(); }
+        // The menus are drawn above a waiting question and would push it out of sight.
+        if (askEl && askEl.parentNode === introEl) log.scrollTop = log.scrollHeight;
         if (!introEl.classList.contains("rbchat-still")) playIntro();
       });
     });
