@@ -920,3 +920,61 @@ test("--c-sum, the conclusion line, clears 3:1 against its own ground, in both t
     assert.ok(r >= 3, `${name}: --c-sum is ${r.toFixed(2)}:1 on --ground, needs 3`);
   }
 });
+
+// The theme-color hook is run for real, as carryTheme is above: a regex over the source would
+// pass a block that names `theme-color` and `--ground` in a comment while never setting the meta.
+// The page switches the theme through `documentElement` alone, the way a page carrying its own
+// copy of the switch does, so the hook is shown to follow the attribute, not `setTheme`.
+function runThemeColor({ meta, grounds, start = null }) {
+  const js = blockFor("theme", "page");
+  let dataTheme = start;
+  const observers = [];
+  const documentElement = {
+    getAttribute: (n) => (n === "data-theme" ? dataTheme : null),
+    setAttribute(n, v) { if (n === "data-theme") { dataTheme = v; observers.forEach((f) => f()); } },
+    removeAttribute(n) { if (n === "data-theme") { dataTheme = null; observers.forEach((f) => f()); } },
+  };
+  const sandbox = {
+    console, URL,
+    localStorage: { getItem: () => null, setItem() {} },
+    location: { href: "https://blust.ch/", origin: "https://blust.ch", search: "", pathname: "/", hash: "" },
+    history: { replaceState() {} },
+    document: {
+      addEventListener() {}, documentElement, getElementById: () => null,
+      querySelector: (sel) => (sel === 'meta[name="theme-color"]' ? meta : null),
+    },
+    getComputedStyle: () => ({ getPropertyValue: (n) => (n === "--ground" ? grounds[dataTheme === "light" ? "light" : "dark"] : "") }),
+    MutationObserver: class {
+      constructor(f) { this.f = f; }
+      observe(target, opts) { if (target === documentElement && opts.attributeFilter.includes("data-theme")) observers.push(this.f); }
+    },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(js, sandbox);
+  return { documentElement };
+}
+
+test("theme-color follows data-theme, whichever switch sets it", () => {
+  // Android paints a home-screen page's system bars from `theme-color`; a light visitor whose
+  // bars stayed dark's ground would see a dark band under a light page.
+  const content = { value: "#0C0E13" };
+  const meta = { setAttribute(n, v) { if (n === "content") content.value = v; } };
+  const { documentElement } = runThemeColor({ meta, grounds: { dark: " #0C0E13", light: " #FAF9F5" } });
+  documentElement.setAttribute("data-theme", "light");
+  assert.equal(content.value, "#FAF9F5", "light did not move theme-color to light's ground");
+  documentElement.removeAttribute("data-theme");
+  assert.equal(content.value, "#0C0E13", "dark did not move theme-color back to dark's ground");
+});
+
+test("theme-color takes the theme a page loads in", () => {
+  // `theme boot` has already set light before this block runs; the bars must not wait for a click.
+  const content = { value: "#0C0E13" };
+  const meta = { setAttribute(n, v) { if (n === "content") content.value = v; } };
+  runThemeColor({ meta, grounds: { dark: "#0C0E13", light: "#FAF9F5" }, start: "light" });
+  assert.equal(content.value, "#FAF9F5");
+});
+
+test("a page without a theme-color meta is left alone", () => {
+  const { documentElement } = runThemeColor({ meta: null, grounds: { dark: "#0C0E13", light: "#FAF9F5" } });
+  assert.doesNotThrow(() => documentElement.setAttribute("data-theme", "light"));
+});

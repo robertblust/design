@@ -66,7 +66,7 @@ The lines a prose page lifts out of its paragraphs, each drawn in a color role f
 
 ## Footer
 
-The row at the foot of every prose page: the repository and the license, and on companygraph.io and guestgraph.io the credit to blust.ch. A site names its form in `design.config.json` as `"footer": "credit"` or `"plain"`. Contract: [blocks/footer.css](../../blocks/footer.css), and the credit's rules in [blocks/footer-credit.css](../../blocks/footer-credit.css).
+The row at the foot of every prose page: the repository and the license, and on companygraph.io and guestgraph.io the credit to blust.ch. A site names its form in `design.config.json` as `"footer": "credit"` or `"plain"`. On a phone the row keeps clear of the system's bottom bar. Contract: [blocks/footer.css](../../blocks/footer.css), and the credit's rules in [blocks/footer-credit.css](../../blocks/footer-credit.css).
 
 ```text
 credit
@@ -200,6 +200,6 @@ These blocks draw nothing of their own and have no picture.
 | Block | What it does | Contract |
 | --- | --- | --- |
 | Theme boot | Sets the theme before the first paint | [blocks/theme-boot.js](../../blocks/theme-boot.js) |
-| Theme | Switches and remembers light and dark across the family's domains | [blocks/theme.js](../../blocks/theme.js) |
+| Theme | Switches and remembers light and dark across the family's domains, and keeps a page's `theme-color` on the ground of the theme shown | [blocks/theme.js](../../blocks/theme.js) |
 | Language | Decides and remembers English or German across the family's domains | [blocks/lang.js](../../blocks/lang.js) |
 | Nav fit | Measures whether the header row fits | [blocks/nav-fit.js](../../blocks/nav-fit.js) |
