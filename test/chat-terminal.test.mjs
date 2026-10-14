@@ -610,3 +610,25 @@ test("the banner names the core and the model's commit, each linked, and the mod
   assert.equal(await broken.p.$(".rbchat-versions"), null);
   await broken.close();
 });
+
+test("a size given to the panel is the browser's: another tab opens the panel at it, and a double-click on the corner forgets it", async () => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const size = (p) => p.$eval("section.rbchat", (x) => { const r = x.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) }; });
+  const kept = (p) => p.evaluate(() => ({ local: JSON.parse(localStorage.getItem("chat-size")), session: sessionStorage.getItem("chat-size") }));
+  // The family's reset, as every site's page carries it: the panel's size includes its border.
+  const arrive = async () => { const p = await context.newPage(); await p.goto(base + "/"); await p.waitForSelector(".rbchat-open", { state: "attached" }); await p.addStyleTag({ content: "*{box-sizing:border-box}" }); await open(p); return p; };
+  const first = await arrive();
+  const stock = await size(first);
+  await first.focus(".rbchat-grip");
+  await first.keyboard.press("ArrowLeft"); await first.keyboard.press("ArrowLeft"); await first.keyboard.press("ArrowDown");
+  const sized = await size(first);
+  assert.deepEqual(sized, { w: stock.w + 48, h: stock.h - 24 });
+  assert.deepEqual(await kept(first), { local: sized, session: null }, "the size is kept where every tab reads it, and nowhere else");
+  // A second tab has a session of its own and the same local storage.
+  const second = await arrive();
+  assert.deepEqual(await size(second), sized);
+  await second.dblclick(".rbchat-grip");
+  assert.deepEqual(await size(second), stock);
+  assert.deepEqual(await kept(second), { local: null, session: null });
+  await context.close();
+});

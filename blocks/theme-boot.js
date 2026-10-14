@@ -1,4 +1,4 @@
-  /* ─── theme boot · v5 · {{variant}} ────────────────────────────────────
+  /* ─── theme boot · v6 · {{variant}} ────────────────────────────────────
      Set the theme before anything paints. Generated from @robertblust/design —
      editing it here does nothing, because the next `npm run design` overwrites it.
 
@@ -41,13 +41,14 @@
     try {
       if (window.top !== window && /[?&]embed(&|$)/.test(location.search)) document.documentElement.setAttribute("data-embed", "");
     } catch (e) {}
-    // A conversation the tab keeps open: the keys are chat.js's, `chat` and `chat-size`, read
-    // the way it reads them. Never in a frame, which takes no chat of its own.
+    // A conversation the tab keeps open: the keys are chat.js's, `chat` in the tab's storage and
+    // `chat-size` in the browser's, read the way it reads them. Never in a frame, which takes no
+    // chat of its own.
     try {
       var r = document.documentElement, c = JSON.parse(sessionStorage.getItem("chat") || "null");
       if (c && c.open && window.top === window) {
         r.setAttribute("data-chat-waiting", location.host);
-        var z = JSON.parse(sessionStorage.getItem("chat-size") || "null");
+        var z = JSON.parse(localStorage.getItem("chat-size") || "null");
         if (z && z.w && z.h) { r.style.setProperty("--rbchat-kept-w", z.w + "px"); r.style.setProperty("--rbchat-kept-h", z.h + "px"); }
       }
     } catch (e) {}

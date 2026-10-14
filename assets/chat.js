@@ -714,10 +714,11 @@
   // rendered, each answer with the entities it cited. Every access is wrapped, because a
   // browser with site data blocked throws on the first read and the chat still has to work.
   var STORE_KEY = "chat";
-  // How big the panel is, kept beside the conversation and for the same lifetime: a size is a
-  // choice about this tab's reading, not a preference to carry to the next visit, and the
-  // conversation it frames goes when the tab goes. Its own key, because it outlives any one
-  // conversation: a visitor who sizes the panel, empties it and asks again keeps the size.
+  // How big the panel is, kept in `localStorage` as `lang` and `theme` are: a size is a choice
+  // about how this visitor reads the chat on this screen, so it holds in every tab and on the
+  // next visit, where the conversation it frames goes when its tab goes. Its own key, because it
+  // is no part of any conversation: a link opened in a new tab finds the panel at the size the
+  // visitor gave it, with nothing else carried over.
   var SIZE_KEY = "chat-size";
   var MIN_W = 320, MIN_H = 260, STEP = 24;
   function stored(){
@@ -725,10 +726,10 @@
     catch (e) { return null; }
   }
   function storedSize(){
-    try { var raw = sessionStorage.getItem(SIZE_KEY); var v = raw ? JSON.parse(raw) : null; return v && v.w && v.h ? v : null; }
+    try { var raw = localStorage.getItem(SIZE_KEY); var v = raw ? JSON.parse(raw) : null; return v && v.w && v.h ? v : null; }
     catch (e) { return null; }
   }
-  function keepSize(w, h){ try { sessionStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
+  function keepSize(w, h){ try { localStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
 
   // Where the visitor was reading, kept with the conversation so the back button returns them
   // to it and not to the end. A place is a turn and a distance into its bubble, not a pixel
@@ -2115,7 +2116,7 @@
     // something to clear: an empty panel shows no control for emptying it. A conversation has no
     // length at which it must start over, so this is the only door; its reset takes the turns,
     // the log and the tab's copy together; the panel's size stays, being a choice
-    // about this tab's reading rather than part of the conversation.
+    // about how the visitor reads rather than part of the conversation.
     newBtn = el("button", "rbchat-new"); newBtn.type = "button"; newBtn.hidden = true;
     // The glyph is an arrow come back round, not a plus: a plus beside the cross read as "add",
     // and what the button does is start over. The note under it names the action for a pointer
@@ -2210,7 +2211,7 @@
     // Double-click gives the stylesheet's size back and forgets the stored one, as the stage's
     // gutter does: otherwise the only way back is to drag until it looks right again.
     grip.addEventListener("dblclick", function(){
-      try { sessionStorage.removeItem(SIZE_KEY); } catch (e) {}
+      try { localStorage.removeItem(SIZE_KEY); } catch (e) {}
       unsize();
     });
     grip.addEventListener("keydown", function(ev){

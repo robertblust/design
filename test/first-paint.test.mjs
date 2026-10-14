@@ -27,12 +27,13 @@ before(async () => {
 });
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
 
-// A tab whose chat is kept open, as the page before this one left it.
+// A tab whose chat is kept open, as the page before this one left it, in a browser that keeps
+// the size a visitor once gave the panel.
 async function tabWithChat(stored, size) {
   const context = await browser.newContext({ viewport: { width: 1300, height: 900 } });
   await context.addInitScript(([stored, size]) => {
     if (stored) sessionStorage.setItem("chat", JSON.stringify(stored));
-    if (size) sessionStorage.setItem("chat-size", JSON.stringify(size));
+    if (size) localStorage.setItem("chat-size", JSON.stringify(size));
   }, [stored, size]);
   return { page: await context.newPage(), close: () => context.close() };
 }
