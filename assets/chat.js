@@ -714,10 +714,11 @@
   // rendered, each answer with the entities it cited. Every access is wrapped, because a
   // browser with site data blocked throws on the first read and the chat still has to work.
   var STORE_KEY = "chat";
-  // How big the panel is, kept beside the conversation and for the same lifetime: a size is a
-  // choice about this tab's reading, not a preference to carry to the next visit, and the
-  // conversation it frames goes when the tab goes. Its own key, because it outlives any one
-  // conversation: a visitor who sizes the panel, empties it and asks again keeps the size.
+  // How big the panel is, kept in `localStorage` as `lang` and `theme` are: a size is a choice
+  // about how this visitor reads the chat on this screen, so it holds in every tab and on the
+  // next visit, where the conversation it frames goes when its tab goes. Its own key, because it
+  // is no part of any conversation: a link opened in a new tab finds the panel at the size the
+  // visitor gave it, with nothing else carried over.
   var SIZE_KEY = "chat-size";
   var MIN_W = 320, MIN_H = 260, STEP = 24;
   function stored(){
@@ -725,10 +726,10 @@
     catch (e) { return null; }
   }
   function storedSize(){
-    try { var raw = sessionStorage.getItem(SIZE_KEY); var v = raw ? JSON.parse(raw) : null; return v && v.w && v.h ? v : null; }
+    try { var raw = localStorage.getItem(SIZE_KEY); var v = raw ? JSON.parse(raw) : null; return v && v.w && v.h ? v : null; }
     catch (e) { return null; }
   }
-  function keepSize(w, h){ try { sessionStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
+  function keepSize(w, h){ try { localStorage.setItem(SIZE_KEY, JSON.stringify({ w: w, h: h })); } catch (e) {} }
 
   // Where the visitor was reading, kept with the conversation so the back button returns them
   // to it and not to the end. A place is a turn and a distance into its bubble, not a pixel
@@ -1872,9 +1873,10 @@
   var introPick = null;
   // The question a link carries, waiting: a card the visitor acts on, built from the strings and
   // never from markup, so whatever the link says is shown as text. Send hands it to send() as if
-  // typed, Edit puts it in the input to change, and Discard drops it. Under the notice while the
-  // intro stands, since that is what the visitor reads first; at the end of a conversation the
-  // tab already holds, since the intro is then out of sight above it.
+  // typed, Edit puts it in the input to change, and Discard drops it. It stands right after the
+  // intro's prompt line, where a question the visitor typed would stand, so the hello, the notice
+  // and what the panel offers read in the order they always do and the question is the last thing
+  // in the log; at the end of a conversation the tab already holds, for the same reason.
   function askCard(){
     var s = strings(langNow()).ask, card = el("div", "rbchat-ask"), row = el("div", "rbchat-ask-row");
     card.setAttribute("role", "group"); card.setAttribute("aria-label", s.label);
@@ -1892,9 +1894,10 @@
     askEl = card;
     return card;
   }
+  // Wherever the card stands it is the last thing in the log, so the log's end is where it shows.
   function showAsk(){
-    if (!linkAsk || (askEl && askEl.isConnected)) return;
-    log.appendChild(askCard());
+    if (!linkAsk) return;
+    if (!(askEl && askEl.isConnected)) log.appendChild(askCard());
     log.scrollTop = log.scrollHeight;
   }
 
@@ -1919,11 +1922,11 @@
     hello.appendChild(el("span", "rbchat-h2", lines[1]));
     introEl.appendChild(hello);
     notice = el("p", "rbchat-notice"); introEl.appendChild(notice); writeNotice();
-    if (linkAsk && !messages.length) introEl.appendChild(askCard());
     var groups = el("div", "rbchat-groups"); introEl.appendChild(groups);
     var promptLine = el("p", "rbchat-prompt-line", "› " + s.prompt + " ");
     // The block cursor waits here while the intro plays, and hands over to the command line.
     promptLine.appendChild(el("span", "rbchat-cur")); introEl.appendChild(promptLine);
+    if (linkAsk && !messages.length) introEl.appendChild(askCard());
     log.insertBefore(introEl, log.firstChild);
     if (!play || still()) finishIntro();
     facts(function(f){
@@ -1956,6 +1959,8 @@
         // A restored conversation has moved past the intro: its menus are spent, and the rows a
         // number picks stay those of the menu after the last answer.
         if (messages.length) spendIntro(); else { menuRows = rows.concat(picked).map(function(r){ return r[0]; }); keysLine(); }
+        // The menus are drawn above a waiting question and would push it out of sight.
+        if (askEl && askEl.parentNode === introEl) log.scrollTop = log.scrollHeight;
         if (!introEl.classList.contains("rbchat-still")) playIntro();
       });
     });
@@ -2080,7 +2085,13 @@
       for (var b = 0; b < labels.length; b++) labels[b].textContent = strings(answerLang(turns, langNow())).askNext;
     }
     // A language switch redraws the intro in the new language, finished, where the log holds one.
-    if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
+    // A waiting question is redrawn with it, and the button that held the focus holds it again:
+    // a page sets its language after the panel has opened, and Enter still has to send.
+    if (introEl && log) {
+      var keep_ = log.scrollTop, held = askEl && askEl.contains(document.activeElement) ? Array.prototype.indexOf.call(askEl.querySelectorAll("button"), document.activeElement) : -1;
+      introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_;
+      if (held >= 0 && askEl) askEl.querySelectorAll("button")[held].focus({ preventScroll: true });
+    }
     // The chips standing under an answer are drawn again from the titles they were picked as, so a
     // model question reads in the new language and a number key sends what its row now shows.
     if (qBox && qPicked && qPicked.length) { var was_ = qPicked.slice(); hideQuestions(); offer(was_); }
@@ -2111,7 +2122,7 @@
     // something to clear: an empty panel shows no control for emptying it. A conversation has no
     // length at which it must start over, so this is the only door; its reset takes the turns,
     // the log and the tab's copy together; the panel's size stays, being a choice
-    // about this tab's reading rather than part of the conversation.
+    // about how the visitor reads rather than part of the conversation.
     newBtn = el("button", "rbchat-new"); newBtn.type = "button"; newBtn.hidden = true;
     // The glyph is an arrow come back round, not a plus: a plus beside the cross read as "add",
     // and what the button does is start over. The note under it names the action for a pointer
@@ -2206,7 +2217,7 @@
     // Double-click gives the stylesheet's size back and forgets the stored one, as the stage's
     // gutter does: otherwise the only way back is to drag until it looks right again.
     grip.addEventListener("dblclick", function(){
-      try { sessionStorage.removeItem(SIZE_KEY); } catch (e) {}
+      try { localStorage.removeItem(SIZE_KEY); } catch (e) {}
       unsize();
     });
     grip.addEventListener("keydown", function(ev){
