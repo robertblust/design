@@ -2085,7 +2085,13 @@
       for (var b = 0; b < labels.length; b++) labels[b].textContent = strings(answerLang(turns, langNow())).askNext;
     }
     // A language switch redraws the intro in the new language, finished, where the log holds one.
-    if (introEl && log) { var keep_ = log.scrollTop; introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_; }
+    // A waiting question is redrawn with it, and the button that held the focus holds it again:
+    // a page sets its language after the panel has opened, and Enter still has to send.
+    if (introEl && log) {
+      var keep_ = log.scrollTop, held = askEl && askEl.contains(document.activeElement) ? Array.prototype.indexOf.call(askEl.querySelectorAll("button"), document.activeElement) : -1;
+      introEl.parentNode && introEl.parentNode.removeChild(introEl); introEl = null; intro(false); log.scrollTop = keep_;
+      if (held >= 0 && askEl) askEl.querySelectorAll("button")[held].focus({ preventScroll: true });
+    }
     // The chips standing under an answer are drawn again from the titles they were picked as, so a
     // model question reads in the new language and a number key sends what its row now shows.
     if (qBox && qPicked && qPicked.length) { var was_ = qPicked.slice(); hideQuestions(); offer(was_); }

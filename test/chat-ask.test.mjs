@@ -105,6 +105,25 @@ test("the question stands after the prompt line once the menus are drawn above i
   await context.close();
 });
 
+test("a language switch redraws the card and leaves the focus where it was: on Send on a desk, nowhere on a phone", async () => {
+  const german = async (page) => {
+    await page.evaluate(() => { document.documentElement.lang = "de"; });
+    await page.waitForFunction(() => /^Der Link/.test(document.querySelector(".rbchat-ask-from").textContent));
+    return page.evaluate(() => { const a = document.activeElement; return a === document.querySelector(".rbchat-ask-go") ? "send" : a.tagName; });
+  };
+  const desk = await arrive(link(Q));
+  await desk.page.waitForSelector(".rbchat-ask");
+  assert.equal(await german(desk.page), "send", "the redrawn card lost the focus, so Enter no longer sends");
+  await desk.page.keyboard.press("Enter");
+  await desk.page.waitForSelector(".rbchat-assistant");
+  assert.deepEqual(posted.map((x) => x.messages), [[{ role: "user", content: Q }]]);
+  await desk.context.close();
+  const phone = await arrive(link(Q), { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  await phone.page.waitForSelector(".rbchat-ask");
+  assert.equal(await german(phone.page), "BODY");
+  await phone.context.close();
+});
+
 test("the question keeps the address's other parameters, with or without ?chat=open", async () => {
   for (const [address, rest] of [[link(Q, "?lang=de") + "#x", "/?lang=de#x"], [`/?chat=open&ask=${encodeURIComponent(Q)}&theme=dark`, "/?theme=dark"]]) {
     const { page, context } = await arrive(address);
