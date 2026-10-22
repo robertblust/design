@@ -200,5 +200,47 @@ test("a return whose state does not match is discarded: no exchange, the code go
   assert.equal(await where(p), "/?lang=de#top", "the page's own parameters stay");
   assert.equal(issuer.seen.token.length, 0);
   assert.equal(await signin(p), null);
+  assert.equal(await p.evaluate(() => sessionStorage.getItem("chat-pkce")), null, "the verifier is dropped with the return");
   await context.close();
+});
+
+test("a canceled login comes back to the page it left, says the reader is signed out, and leaves nothing behind", async () => {
+  const { page: p, context } = await arrive("/deep/page?x=1#here");
+  await ask(p, "What is an owner?");
+  issuer.set({ deny: true });
+  await type(p, "/login");
+  await p.waitForFunction(() => location.pathname === "/deep/page" && !!document.querySelector(".rbchat-refusal"), null, { timeout: 10000 });
+  assert.equal(await where(p), "/deep/page?x=1#here");
+  assert.match(await p.$eval(".rbchat-refusal", (r) => r.textContent), /You are signed out; sign in again with \/login\./);
+  assert.equal(await p.evaluate(() => sessionStorage.getItem("chat-pkce")), null);
+  assert.equal(await signin(p), null);
+  assert.equal(issuer.seen.token.length, 0);
+  assert.deepEqual(await p.$$eval(".rbchat-user[data-turn]", (u) => u.map((x) => x.textContent)), ["What is an owner?"]);
+  await context.close();
+});
+
+test("a canceled login from the root says so in place, and one with another tab's state does too, without leaving the page", async () => {
+  const { page: p, context } = await arrive("/");
+  issuer.set({ deny: true });
+  await type(p, "/login");
+  await p.waitForSelector(".rbchat-refusal", { timeout: 10000 });
+  assert.equal(await where(p), "/");
+  assert.equal(await p.evaluate(() => sessionStorage.getItem("chat-pkce")), null);
+  await p.goto(base + "/?error=access_denied&error_description=No&state=theirs&lang=de");
+  await p.waitForSelector(".rbchat-refusal");
+  assert.equal(await where(p), "/?lang=de");
+  await context.close();
+});
+
+test("a kept path that is not a path on this site lands on the root", async () => {
+  for (const odd of ["@evil.example/x", "//evil.example/x", "https://evil.example/x"]) {
+    const { page: p, context } = await arrive("/");
+    await p.evaluate((path) => sessionStorage.setItem("chat-pkce", JSON.stringify({ verifier: "v".repeat(43), state: "mine", path })), odd);
+    await p.goto(base + "/deep/page?error=access_denied&state=mine");
+    await p.waitForFunction(() => location.pathname === "/" && !!document.querySelector(".rbchat-refusal"), null, { timeout: 10000 });
+    assert.equal(await p.evaluate(() => location.origin), base, odd);
+    assert.equal(await where(p), "/", odd);
+    assert.equal(await p.evaluate(() => sessionStorage.getItem("chat-pkce")), null, odd);
+    await context.close();
+  }
 });

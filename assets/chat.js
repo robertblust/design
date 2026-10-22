@@ -974,6 +974,16 @@
     });
     return got.code && got.state ? { code: got.code, state: got.state } : null;
   }
+  // One parameter of a query string, decoded, the first where it repeats; null where it is absent.
+  function param(search, key){
+    var parts = String(search == null ? "" : search).replace(/^\?/, "").split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf("="), k = eq < 0 ? parts[i] : parts[i].slice(0, eq);
+      if (k !== key) continue;
+      try { return decodeURIComponent((eq < 0 ? "" : parts[i].slice(eq + 1)).replace(/\+/g, " ")); } catch (e) { return ""; }
+    }
+    return null;
+  }
 
   // Whether a token is no longer good: its `exp` (seconds) is at or before `now` (milliseconds,
   // Date.now()), or the token is not a JWT whose payload, the base64url middle segment, says a
@@ -1658,7 +1668,9 @@
   var SITE = tag.dataset.issuer ? { issuer: tag.dataset.issuer.replace(/\/+$/, ""), client: tag.dataset.client || "", org: tag.dataset.org || "", project: tag.dataset.project || "", prefix: tag.dataset.rolePrefix || "" } : null;
   var REDIRECT = location.origin + "/", SIGNIN_KEY = "chat-signin", PKCE_KEY = "chat-pkce";
   var SIGN_WORDS = ["/login", "/logout", "/model", "/effort"];
-  var came = SITE ? returnOf(location.href) : null;
+  // A reader who cancels at the login, or whom it refuses, comes back with `error` and the state
+  // instead of a code, and that is a return too.
+  var came = !SITE ? null : param(location.search, "error") !== null ? { error: param(location.search, "error"), state: param(location.search, "state") } : returnOf(location.href);
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
@@ -2412,17 +2424,18 @@
   // state, and the path the reader is on, all kept in the tab for the way back. The conversation
   // is kept first, so the page the reader returns to draws it again. A tab that cannot keep the
   // verifier could not finish the sign-in, so it does not start one.
+  // The verifier is kept only once its challenge is made, so a /login that fails leaves nothing.
   function login(){
-    var state, digest;
+    var verifier, state, digest, path = location.pathname + location.search + location.hash;
     try {
-      var verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+      verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
       state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-      var path = location.pathname + location.search + location.hash;
-      sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier: verifier, state: state, path: path }));
       digest = crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
     } catch (e) { refuse("internal"); return; }
-    keep();
     digest.then(function(h){
+      try { sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier: verifier, state: state, path: path })); }
+      catch (e) { refuse("internal"); return; }
+      keep();
       location.assign(authorizeUrl(SITE, b64url(new Uint8Array(h)), state, REDIRECT));
     }, function(){ refuse("internal"); });
   }
@@ -2435,32 +2448,69 @@
     var q = [["client_id", SITE.client]].concat(s && s.id ? [["id_token_hint", s.id]] : []).concat([["post_logout_redirect_uri", REDIRECT]]);
     location.assign(SITE.issuer + "/oidc/v1/end_session?" + q.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&"));
   }
-  // The address without the code and state the login came back with.
+  // The address without what the login came back with: the code and state, or the error.
   function unreturned(){
-    var rest = location.search.replace(/^\?/, "").split("&").filter(function(p){ return p && !/^(?:code|state)(?:=|$)/.test(p); });
+    var rest = location.search.replace(/^\?/, "").split("&").filter(function(p){ return p && !/^(?:code|state|error|error_description|error_uri)(?:=|$)/.test(p); });
     return location.pathname + (rest.length ? "?" + rest.join("&") : "") + location.hash;
+  }
+  // Where the reader signed in from, on this site: a kept path that is not a path on this
+  // origin, `@host/…` or `//host/…`, which joined to the origin would name another host, is
+  // the root instead.
+  function keptTarget(path){
+    var to = location.origin + (typeof path === "string" && /^\/(?!\/)/.test(path) ? path : "/");
+    try { if (new URL(to).origin === location.origin) return to; } catch (e) {}
+    return location.origin + "/";
+  }
+  // Back to that path: in place where it is this page, by a new load where it is another. A
+  // canceled sign-in is said on the page the reader lands on, so where that is another page
+  // the tab carries the word there in `chat-pkce`, which that page reads and removes.
+  function toKept(path, canceled){
+    var to = keptTarget(path);
+    if (new URL(to).pathname !== location.pathname) {
+      if (canceled) { try { sessionStorage.setItem(PKCE_KEY, JSON.stringify({ canceled: true })); } catch (e) {} }
+      location.replace(to);
+      return;
+    }
+    try { history.replaceState(null, "", to); } catch (e) {}
+    if (!panel || panel.hidden) open();
+    keysLine();
+    if (canceled) refuse("signed_out");
+  }
+  // A canceled sign-in another page sent the reader here from, said once.
+  function owedCancel(){
+    try {
+      var k = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null");
+      if (!k || k.canceled !== true) return false;
+      sessionStorage.removeItem(PKCE_KEY);
+      return true;
+    } catch (e) { return false; }
   }
   // Back from the login. A return whose state is not the one this tab sent is no sign-in of
   // this reader's: it is dropped, the code with it, and nothing is exchanged. One that matches
   // is exchanged once at the token endpoint, the verifier proving it is the page that asked, and
   // the reader is taken back to the path they signed in from: in place where the login sent them
   // back to that page, by a new load where it is another, as it is from any page but the root.
+  // An error return is the reader not signed in: it is said, and where its state is this tab's
+  // the reader goes back to where they were.
   function back(got){
     var kept = null;
     try { kept = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null"); sessionStorage.removeItem(PKCE_KEY); } catch (e) {}
     try { history.replaceState(null, "", unreturned()); } catch (e) {}
-    if (!kept || typeof kept.verifier !== "string" || typeof kept.path !== "string" || kept.state !== got.state) return;
+    var ours = !!kept && typeof kept.state === "string" && kept.state === got.state;
+    if (got.error !== undefined) {
+      if (ours) { toKept(kept.path, true); return; }
+      if (!panel || panel.hidden) open();
+      refuse("signed_out");
+      return;
+    }
+    if (!ours || typeof kept.verifier !== "string") return;
     var form = [["grant_type", "authorization_code"], ["code", got.code], ["redirect_uri", REDIRECT], ["client_id", SITE.client], ["code_verifier", kept.verifier]];
     fetch(SITE.issuer + "/oauth/v2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&") })
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
         if (!j || typeof j.access_token !== "string" || !j.access_token) throw new Error("no token");
         try { localStorage.setItem(SIGNIN_KEY, JSON.stringify({ access: j.access_token, id: typeof j.id_token === "string" ? j.id_token : "" })); } catch (e) {}
-        var to = location.origin + kept.path;
-        if (new URL(to).pathname !== location.pathname) { location.replace(to); return; }
-        try { history.replaceState(null, "", to); } catch (e) {}
-        if (!panel || panel.hidden) open();
-        keysLine();
+        toKept(kept.path, false);
       })
       .catch(function(){ if (!panel || panel.hidden) open(); refuse("signed_out"); });
   }
@@ -2703,4 +2753,5 @@
   })();
   // Last, once the conversation the tab kept is drawn, so the panel it opens holds it.
   if (came) back(came);
+  else if (SITE && owedCancel()) { if (!panel || panel.hidden) open(); refuse("signed_out"); }
 })();

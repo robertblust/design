@@ -6,7 +6,8 @@
 // signed by a key made for the run, never one kept in a file; the end-session endpoint sends the
 // browser to `post_logout_redirect_uri`. The token endpoint answers a cross-origin page, as the
 // real one does for a registered origin. `set()` says what the next tokens hold: the roles claim,
-// the reader's name, and how many seconds the access token lives, below zero for one already lapsed.
+// the reader's name, how many seconds the access token lives, below zero for one already lapsed,
+// and `deny`, for a login the reader cancels.
 import http from "node:http";
 import crypto from "node:crypto";
 
@@ -39,9 +40,17 @@ export async function startIssuer() {
       const q = Object.fromEntries(u.searchParams);
       seen.authorize.push(q);
       if (q.response_type !== "code" || q.code_challenge_method !== "S256" || !q.code_challenge || !q.redirect_uri || !q.client_id) { res.writeHead(400); res.end("bad authorize"); return; }
+      const back = new URL(q.redirect_uri);
+      // A reader who cancels at the login comes back with an error and the state, and no code.
+      if (next.deny) {
+        back.searchParams.set("error", "access_denied");
+        back.searchParams.set("error_description", "The reader canceled.");
+        back.searchParams.set("state", q.state);
+        res.writeHead(302, { location: back.href }); res.end();
+        return;
+      }
       const code = "code-" + crypto.randomBytes(8).toString("hex");
       codes.set(code, { challenge: q.code_challenge, redirect: q.redirect_uri, client: q.client_id });
-      const back = new URL(q.redirect_uri);
       back.searchParams.set("code", code);
       back.searchParams.set("state", q.state);
       res.writeHead(302, { location: back.href }); res.end();
