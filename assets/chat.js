@@ -60,7 +60,12 @@
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
 //   rbChat.oriented(source, width)     a flow turned top to bottom in a panel narrower than a phone's
 //   rbChat.lockupOf(doc)               the header's mark and name, split as the page splits it, or null
-//   rbChat.command(text)               "new", "help" or null, for the command line's own words
+//   rbChat.command(text)               "new", "help", "login", "logout", "model", "effort" or null, for the command line's own words
+//   rbChat.CHAT_MODELS, CHAT_EFFORTS   the models a signed-in reader may pick and the efforts, chat-server's table
+//   rbChat.grantedModels(claims, org, prefix)  the model ids the sign-in's roles grant in this org, Sonnet 5 first
+//   rbChat.authorizeUrl(site, challenge, state, redirect)  where the sign-in at ZITADEL begins, with PKCE
+//   rbChat.returnOf(href)              the { code, state } a sign-in returns to the page with, or null
+//   rbChat.lapsed(token, now)          whether the token's exp has passed (now in ms), or it cannot be read
 //   rbChat.picked(text, rows)          the row a bare number picks, or the text as typed
 //   rbChat.tryPick(facts, random)      what an opening offers after the meta-model, two of what the model holds
 //   rbChat.connected(entities, edges)  the systems a landscape row may name
@@ -116,8 +121,10 @@
       asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
       claim: { partial: ["Partly backed", "The model's pages say only part of this."], contradicted: ["Contradicted", "The model's pages say otherwise."], absent: ["Not backed", "The model's pages don't say this."], unsourced: ["Not backed", "No page the chat read says this."] },
       claimsOne: "1 statement here isn't fully backed by the model's pages.", claimsMany: "{n} statements here aren't fully backed by the model's pages.",
-      keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
-      help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
+      keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help", chosen: "{model} · {effort}" },
+      menu: { model: "Choose a model", effort: "Choose an effort" },
+      signInHint: "Sign in with /login to choose a model.",
+      help: [["/new", "start a new conversation (also /clear)"], ["/login", "sign in, to choose a model"], ["/logout", "sign out"], ["/model", "choose the model that answers"], ["/effort", "choose how long it thinks"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
       graph: { head: "graph · {title}", failed: "The graph could not be drawn here; the model page has it." },
@@ -147,7 +154,11 @@
         foreign: "This page may not use the chat.",
         bad_request: "That could not be sent as a message.",
         internal: "Something went wrong on the way; try again.",
-        network: "The chat could not be reached; check the connection and try again."
+        network: "The chat could not be reached; check the connection and try again.",
+        not_granted: "Your sign-in does not grant that model.",
+        signed_out: "You are signed out; sign in again with /login.",
+        over_user_month: "Your share of answers this month is spent.",
+        declined: "That model declined to answer this message; try rephrasing it."
       }
     },
     // German: drafts for the translator of conventions/TRANSLATOR.md, to be made from the
@@ -168,8 +179,10 @@
       asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
       claim: { partial: ["Teilweise belegt", "Die Seiten des Modells sagen das nur zum Teil."], contradicted: ["Widerspricht dem Modell", "Die Seiten des Modells sagen etwas anderes."], absent: ["Nicht belegt", "Die Seiten des Modells sagen das nicht."], unsourced: ["Nicht belegt", "Keine Seite, die der Chat gelesen hat, sagt das."] },
       claimsOne: "Eine Aussage in dieser Antwort ist durch die Seiten des Modells nicht vollständig belegt.", claimsMany: "{n} Aussagen in dieser Antwort sind durch die Seiten des Modells nicht vollständig belegt.",
-      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
-      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
+      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
+      menu: { model: "Modell wählen", effort: "Aufwand wählen" },
+      signInHint: "Melden Sie sich mit /login an, um ein Modell zu wählen.",
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
       graph: { head: "Graph · {title}", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
@@ -199,7 +212,11 @@
         foreign: "Diese Seite darf den Chat nicht nutzen.",
         bad_request: "Das konnte nicht als Nachricht gesendet werden.",
         internal: "Unterwegs ist etwas schiefgegangen; versuchen Sie es noch einmal.",
-        network: "Der Chat war nicht erreichbar; prüfen Sie die Verbindung und versuchen Sie es wieder."
+        network: "Der Chat war nicht erreichbar; prüfen Sie die Verbindung und versuchen Sie es wieder.",
+        not_granted: "Ihre Anmeldung erlaubt dieses Modell nicht.",
+        signed_out: "Sie sind abgemeldet; melden Sie sich mit /login wieder an.",
+        over_user_month: "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht.",
+        declined: "Dieses Modell hat die Antwort auf diese Nachricht abgelehnt; formulieren Sie sie anders."
       }
     }
   };
@@ -214,7 +231,7 @@
   }
 
   // When a limit lifts, in the visitor's terms. The server sends the moment as an ISO time in
-  // UTC on `busy`, `over_day` and `over_month`, and the widget writes it against the visitor's
+  // UTC on `busy`, `over_day`, `over_month` and `over_user_month`, and the widget writes it against the visitor's
   // clock and zone: within the hour in minutes, later the same local day as a time, tomorrow
   // by name, and beyond that by the day's name, so midnight UTC reads as the local hour it is.
   // Under a minute is "a minute", the one case where the old sentence was right. The sentence
@@ -880,10 +897,80 @@
     var span = b.querySelector("span"), accent = span ? span.textContent : "";
     return { mark: svg, first: b.textContent.slice(0, b.textContent.length - accent.length), accent: accent };
   }
-  // The three words the command line keeps for itself. They never reach the host.
+  // The words the command line keeps for itself. They never reach the host. `/clear` is the
+  // second name of `/new`, as in Claude Code; the other four stand alone.
   function command(text){
     var t = String(text == null ? "" : text).trim().toLowerCase();
-    return t === "/new" || t === "/clear" ? "new" : t === "/help" ? "help" : null;
+    if (t === "/new" || t === "/clear") return "new";
+    return t === "/help" || t === "/login" || t === "/logout" || t === "/model" || t === "/effort" ? t.slice(1) : null;
+  }
+
+  // ─── Sign-in ──────────────────────────────────────────────────────────────────────────────
+  // The pure parts of signing in at ZITADEL and choosing the model. The table is chat-server's
+  // (lib/models.mjs), in its order: the default first, which every signed-in reader may pick;
+  // `role` is the name a sign-in grants for the rest. The server checks every grant itself, so
+  // what the widget offers is a courtesy and never the fence.
+  var CHAT_MODELS = [
+    { id: "claude-sonnet-5", label: "Sonnet 5", role: null },
+    { id: "claude-sonnet-5-5", label: "Sonnet 5.5", role: "sonnet-5-5" },
+    { id: "claude-opus-5-5", label: "Opus 5.5", role: "opus" },
+    { id: "claude-fable-5-1", label: "Fable 5.1", role: "fable" },
+    { id: "claude-haiku-5-5", label: "Haiku 5.5", role: "haiku" }
+  ];
+  var CHAT_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+  var ROLES_CLAIM = "urn:zitadel:iam:org:project:roles";
+  function own(o, k){ return o !== null && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, k); }
+
+  // The models the sign-in grants. ZITADEL writes the roles claim as { "<role>": { "<orgId>":
+  // "<org domain>" } }: a role counts where it is held in this site's org, and, where one
+  // project serves several sites, under the site's `prefix` ahead of the role's name. Own
+  // properties only, so no role or org is read off Object.prototype. A claim that is absent or
+  // not an object grants the default alone.
+  function grantedModels(claims, org, prefix){
+    var roles = own(claims, ROLES_CLAIM) ? claims[ROLES_CLAIM] : null;
+    return CHAT_MODELS.filter(function(m){
+      if (m.role === null) return true;
+      var key = (prefix || "") + m.role;
+      return own(roles, key) && own(roles[key], org);
+    }).map(function(m){ return m.id; });
+  }
+
+  // Where the sign-in begins: the authorize endpoint with the PKCE challenge, the `state` the
+  // page will check on the way back, and the audience and roles scopes ZITADEL needs to put the
+  // project's roles in the token. Every value is encoded, whatever it holds.
+  function authorizeUrl(site, challenge, state, redirect){
+    var scope = "openid profile urn:zitadel:iam:org:project:id:" + site.project + ":aud urn:zitadel:iam:org:projects:roles";
+    var q = [["client_id", site.client], ["redirect_uri", redirect], ["response_type", "code"], ["scope", scope], ["code_challenge", challenge], ["code_challenge_method", "S256"], ["state", state]];
+    return site.issuer + "/oauth/v2/authorize?" + q.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&");
+  }
+
+  // What the identity service sends the page back with: `code` and `state`, in the query
+  // string and only there, both non-empty. Anything less is no return.
+  function returnOf(href){
+    var h = String(href == null ? "" : href), hash = h.indexOf("#");
+    if (hash >= 0) h = h.slice(0, hash);
+    var at = h.indexOf("?");
+    if (at < 0) return null;
+    var got = {};
+    h.slice(at + 1).split("&").forEach(function(pair){
+      var eq = pair.indexOf("="), k = eq < 0 ? pair : pair.slice(0, eq);
+      if (k !== "code" && k !== "state" || own(got, k)) return;
+      try { got[k] = decodeURIComponent((eq < 0 ? "" : pair.slice(eq + 1)).replace(/\+/g, " ")); } catch (e) { got[k] = ""; }
+    });
+    return got.code && got.state ? { code: got.code, state: got.state } : null;
+  }
+
+  // Whether a token is no longer good: its `exp` (seconds) is at or before `now` (milliseconds,
+  // Date.now()), or the token is not a JWT whose payload, the base64url middle segment, says a
+  // numeric `exp`. A token the page cannot read is treated as spent, so it asks to sign in again
+  // rather than send what the server will refuse.
+  function lapsed(token, now){
+    try {
+      var b = String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (b.length % 4) b += "=";
+      var exp = JSON.parse(atob(b)).exp;
+      return typeof exp !== "number" || !isFinite(exp) || exp * 1000 <= now;
+    } catch (e) { return true; }
   }
   // A number alone picks that row of the menu standing last, as the tooling takes "Pick 1-5";
   // a number with no such row, or anything else, is sent as the visitor typed it.
@@ -974,7 +1061,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, CHAT_MODELS: CHAT_MODELS, CHAT_EFFORTS: CHAT_EFFORTS, grantedModels: grantedModels, authorizeUrl: authorizeUrl, returnOf: returnOf, lapsed: lapsed, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
