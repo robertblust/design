@@ -111,7 +111,9 @@
 // sends any question.
 //
 // Signed in, `/model` offers Sonnet 5 and the models the reader's roles grant on this site, and
-// `/effort` the five efforts, each a numbered menu a number picks from. The choice is kept in the
+// `/effort` the five efforts, each a numbered menu a number picks from; a reader with no role is
+// answered at `low` alone, so `/effort` tells them in a line that effort comes with a model
+// grant, and a remembered effort goes as `low`. The choice is kept in the
 // browser under `chat-choice`, and every message the reader sends carries it as `model` and
 // `effort`; a visitor's message carries neither. The host's own address, where the tag names one
 // as `data-chat-direct` (an absolute https URL), takes a signed-in message above `low`, whose
@@ -148,6 +150,7 @@
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help", chosen: "{model} · {effort}" },
       menu: { model: "Choose a model", effort: "Choose an effort" },
       signInHint: "Sign in with /login to choose a model.",
+      effortHint: "The effort can be chosen once your sign-in grants a model.",
       help: [["/new", "start a new conversation (also /clear)"], ["/login", "sign in, to choose a model"], ["/logout", "sign out"], ["/model", "choose the model that answers"], ["/effort", "choose how long it thinks"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
@@ -181,7 +184,7 @@
         network: "The chat could not be reached; check the connection and try again.",
         not_granted: "Your sign-in does not grant that model.",
         signed_out: "You are signed out; sign in again with /login.",
-        over_user_month: "Your share of answers this month is spent.",
+        over_user_month: "Your share of answers this month is spent; sign out with /logout to keep asking as a visitor.",
         declined: "That model declined to answer this message; try rephrasing it."
       }
     },
@@ -206,6 +209,7 @@
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
       menu: { model: "Modell wählen", effort: "Aufwand wählen" },
       signInHint: "Melden Sie sich mit /login an, um ein Modell zu wählen.",
+      effortHint: "Den Aufwand können Sie wählen, sobald Ihre Anmeldung ein Modell erlaubt.",
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
@@ -239,7 +243,7 @@
         network: "Der Chat war nicht erreichbar; prüfen Sie die Verbindung und versuchen Sie es wieder.",
         not_granted: "Ihre Anmeldung erlaubt dieses Modell nicht.",
         signed_out: "Sie sind abgemeldet; melden Sie sich mit /login wieder an.",
-        over_user_month: "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht.",
+        over_user_month: "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht; melden Sie sich mit /logout ab, um als Gast weiterzufragen.",
         declined: "Dieses Modell hat die Antwort auf diese Nachricht abgelehnt; formulieren Sie sie anders."
       }
     }
@@ -2440,18 +2444,21 @@
   // ─── Choosing the model and the effort ────────────────────────────────────────────────────
   // What the reader's next message goes with, or null for a visitor, who sends no choice. The
   // remembered choice holds only while the sign-in still grants its model, so a role taken away
-  // since goes back to Sonnet 5, and an effort that is not one of the five to `low`. With `fix`
-  // a remembered choice that no longer holds is written back as what it fell to.
+  // since goes back to Sonnet 5, and an effort that is not one of the five to `low`. Effort comes
+  // with a model grant, as the server decides, so a reader who holds no role goes at `low` too.
+  // With `fix` a remembered choice that no longer holds is written back as what it fell to.
   function chosen(fix){
     var s = signedIn();
     if (!s) return null;
     var c = null;
     try { c = JSON.parse(localStorage.getItem(CHOICE_KEY) || "null"); } catch (e) {}
     var held = grantedModels(claimsOf(s.id), SITE.org, SITE.prefix);
-    var got = { model: own(c, "model") && held.indexOf(c.model) >= 0 ? c.model : CHAT_MODELS[0].id, effort: own(c, "effort") && CHAT_EFFORTS.indexOf(c.effort) >= 0 ? c.effort : CHAT_EFFORTS[0] };
+    var got = { model: own(c, "model") && held.indexOf(c.model) >= 0 ? c.model : CHAT_MODELS[0].id, effort: hasRole(held) && own(c, "effort") && CHAT_EFFORTS.indexOf(c.effort) >= 0 ? c.effort : CHAT_EFFORTS[0] };
     if (fix && c && (c.model !== got.model || c.effort !== got.effort)) { try { localStorage.setItem(CHOICE_KEY, JSON.stringify(got)); } catch (e) {} }
     return got;
   }
+  // Sonnet 5 is in every reader's list, so a list of more is a reader who holds a role.
+  function hasRole(held){ return held.length > 1; }
   // A model by its label where the table knows it, by its id where it does not, and the effort.
   function chosenText(model, effort){
     var m = CHAT_MODELS.filter(function(x){ return x.id === model; })[0];
@@ -2613,7 +2620,12 @@
     if (SITE && cmd === "logout") { input.value = ""; logout(); return; }
     if (SITE && (cmd === "model" || cmd === "effort")) {
       input.value = "";
-      if (signedIn()) chooser(cmd); else hint(strings(langNow()).signInHint);
+      // /effort is offered only to a reader a role grants a model, since the server answers a
+      // reader with none at `low` alone; they are told so in a line, and nothing is drawn.
+      var signer = signedIn();
+      if (!signer) hint(strings(langNow()).signInHint);
+      else if (cmd === "effort" && !hasRole(grantedModels(claimsOf(signer.id), SITE.org, SITE.prefix))) hint(strings(langNow()).effortHint);
+      else chooser(cmd);
       return;
     }
     var text = picked(typed, menuRows);

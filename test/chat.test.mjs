@@ -960,6 +960,11 @@ test("the four sign-in refusals read in both languages, and the monthly one name
   assert.equal(strings("en").signInHint, "Sign in with /login to choose a model.");
 });
 
+test("a reader whose own month is spent is told /logout keeps them asking as a visitor", () => {
+  assert.equal(strings("en").refusal.over_user_month, "Your share of answers this month is spent; sign out with /logout to keep asking as a visitor.");
+  assert.equal(strings("de").refusal.over_user_month, "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht; melden Sie sich mit /logout ab, um als Gast weiterzufragen.");
+});
+
 test("a bare number picks its row, and anything else is sent as typed", () => {
   const rows = ["Show me the meta-model", "Walk me through the Answering process", "What is an owner?"];
   assert.equal(picked("1", rows), rows[0]);

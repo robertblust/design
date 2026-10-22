@@ -128,7 +128,7 @@ test("modelMenuShowsGranted: /model offers Sonnet 5 and what the roles grant, th
 });
 
 test("effortMenu: /effort offers the five efforts and 3 picks high", async () => {
-  const { page: p, context } = await arrive("/");
+  const { page: p, context } = await arrive("/", OPUS);
   await login(p);
   const n = await menus(p);
   await type(p, "/effort");
@@ -188,7 +188,7 @@ test("visitorModelSaysLogin: signed out, /model and /effort say to sign in and d
 });
 
 test("revokedChoiceFallsBack: a remembered model the sign-in no longer grants goes as Sonnet 5, and an unknown effort as low", async () => {
-  const { page: p, context } = await arrive("/");
+  const { page: p, context } = await arrive("/", OPUS);
   await login(p);
   await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-fable-5-1", effort: "medium" })));
   await ask(p, "What is an owner?");
@@ -236,7 +236,7 @@ test("notGrantedRefused: a 403 not_granted says so and keeps the question in the
 });
 
 test("directForHighEffort: with data-chat-direct a message above low posts there, one at low to data-chat", async () => {
-  const { page: p, context } = await arrive("/direct");
+  const { page: p, context } = await arrive("/direct", OPUS);
   await login(p);
   let n = await menus(p);
   await type(p, "/effort"); await lastMenu(p, ++n); await type(p, "3");
@@ -245,5 +245,28 @@ test("directForHighEffort: with data-chat-direct a message above low posts there
   await ask(p, "And who leads it?");
   assert.deepEqual(posted.map((x) => [x.to, x.body.effort]), [["direct", "high"], ["chat", "low"]]);
   assert.equal(posted[0].authorization, "Bearer " + (await p.evaluate(() => JSON.parse(localStorage.getItem("chat-signin")).access)));
+  await context.close();
+});
+
+// Effort comes with a model grant, as chat-server decides: a reader signed in with no role is
+// offered no effort menu but a hint, in either language, and a remembered effort above low goes
+// as low and is written back so.
+test("roleLessReaderNoEffort: without a role /effort draws no menu but a hint, and a remembered effort goes as low", async () => {
+  const { page: p, context } = await arrive("/");
+  await login(p);
+  const n = await menus(p);
+  await type(p, "/effort");
+  await p.waitForSelector(".rbchat-hint");
+  assert.equal(await p.$eval(".rbchat-hint", (h) => h.textContent), "The effort can be chosen once your sign-in grants a model.");
+  assert.equal(await menus(p), n, "no effort menu");
+  const de = await p.evaluate(() => window.rbChat.strings("de").effortHint);
+  assert.equal(de, "Den Aufwand können Sie wählen, sobald Ihre Anmeldung ein Modell erlaubt.");
+  await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-sonnet-5", effort: "high" })));
+  await ask(p, "What is an owner?");
+  assert.equal(posted.length, 1);
+  assert.equal(posted[0].body.model, "claude-sonnet-5");
+  assert.equal(posted[0].body.effort, "low");
+  assert.equal(posted[0].to, "chat");
+  assert.deepEqual(await choice(p), { model: "claude-sonnet-5", effort: "low" }, "the remembered effort is corrected");
   await context.close();
 });
