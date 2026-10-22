@@ -626,7 +626,7 @@ test("chips are offered only where the visitor can ask next, and a second race d
 });
 
 test("a finished answer and a restored open panel offer the next three", () => {
-  const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(ENDPOINT,"));
+  const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(to,"));
   assert.match(finish, /if \(refocus\(window\)\) input\.focus\(\); offerQuestions\(\);\n/, "a finished answer offers no next questions");
   assert.match(src, /if \(was\.open\) \{ panel\.hidden = false; button\.hidden = true; offerQuestions\(\); linkWaiting\(\); \}/, "a panel restored open offers no next questions");
 });
@@ -641,12 +641,12 @@ test("the chip container carries an accessible name from the strings, in both la
 });
 
 test("a row's label is set with textContent, and activating it sends exactly its question", () => {
-  assert.match(src, /b\.appendChild\(el\("span", "rbchat-q", it\[0\]\)\);/, "a row's label is not textContent, through el()");
-  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = it\[0\]; send\(\); \}\)/, "a row does not send its own question through send()");
+  assert.match(src, /var q = el\("span", "rbchat-q", it\[0\]\);/, "a row's label is not textContent, through el()");
+  assert.match(src, /b\.addEventListener\("click", function\(\)\{ if \(it\[2\]\) \{ it\[2\]\.pick\(\); input\.focus\(\); return; \} input\.value = it\[0\]; send\(\); \}\)/, "a row does not send its own question through send()");
 });
 
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
-  const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(to,"));
   assert.match(sendFn, /spend\(\); qBox = null;/, "send() does not dim the menus it moves past, or lets the next answer reuse the old one");
   assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; fit\(\); if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
   assert.match(src, /introEl = null; introPick = null; menuRows = \[\]; qBox = null;.*intro\(true\);/, "reset() does not clear the stale menus and play a fresh intro");
@@ -832,7 +832,7 @@ test("every bubble that shows a kept turn carries its turn, and one that lost it
 // model's input is the same as for the whole conversation, and a long one never reaches 64 KB.
 test("a conversation has no length limit, and only the tail the server reads is sent", () => {
   assert.match(src, /var LIMIT = 1000, SENT = 7,/, "the tail sent is not the seven turns the server reads");
-  assert.match(src, /body: JSON\.stringify\(\{ messages: messages\.slice\(-SENT\), lang: langNow\(\) \}\)/, "the whole conversation is sent");
+  assert.match(src, /var sent = \{ messages: messages\.slice\(-SENT\), lang: langNow\(\) \};/, "the whole conversation is sent");
   assert.doesNotMatch(src, /TURNS|fullNote|rbchat-full/, "a conversation still stops at a length");
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
   assert.doesNotMatch(css, /rbchat-full|rbchat-fresh/, "the full note's style is still shipped");
@@ -1108,7 +1108,7 @@ test("the one read of the model file also keeps its process names and how many o
 });
 
 test("the command line's words are settled before anything is pushed or sent", () => {
-  const fn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  const fn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(to,"));
   const cmdAt = fn.indexOf("var cmd = command(typed);"), pushAt = fn.indexOf("messages.push(");
   assert.ok(cmdAt > 0 && pushAt > cmdAt, "a command is pushed as a message before it is recognized");
   assert.match(fn, /var text = picked\(typed, menuRows\);/, "a number does not pick from the standing menu");
@@ -1230,9 +1230,9 @@ test("answerLang is the last answer's language where the server named one, else 
   assert.equal(answerLang([{ role: "assistant", content: "…", lang: "fr" }], "en"), "en", "and one the widget has no words for is not taken");
   assert.equal(answerLang([{ role: "assistant", content: "…", lang: "constructor" }], "en"), "en", "nor a name an object inherits");
   assert.equal(answerLang([], "de"), "de", "an empty conversation is the page's");
-  assert.match(src, /else if \(name === "done"\) \{ cut = !!data\.cut; ended = true; spoke = data && typeof data\.lang === "string" \? data\.lang : null; \}/, "done's language is not read");
-  assert.match(src, /verdict: checked, lang: spoke \}\);/, "the answer's turn does not keep its language");
-  assert.match(src, /verdict: t\.verdict \|\| null, lang: typeof t\.lang === "string" \? t\.lang : null \}\);/, "a restored turn loses its language, and the next page's chips switch back");
+  assert.match(src, /else if \(name === "done"\) \{ cut = !!data\.cut; ended = true; spoke = data && typeof data\.lang === "string" \? data\.lang : null; by = byOf\(data\); \}/, "done's language is not read");
+  assert.match(src, /verdict: checked, lang: spoke, by: by \}\);/, "the answer's turn does not keep its language");
+  assert.match(src, /verdict: t\.verdict \|\| null, lang: typeof t\.lang === "string" \? t\.lang : null, by: by \}\);/, "a restored turn loses its language, and the next page's chips switch back");
 });
 
 test("an organization is captioned and has a reading line in both languages, and the widget's marks are lib/marks.mjs's", () => {
