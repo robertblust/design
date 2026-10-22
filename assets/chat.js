@@ -66,6 +66,7 @@
 //   rbChat.authorizeUrl(site, challenge, state, redirect)  where the sign-in at ZITADEL begins, with PKCE
 //   rbChat.returnOf(href)              the { code, state } a sign-in returns to the page with, or null
 //   rbChat.lapsed(token, now)          whether the token's exp has passed (now in ms), or it cannot be read
+//   rbChat.claimsOf(token)             a JWT's payload, read as UTF-8 JSON, or null
 //   rbChat.picked(text, rows)          the row a bare number picks, or the text as typed
 //   rbChat.tryPick(facts, random)      what an opening offers after the meta-model, two of what the model holds
 //   rbChat.connected(entities, edges)  the systems a landscape row may name
@@ -94,6 +95,20 @@
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
+//
+// A tag that names the site's identity service lets a reader sign in from the command line:
+//
+//   <script src="chat.js" data-chat="…" data-issuer="https://id.example" data-client="<client id>"
+//     data-org="<org id>" data-project="<project id>" data-role-prefix="" defer>
+//
+// `/login` goes to the hosted login with a PKCE challenge, the verifier, a random `state` and the
+// page's path kept in the tab under `chat-pkce`. The login sends the reader back to the site's
+// root with a code; wherever the widget then runs, it checks the state, exchanges the code and
+// returns to that path. The access token and the ID token are kept in the browser under
+// `chat-signin`, every message after carries the access token as `Authorization: Bearer`, and
+// `/logout` forgets both and ends the session at the service. A tag without `data-issuer` offers
+// none of the four words, `/login`, `/logout`, `/model` and `/effort`, and sends them as it
+// sends any question.
 (function(){
   // SENT is the tail of the conversation the server reads: its last eight turns, less the
   // assistant turn that would open them, since a conversation ends with the visitor. Sending only
@@ -965,12 +980,22 @@
   // numeric `exp`. A token the page cannot read is treated as spent, so it asks to sign in again
   // rather than send what the server will refuse.
   function lapsed(token, now){
+    var c = claimsOf(token), exp = c && c.exp;
+    return typeof exp !== "number" || !isFinite(exp) || exp * 1000 <= now;
+  }
+  // What a JWT says: its payload, the base64url middle segment, read as UTF-8 JSON, so a name
+  // with an umlaut reads as written; null for anything that is not one. Nothing here checks the
+  // signature: what the page reads off a token only decides what it offers, and the server
+  // checks the access token on every message.
+  function claimsOf(token){
     try {
       var b = String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
       while (b.length % 4) b += "=";
-      var exp = JSON.parse(atob(b)).exp;
-      return typeof exp !== "number" || !isFinite(exp) || exp * 1000 <= now;
-    } catch (e) { return true; }
+      var bin = atob(b), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var c = JSON.parse(new TextDecoder().decode(bytes));
+      return c !== null && typeof c === "object" && !Array.isArray(c) ? c : null;
+    } catch (e) { return null; }
   }
   // A number alone picks that row of the menu standing last, as the tooling takes "Pick 1-5";
   // a number with no such row, or anything else, is sent as the visitor typed it.
@@ -1061,7 +1086,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, CHAT_MODELS: CHAT_MODELS, CHAT_EFFORTS: CHAT_EFFORTS, grantedModels: grantedModels, authorizeUrl: authorizeUrl, returnOf: returnOf, lapsed: lapsed, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, CHAT_MODELS: CHAT_MODELS, CHAT_EFFORTS: CHAT_EFFORTS, grantedModels: grantedModels, authorizeUrl: authorizeUrl, returnOf: returnOf, lapsed: lapsed, claimsOf: claimsOf, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1627,6 +1652,13 @@
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null, QUESTIONS_DE = tag.dataset.questionsDe || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
+  // The site's sign-in, off the tag, or null where the tag names no identity service, and then
+  // nothing below reads or writes a token. The login sends every reader back to the site's root,
+  // the one redirect the site's client registers, so `came` is read wherever the widget runs.
+  var SITE = tag.dataset.issuer ? { issuer: tag.dataset.issuer.replace(/\/+$/, ""), client: tag.dataset.client || "", org: tag.dataset.org || "", project: tag.dataset.project || "", prefix: tag.dataset.rolePrefix || "" } : null;
+  var REDIRECT = location.origin + "/", SIGNIN_KEY = "chat-signin", PKCE_KEY = "chat-pkce";
+  var SIGN_WORDS = ["/login", "/logout", "/model", "/effort"];
+  var came = SITE ? returnOf(location.href) : null;
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
@@ -1795,6 +1827,8 @@
     s.help.forEach(function(r){
       // The pick line only while a menu stands: with none, there is nothing a number picks.
       if (r[0] === "{range}" && !menuRows.length) return;
+      // The sign-in's four words only where the tag names an identity service.
+      if (!SITE && SIGN_WORDS.indexOf(r[0]) >= 0) return;
       var line = el("p");
       line.appendChild(el("span", "rbchat-help-k", r[0].replace("{range}", rangeOf(menuRows.length))));
       line.appendChild(el("span", "rbchat-help-d", r[1]));
@@ -2195,7 +2229,8 @@
   function keysLine(){
     if (!keysEl) return;
     var k = strings(langNow()).keys;
-    var parts = [k.send, k.last].concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
+    var who = readerName();
+    var parts = (who ? [who] : []).concat([k.send, k.last]).concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
     keysEl.textContent = parts.join("  \u00b7  ");
   }
 
@@ -2350,6 +2385,86 @@
   // sentence.
   function refuse(code, retryAt){ bubble("refusal").textContent = "\u2717 " + refusalText(code, retryAt, Date.now(), langNow()); keysLine(); if (panel && !panel.hidden && refocus(window)) input.focus(); }
 
+  // ─── Signing in ───────────────────────────────────────────────────────────────────────────
+  // The tokens are kept in `localStorage` under the site's origin, since one sign-in is good in
+  // every tab until it lapses; the verifier only in the tab, across the one trip to the login and
+  // back. Every access is wrapped, as the conversation's is. A page whose tag names no identity
+  // service reads no token, so a sign-in another page left behind never goes with its messages.
+  function signedIn(){
+    if (!SITE) return null;
+    try { var v = JSON.parse(localStorage.getItem(SIGNIN_KEY) || "null"); return v && typeof v.access === "string" && v.access ? v : null; }
+    catch (e) { return null; }
+  }
+  function forget(){ try { localStorage.removeItem(SIGNIN_KEY); } catch (e) {} keysLine(); }
+  // The reader's name, from the ID token: `name`, else `preferred_username`.
+  function readerName(){
+    var s = signedIn(), c = s && claimsOf(s.id);
+    if (!c) return "";
+    return typeof c.name === "string" && c.name ? c.name : typeof c.preferred_username === "string" ? c.preferred_username : "";
+  }
+  function hint(text){ var h = el("p", "rbchat-hint", text); log.appendChild(h); log.scrollTop = log.scrollHeight; return h; }
+  function b64url(bytes){
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  // To the hosted login: a verifier of 32 random bytes, its SHA-256 as the challenge, a random
+  // state, and the path the reader is on, all kept in the tab for the way back. The conversation
+  // is kept first, so the page the reader returns to draws it again. A tab that cannot keep the
+  // verifier could not finish the sign-in, so it does not start one.
+  function login(){
+    var state, digest;
+    try {
+      var verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+      state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+      var path = location.pathname + location.search + location.hash;
+      sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier: verifier, state: state, path: path }));
+      digest = crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+    } catch (e) { refuse("internal"); return; }
+    keep();
+    digest.then(function(h){
+      location.assign(authorizeUrl(SITE, b64url(new Uint8Array(h)), state, REDIRECT));
+    }, function(){ refuse("internal"); });
+  }
+  // Both tokens forgotten here, then the session ended at the service, which sends the reader
+  // back to the site's root, where the conversation is drawn again from the tab.
+  function logout(){
+    var s = signedIn();
+    forget();
+    keep();
+    var q = [["client_id", SITE.client]].concat(s && s.id ? [["id_token_hint", s.id]] : []).concat([["post_logout_redirect_uri", REDIRECT]]);
+    location.assign(SITE.issuer + "/oidc/v1/end_session?" + q.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&"));
+  }
+  // The address without the code and state the login came back with.
+  function unreturned(){
+    var rest = location.search.replace(/^\?/, "").split("&").filter(function(p){ return p && !/^(?:code|state)(?:=|$)/.test(p); });
+    return location.pathname + (rest.length ? "?" + rest.join("&") : "") + location.hash;
+  }
+  // Back from the login. A return whose state is not the one this tab sent is no sign-in of
+  // this reader's: it is dropped, the code with it, and nothing is exchanged. One that matches
+  // is exchanged once at the token endpoint, the verifier proving it is the page that asked, and
+  // the reader is taken back to the path they signed in from: in place where the login sent them
+  // back to that page, by a new load where it is another, as it is from any page but the root.
+  function back(got){
+    var kept = null;
+    try { kept = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null"); sessionStorage.removeItem(PKCE_KEY); } catch (e) {}
+    try { history.replaceState(null, "", unreturned()); } catch (e) {}
+    if (!kept || typeof kept.verifier !== "string" || typeof kept.path !== "string" || kept.state !== got.state) return;
+    var form = [["grant_type", "authorization_code"], ["code", got.code], ["redirect_uri", REDIRECT], ["client_id", SITE.client], ["code_verifier", kept.verifier]];
+    fetch(SITE.issuer + "/oauth/v2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&") })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || typeof j.access_token !== "string" || !j.access_token) throw new Error("no token");
+        try { localStorage.setItem(SIGNIN_KEY, JSON.stringify({ access: j.access_token, id: typeof j.id_token === "string" ? j.id_token : "" })); } catch (e) {}
+        var to = location.origin + kept.path;
+        if (new URL(to).pathname !== location.pathname) { location.replace(to); return; }
+        try { history.replaceState(null, "", to); } catch (e) {}
+        if (!panel || panel.hidden) open();
+        keysLine();
+      })
+      .catch(function(){ if (!panel || panel.hidden) open(); refuse("signed_out"); });
+  }
+
   // The request on its way, so starting over can end it: `reqGen` names the latest, and a
   // request that is no longer it touches nothing when it answers, fails or times out.
   var reqGen = 0, stopRequest = null;
@@ -2361,8 +2476,22 @@
     var cmd = command(typed);
     if (cmd === "new") { input.value = ""; reset(); return; }
     if (cmd === "help") { input.value = ""; help(); return; }
+    // The sign-in's words are the panel's only where the tag names an identity service; without
+    // one they are sent as any question is, as they were before there was a sign-in.
+    if (SITE && cmd === "login") { input.value = ""; login(); return; }
+    if (SITE && cmd === "logout") { input.value = ""; logout(); return; }
+    if (SITE && (cmd === "model" || cmd === "effort")) {
+      input.value = "";
+      var k = strings(langNow());
+      hint(signedIn() ? k.keys.chosen.replace("{model}", CHAT_MODELS[0].label).replace("{effort}", CHAT_EFFORTS[0]) : k.signInHint);
+      return;
+    }
     var text = picked(typed, menuRows);
     if (text.length > LIMIT) { refuse("too_long"); return; }
+    // A sign-in whose access token has lapsed is not sent, nor sent without it: the reader is
+    // asked to sign in again, and the question stays in the line and the conversation as it was.
+    var token = signedIn();
+    if (token && lapsed(token.access, Date.now())) { refuse("signed_out"); return; }
     // The menus above stay, dimmed, and their rows still send; the next answer draws its own.
     spend(); qBox = null;
     reading = null;
@@ -2445,7 +2574,9 @@
       busy = false;
       input.disabled = false; if (refocus(window)) input.focus(); offerQuestions();
     }
-    fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages.slice(-SENT), lang: langNow() }) })
+    var headers = { "content-type": "application/json", "X-Chat": "1" };
+    if (token) headers.Authorization = "Bearer " + token.access;
+    fetch(ENDPOINT, { method: "POST", headers: headers, signal: ac.signal, body: JSON.stringify({ messages: messages.slice(-SENT), lang: langNow() }) })
       .then(function(r){
         if (r.status !== 200) {
           // The body is read for its code and, on the three limits, the moment the limit
@@ -2457,6 +2588,9 @@
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false;
+              // The server no longer takes the token: it is forgotten, and the next message goes
+              // as a visitor's until the reader signs in again.
+              if (got.code === "signed_out") forget();
               refuse(got.code, got.retryAt);
             });
         }
@@ -2567,4 +2701,6 @@
     if (!refocus(window)) { input.blur(); return; }
     if (askEl) askEl.querySelector(".rbchat-ask-go").focus({ preventScroll: true });
   })();
+  // Last, once the conversation the tab kept is drawn, so the panel it opens holds it.
+  if (came) back(came);
 })();

@@ -306,7 +306,7 @@ figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:1.1rem 0 1
 .rbchat-cur{display:inline-block;width:.6em;height:1.1em;vertical-align:-.2em;background:var(--t-ink);animation:rbchat-blink 1.1s steps(1) infinite}
 @keyframes rbchat-blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.rbchat-cur{animation:none}}
-.rbchat-help{margin:.4rem 0 0;color:var(--t-dim)}
+.rbchat-help,.rbchat-hint{margin:.4rem 0 0;color:var(--t-dim)}
 .rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
 .rbchat-help-k{color:var(--t-accent)}
 /* Heard, not seen: the finished answer, said once to a screen reader. */

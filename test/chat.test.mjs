@@ -15,7 +15,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang, CHAT_MODELS, CHAT_EFFORTS, grantedModels, authorizeUrl, returnOf, lapsed } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang, CHAT_MODELS, CHAT_EFFORTS, grantedModels, authorizeUrl, returnOf, lapsed, claimsOf } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -937,6 +937,12 @@ test("a token has lapsed at its exp, or when it cannot be read", () => {
   assert.equal(lapsed(jwt({ exp: now / 1000 }), now), true);
   assert.equal(lapsed(jwt({ exp: now / 1000 - 1 }), now), true);
   for (const t of [jwt({}), jwt({ exp: "9999999999" }), "garbage", "a.!!!.c", "a." + Buffer.from("[1").toString("base64url") + ".c", "", null, undefined, 5]) assert.equal(lapsed(t, now), true, String(t));
+});
+
+test("a token's claims are its payload read as UTF-8, or null where it is no JWT", () => {
+  const jwt = (o) => "h." + Buffer.from(JSON.stringify(o)).toString("base64url") + ".s";
+  assert.deepEqual(claimsOf(jwt({ name: "Zoë Müller", exp: 5 })), { name: "Zoë Müller", exp: 5 });
+  for (const t of ["garbage", "a.!!!.c", "a." + Buffer.from("[1]").toString("base64url") + ".c", "a." + Buffer.from("null").toString("base64url") + ".c", "", null, undefined]) assert.equal(claimsOf(t), null, String(t));
 });
 
 test("the four sign-in refusals read in both languages, and the monthly one names its moment", () => {
