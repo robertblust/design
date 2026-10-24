@@ -181,6 +181,10 @@ test("a lapsed token is not sent: the panel offers /login, the question stays in
   assert.equal(await p.$eval("section.rbchat textarea", (t) => t.value), "And who leads it?");
   assert.deepEqual(await p.$$eval(".rbchat-user", (u) => u.map((x) => x.textContent)), ["What is an owner?"], "the conversation is as it was");
   await login(p);
+  // The return lands on / and then goes back to the page it left; the name shows on both, so the
+  // address is read only once the page has arrived, or the read meets the navigation.
+  await p.waitForURL((u) => u.pathname === "/deep/page");
+  await p.waitForSelector("section.rbchat:not([hidden]) textarea");
   assert.equal(await where(p), "/deep/page");
   assert.deepEqual(await p.$$eval(".rbchat-user[data-turn]", (u) => u.map((x) => x.textContent)), ["What is an owner?"]);
   assert.equal(await p.$$eval(".rbchat-assistant", (a) => a.length), 1);
