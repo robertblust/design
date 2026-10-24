@@ -137,6 +137,22 @@ test("with data-issuer /help lists the four words, and none of them reaches the 
   await context.close();
 });
 
+test("in /help every word stands apart from what it does, and every description starts in one column", async () => {
+  const { page: p, context } = await arrive("/");
+  await type(p, "/help");
+  await p.waitForSelector(".rbchat-help");
+  // The key's own text, measured by a range: its box fills the grid cell, so its edge would hide an overlap.
+  const rows = await p.$$eval(".rbchat-help p", (ps) => ps.map((r) => {
+    const k = r.querySelector(".rbchat-help-k"), range = document.createRange();
+    range.selectNodeContents(k);
+    return { key: k.textContent, keyRight: range.getBoundingClientRect().right, descLeft: r.querySelector(".rbchat-help-d").getBoundingClientRect().left };
+  }));
+  assert.ok(rows.some((r) => r.key === "/logout") && rows.some((r) => r.key === "/effort"), "the long words are listed");
+  for (const r of rows) assert.ok(r.descLeft - r.keyRight >= 4, `${r.key} runs into its description (${r.descLeft - r.keyRight}px apart)`);
+  assert.equal(new Set(rows.map((r) => Math.round(r.descLeft))).size, 1, "the descriptions start in one column");
+  await context.close();
+});
+
 test("/logout forgets the tokens, ends the session at the issuer, and the next message carries none", async () => {
   const { page: p, context } = await arrive("/deep/page");
   await login(p);

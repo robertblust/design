@@ -309,7 +309,8 @@ figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:1.1rem 0 1
 @keyframes rbchat-blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.rbchat-cur{animation:none}}
 .rbchat-help,.rbchat-hint{margin:.4rem 0 0;color:var(--t-dim)}
-.rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
+.rbchat-help{display:grid;grid-template-columns:max-content 1fr;column-gap:1ch}
+.rbchat-help p{margin:0;display:contents}
 .rbchat-help-k{color:var(--t-accent)}
 /* Heard, not seen: the finished answer, said once to a screen reader. */
 .rbchat-say,.rbchat-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
