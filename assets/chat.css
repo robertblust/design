@@ -153,6 +153,8 @@ html[data-chat-waiting]::after{content:"ask \00b7  " attr(data-chat-waiting);pos
 .rbchat-cites a.rbchat-cite{color:var(--c-mid);text-decoration:none;border-bottom:1px solid transparent}
 .rbchat-cites a.rbchat-cite:hover,.rbchat-cites a.rbchat-cite:focus-visible{border-bottom-color:var(--c-mid)}
 .rbchat-cites{margin:.5rem 0 0;font-size:.78rem;line-height:1.7;color:var(--t-dim)}
+/* The model and effort that answered, at the end of that line, kept whole. */
+.rbchat-by{white-space:nowrap}
 /* The site's icon at the head of the line, once, and GitHub's mark after each title: quiet
    until pointed at, and both sized so the line stays one line on a phone. */
 .rbchat-from{width:16px;height:16px;vertical-align:-3px;margin-right:.4rem}
@@ -306,7 +308,7 @@ figure.rbchat-diagram[data-diagram]{border-top:0;padding-top:0;margin:1.1rem 0 1
 .rbchat-cur{display:inline-block;width:.6em;height:1.1em;vertical-align:-.2em;background:var(--t-ink);animation:rbchat-blink 1.1s steps(1) infinite}
 @keyframes rbchat-blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.rbchat-cur{animation:none}}
-.rbchat-help{margin:.4rem 0 0;color:var(--t-dim)}
+.rbchat-help,.rbchat-hint{margin:.4rem 0 0;color:var(--t-dim)}
 .rbchat-help p{margin:0;display:grid;grid-template-columns:7ch 1fr}
 .rbchat-help-k{color:var(--t-accent)}
 /* Heard, not seen: the finished answer, said once to a screen reader. */

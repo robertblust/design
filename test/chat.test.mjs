@@ -15,7 +15,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang, CHAT_MODELS, CHAT_EFFORTS, grantedModels, authorizeUrl, returnOf, lapsed, claimsOf } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -626,7 +626,7 @@ test("chips are offered only where the visitor can ask next, and a second race d
 });
 
 test("a finished answer and a restored open panel offer the next three", () => {
-  const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(ENDPOINT,"));
+  const finish = src.slice(src.indexOf("function finish(){"), src.indexOf("fetch(to,"));
   assert.match(finish, /if \(refocus\(window\)\) input\.focus\(\); offerQuestions\(\);\n/, "a finished answer offers no next questions");
   assert.match(src, /if \(was\.open\) \{ panel\.hidden = false; button\.hidden = true; offerQuestions\(\); linkWaiting\(\); \}/, "a panel restored open offers no next questions");
 });
@@ -641,12 +641,12 @@ test("the chip container carries an accessible name from the strings, in both la
 });
 
 test("a row's label is set with textContent, and activating it sends exactly its question", () => {
-  assert.match(src, /b\.appendChild\(el\("span", "rbchat-q", it\[0\]\)\);/, "a row's label is not textContent, through el()");
-  assert.match(src, /b\.addEventListener\("click", function\(\)\{ input\.value = it\[0\]; send\(\); \}\)/, "a row does not send its own question through send()");
+  assert.match(src, /var q = el\("span", "rbchat-q", it\[0\]\);/, "a row's label is not textContent, through el()");
+  assert.match(src, /b\.addEventListener\("click", function\(\)\{ if \(it\[2\]\) \{ it\[2\]\.pick\(\); input\.focus\(\); return; \} input\.value = it\[0\]; send\(\); \}\)/, "a row does not send its own question through send()");
 });
 
 test("a message clears the chips, and reopening or resetting an empty conversation offers a fresh three", () => {
-  const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  const sendFn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(to,"));
   assert.match(sendFn, /spend\(\); qBox = null;/, "send() does not dim the menus it moves past, or lets the next answer reuse the old one");
   assert.match(src, /function open\(\)\{ hideQuestions\(\); if \(!panel\) build\(\); panel\.hidden = false; button\.hidden = true; fit\(\); if \(!introEl\) intro\(!messages\.length\); settle\(\); input\.focus\(\); keep\(\); if \(messages\.length\) offerQuestions\(\); linkWaiting\(\); \}/, "open() no longer clears the old set, draws the intro once, or offers a fresh next three after an answer");
   assert.match(src, /introEl = null; introPick = null; menuRows = \[\]; qBox = null;.*intro\(true\);/, "reset() does not clear the stale menus and play a fresh intro");
@@ -832,7 +832,7 @@ test("every bubble that shows a kept turn carries its turn, and one that lost it
 // model's input is the same as for the whole conversation, and a long one never reaches 64 KB.
 test("a conversation has no length limit, and only the tail the server reads is sent", () => {
   assert.match(src, /var LIMIT = 1000, SENT = 7,/, "the tail sent is not the seven turns the server reads");
-  assert.match(src, /body: JSON\.stringify\(\{ messages: messages\.slice\(-SENT\), lang: langNow\(\) \}\)/, "the whole conversation is sent");
+  assert.match(src, /var sent = \{ messages: messages\.slice\(-SENT\), lang: langNow\(\) \};/, "the whole conversation is sent");
   assert.doesNotMatch(src, /TURNS|fullNote|rbchat-full/, "a conversation still stops at a length");
   const css = fs.readFileSync(path.join(PKG, "assets", "chat.css"), "utf8");
   assert.doesNotMatch(css, /rbchat-full|rbchat-fresh/, "the full note's style is still shipped");
@@ -862,11 +862,107 @@ test("a page without a brand in its header has no lockup", () => {
   assert.equal(lockupOf({}), null);
 });
 
-test("only the three slash commands are commands, whatever their case and spaces", () => {
+test("only the seven slash commands are commands, whatever their case and spaces", () => {
   assert.equal(command("/new"), "new");
   assert.equal(command("  /CLEAR "), "new");
   assert.equal(command("/help"), "help");
   for (const t of ["/newer", "new", "/ new", "/help me", "", null, undefined]) assert.equal(command(t), null, String(t));
+});
+
+test("the command line also knows /login, /logout, /model and /effort", () => {
+  assert.equal(command("/login"), "login");
+  assert.equal(command(" /LOGOUT "), "logout");
+  assert.equal(command("/model"), "model");
+  assert.equal(command("/effort"), "effort");
+  for (const t of ["/models", "/login now", "/ effort", "login"]) assert.equal(command(t), null, t);
+});
+
+const ROLES = "urn:zitadel:iam:org:project:roles";
+
+test("a reader granted a role in this site's org may pick its model, Sonnet 5 first", () => {
+  assert.deepEqual(grantedModels({ [ROLES]: { opus: { o1: "x" } } }, "o1"), ["claude-sonnet-5", "claude-opus-5-5"]);
+  assert.deepEqual(grantedModels({ [ROLES]: { haiku: { o1: "x" }, opus: { o1: "x" }, fable: { o1: "x" } } }, "o1"), ["claude-sonnet-5", "claude-opus-5-5", "claude-fable-5-1", "claude-haiku-5-5"]);
+});
+
+test("a role granted in another org grants nothing here", () => {
+  assert.deepEqual(grantedModels({ [ROLES]: { opus: { o1: "x" } } }, "o2"), ["claude-sonnet-5"]);
+});
+
+test("a role prefix names the roles of one site", () => {
+  const claims = { [ROLES]: { opus: { o1: "x" }, "blust.ch:fable": { o1: "x" } } };
+  assert.deepEqual(grantedModels(claims, "o1", "blust.ch:"), ["claude-sonnet-5", "claude-fable-5-1"]);
+  assert.deepEqual(grantedModels(claims, "o1"), ["claude-sonnet-5", "claude-opus-5-5"]);
+});
+
+test("an absent, odd or inherited claim grants Sonnet 5 alone", () => {
+  for (const c of [undefined, null, {}, { [ROLES]: null }, { [ROLES]: "opus" }, { [ROLES]: { opus: "o1" } }, { [ROLES]: { opus: null } }]) assert.deepEqual(grantedModels(c, "o1"), ["claude-sonnet-5"], JSON.stringify(c));
+  assert.deepEqual(grantedModels({ [ROLES]: {} }, "toString"), ["claude-sonnet-5"]);
+  assert.deepEqual(grantedModels({ [ROLES]: { opus: {} } }, "toString"), ["claude-sonnet-5"]);
+});
+
+test("the models and efforts are chat-server's table", () => {
+  assert.deepEqual(CHAT_MODELS.map((m) => m.id), ["claude-sonnet-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1", "claude-haiku-5-5"]);
+  assert.deepEqual(CHAT_MODELS.map((m) => m.role), [null, "sonnet-5-5", "opus", "fable", "haiku"]);
+  assert.deepEqual(CHAT_EFFORTS, ["low", "medium", "high", "xhigh", "max"]);
+});
+
+test("the authorize address carries every parameter PKCE needs", () => {
+  const u = new URL(authorizeUrl({ issuer: "https://id.example.ch", client: "c 1", project: "p9" }, "chal-_", "st&te", "https://blust.ch/?x=1"));
+  assert.equal(u.origin + u.pathname, "https://id.example.ch/oauth/v2/authorize");
+  assert.equal(u.searchParams.get("client_id"), "c 1");
+  assert.equal(u.searchParams.get("redirect_uri"), "https://blust.ch/?x=1");
+  assert.equal(u.searchParams.get("response_type"), "code");
+  assert.equal(u.searchParams.get("scope"), "openid profile urn:zitadel:iam:org:project:id:p9:aud urn:zitadel:iam:org:projects:roles");
+  assert.equal(u.searchParams.get("code_challenge"), "chal-_");
+  assert.equal(u.searchParams.get("code_challenge_method"), "S256");
+  assert.equal(u.searchParams.get("state"), "st&te");
+});
+
+test("a return needs both its code and its state", () => {
+  assert.deepEqual(returnOf("https://blust.ch/page/?code=abc&state=xyz"), { code: "abc", state: "xyz" });
+  assert.deepEqual(returnOf("https://blust.ch/?state=s&other=1&code=c%2Bd"), { code: "c+d", state: "s" });
+  assert.equal(returnOf("https://blust.ch/?code=abc"), null);
+  assert.equal(returnOf("https://blust.ch/?state=xyz"), null);
+  assert.equal(returnOf("https://blust.ch/?code=&state=xyz"), null);
+  assert.equal(returnOf("https://blust.ch/#code=abc&state=xyz"), null, "only the query string");
+  assert.equal(returnOf("https://blust.ch/"), null);
+  assert.equal(returnOf(undefined), null);
+});
+
+test("a token has lapsed at its exp, or when it cannot be read", () => {
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const jwt = (o) => "h." + b64(o) + ".s";
+  const now = 1_800_000_000_000;
+  assert.equal(lapsed(jwt({ exp: now / 1000 + 1 }), now), false);
+  assert.equal(lapsed(jwt({ exp: now / 1000 }), now), true);
+  assert.equal(lapsed(jwt({ exp: now / 1000 - 1 }), now), true);
+  for (const t of [jwt({}), jwt({ exp: "9999999999" }), "garbage", "a.!!!.c", "a." + Buffer.from("[1").toString("base64url") + ".c", "", null, undefined, 5]) assert.equal(lapsed(t, now), true, String(t));
+});
+
+test("a token's claims are its payload read as UTF-8, or null where it is no JWT", () => {
+  const jwt = (o) => "h." + Buffer.from(JSON.stringify(o)).toString("base64url") + ".s";
+  assert.deepEqual(claimsOf(jwt({ name: "Zoë Müller", exp: 5 })), { name: "Zoë Müller", exp: 5 });
+  for (const t of ["garbage", "a.!!!.c", "a." + Buffer.from("[1]").toString("base64url") + ".c", "a." + Buffer.from("null").toString("base64url") + ".c", "", null, undefined]) assert.equal(claimsOf(t), null, String(t));
+});
+
+test("the four sign-in refusals read in both languages, and the monthly one names its moment", () => {
+  for (const lang of ["en", "de"]) {
+    for (const code of ["not_granted", "signed_out", "over_user_month", "declined"]) {
+      const t = refusalText(code, undefined, NOW, lang, ZH);
+      assert.ok(t.length > 0 && t !== strings(lang).refusal.internal, `${lang}.${code}`);
+    }
+    for (const k of ["login", "logout", "model", "effort"]) assert.ok(strings(lang).help.some((r) => r[0] === "/" + k), `${lang} help /${k}`);
+    const s = strings(lang);
+    for (const v of [s.keys.chosen, s.menu.model, s.menu.effort, s.signInHint]) assert.ok(v, lang);
+    assert.match(s.keys.chosen, /\{model\}.*\{effort\}/);
+  }
+  assert.match(refusalText("over_user_month", "2026-10-01T00:00:00Z", Date.parse("2026-09-23T10:00:00Z"), "en", ZH), /You can ask again on \w+ at/);
+  assert.equal(strings("en").signInHint, "Sign in with /login to choose a model.");
+});
+
+test("a reader whose own month is spent is told /logout keeps them asking as a visitor", () => {
+  assert.equal(strings("en").refusal.over_user_month, "Your share of answers this month is spent; sign out with /logout to keep asking as a visitor.");
+  assert.equal(strings("de").refusal.over_user_month, "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht; melden Sie sich mit /logout ab, um als Gast weiterzufragen.");
 });
 
 test("a bare number picks its row, and anything else is sent as typed", () => {
@@ -997,7 +1093,7 @@ test("every new sentence exists in both languages", () => {
     assert.equal(s.hello.length, 2);
     assert.equal(s.helloHost.length, 2);
     for (const k of ["send", "last", "pick", "help"]) assert.ok(s.keys[k], `${lang}.keys.${k}`);
-    assert.equal(s.help.length, 4);
+    assert.equal(s.help.length, 8);
     for (const k of ["metaModel", "metaModelGets", "process", "processGets", "list", "listGets"]) assert.ok(s.try[k], `${lang}.try.${k}`);
     for (const t of ["kpi", "seat", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
   }
@@ -1017,7 +1113,7 @@ test("the one read of the model file also keeps its process names and how many o
 });
 
 test("the command line's words are settled before anything is pushed or sent", () => {
-  const fn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(ENDPOINT,"));
+  const fn = src.slice(src.indexOf("function send(){"), src.indexOf("fetch(to,"));
   const cmdAt = fn.indexOf("var cmd = command(typed);"), pushAt = fn.indexOf("messages.push(");
   assert.ok(cmdAt > 0 && pushAt > cmdAt, "a command is pushed as a message before it is recognized");
   assert.match(fn, /var text = picked\(typed, menuRows\);/, "a number does not pick from the standing menu");
@@ -1139,9 +1235,9 @@ test("answerLang is the last answer's language where the server named one, else 
   assert.equal(answerLang([{ role: "assistant", content: "…", lang: "fr" }], "en"), "en", "and one the widget has no words for is not taken");
   assert.equal(answerLang([{ role: "assistant", content: "…", lang: "constructor" }], "en"), "en", "nor a name an object inherits");
   assert.equal(answerLang([], "de"), "de", "an empty conversation is the page's");
-  assert.match(src, /else if \(name === "done"\) \{ cut = !!data\.cut; ended = true; spoke = data && typeof data\.lang === "string" \? data\.lang : null; \}/, "done's language is not read");
-  assert.match(src, /verdict: checked, lang: spoke \}\);/, "the answer's turn does not keep its language");
-  assert.match(src, /verdict: t\.verdict \|\| null, lang: typeof t\.lang === "string" \? t\.lang : null \}\);/, "a restored turn loses its language, and the next page's chips switch back");
+  assert.match(src, /else if \(name === "done"\) \{ cut = !!data\.cut; ended = true; spoke = data && typeof data\.lang === "string" \? data\.lang : null; by = byOf\(data\); \}/, "done's language is not read");
+  assert.match(src, /verdict: checked, lang: spoke, by: by \}\);/, "the answer's turn does not keep its language");
+  assert.match(src, /verdict: t\.verdict \|\| null, lang: typeof t\.lang === "string" \? t\.lang : null, by: by \}\);/, "a restored turn loses its language, and the next page's chips switch back");
 });
 
 test("an organization is captioned and has a reading line in both languages, and the widget's marks are lib/marks.mjs's", () => {

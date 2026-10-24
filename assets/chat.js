@@ -60,7 +60,13 @@
 //   rbChat.diagramCaption(d, lang)     a picture's caption in the page's language
 //   rbChat.oriented(source, width)     a flow turned top to bottom in a panel narrower than a phone's
 //   rbChat.lockupOf(doc)               the header's mark and name, split as the page splits it, or null
-//   rbChat.command(text)               "new", "help" or null, for the command line's own words
+//   rbChat.command(text)               "new", "help", "login", "logout", "model", "effort" or null, for the command line's own words
+//   rbChat.CHAT_MODELS, CHAT_EFFORTS   the models a signed-in reader may pick and the efforts, chat-server's table
+//   rbChat.grantedModels(claims, org, prefix)  the model ids the sign-in's roles grant in this org, Sonnet 5 first
+//   rbChat.authorizeUrl(site, challenge, state, redirect)  where the sign-in at ZITADEL begins, with PKCE
+//   rbChat.returnOf(href)              the { code, state } a sign-in returns to the page with, or null
+//   rbChat.lapsed(token, now)          whether the token's exp has passed (now in ms), or it cannot be read
+//   rbChat.claimsOf(token)             a JWT's payload, read as UTF-8 JSON, or null
 //   rbChat.picked(text, rows)          the row a bare number picks, or the text as typed
 //   rbChat.tryPick(facts, random)      what an opening offers after the meta-model, two of what the model holds
 //   rbChat.connected(entities, edges)  the systems a landscape row may name
@@ -89,12 +95,37 @@
 //
 // On a desk the panel is sized by its top left corner and the size is kept in the tab beside
 // the conversation, under `chat-size`; on a phone it is the whole screen and has no corner.
+//
+// A tag that names the site's identity service lets a reader sign in from the command line:
+//
+//   <script src="chat.js" data-chat="…" data-issuer="https://id.example" data-client="<client id>"
+//     data-org="<org id>" data-project="<project id>" data-role-prefix="" defer>
+//
+// `/login` goes to the hosted login with a PKCE challenge, the verifier, a random `state` and the
+// page's path kept in the tab under `chat-pkce`. The login sends the reader back to the site's
+// root with a code; wherever the widget then runs, it checks the state, exchanges the code and
+// returns to that path. The access token and the ID token are kept in the browser under
+// `chat-signin`, every message after carries the access token as `Authorization: Bearer`, and
+// `/logout` forgets both and ends the session at the service. A tag without `data-issuer` offers
+// none of the four words, `/login`, `/logout`, `/model` and `/effort`, and sends them as it
+// sends any question.
+//
+// Signed in, `/model` offers Sonnet 5 and the models the reader's roles grant on this site, and
+// `/effort` the five efforts, each a numbered menu a number picks from; a reader with no role is
+// answered at `low` alone, so `/effort` tells them in a line that effort comes with a model
+// grant, and a remembered effort goes as `low`. The choice is kept in the
+// browser under `chat-choice`, and every message the reader sends carries it as `model` and
+// `effort`; a visitor's message carries neither. The host's own address, where the tag names one
+// as `data-chat-direct` (an absolute https URL), takes a signed-in message above `low`, whose
+// answer may outlast what the site's front door allows; every other message goes to `data-chat`.
 (function(){
   // SENT is the tail of the conversation the server reads: its last eight turns, less the
   // assistant turn that would open them, since a conversation ends with the visitor. Sending only
   // that tail gives the model exactly what the whole would give it, so a conversation runs as long
   // as the visitor likes and the request stays far under the server's 64 KB, however long it runs.
-  var LIMIT = 1000, SENT = 7, TIMEOUT = 90000;
+  // TIMEOUT is how long a message at `low` may take, LONG one above it, since a high effort
+  // thinks for minutes before it writes.
+  var LIMIT = 1000, SENT = 7, TIMEOUT = 90000, LONG = 900000;
 
   var STRINGS = {
     en: {
@@ -116,8 +147,11 @@
       asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
       claim: { partial: ["Partly backed", "The model's pages say only part of this."], contradicted: ["Contradicted", "The model's pages say otherwise."], absent: ["Not backed", "The model's pages don't say this."], unsourced: ["Not backed", "No page the chat read says this."] },
       claimsOne: "1 statement here isn't fully backed by the model's pages.", claimsMany: "{n} statements here aren't fully backed by the model's pages.",
-      keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help" },
-      help: [["/new", "start a new conversation (also /clear)"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
+      keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help", chosen: "{model} · {effort}" },
+      menu: { model: "Choose a model", effort: "Choose an effort" },
+      signInHint: "Sign in with /login to choose a model.",
+      effortHint: "The effort can be chosen once your sign-in grants a model.",
+      help: [["/new", "start a new conversation (also /clear)"], ["/login", "sign in, to choose a model"], ["/logout", "sign out"], ["/model", "choose the model that answers"], ["/effort", "choose how long it thinks"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
       graph: { head: "graph · {title}", failed: "The graph could not be drawn here; the model page has it." },
@@ -147,7 +181,11 @@
         foreign: "This page may not use the chat.",
         bad_request: "That could not be sent as a message.",
         internal: "Something went wrong on the way; try again.",
-        network: "The chat could not be reached; check the connection and try again."
+        network: "The chat could not be reached; check the connection and try again.",
+        not_granted: "Your sign-in does not grant that model.",
+        signed_out: "You are signed out; sign in again with /login.",
+        over_user_month: "Your share of answers this month is spent; sign out with /logout to keep asking as a visitor.",
+        declined: "That model declined to answer this message; try rephrasing it."
       }
     },
     // German: drafts for the translator of conventions/TRANSLATOR.md, to be made from the
@@ -168,8 +206,11 @@
       asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
       claim: { partial: ["Teilweise belegt", "Die Seiten des Modells sagen das nur zum Teil."], contradicted: ["Widerspricht dem Modell", "Die Seiten des Modells sagen etwas anderes."], absent: ["Nicht belegt", "Die Seiten des Modells sagen das nicht."], unsourced: ["Nicht belegt", "Keine Seite, die der Chat gelesen hat, sagt das."] },
       claimsOne: "Eine Aussage in dieser Antwort ist durch die Seiten des Modells nicht vollständig belegt.", claimsMany: "{n} Aussagen in dieser Antwort sind durch die Seiten des Modells nicht vollständig belegt.",
-      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help" },
-      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
+      keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
+      menu: { model: "Modell wählen", effort: "Aufwand wählen" },
+      signInHint: "Melden Sie sich mit /login an, um ein Modell zu wählen.",
+      effortHint: "Den Aufwand können Sie wählen, sobald Ihre Anmeldung ein Modell erlaubt.",
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
       tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
       graph: { head: "Graph · {title}", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
@@ -199,7 +240,11 @@
         foreign: "Diese Seite darf den Chat nicht nutzen.",
         bad_request: "Das konnte nicht als Nachricht gesendet werden.",
         internal: "Unterwegs ist etwas schiefgegangen; versuchen Sie es noch einmal.",
-        network: "Der Chat war nicht erreichbar; prüfen Sie die Verbindung und versuchen Sie es wieder."
+        network: "Der Chat war nicht erreichbar; prüfen Sie die Verbindung und versuchen Sie es wieder.",
+        not_granted: "Ihre Anmeldung erlaubt dieses Modell nicht.",
+        signed_out: "Sie sind abgemeldet; melden Sie sich mit /login wieder an.",
+        over_user_month: "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht; melden Sie sich mit /logout ab, um als Gast weiterzufragen.",
+        declined: "Dieses Modell hat die Antwort auf diese Nachricht abgelehnt; formulieren Sie sie anders."
       }
     }
   };
@@ -214,7 +259,7 @@
   }
 
   // When a limit lifts, in the visitor's terms. The server sends the moment as an ISO time in
-  // UTC on `busy`, `over_day` and `over_month`, and the widget writes it against the visitor's
+  // UTC on `busy`, `over_day`, `over_month` and `over_user_month`, and the widget writes it against the visitor's
   // clock and zone: within the hour in minutes, later the same local day as a time, tomorrow
   // by name, and beyond that by the day's name, so midnight UTC reads as the local hour it is.
   // Under a minute is "a minute", the one case where the old sentence was right. The sentence
@@ -880,10 +925,100 @@
     var span = b.querySelector("span"), accent = span ? span.textContent : "";
     return { mark: svg, first: b.textContent.slice(0, b.textContent.length - accent.length), accent: accent };
   }
-  // The three words the command line keeps for itself. They never reach the host.
+  // The words the command line keeps for itself. They never reach the host. `/clear` is the
+  // second name of `/new`, as in Claude Code; the other four stand alone.
   function command(text){
     var t = String(text == null ? "" : text).trim().toLowerCase();
-    return t === "/new" || t === "/clear" ? "new" : t === "/help" ? "help" : null;
+    if (t === "/new" || t === "/clear") return "new";
+    return t === "/help" || t === "/login" || t === "/logout" || t === "/model" || t === "/effort" ? t.slice(1) : null;
+  }
+
+  // ─── Sign-in ──────────────────────────────────────────────────────────────────────────────
+  // The pure parts of signing in at ZITADEL and choosing the model. The table is chat-server's
+  // (lib/models.mjs), in its order: the default first, which every signed-in reader may pick;
+  // `role` is the name a sign-in grants for the rest. The server checks every grant itself, so
+  // what the widget offers is a courtesy and never the fence.
+  var CHAT_MODELS = [
+    { id: "claude-sonnet-5", label: "Sonnet 5", role: null },
+    { id: "claude-sonnet-5-5", label: "Sonnet 5.5", role: "sonnet-5-5" },
+    { id: "claude-opus-5-5", label: "Opus 5.5", role: "opus" },
+    { id: "claude-fable-5-1", label: "Fable 5.1", role: "fable" },
+    { id: "claude-haiku-5-5", label: "Haiku 5.5", role: "haiku" }
+  ];
+  var CHAT_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
+  var ROLES_CLAIM = "urn:zitadel:iam:org:project:roles";
+  function own(o, k){ return o !== null && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, k); }
+
+  // The models the sign-in grants. ZITADEL writes the roles claim as { "<role>": { "<orgId>":
+  // "<org domain>" } }: a role counts where it is held in this site's org, and, where one
+  // project serves several sites, under the site's `prefix` ahead of the role's name. Own
+  // properties only, so no role or org is read off Object.prototype. A claim that is absent or
+  // not an object grants the default alone.
+  function grantedModels(claims, org, prefix){
+    var roles = own(claims, ROLES_CLAIM) ? claims[ROLES_CLAIM] : null;
+    return CHAT_MODELS.filter(function(m){
+      if (m.role === null) return true;
+      var key = (prefix || "") + m.role;
+      return own(roles, key) && own(roles[key], org);
+    }).map(function(m){ return m.id; });
+  }
+
+  // Where the sign-in begins: the authorize endpoint with the PKCE challenge, the `state` the
+  // page will check on the way back, and the audience and roles scopes ZITADEL needs to put the
+  // project's roles in the token. Every value is encoded, whatever it holds.
+  function authorizeUrl(site, challenge, state, redirect){
+    var scope = "openid profile urn:zitadel:iam:org:project:id:" + site.project + ":aud urn:zitadel:iam:org:projects:roles";
+    var q = [["client_id", site.client], ["redirect_uri", redirect], ["response_type", "code"], ["scope", scope], ["code_challenge", challenge], ["code_challenge_method", "S256"], ["state", state]];
+    return site.issuer + "/oauth/v2/authorize?" + q.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&");
+  }
+
+  // What the identity service sends the page back with: `code` and `state`, in the query
+  // string and only there, both non-empty. Anything less is no return.
+  function returnOf(href){
+    var h = String(href == null ? "" : href), hash = h.indexOf("#");
+    if (hash >= 0) h = h.slice(0, hash);
+    var at = h.indexOf("?");
+    if (at < 0) return null;
+    var got = {};
+    h.slice(at + 1).split("&").forEach(function(pair){
+      var eq = pair.indexOf("="), k = eq < 0 ? pair : pair.slice(0, eq);
+      if (k !== "code" && k !== "state" || own(got, k)) return;
+      try { got[k] = decodeURIComponent((eq < 0 ? "" : pair.slice(eq + 1)).replace(/\+/g, " ")); } catch (e) { got[k] = ""; }
+    });
+    return got.code && got.state ? { code: got.code, state: got.state } : null;
+  }
+  // One parameter of a query string, decoded, the first where it repeats; null where it is absent.
+  function param(search, key){
+    var parts = String(search == null ? "" : search).replace(/^\?/, "").split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf("="), k = eq < 0 ? parts[i] : parts[i].slice(0, eq);
+      if (k !== key) continue;
+      try { return decodeURIComponent((eq < 0 ? "" : parts[i].slice(eq + 1)).replace(/\+/g, " ")); } catch (e) { return ""; }
+    }
+    return null;
+  }
+
+  // Whether a token is no longer good: its `exp` (seconds) is at or before `now` (milliseconds,
+  // Date.now()), or the token is not a JWT whose payload, the base64url middle segment, says a
+  // numeric `exp`. A token the page cannot read is treated as spent, so it asks to sign in again
+  // rather than send what the server will refuse.
+  function lapsed(token, now){
+    var c = claimsOf(token), exp = c && c.exp;
+    return typeof exp !== "number" || !isFinite(exp) || exp * 1000 <= now;
+  }
+  // What a JWT says: its payload, the base64url middle segment, read as UTF-8 JSON, so a name
+  // with an umlaut reads as written; null for anything that is not one. Nothing here checks the
+  // signature: what the page reads off a token only decides what it offers, and the server
+  // checks the access token on every message.
+  function claimsOf(token){
+    try {
+      var b = String(token).split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (b.length % 4) b += "=";
+      var bin = atob(b), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var c = JSON.parse(new TextDecoder().decode(bytes));
+      return c !== null && typeof c === "object" && !Array.isArray(c) ? c : null;
+    } catch (e) { return null; }
   }
   // A number alone picks that row of the menu standing last, as the tooling takes "Pick 1-5";
   // a number with no such row, or anything else, is sent as the visitor typed it.
@@ -974,7 +1109,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, CHAT_MODELS: CHAT_MODELS, CHAT_EFFORTS: CHAT_EFFORTS, grantedModels: grantedModels, authorizeUrl: authorizeUrl, returnOf: returnOf, lapsed: lapsed, claimsOf: claimsOf, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1540,6 +1675,18 @@
   var ENDPOINT = tag.dataset.chat, QUESTIONS = tag.dataset.questions || null, QUESTIONS_DE = tag.dataset.questionsDe || null;
   var ICON = iconOf(document);
   var HOST = (function(){ try { return new URL(ENDPOINT).host; } catch (e) { return ENDPOINT; } })();
+  // The site's sign-in, off the tag, or null where the tag names no identity service, and then
+  // nothing below reads or writes a token. The login sends every reader back to the site's root,
+  // the one redirect the site's client registers, so `came` is read wherever the widget runs.
+  var SITE = tag.dataset.issuer ? { issuer: tag.dataset.issuer.replace(/\/+$/, ""), client: tag.dataset.client || "", org: tag.dataset.org || "", project: tag.dataset.project || "", prefix: tag.dataset.rolePrefix || "" } : null;
+  var REDIRECT = location.origin + "/", SIGNIN_KEY = "chat-signin", PKCE_KEY = "chat-pkce", CHOICE_KEY = "chat-choice";
+  // The host's own address, for a signed-in message above `low`; null where the tag names none or
+  // names something that is not an absolute https URL, and then every message goes to ENDPOINT.
+  var DIRECT = (function(d){ try { return d && new URL(d).protocol === "https:" ? d : null; } catch (e) { return null; } })(tag.dataset.chatDirect);
+  var SIGN_WORDS = ["/login", "/logout", "/model", "/effort"];
+  // A reader who cancels at the login, or whom it refuses, comes back with `error` and the state
+  // instead of a code, and that is a return too.
+  var came = !SITE ? null : param(location.search, "error") !== null ? { error: param(location.search, "error"), state: param(location.search, "state") } : returnOf(location.href);
 
   // `messages` is what the server sees, `turns` the same exchange as the panel shows it: an
   // answer's cites are the widget's to draw and are no part of a message.
@@ -1688,15 +1835,19 @@
 
   // A numbered menu, as the tooling prints one: each row a button that sends its question, the
   // number in the accent because a number is what the command line picks it by, and under a Try
-  // row, dim, what comes back. The rows drawn last are the ones a bare number picks.
+  // row, dim, what comes back. The rows drawn last are the ones a bare number picks. A row of
+  // the model or effort menu carries `{ pick, current }` third: a click picks it rather than
+  // sending its words, and the current one is ticked.
   function menu(parent, items, start){
     var m = el("div", "rbchat-menu");
     items.forEach(function(it, i){
       var b = el("button", "rbchat-row"); b.type = "button";
       b.appendChild(el("span", "rbchat-n", String(start + i + 1)));
-      b.appendChild(el("span", "rbchat-q", it[0]));
+      var q = el("span", "rbchat-q", it[0]);
+      if (it[2] && it[2].current) { b.setAttribute("aria-current", "true"); q.appendChild(el("span", "rbchat-tick", " \u2713")); }
+      b.appendChild(q);
       if (it[1]) b.appendChild(el("span", "rbchat-g", it[1]));
-      b.addEventListener("click", function(){ input.value = it[0]; send(); });
+      b.addEventListener("click", function(){ if (it[2]) { it[2].pick(); input.focus(); return; } input.value = it[0]; send(); });
       m.appendChild(b);
     });
     parent.appendChild(m);
@@ -1708,6 +1859,8 @@
     s.help.forEach(function(r){
       // The pick line only while a menu stands: with none, there is nothing a number picks.
       if (r[0] === "{range}" && !menuRows.length) return;
+      // The sign-in's four words only where the tag names an identity service.
+      if (!SITE && SIGN_WORDS.indexOf(r[0]) >= 0) return;
       var line = el("p");
       line.appendChild(el("span", "rbchat-help-k", r[0].replace("{range}", rangeOf(menuRows.length))));
       line.appendChild(el("span", "rbchat-help-d", r[1]));
@@ -2083,6 +2236,8 @@
       for (var m = 0; m < lines.length; m++) lines[m].textContent = modelText(lines[m].getAttribute("data-sha"), lines[m].getAttribute("data-secs"));
       var labels = log.querySelectorAll(".rbchat-next > .rbchat-label");
       for (var b = 0; b < labels.length; b++) labels[b].textContent = strings(answerLang(turns, langNow())).askNext;
+      var heads_ = log.querySelectorAll(".rbchat-choose > [data-menu]");
+      for (var c = 0; c < heads_.length; c++) heads_[c].textContent = s.menu[heads_[c].getAttribute("data-menu")];
     }
     // A language switch redraws the intro in the new language, finished, where the log holds one.
     // A waiting question is redrawn with it, and the button that held the focus holds it again:
@@ -2102,13 +2257,17 @@
   if (window.MutationObserver) new MutationObserver(relabel).observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
 
   // The rows a bare number picks: the menu standing last. Empty until a menu is drawn.
-  var menuRows = [];
+  // `menuChoice` is the model or effort menu while it is that one: `rows` is the very array it
+  // put in menuRows, so any other menu drawn since, which puts its own, ends it without being
+  // told; `was` is what menuRows held before it, given back once a row is picked.
+  var menuRows = [], menuChoice = null;
   function grow(){ input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 4 * parseFloat(getComputedStyle(input).lineHeight || 20)) + "px"; }
   // The keys line under the prompt, as the tooling prints its hints; the pick key only while a menu stands.
   function keysLine(){
     if (!keysEl) return;
     var k = strings(langNow()).keys;
-    var parts = [k.send, k.last].concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
+    var who = readerName(), c = chosen(false);
+    var parts = (who ? [who] : []).concat(c ? [chosenText(c.model, c.effort)] : []).concat([k.send, k.last]).concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
     keysEl.textContent = parts.join("  \u00b7  ");
   }
 
@@ -2263,6 +2422,187 @@
   // sentence.
   function refuse(code, retryAt){ bubble("refusal").textContent = "\u2717 " + refusalText(code, retryAt, Date.now(), langNow()); keysLine(); if (panel && !panel.hidden && refocus(window)) input.focus(); }
 
+  // ─── Signing in ───────────────────────────────────────────────────────────────────────────
+  // The tokens are kept in `localStorage` under the site's origin, since one sign-in is good in
+  // every tab until it lapses; the verifier only in the tab, across the one trip to the login and
+  // back. Every access is wrapped, as the conversation's is. A page whose tag names no identity
+  // service reads no token, so a sign-in another page left behind never goes with its messages.
+  function signedIn(){
+    if (!SITE) return null;
+    try { var v = JSON.parse(localStorage.getItem(SIGNIN_KEY) || "null"); return v && typeof v.access === "string" && v.access ? v : null; }
+    catch (e) { return null; }
+  }
+  function forget(){ try { localStorage.removeItem(SIGNIN_KEY); } catch (e) {} keysLine(); }
+  // The reader's name, from the ID token: `name`, else `preferred_username`.
+  function readerName(){
+    var s = signedIn(), c = s && claimsOf(s.id);
+    if (!c) return "";
+    return typeof c.name === "string" && c.name ? c.name : typeof c.preferred_username === "string" ? c.preferred_username : "";
+  }
+  function hint(text){ var h = el("p", "rbchat-hint", text); log.appendChild(h); log.scrollTop = log.scrollHeight; return h; }
+
+  // ─── Choosing the model and the effort ────────────────────────────────────────────────────
+  // What the reader's next message goes with, or null for a visitor, who sends no choice. The
+  // remembered choice holds only while the sign-in still grants its model, so a role taken away
+  // since goes back to Sonnet 5, and an effort that is not one of the five to `low`. Effort comes
+  // with a model grant, as the server decides, so a reader who holds no role goes at `low` too.
+  // With `fix` a remembered choice that no longer holds is written back as what it fell to.
+  function chosen(fix){
+    var s = signedIn();
+    if (!s) return null;
+    var c = null;
+    try { c = JSON.parse(localStorage.getItem(CHOICE_KEY) || "null"); } catch (e) {}
+    var held = grantedModels(claimsOf(s.id), SITE.org, SITE.prefix);
+    var got = { model: own(c, "model") && held.indexOf(c.model) >= 0 ? c.model : CHAT_MODELS[0].id, effort: hasRole(held) && own(c, "effort") && CHAT_EFFORTS.indexOf(c.effort) >= 0 ? c.effort : CHAT_EFFORTS[0] };
+    if (fix && c && (c.model !== got.model || c.effort !== got.effort)) { try { localStorage.setItem(CHOICE_KEY, JSON.stringify(got)); } catch (e) {} }
+    return got;
+  }
+  // Sonnet 5 is in every reader's list, so a list of more is a reader who holds a role.
+  function hasRole(held){ return held.length > 1; }
+  // A model by its label where the table knows it, by its id where it does not, and the effort.
+  function chosenText(model, effort){
+    var m = CHAT_MODELS.filter(function(x){ return x.id === model; })[0];
+    return strings(langNow()).keys.chosen.replace("{model}", m ? m.label : model).replace("{effort}", effort);
+  }
+  function choose(kind, value){
+    var c = chosen(false);
+    if (!c) return;
+    c[kind] = value;
+    try { localStorage.setItem(CHOICE_KEY, JSON.stringify(c)); } catch (e) {}
+    keysLine();
+  }
+  // /model or /effort, signed in: the menu, headed as the intro heads its groups, the current
+  // row ticked. A row picked, by its number or a click, is the choice; the menu is then spent
+  // and a number picks from whatever menu stood before it.
+  function chooser(kind){
+    var c = chosen(false), s = strings(langNow());
+    var values = kind === "model" ? grantedModels(claimsOf(signedIn().id), SITE.org, SITE.prefix) : CHAT_EFFORTS;
+    var labels = values.map(function(v){ return kind === "model" ? CHAT_MODELS.filter(function(m){ return m.id === v; })[0].label : v; });
+    var box = el("div", "rbchat-choose"), head = el("p", "rbchat-label", s.menu[kind]);
+    head.setAttribute("data-menu", kind);
+    box.appendChild(head);
+    var was = menuChoice && menuChoice.rows === menuRows ? menuChoice.was : menuRows;
+    var m = menu(box, values.map(function(v, i){ return [labels[i], null, { current: v === c[kind], pick: function(){ picks(v); } }]; }), 0);
+    function picks(v){
+      choose(kind, v);
+      m.classList.add("rbchat-spent");
+      if (menuChoice && menuChoice.rows === menuRows && menuChoice.menu === m) { menuRows = menuChoice.was; menuChoice = null; }
+      keysLine();
+    }
+    log.appendChild(box); log.scrollTop = log.scrollHeight;
+    menuRows = labels;
+    menuChoice = { rows: labels, was: was, menu: m, values: values, pick: picks };
+    keysLine();
+  }
+  // The model and effort that answered, beside the cite line, or on a line of their own under an
+  // answer that cited nothing; the server names them in `done.by`, and an older one names none.
+  function byOf(data){ return data && data.by && typeof data.by.model === "string" && typeof data.by.effort === "string" ? { model: data.by.model, effort: data.by.effort } : null; }
+  function byMark(ans, line, by){
+    var b = el("span", "rbchat-by", chosenText(by.model, by.effort));
+    if (!line) { line = el("p", "rbchat-cites"); ans.appendChild(line); }
+    else line.appendChild(document.createTextNode(" \u00b7 "));
+    line.appendChild(b);
+  }
+  function b64url(bytes){
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  // To the hosted login: a verifier of 32 random bytes, its SHA-256 as the challenge, a random
+  // state, and the path the reader is on, all kept in the tab for the way back. The conversation
+  // is kept first, so the page the reader returns to draws it again. A tab that cannot keep the
+  // verifier could not finish the sign-in, so it does not start one.
+  // The verifier is kept only once its challenge is made, so a /login that fails leaves nothing.
+  function login(){
+    var verifier, state, digest, path = location.pathname + location.search + location.hash;
+    try {
+      verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
+      state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+      digest = crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+    } catch (e) { refuse("internal"); return; }
+    digest.then(function(h){
+      try { sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier: verifier, state: state, path: path })); }
+      catch (e) { refuse("internal"); return; }
+      keep();
+      location.assign(authorizeUrl(SITE, b64url(new Uint8Array(h)), state, REDIRECT));
+    }, function(){ refuse("internal"); });
+  }
+  // Both tokens forgotten here, then the session ended at the service, which sends the reader
+  // back to the site's root, where the conversation is drawn again from the tab.
+  function logout(){
+    var s = signedIn();
+    forget();
+    keep();
+    var q = [["client_id", SITE.client]].concat(s && s.id ? [["id_token_hint", s.id]] : []).concat([["post_logout_redirect_uri", REDIRECT]]);
+    location.assign(SITE.issuer + "/oidc/v1/end_session?" + q.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&"));
+  }
+  // The address without what the login came back with: the code and state, or the error.
+  function unreturned(){
+    var rest = location.search.replace(/^\?/, "").split("&").filter(function(p){ return p && !/^(?:code|state|error|error_description|error_uri)(?:=|$)/.test(p); });
+    return location.pathname + (rest.length ? "?" + rest.join("&") : "") + location.hash;
+  }
+  // Where the reader signed in from, on this site: a kept path that is not a path on this
+  // origin, `@host/…` or `//host/…`, which joined to the origin would name another host, is
+  // the root instead.
+  function keptTarget(path){
+    var to = location.origin + (typeof path === "string" && /^\/(?!\/)/.test(path) ? path : "/");
+    try { if (new URL(to).origin === location.origin) return to; } catch (e) {}
+    return location.origin + "/";
+  }
+  // Back to that path: in place where it is this page, by a new load where it is another. A
+  // canceled sign-in is said on the page the reader lands on, so where that is another page
+  // the tab carries the word there in `chat-pkce`, which that page reads and removes.
+  function toKept(path, canceled){
+    var to = keptTarget(path);
+    if (new URL(to).pathname !== location.pathname) {
+      if (canceled) { try { sessionStorage.setItem(PKCE_KEY, JSON.stringify({ canceled: true })); } catch (e) {} }
+      location.replace(to);
+      return;
+    }
+    try { history.replaceState(null, "", to); } catch (e) {}
+    if (!panel || panel.hidden) open();
+    keysLine();
+    if (canceled) refuse("signed_out");
+  }
+  // A canceled sign-in another page sent the reader here from, said once.
+  function owedCancel(){
+    try {
+      var k = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null");
+      if (!k || k.canceled !== true) return false;
+      sessionStorage.removeItem(PKCE_KEY);
+      return true;
+    } catch (e) { return false; }
+  }
+  // Back from the login. A return whose state is not the one this tab sent is no sign-in of
+  // this reader's: it is dropped, the code with it, and nothing is exchanged. One that matches
+  // is exchanged once at the token endpoint, the verifier proving it is the page that asked, and
+  // the reader is taken back to the path they signed in from: in place where the login sent them
+  // back to that page, by a new load where it is another, as it is from any page but the root.
+  // An error return is the reader not signed in: it is said, and where its state is this tab's
+  // the reader goes back to where they were.
+  function back(got){
+    var kept = null;
+    try { kept = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null"); sessionStorage.removeItem(PKCE_KEY); } catch (e) {}
+    try { history.replaceState(null, "", unreturned()); } catch (e) {}
+    var ours = !!kept && typeof kept.state === "string" && kept.state === got.state;
+    if (got.error !== undefined) {
+      if (ours) { toKept(kept.path, true); return; }
+      if (!panel || panel.hidden) open();
+      refuse("signed_out");
+      return;
+    }
+    if (!ours || typeof kept.verifier !== "string") return;
+    var form = [["grant_type", "authorization_code"], ["code", got.code], ["redirect_uri", REDIRECT], ["client_id", SITE.client], ["code_verifier", kept.verifier]];
+    fetch(SITE.issuer + "/oauth/v2/token", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&") })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || typeof j.access_token !== "string" || !j.access_token) throw new Error("no token");
+        try { localStorage.setItem(SIGNIN_KEY, JSON.stringify({ access: j.access_token, id: typeof j.id_token === "string" ? j.id_token : "" })); } catch (e) {}
+        toKept(kept.path, false);
+      })
+      .catch(function(){ if (!panel || panel.hidden) open(); refuse("signed_out"); });
+  }
+
   // The request on its way, so starting over can end it: `reqGen` names the latest, and a
   // request that is no longer it touches nothing when it answers, fails or times out.
   var reqGen = 0, stopRequest = null;
@@ -2274,8 +2614,32 @@
     var cmd = command(typed);
     if (cmd === "new") { input.value = ""; reset(); return; }
     if (cmd === "help") { input.value = ""; help(); return; }
+    // The sign-in's words are the panel's only where the tag names an identity service; without
+    // one they are sent as any question is, as they were before there was a sign-in.
+    if (SITE && cmd === "login") { input.value = ""; login(); return; }
+    if (SITE && cmd === "logout") { input.value = ""; logout(); return; }
+    if (SITE && (cmd === "model" || cmd === "effort")) {
+      input.value = "";
+      // /effort is offered only to a reader a role grants a model, since the server answers a
+      // reader with none at `low` alone; they are told so in a line, and nothing is drawn.
+      var signer = signedIn();
+      if (!signer) hint(strings(langNow()).signInHint);
+      else if (cmd === "effort" && !hasRole(grantedModels(claimsOf(signer.id), SITE.org, SITE.prefix))) hint(strings(langNow()).effortHint);
+      else chooser(cmd);
+      return;
+    }
     var text = picked(typed, menuRows);
+    // A number that picks a row of the model or effort menu is the choice, and nothing is sent.
+    if (menuChoice && menuChoice.rows === menuRows && text !== typed) { input.value = ""; menuChoice.pick(menuChoice.values[menuRows.indexOf(text)]); return; }
     if (text.length > LIMIT) { refuse("too_long"); return; }
+    // A sign-in whose access token has lapsed is not sent, nor sent without it: the reader is
+    // asked to sign in again, and the question stays in the line and the conversation as it was.
+    var token = signedIn();
+    if (token && lapsed(token.access, Date.now())) { refuse("signed_out"); return; }
+    // The model and effort it goes with, a visitor's none; above `low` to the host's own address
+    // where the tag names one, and given the time a long answer takes.
+    var choice = token ? chosen(true) : null, high = !!choice && choice.effort !== CHAT_EFFORTS[0];
+    var to = high && DIRECT ? DIRECT : ENDPOINT;
     // The menus above stay, dimmed, and their rows still send; the next answer draws its own.
     spend(); qBox = null;
     reading = null;
@@ -2296,15 +2660,15 @@
     log.appendChild(wait); log.scrollTop = log.scrollHeight;
     var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
     ans.appendChild(body);
-    var acc = "", cites = [], names = [], cut = false, pictures = [], verdict = null, errored = false, ended = false, spoke = null;
+    var acc = "", cites = [], names = [], cut = false, pictures = [], verdict = null, errored = false, ended = false, spoke = null, by = null;
     function render(){ body.innerHTML = md(acc); numberColumns(body); }
     function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
     // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
-    // the request goes out, the controller aborts it, and the abort reaches the existing
-    // .catch below exactly as a network failure does.
+    // the request goes out, fifteen minutes above `low`, the controller aborts it, and the abort
+    // reaches the existing .catch below exactly as a network failure does.
     var ac = new AbortController();
-    var timer = setTimeout(function(){ ac.abort(); }, TIMEOUT);
+    var timer = setTimeout(function(){ ac.abort(); }, high ? LONG : TIMEOUT);
     var gen = ++reqGen;
     stopRequest = function(){ clearTimeout(timer); stopSpin(); ac.abort(); };
     function finish(){
@@ -2343,7 +2707,8 @@
       var checked = ended && !errored ? verdict : null;
       var marked = markClaims(body, acc, checked);
       if (marked) ans.appendChild(claimLine(marked));
-      if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
+      var line = cites.length ? ans.appendChild(citeLine(cites, MODEL, ICON, document)) : null;
+      if (by) byMark(ans, line, by);
       var sha = commitOf(cites);
       if (sha) ans.appendChild(modelLine(sha, String(Math.max(1, Math.round((Date.now() - t0) / 1000)))));
       log.scrollTop = log.scrollHeight;
@@ -2352,13 +2717,17 @@
       setTimeout(function(){ if (say) say.textContent = said; }, 60);
       stopRequest = null;
       messages.push({ role: "assistant", content: acc });
-      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagrams: pictures, verdict: checked, lang: spoke });
+      turns.push({ role: "assistant", content: acc, cites: cites, names: names, diagrams: pictures, verdict: checked, lang: spoke, by: by });
       ans.setAttribute("data-turn", turns.length - 1);
       keep();
       busy = false;
       input.disabled = false; if (refocus(window)) input.focus(); offerQuestions();
     }
-    fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json", "X-Chat": "1" }, signal: ac.signal, body: JSON.stringify({ messages: messages.slice(-SENT), lang: langNow() }) })
+    var headers = { "content-type": "application/json", "X-Chat": "1" };
+    if (token) headers.Authorization = "Bearer " + token.access;
+    var sent = { messages: messages.slice(-SENT), lang: langNow() };
+    if (choice) { sent.model = choice.model; sent.effort = choice.effort; }
+    fetch(to, { method: "POST", headers: headers, signal: ac.signal, body: JSON.stringify(sent) })
       .then(function(r){
         if (r.status !== 200) {
           // The body is read for its code and, on the three limits, the moment the limit
@@ -2370,6 +2739,12 @@
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false;
+              // The server no longer takes the token: it is forgotten, and the next message goes
+              // as a visitor's until the reader signs in again.
+              if (got.code === "signed_out") forget();
+              // A model the sign-in does not grant: the question goes back into the line, to be
+              // sent again once another is chosen.
+              if (got.code === "not_granted" && !input.value) input.value = text;
               refuse(got.code, got.retryAt);
             });
         }
@@ -2383,7 +2758,7 @@
             pictures.push(data);
           }
           else if (name === "verdict" && data && Array.isArray(data.claims)) verdict = data;
-          else if (name === "done") { cut = !!data.cut; ended = true; spoke = data && typeof data.lang === "string" ? data.lang : null; }
+          else if (name === "done") { cut = !!data.cut; ended = true; spoke = data && typeof data.lang === "string" ? data.lang : null; by = byOf(data); }
           else if (name === "error") {
             var code = data && data.error && data.error.code, at = data && data.error && data.error.retryAt;
             if (!acc.trim()) {
@@ -2444,12 +2819,13 @@
       placeFigures(ans, body, diagrams);
       var restored = markClaims(body, t.content, t.verdict || null);
       if (restored) ans.appendChild(claimLine(restored));
-      if (cites.length) ans.appendChild(citeLine(cites, MODEL, ICON, document));
+      var line = cites.length ? ans.appendChild(citeLine(cites, MODEL, ICON, document)) : null, by = byOf(t);
+      if (by) byMark(ans, line, by);
       // A restored answer has no timing to name, so its line names the commit alone.
       var sha = commitOf(cites);
       if (sha) ans.appendChild(modelLine(sha, null));
       messages.push({ role: "assistant", content: t.content });
-      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagrams: diagrams, verdict: t.verdict || null, lang: typeof t.lang === "string" ? t.lang : null });
+      turns.push({ role: "assistant", content: t.content, cites: cites, names: t.names || [], diagrams: diagrams, verdict: t.verdict || null, lang: typeof t.lang === "string" ? t.lang : null, by: by });
     });
     // The rows the last answer offered, drawn now with the rest: read again from the model file
     // they would stand a moment after the page shows, push the log up, and differ on every page.
@@ -2480,4 +2856,7 @@
     if (!refocus(window)) { input.blur(); return; }
     if (askEl) askEl.querySelector(".rbchat-ask-go").focus({ preventScroll: true });
   })();
+  // Last, once the conversation the tab kept is drawn, so the panel it opens holds it.
+  if (came) back(came);
+  else if (SITE && owedCancel()) { if (!panel || panel.hidden) open(); refuse("signed_out"); }
 })();
