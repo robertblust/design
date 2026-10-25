@@ -260,7 +260,7 @@ test("roleLessReaderNoEffort: without a role /effort draws no menu but a hint, a
   assert.equal(await p.$eval(".rbchat-hint", (h) => h.textContent), "The effort can be chosen once your sign-in grants a model.");
   assert.equal(await menus(p), n, "no effort menu");
   const de = await p.evaluate(() => window.rbChat.strings("de").effortHint);
-  assert.equal(de, "Den Aufwand können Sie wählen, sobald Ihre Anmeldung ein Modell erlaubt.");
+  assert.equal(de, "Den Aufwand kannst du wählen, sobald deine Anmeldung ein Modell erlaubt.");
   await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-sonnet-5", effort: "high" })));
   await ask(p, "What is an owner?");
   assert.equal(posted.length, 1);
