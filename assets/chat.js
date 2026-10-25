@@ -189,11 +189,14 @@
       }
     },
     // German: drafts for the translator of conventions/TRANSLATOR.md, to be made from the
-    // reviewed English.
+    // reviewed English. The chat says du, not Sie, by the owner's choice and against WRITING.md's
+    // rule for pages, because the sign-in it sends a reader to, id.blust.ch, says du, and the
+    // chat's answers do too (companygraph/chat-server's prompt): a reader meets one form from
+    // the panel to the login and back, while the page around the panel keeps Sie.
     de: {
       open: "Das Modell fragen", close: "Schliessen", title: "Das Modell fragen", size: "Grösse des Chats ändern",
-      placeholder: "Fragen Sie das Modell…", waiting: "Wird gefragt…",
-      ai: "Hier antwortet eine KI, keine Person.", notice: "Ihre Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn Sie auf Senden drücken. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn Sie den Tab schliessen.",
+      placeholder: "Frag das Modell…", waiting: "Wird gefragt…",
+      ai: "Hier antwortet eine KI, keine Person.", notice: "Deine Nachricht und der bisherige Verlauf gehen an {host}, das das Modell und Claude über Anthropics API fragt. Gesendet wird erst, wenn du auf Senden drückst. Das Gespräch bleibt in diesem Tab, ist also auf der nächsten Seite noch da, und endet, wenn du den Tab schliesst.",
       privacy: "Datenschutz", privacyHref: "/privacy/", from: "Aus dem Modell",
       questions: "Fragen für den Einstieg", next: "Weitere Fragen",
       follow: { schema: "Zeig mir das Schema von {title} ({type})", neighbors: "Zeig mir die Nachbarn von {title}", more: "Erzähl mir mehr über {title}" },
@@ -208,10 +211,10 @@
       claimsOne: "Eine Aussage in dieser Antwort ist durch die Seiten des Modells nicht vollständig belegt.", claimsMany: "{n} Aussagen in dieser Antwort sind durch die Seiten des Modells nicht vollständig belegt.",
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
       menu: { model: "Modell wählen", effort: "Aufwand wählen" },
-      signInHint: "Melden Sie sich mit /login an, um ein Modell zu wählen.",
-      effortHint: "Den Aufwand können Sie wählen, sobald Ihre Anmeldung ein Modell erlaubt.",
-      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "Ihre letzte Frage zurück in die Zeile"]],
-      tryLabel: "Probieren Sie", askNext: "Fragen Sie weiter",
+      signInHint: "Melde dich mit /login an, um ein Modell zu wählen.",
+      effortHint: "Den Aufwand kannst du wählen, sobald deine Anmeldung ein Modell erlaubt.",
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "deine letzte Frage zurück in die Zeile"]],
+      tryLabel: "Probier mal", askNext: "Frag weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
       graph: { head: "Graph · {title}", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
       try: {
@@ -224,27 +227,27 @@
         list: "Liste {list} als Tabelle auf", listGets: "eine Zeile je Eintrag, jeder Name ein Link ins Modell",
         lists: { kpi: "die KPIs", seat: "die Sitze", product: "die Produkte", decision: "die Entscheide", value: "die Werte" }
       },
-      again: { sentence: "Sie können {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
+      again: { sentence: "Du kannst {when} wieder fragen.", minute: "in einer Minute", minutes: "in {n} Minuten", at: "um {time}", tomorrow: "morgen um {time}", day: "am {day} um {time}" },
       github: "{title} auf GitHub", commit: "Commit {sha}",
       modalClose: "Schliessen \u00b7 Esc",
-      ask: { from: "Der Link, den Sie geöffnet haben, enthält diese Frage:", label: "Eine Frage aus dem Link, den Sie geöffnet haben", send: "Senden", edit: "Bearbeiten", discard: "Verwerfen" },
+      ask: { from: "Der Link, den du geöffnet hast, enthält diese Frage:", label: "Eine Frage aus dem Link, den du geöffnet hast", send: "Senden", edit: "Bearbeiten", discard: "Verwerfen" },
       diagram: { concepts: "Konzepte", process: "Prozess", neighborhood: "Verbindungen", schema: "Meta-Modell", context: "Context Map", aggregate: "Aggregat", flow: "Ablauf", lifecycle: "Lebenszyklus", organization: "Organisation", system: "Landschaft", holds: "Datenbestand", usecase: "Anwendungsfall", scenario: "Szenario", requirements: "Anforderungen", reading: { context: "Einfache Pfeile laufen vom Upstream- zum Downstream-Kontext; jeder Pfeil nennt das Muster zwischen den beiden Kontexten.", aggregate: "Die Wurzel des Aggregats hält, was die Rauten verbinden; die gestrichelten Pfeile sind die Ereignisse, die sie auslöst.", flow: "Durchgezogene Pfeile sind Befehle an das Aggregat, gestrichelte die Ereignisse, die es auslöst; ein Kasten nennt die Bedingung jedes Zweigs.", lifecycle: "Jeder Pfeil ist ein Schritt von einem Zustand zum nächsten, beschriftet mit dem Befehl, der ihn auslöst, wo es einen gibt.", organization: "Durchgezogene Pfeile laufen von einer Führungskraft zu den Führungskräften darunter; eine gestrichelte Linie verbindet eine Stabsstelle mit der Leitung, der sie zuarbeitet; ein gestrichelter Kasten ist eine offene Stelle, neben einer Führungskraft die Suche nach ihrer Nachfolge; Software-Agenten stehen im farbig hinterlegten Rahmen, und ein gepunkteter Pfeil von einer Person zu einem Agenten sagt, wer ihn steuert; ein Agent ohne Pfeil wird von allen im Rahmen gesteuert.", system: "Durchgezogene Pfeile laufen vom System, aus dem die Daten stammen, zum System, das sie übernimmt, beschriftet mit der Schnittstelle und mit dem, was übertragen wird und wie; eine gepunktete Linie verbindet ein System mit dem, worauf es läuft; ein abgerundeter Kasten ist ein Service, den das System bereitstellt; ein Zylinder ist ein Datenbestand, den es hält – mit einem dicken Pfeil, wo seine Kopie führend ist, einem durchgezogenen, wo es schreibt, und einem gepunkteten, wo es nur liest.", holds: "Jeder Zylinder ist ein Datenbestand zum darunter genannten Konzept; ein dicker Pfeil markiert das System, dessen Kopie führend ist, ein durchgezogener ein System, das eine eigene Kopie schreibt, ein gepunkteter ein System, das nur liest.", usecase: "Der Rahmen ist der Geltungsbereich des Anwendungsfalls, und der Akteur steht ausserhalb; ein gestrichelter Pfeil läuft von einem Anwendungsfall zu einem anderen, den seine Schritte einbinden, ein durchgezogener zu einem Feature, von dem er etwas verlangt; ein Sechseck ist eine Anforderung, die für den Anwendungsfall gilt, mit dickem Rand, wo sie «muss» sagt, und gestricheltem, wo sie «darf» sagt.", scenario: "Der abgerundete Kasten ist der Auslöser; die Kästen sind die Schritte in ihrer Reihenfolge, und jeder nennt, wer handelt; ein gestrichelter Kasten ist eine Erweiterung: zuerst die Bedingung, dann, was geschieht.", requirements: "Ein Sechseck ist eine Anforderung, mit dickem Rand, wo sie «muss» sagt, und gestricheltem, wo sie «darf» sagt; der Rahmen um sie nennt ihre Art; ein Pfeil läuft zu dem, wofür sie gilt, ein gepunkteter zu einer Regel, der sie folgt." }, expand: "Im Vollbild öffnen", shut: "Vollbild schliessen", zoomIn: "Vergrössern", zoomOut: "Verkleinern", fit: "Einpassen", fitTip: "Auf den Bildschirm einpassen", failed: "Das Diagramm konnte nicht gezeichnet werden; dies ist seine Quelle." },
       refusal: {
         too_long: "Diese Nachricht ist länger als 1’000 Zeichen.",
-        too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginnen Sie ein neues.",
-        busy: "Im Moment zu viele Nachrichten; versuchen Sie es später wieder.",
+        too_much: "Das Gespräch ist zu lang geworden, um es zu senden; beginne ein neues.",
+        busy: "Im Moment zu viele Nachrichten; versuche es später wieder.",
         over_day: "Der heutige Anteil an Antworten ist aufgebraucht; morgen gibt es mehr.",
         over_month: "Der Anteil dieses Monats an Antworten ist aufgebraucht.",
         closed: "Der Chat ist zurzeit abgeschaltet.",
-        host_down: "Der Host des Modells hat nicht geantwortet; versuchen Sie es gleich wieder.",
+        host_down: "Der Host des Modells hat nicht geantwortet; versuche es gleich wieder.",
         foreign: "Diese Seite darf den Chat nicht nutzen.",
         bad_request: "Das konnte nicht als Nachricht gesendet werden.",
-        internal: "Unterwegs ist etwas schiefgegangen; versuchen Sie es noch einmal.",
-        network: "Der Chat war nicht erreichbar; prüfen Sie die Verbindung und versuchen Sie es wieder.",
-        not_granted: "Ihre Anmeldung erlaubt dieses Modell nicht.",
-        signed_out: "Sie sind abgemeldet; melden Sie sich mit /login wieder an.",
-        over_user_month: "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht; melden Sie sich mit /logout ab, um als Gast weiterzufragen.",
-        declined: "Dieses Modell hat die Antwort auf diese Nachricht abgelehnt; formulieren Sie sie anders."
+        internal: "Unterwegs ist etwas schiefgegangen; versuche es noch einmal.",
+        network: "Der Chat war nicht erreichbar; prüfe die Verbindung und versuche es wieder.",
+        not_granted: "Deine Anmeldung erlaubt dieses Modell nicht.",
+        signed_out: "Du bist abgemeldet; melde dich mit /login wieder an.",
+        over_user_month: "Dein Anteil an Antworten in diesem Monat ist aufgebraucht; melde dich mit /logout ab, um als Gast weiterzufragen.",
+        declined: "Dieses Modell hat die Antwort auf diese Nachricht abgelehnt; formuliere sie anders."
       }
     }
   };

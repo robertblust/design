@@ -477,7 +477,7 @@ test("the next menu's label is Ask next, and a language switch relabels the answ
   await p.evaluate(() => { document.documentElement.lang = "de"; });
   await p.waitForFunction(() => document.querySelector(".rbchat-done").textContent === "✓ beantwortet");
   assert.match(await p.$eval(".rbchat-model", (m) => m.textContent), /^Modell 3f2a1c9/);
-  assert.equal(await p.$eval(".rbchat-next .rbchat-label", (l) => l.textContent), "Fragen Sie weiter");
+  assert.equal(await p.$eval(".rbchat-next .rbchat-label", (l) => l.textContent), "Frag weiter");
   await close();
 });
 

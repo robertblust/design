@@ -229,11 +229,11 @@ test("later the same local day is a time, tomorrow is named, and a later day car
 });
 
 test("the moment is written in German the same way, and an unknown language reads as English", () => {
-  assert.equal(when(plus(30 * 1000), NOW, "de", ZH), "Sie können in einer Minute wieder fragen.");
-  assert.equal(when(plus(12 * 60 * 1000), NOW, "de", ZH), "Sie können in 12 Minuten wieder fragen.");
-  assert.equal(when(plus(2 * 60 * 60 * 1000 + 35 * 60 * 1000), NOW, "de", ZH), "Sie können um 14:35 wieder fragen.");
-  assert.equal(when("2026-09-24T00:00:00Z", NOW, "de", ZH), "Sie können morgen um 02:00 wieder fragen.");
-  assert.equal(when("2026-10-01T00:00:00Z", NOW, "de", ZH), "Sie können am Donnerstag um 02:00 wieder fragen.");
+  assert.equal(when(plus(30 * 1000), NOW, "de", ZH), "Du kannst in einer Minute wieder fragen.");
+  assert.equal(when(plus(12 * 60 * 1000), NOW, "de", ZH), "Du kannst in 12 Minuten wieder fragen.");
+  assert.equal(when(plus(2 * 60 * 60 * 1000 + 35 * 60 * 1000), NOW, "de", ZH), "Du kannst um 14:35 wieder fragen.");
+  assert.equal(when("2026-09-24T00:00:00Z", NOW, "de", ZH), "Du kannst morgen um 02:00 wieder fragen.");
+  assert.equal(when("2026-10-01T00:00:00Z", NOW, "de", ZH), "Du kannst am Donnerstag um 02:00 wieder fragen.");
   assert.equal(when(plus(12 * 60 * 1000), NOW, "fr", ZH), when(plus(12 * 60 * 1000), NOW, "en", ZH));
 });
 
@@ -248,7 +248,7 @@ test("a moment in the past, an unreadable one and a missing one give no sentence
 test("a refusal without the field is the plain sentence, and with it the sentence ends with the moment", () => {
   assert.equal(refusalText("over_day", undefined, NOW, "en", ZH), strings("en").refusal.over_day);
   assert.equal(refusalText("over_day", "2026-09-24T00:00:00Z", NOW, "en", ZH), strings("en").refusal.over_day + " You can ask again tomorrow at 02:00.");
-  assert.equal(refusalText("busy", plus(12 * 60 * 1000), NOW, "de", ZH), strings("de").refusal.busy + " Sie können in 12 Minuten wieder fragen.");
+  assert.equal(refusalText("busy", plus(12 * 60 * 1000), NOW, "de", ZH), strings("de").refusal.busy + " Du kannst in 12 Minuten wieder fragen.");
   assert.equal(refusalText("busy", "soon", NOW, "en", ZH), strings("en").refusal.busy, "an unreadable moment is no moment");
   assert.equal(refusalText("foreign", plus(60000), NOW, "en", ZH), strings("en").refusal.foreign + " You can ask again in a minute.", "the field is trusted wherever the server sends it");
   assert.equal(refusalText("no_such_code", undefined, NOW, "en", ZH), strings("en").refusal.internal, "an unknown code still falls back");
@@ -962,7 +962,7 @@ test("the four sign-in refusals read in both languages, and the monthly one name
 
 test("a reader whose own month is spent is told /logout keeps them asking as a visitor", () => {
   assert.equal(strings("en").refusal.over_user_month, "Your share of answers this month is spent; sign out with /logout to keep asking as a visitor.");
-  assert.equal(strings("de").refusal.over_user_month, "Ihr Anteil an Antworten in diesem Monat ist aufgebraucht; melden Sie sich mit /logout ab, um als Gast weiterzufragen.");
+  assert.equal(strings("de").refusal.over_user_month, "Dein Anteil an Antworten in diesem Monat ist aufgebraucht; melde dich mit /logout ab, um als Gast weiterzufragen.");
 });
 
 test("a bare number picks its row, and anything else is sent as typed", () => {
@@ -1289,4 +1289,11 @@ test("a use case's three pictures are captioned and have reading lines in both l
 
 test("the German is the translator's: a use case's reading lines are no placeholder", () => {
   for (const shape of ["usecase", "scenario", "requirements"]) assert.doesNotMatch(strings("de").diagram.reading[shape], /PROVISIONAL/, `${shape}: the German is the translator's, made from the reviewed English`);
+});
+
+test("the German strings say du, never Sie, as the sign-in at id.blust.ch does", () => {
+  const all = [];
+  (function walk(v) { if (typeof v === "string") all.push(v); else if (v && typeof v === "object") Object.values(v).forEach(walk); })(strings("de"));
+  assert.ok(all.length > 50, "the walk reaches the German strings");
+  assert.deepEqual(all.filter((s) => /\b(Sie|Ihr|Ihre|Ihren|Ihrem|Ihrer|Ihres|Ihnen)\b/.test(s)), []);
 });
