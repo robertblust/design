@@ -1,7 +1,8 @@
 // Signing in and out from the chat's command line, in Chromium, against a stand-in for ZITADEL on
 // an origin of its own (fixtures/issuer.mjs): /login goes to the hosted login with a PKCE
 // challenge and comes back to the page it left, signed in; every message after carries the access
-// token; /logout forgets both tokens and ends the session; a token that has lapsed is not sent.
+// token; /logout forgets both tokens and ends the session; a token that has lapsed is not sent,
+// and the question goes as a visitor's under a line that Sonnet 5 answers.
 // Without data-issuer the four words are not the panel's and nothing of this happens.
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -169,44 +170,51 @@ test("/logout forgets the tokens, ends the session at the issuer, and the next m
   await context.close();
 });
 
-test("a lapsed token is not sent: the panel offers /login, the question stays in the line, and the conversation outlives signing in again", async () => {
+test("a lapsed token is not sent: the sign-in is forgotten, a line says Sonnet 5 answers, the question goes as a visitor's, and the conversation outlives signing in again", async () => {
   const { page: p, context } = await arrive("/deep/page");
   await login(p);
+  await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-opus-5-5", effort: "low" })));
   await ask(p, "What is an owner?");
   const lapsed = issuer.mint(-60);
   await p.evaluate((t) => { const s = JSON.parse(localStorage.getItem("chat-signin")); s.access = t; localStorage.setItem("chat-signin", JSON.stringify(s)); }, lapsed);
   await ask(p, "And who leads it?");
-  assert.equal(posted.length, 1, "nothing sent with a lapsed token");
-  assert.match(await p.$eval(".rbchat-refusal", (r) => r.textContent), /You are signed out; sign in again with \/login\./);
-  assert.equal(await p.$eval("section.rbchat textarea", (t) => t.value), "And who leads it?");
-  assert.deepEqual(await p.$$eval(".rbchat-user", (u) => u.map((x) => x.textContent)), ["What is an owner?"], "the conversation is as it was");
+  assert.equal(posted.length, 2, "the question is sent");
+  assert.equal(posted[1].authorization, null, "without the lapsed token");
+  assert.equal(posted[1].body.model, undefined, "as a visitor's, with no model");
+  assert.equal(await signin(p), null);
+  assert.equal(await p.$$eval(".rbchat-refusal", (r) => r.length), 0);
+  assert.equal(await p.$eval(".rbchat-hint", (h) => h.textContent), "Your sign-in has expired, so Sonnet 5 answers now. Sign in again with /login to choose a model.");
+  assert.doesNotMatch(await p.$eval(".rbchat-keys", (k) => k.textContent), /Tëst Reader|Opus/);
+  assert.deepEqual(await p.$$eval(".rbchat-user[data-turn]", (u) => u.map((x) => x.textContent)), ["What is an owner?", "And who leads it?"]);
   await login(p);
   // The return lands on / and then goes back to the page it left; the name shows on both, so the
   // address is read only once the page has arrived, or the read meets the navigation.
   await p.waitForURL((u) => u.pathname === "/deep/page");
   await p.waitForSelector("section.rbchat:not([hidden]) textarea");
   assert.equal(await where(p), "/deep/page");
-  assert.deepEqual(await p.$$eval(".rbchat-user[data-turn]", (u) => u.map((x) => x.textContent)), ["What is an owner?"]);
-  assert.equal(await p.$$eval(".rbchat-assistant", (a) => a.length), 1);
-  await ask(p, "And who leads it?");
-  assert.equal(posted.length, 2);
-  assert.equal(posted[1].authorization, "Bearer " + (await signin(p)).access);
+  assert.equal(await p.$$eval(".rbchat-assistant", (a) => a.length), 2);
+  await ask(p, "Once more?");
+  assert.equal(posted.length, 3);
+  assert.equal(posted[2].authorization, "Bearer " + (await signin(p)).access);
   assert.notEqual((await signin(p)).access, lapsed);
-  assert.deepEqual(posted[1].body.messages.map((m) => m.content), ["What is an owner?", "An answer.", "And who leads it?"]);
+  assert.deepEqual(posted[2].body.messages.map((m) => m.content), ["What is an owner?", "An answer.", "And who leads it?", "An answer.", "Once more?"]);
   await context.close();
 });
 
-test("a 401 signed_out from the chat forgets the sign-in and keeps the conversation", async () => {
+test("a 401 signed_out from the chat forgets the sign-in, says Sonnet 5 answers, and sends the question again as a visitor's", async () => {
   const { page: p, context } = await arrive("/");
   await login(p);
   await ask(p, "What is an owner?");
   answer = { status: 401, body: { error: { code: "signed_out" } } };
   await ask(p, "And who leads it?");
   assert.equal(await signin(p), null);
-  assert.match(await p.$eval(".rbchat-refusal", (r) => r.textContent), /You are signed out/);
-  assert.deepEqual(await p.$$eval(".rbchat-user[data-turn]", (u) => u.map((x) => x.textContent)), ["What is an owner?"]);
-  await ask(p, "Once more?");
-  assert.equal(posted.at(-1).authorization, null);
+  assert.equal(await p.$$eval(".rbchat-refusal", (r) => r.length), 0);
+  assert.match(await p.$eval(".rbchat-hint", (h) => h.textContent), /Your sign-in has expired, so Sonnet 5 answers now\./);
+  assert.equal(posted.length, 3, "refused once, then sent again");
+  assert.match(posted[1].authorization, /^Bearer /);
+  assert.equal(posted[2].authorization, null);
+  assert.deepEqual(posted[2].body.messages.map((m) => m.content), ["What is an owner?", "An answer.", "And who leads it?"]);
+  assert.deepEqual(await p.$$eval(".rbchat-user", (u) => u.map((x) => x.textContent)), ["What is an owner?", "And who leads it?"], "the question shows once");
   await context.close();
 });
 
