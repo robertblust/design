@@ -953,7 +953,7 @@ test("the four sign-in refusals read in both languages, and the monthly one name
     }
     for (const k of ["login", "logout", "model", "effort"]) assert.ok(strings(lang).help.some((r) => r[0] === "/" + k), `${lang} help /${k}`);
     const s = strings(lang);
-    for (const v of [s.keys.chosen, s.menu.model, s.menu.effort, s.signInHint]) assert.ok(v, lang);
+    for (const v of [s.keys.chosen, s.menu.model, s.menu.effort, s.signInHint, s.lapsedHint]) assert.ok(v, lang);
     assert.match(s.keys.chosen, /\{model\}.*\{effort\}/);
   }
   assert.match(refusalText("over_user_month", "2026-10-01T00:00:00Z", Date.parse("2026-09-23T10:00:00Z"), "en", ZH), /You can ask again on \w+ at/);

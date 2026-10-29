@@ -106,7 +106,9 @@
 // root with a code; wherever the widget then runs, it checks the state, exchanges the code and
 // returns to that path. The access token and the ID token are kept in the browser under
 // `chat-signin`, every message after carries the access token as `Authorization: Bearer`, and
-// `/logout` forgets both and ends the session at the service. A tag without `data-issuer` offers
+// `/logout` forgets both and ends the session at the service. A token that has lapsed, or that
+// the host no longer takes, is forgotten too, and the message goes as a visitor's, which Sonnet 5
+// answers, under a line that says so. A tag without `data-issuer` offers
 // none of the four words, `/login`, `/logout`, `/model` and `/effort`, and sends them as it
 // sends any question.
 //
@@ -150,6 +152,7 @@
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help", chosen: "{model} · {effort}" },
       menu: { model: "Choose a model", effort: "Choose an effort" },
       signInHint: "Sign in with /login to choose a model.",
+      lapsedHint: "Your sign-in has expired, so {model} answers now. Sign in again with /login to choose a model.",
       effortHint: "The effort can be chosen once your sign-in grants a model.",
       help: [["/new", "start a new conversation (also /clear)"], ["/login", "sign in, to choose a model"], ["/logout", "sign out"], ["/model", "choose the model that answers"], ["/effort", "choose how long it thinks"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
@@ -212,6 +215,7 @@
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
       menu: { model: "Modell wählen", effort: "Aufwand wählen" },
       signInHint: "Melde dich mit /login an, um ein Modell zu wählen.",
+      lapsedHint: "Deine Anmeldung ist abgelaufen, darum antwortet jetzt {model}. Melde dich mit /login wieder an, um ein Modell zu wählen.",
       effortHint: "Den Aufwand kannst du wählen, sobald deine Anmeldung ein Modell erlaubt.",
       help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "deine letzte Frage zurück in die Zeile"]],
       tryLabel: "Probier mal", askNext: "Frag weiter",
@@ -2436,6 +2440,9 @@
     catch (e) { return null; }
   }
   function forget(){ try { localStorage.removeItem(SIGNIN_KEY); } catch (e) {} keysLine(); }
+  // A sign-in that no longer holds, lapsed here or refused by the host: it is forgotten, and a
+  // line says the conversation goes on with Sonnet 5, the model every visitor gets.
+  function fallBack(){ forget(); hint(strings(langNow()).lapsedHint.replace("{model}", CHAT_MODELS[0].label)); }
   // The reader's name, from the ID token: `name`, else `preferred_username`.
   function readerName(){
     var s = signedIn(), c = s && claimsOf(s.id);
@@ -2635,10 +2642,10 @@
     // A number that picks a row of the model or effort menu is the choice, and nothing is sent.
     if (menuChoice && menuChoice.rows === menuRows && text !== typed) { input.value = ""; menuChoice.pick(menuChoice.values[menuRows.indexOf(text)]); return; }
     if (text.length > LIMIT) { refuse("too_long"); return; }
-    // A sign-in whose access token has lapsed is not sent, nor sent without it: the reader is
-    // asked to sign in again, and the question stays in the line and the conversation as it was.
+    // A sign-in whose access token has lapsed is forgotten rather than sent: the reader is told
+    // so in a line, and the question goes as a visitor's, which Sonnet 5 answers.
     var token = signedIn();
-    if (token && lapsed(token.access, Date.now())) { refuse("signed_out"); return; }
+    if (token && lapsed(token.access, Date.now())) { fallBack(); token = null; }
     // The model and effort it goes with, a visitor's none; above `low` to the host's own address
     // where the tag names one, and given the time a long answer takes.
     var choice = token ? chosen(true) : null, high = !!choice && choice.effort !== CHAT_EFFORTS[0];
@@ -2742,9 +2749,13 @@
               if (ans.parentNode) ans.parentNode.removeChild(ans);
               unsend();
               busy = false; input.disabled = false;
-              // The server no longer takes the token: it is forgotten, and the next message goes
-              // as a visitor's until the reader signs in again.
-              if (got.code === "signed_out") forget();
+              // The server no longer takes the token: it is forgotten, the reader is told so, and
+              // the question goes again at once as a visitor's, its first bubble gone with it.
+              if (got.code === "signed_out") {
+                if (mine.parentNode) mine.parentNode.removeChild(mine);
+                fallBack(); input.value = text; send();
+                return;
+              }
               // A model the sign-in does not grant: the question goes back into the line, to be
               // sent again once another is chosen.
               if (got.code === "not_granted" && !input.value) input.value = text;
