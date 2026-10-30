@@ -106,9 +106,10 @@
 // root with a code; wherever the widget then runs, it checks the state, exchanges the code and
 // returns to that path. The access token and the ID token are kept in the browser under
 // `chat-signin`, every message after carries the access token as `Authorization: Bearer`, and
-// `/logout` forgets both and ends the session at the service. A token that has lapsed, or that
-// the host no longer takes, is forgotten too, and the message goes as a visitor's, which Sonnet 5
-// answers, under a line that says so. A tag without `data-issuer` offers
+// `/logout` forgets both and ends the session at the service. While the browser waits for the
+// service, which may be waking from zero, the spinner says where it is going. A token that has
+// lapsed, or that the host no longer takes, is forgotten too, and the message goes as a
+// visitor's, which Sonnet 5 answers, under a line that says so. A tag without `data-issuer` offers
 // none of the four words, `/login`, `/logout`, `/model` and `/effort`, and sends them as it
 // sends any question.
 //
@@ -146,7 +147,7 @@
       helloHost: ["Hello. I answer from the model of {host}, and link", "every entity I name back to where it is written."],
       sub: "chat · {host}", bar: "ask · {host}",
       prompt: "Type a question, a number, or /help",
-      asking: "asking the model", answered: "answered", model: "model {sha} · {secs}s",
+      asking: "asking the model", signingIn: "signing in at {host}", signingOut: "signing out at {host}", answered: "answered", model: "model {sha} · {secs}s",
       claim: { partial: ["Partly backed", "The model's pages say only part of this."], contradicted: ["Contradicted", "The model's pages say otherwise."], absent: ["Not backed", "The model's pages don't say this."], unsourced: ["Not backed", "No page the chat read says this."] },
       claimsOne: "1 statement here isn't fully backed by the model's pages.", claimsMany: "{n} statements here aren't fully backed by the model's pages.",
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help", chosen: "{model} · {effort}" },
@@ -209,7 +210,7 @@
       helloHost: ["Hallo. Ich antworte aus dem Modell von {host}", "und verlinke jede Entität, die ich nenne."],
       sub: "Chat · {host}", bar: "fragen · {host}",
       prompt: "Frage, Nummer oder /help tippen",
-      asking: "frage das Modell", answered: "beantwortet", model: "Modell {sha} · {secs}s",
+      asking: "frage das Modell", signingIn: "Anmeldung bei {host}", signingOut: "Abmeldung bei {host}", answered: "beantwortet", model: "Modell {sha} · {secs}s",
       claim: { partial: ["Teilweise belegt", "Die Seiten des Modells sagen das nur zum Teil."], contradicted: ["Widerspricht dem Modell", "Die Seiten des Modells sagen etwas anderes."], absent: ["Nicht belegt", "Die Seiten des Modells sagen das nicht."], unsourced: ["Nicht belegt", "Keine Seite, die der Chat gelesen hat, sagt das."] },
       claimsOne: "Eine Aussage in dieser Antwort ist durch die Seiten des Modells nicht vollständig belegt.", claimsMany: "{n} Aussagen in dieser Antwort sind durch die Seiten des Modells nicht vollständig belegt.",
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
@@ -2513,6 +2514,30 @@
     else line.appendChild(document.createTextNode(" \u00b7 "));
     line.appendChild(b);
   }
+  // The spinner under the log: a frame that turns and the seconds counted, after the words for
+  // what is awaited. It returns what stops it and takes it away.
+  function spinner(words){
+    var t0 = Date.now(), wait = el("p", "rbchat-spin"), frame = el("span", "rbchat-frame", "|"), secs = el("span", "rbchat-secs");
+    wait.appendChild(frame); wait.appendChild(document.createTextNode(" " + words + "\u2026 ")); wait.appendChild(secs);
+    log.appendChild(wait); log.scrollTop = log.scrollHeight;
+    var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
+    return function(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); };
+  }
+  // The trip to the identity service, waited for: it scales to zero and takes a while to wake, and
+  // until its page arrives this one stays, so the spinner says where the reader is going and the
+  // line takes nothing meanwhile. A page the back button brings back from the cache is the one
+  // that left, spinner and all, so it is given back its line.
+  var stopLeaving = null;
+  function leaving(words){
+    busy = true; input.disabled = true;
+    stopLeaving = spinner(words.replace("{host}", hostOf(SITE.issuer)));
+  }
+  window.addEventListener("pageshow", function(e){
+    if (!e.persisted || !stopLeaving) return;
+    stopLeaving(); stopLeaving = null;
+    busy = false; input.disabled = false;
+  });
+  function hostOf(url){ try { return new URL(url).host; } catch (e) { return url; } }
   function b64url(bytes){
     var bin = "";
     for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -2534,6 +2559,7 @@
       try { sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier: verifier, state: state, path: path })); }
       catch (e) { refuse("internal"); return; }
       keep();
+      leaving(strings(langNow()).signingIn);
       location.assign(authorizeUrl(SITE, b64url(new Uint8Array(h)), state, REDIRECT));
     }, function(){ refuse("internal"); });
   }
@@ -2543,6 +2569,7 @@
     var s = signedIn();
     forget();
     keep();
+    leaving(strings(langNow()).signingOut);
     var q = [["client_id", SITE.client]].concat(s && s.id ? [["id_token_hint", s.id]] : []).concat([["post_logout_redirect_uri", REDIRECT]]);
     location.assign(SITE.issuer + "/oidc/v1/end_session?" + q.map(function(p){ return p[0] + "=" + encodeURIComponent(p[1]); }).join("&"));
   }
@@ -2665,14 +2692,10 @@
     // wait, counting the seconds, and the finished answer arrives in one piece. The answer's
     // element is made now and filled as the stream comes, but joins the log only in finish().
     var ans = el("div", "rbchat-msg rbchat-assistant"), body = el("div", "rbchat-body"), t0 = Date.now();
-    var wait = el("p", "rbchat-spin"), frame = el("span", "rbchat-frame", "|"), secs = el("span", "rbchat-secs");
-    wait.appendChild(frame); wait.appendChild(document.createTextNode(" " + s.asking + "\u2026 ")); wait.appendChild(secs);
-    log.appendChild(wait); log.scrollTop = log.scrollHeight;
-    var spin = setInterval(function(){ frame.textContent = "|/-\\"[Math.floor((Date.now() - t0) / 90) % 4]; secs.textContent = seconds(Date.now() - t0); }, 90);
+    var stopSpin = spinner(s.asking);
     ans.appendChild(body);
     var acc = "", cites = [], names = [], cut = false, pictures = [], verdict = null, errored = false, ended = false, spoke = null, by = null;
     function render(){ body.innerHTML = md(acc); numberColumns(body); }
-    function stopSpin(){ clearInterval(spin); if (wait.parentNode) wait.parentNode.removeChild(wait); }
     // A stream that never ends — a dropped connection the browser does not notice — would
     // otherwise lock the panel forever: nothing else re-enables the form. Ninety seconds after
     // the request goes out, fifteen minutes above `low`, the controller aborts it, and the abort

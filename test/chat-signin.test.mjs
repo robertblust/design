@@ -98,6 +98,34 @@ test("/login signs in at the issuer and lands back on the same page, the code go
   await context.close();
 });
 
+// While the browser waits for the issuer, the page that left cannot be read from here, so the page
+// itself notes each spinner as it is drawn, with whether the line still takes anything, in the tab,
+// which the round trip keeps.
+function noteSpinners() {
+  new MutationObserver((ms) => {
+    for (const m of ms) for (const n of m.addedNodes) {
+      if (!n.classList || !n.classList.contains("rbchat-spin")) continue;
+      const seen = JSON.parse(sessionStorage.getItem("spun") || "[]");
+      seen.push([n.textContent, document.querySelector("section.rbchat textarea").disabled]);
+      sessionStorage.setItem("spun", JSON.stringify(seen));
+    }
+  }).observe(document, { childList: true, subtree: true });
+}
+
+test("/login and /logout show a spinner naming the identity service while the browser waits for it, and the line takes nothing meanwhile", async () => {
+  const { page: p, context } = await arrive("/");
+  await p.addInitScript(noteSpinners);
+  await p.evaluate(noteSpinners);
+  const host = new URL(issuer.url).host;
+  await login(p);
+  await type(p, "/logout");
+  await p.waitForFunction(() => location.pathname === "/" && !!document.querySelector(".rbchat-open") && !localStorage.getItem("chat-signin"));
+  await p.waitForSelector("section.rbchat:not([hidden]) textarea");
+  assert.deepEqual(await p.evaluate(() => JSON.parse(sessionStorage.getItem("spun"))), [["| signing in at " + host + "\u2026 ", true], ["| signing out at " + host + "\u2026 ", true]]);
+  assert.equal(await p.$$eval(".rbchat-spin", (s) => s.length), 0, "the page arrived without it");
+  await context.close();
+});
+
 test("a message signed in carries the access token as a Bearer", async () => {
   const { page: p, context } = await arrive("/");
   await login(p);
