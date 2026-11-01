@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   readConfig, planSync, applySync, CONFIG_NAME, planFences, applyFences, decksWithoutChat,
+  planCsp, applyCsp,
 } from "../lib/sync.mjs";
 import { findFence, FenceError } from "../lib/rewrite.mjs";
 import { FENCES } from "../lib/fences.mjs";
@@ -264,6 +265,15 @@ try {
 }
 const staleFences = fenceEntries.filter((e) => e.state !== "same");
 
+// Read off each page as it stands, so a check sees the policy a page carries against the scripts
+// it carries; a write plans it again once the fences are written, below.
+let stalePolicies;
+try {
+  stalePolicies = planCsp(siteRoot, config);
+} catch (e) {
+  fail(`  ✗ ${e.message}`, 2);
+}
+
 // The tag is the release and the sites pin the tag, so nothing read this package's own version
 // field and it fell seven tags behind. A site holds both values, the tag in its pin and the
 // version of the package it installed; they agree or the check is red, the same guard the
@@ -302,13 +312,16 @@ if (check) {
   }
   if (chatless.length) {
     reportChatless();
-    if (!stale.length && !staleFences.length) process.exit(1);
+    if (!stale.length && !staleFences.length && !stalePolicies.length) process.exit(1);
   }
-  if (!stale.length && !staleFences.length) {
+  if (!stale.length && !staleFences.length && !stalePolicies.length) {
     console.log(
-      `  ✓ ${entries.length} file(s) and ${fenceEntries.length} fence(s) match @robertblust/design`);
+      `  ✓ ${entries.length} file(s) and ${fenceEntries.length} fence(s) match @robertblust/design` +
+      (config.csp ? ", and every page's content policy names its scripts" : ""));
     process.exit(0);
   }
+  for (const e of stalePolicies)
+    console.log(`  ✗ ${e.page}  its content policy does not name the scripts it runs`);
   for (const e of stale)
     console.log(`  ✗ ${e.to}  ${e.state === "missing" ? "missing" : "differs from the package"}`);
   for (const e of staleFences) {
@@ -328,8 +341,8 @@ if (check) {
     }
   }
   console.log(
-    `\n  ${stale.length} file(s) and ${staleFences.length} fence(s) are not what @robertblust/design ` +
-    `ships.` +
+    `\n  ${stale.length} file(s), ${staleFences.length} fence(s) and ${stalePolicies.length} content ` +
+    `policy(ies) are not what @robertblust/design ships.` +
     `\n  Run: npm run design` +
     `\n  Then re-run the card check (npm run og) if any page changed, and commit.` +
     `\n\n  If this site genuinely needs its own copy, take the group out of ${CONFIG_NAME}` +
@@ -341,13 +354,21 @@ if (check) {
 
 const written = applySync(siteRoot, entries, config);
 applyFences(siteRoot, fenceEntries);
+let policies;
+try {
+  policies = applyCsp(siteRoot, planCsp(siteRoot, config));
+} catch (e) {
+  fail(`  ✗ ${e.message}`, 2);
+}
 reportChatless();
-if (!written.length && !staleFences.length) {
+if (!written.length && !staleFences.length && !policies.length) {
   console.log(
     `  ✓ already in step — ${entries.length} file(s), ${fenceEntries.length} fence(s), nothing to write`);
 } else {
   for (const to of written) console.log(`  → ${to}`);
   for (const e of staleFences) console.log(`  → ${e.page}  ${e.fence}`);
+  for (const page of policies) console.log(`  → ${page}  content policy`);
   console.log(
-    `\n  ${written.length} file(s) and ${staleFences.length} fence(s) written. Review the diff and commit.`);
+    `\n  ${written.length} file(s), ${staleFences.length} fence(s) and ${policies.length} content ` +
+    `policy(ies) written. Review the diff and commit.`);
 }

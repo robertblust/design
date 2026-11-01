@@ -328,3 +328,46 @@ test("design serve refuses an argument it does not take", () => {
   assert.equal(run(["serve", "--port", "x"], process.cwd()).code, 2);
   assert.equal(run(["serve", "--porr", "1"], process.cwd()).code, 2);
 });
+
+// The content policy, for a site that takes it: a sync writes it into every page that runs a
+// script, after the fences, and leaves alone a page that runs none; the check is green on what the
+// sync wrote and names the page whose script changed after it, until the next sync.
+test("sync writes each scripted page's content policy and --check names a page whose script changed since", () => {
+  const scripted = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>T</title><script>go();</script></head><body></body></html>';
+  const plain = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>R</title></head><body></body></html>';
+  const root = site({ "index.html": scripted, "id/x/index.html": plain }, { groups: ["fonts"], csp: true });
+  const before = run(["sync", "--check"], root);
+  assert.equal(before.code, 1);
+  assert.match(before.out, /index\.html {2}its content policy does not name the scripts it runs/);
+  assert.doesNotMatch(before.out, /id\/x\/index\.html/);
+  const wrote = run(["sync"], root);
+  assert.equal(wrote.code, 0, wrote.out);
+  assert.match(wrote.out, /→ index\.html {2}content policy/);
+  assert.match(fs.readFileSync(path.join(root, "index.html"), "utf8"), /<meta charset="utf-8">\n<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-/);
+  assert.equal(fs.readFileSync(path.join(root, "id/x/index.html"), "utf8"), plain);
+  const green = run(["sync", "--check"], root);
+  assert.equal(green.code, 0, green.out);
+  assert.match(green.out, /every page's content policy names its scripts/);
+  const file = path.join(root, "index.html");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("go();", "went();"));
+  const red = run(["sync", "--check"], root);
+  assert.equal(red.code, 1);
+  assert.match(red.out, /index\.html {2}its content policy does not name the scripts it runs/);
+});
+
+test("a site without csp in its config gets no content policy, and one with any value but true is refused", () => {
+  const scripted = '<!doctype html><html lang="en"><head><meta charset="utf-8"><script>go();</script></head><body></body></html>';
+  const root = site({ "index.html": scripted }, { groups: ["fonts"] });
+  assert.equal(run(["sync"], root).code, 0);
+  assert.equal(fs.readFileSync(path.join(root, "index.html"), "utf8"), scripted);
+  const wrong = run(["sync", "--check"], site({ "index.html": scripted }, { groups: ["fonts"], csp: "yes" }));
+  assert.equal(wrong.code, 2);
+  assert.match(wrong.out, /"csp": true/);
+});
+
+test("a scripted page the policy cannot be placed in stops the sync, naming the page", () => {
+  const root = site({ "a/index.html": "<!doctype html><html><head><script>go();</script></head></html>" }, { groups: ["fonts"], csp: true });
+  const r = run(["sync"], root);
+  assert.equal(r.code, 2);
+  assert.match(r.out, /a\/index\.html: a page that runs a script needs a <meta charset>/);
+});

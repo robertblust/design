@@ -1,13 +1,15 @@
 // The chat opens the model's graph over the page, in Chromium: a name, a cite title or a
 // picture's node opens the embedded model page in the chat's own dialog, a later open moves
 // its focus by message, and nothing about it touches the chat page's address or history.
-import { test, before, after } from "node:test";
+import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { withPolicy } from "../lib/csp.mjs";
+import { watchPolicy } from "./fixtures/policy.mjs";
 import { modelPage, stageFiles } from "./fixtures/stage-page.mjs";
 import { TERMINAL } from "./fixtures/terminal.mjs";
 import { STABLE_MODEL, idAt } from "./fixtures/stable-ids.mjs";
@@ -27,13 +29,16 @@ const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JS
 const EVENTS = [["text", { text: "A Guest is resolved before any merge happens." }], ["names", { names: [{ id: ID_A, title: "Guest" }] }],
   ["cite", { id: ID_B, title: "Merge", url: "https://github.com/o/r/blob/abc1234def/concepts/merge.md" }], ["diagram", PICTURE], ["done", { spent: 1 }]];
 let server, base, browser, slowModel = 0;
+// What the pages' content policy refused; every page here runs under the one `design sync` writes.
+let refused;
+afterEach(() => { assert.deepEqual(refused.splice(0), []); });
 
 before(async () => {
   server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(EVENTS)); return; }
-    const files = { "/": ["text/html", CHAT], "/model/": ["text/html", modelPage({ chat: true, extra: SELF })],
-      "/timeline/": ["text/html", PLAIN(true)], "/talks/": ["text/html", PLAIN(false)], "/mermaid.min.js": ["text/javascript", fs.readFileSync(path.join(PKG, "assets", "mermaid.min.js"))], ...stageFiles() };
+    const files = { "/": ["text/html", withPolicy(CHAT)], "/model/": ["text/html", withPolicy(modelPage({ chat: true, extra: SELF }))],
+      "/timeline/": ["text/html", withPolicy(PLAIN(true))], "/talks/": ["text/html", withPolicy(PLAIN(false))], "/mermaid.min.js": ["text/javascript", fs.readFileSync(path.join(PKG, "assets", "mermaid.min.js"))], ...stageFiles() };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     const send = () => { res.writeHead(200, { "content-type": hit[0], "cache-control": "no-store" }); res.end(hit[1]); };
@@ -43,6 +48,7 @@ before(async () => {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${server.address().port}`;
   browser = await chromium.launch();
+  refused = watchPolicy(browser);
 });
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
 
@@ -231,7 +237,7 @@ test("a cite built from a UUID opens the embedded stage on that entity, and the 
   const srv = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(stableEvents)); return; }
-    const files = { "/": ["text/html", CHAT], "/model/": ["text/html", modelPage({ chat: true })],
+    const files = { "/": ["text/html", withPolicy(CHAT)], "/model/": ["text/html", withPolicy(modelPage({ chat: true }))],
       ...stageFiles({ model: JSON.stringify(STABLE_MODEL) }) };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }

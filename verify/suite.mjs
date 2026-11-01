@@ -75,6 +75,12 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
     const page = await browser.newPage();
     const jsErrors = [];
     page.on("pageerror", e => jsErrors.push(String(e)));
+    // What the page's content policy refused, which Chromium writes to the console and nowhere a
+    // page can see: an inline script the policy does not name, or a request to an origin it does
+    // not allow, is a feature the visitor silently lost. `design sync` writes the policy from the
+    // page, so a refusal here is a script the sync never saw.
+    const refused = [];
+    page.on("console", m => { if (m.type() === "error" && /Content Security Policy/.test(m.text())) refused.push(m.text()); });
     // This fires for whatever the network stack or the resource's own loader aborts: DNS
     // failure, a refused or blocked connection, and a 404 on a stylesheet, a script, or an
     // @font-face font — each of those loaders treats a 404 as a load failure and aborts. It
@@ -108,6 +114,7 @@ export async function runSuite({ browser, SITE, BASE, PAGES, CHECKS, systemFaces
       problems.push(String(e));
     }
     if (jsErrors.length) problems.push("JS errors: " + jsErrors.join(" | "));
+    if (refused.length) problems.push("refused by its content policy: " + refused.join(" | "));
     if (missing.length) problems.push("failed requests: " + missing.join(", "));
     console.log((problems.length ? "✗" : "✓") + " " + spec.path +
       (problems.length ? "\n    " + problems.join("\n    ") : ""));
