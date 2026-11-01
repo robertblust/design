@@ -214,6 +214,38 @@ test("a page whose fake records a failed request produces a failure naming the f
     "the failure did not name the file that failed");
 });
 
+test("a page whose content policy refused something is a failure naming what it refused, and another console error is not", async (t) => {
+  // Chromium writes a refusal to the console and nowhere else; the fake writes one there from
+  // inside its goto(), after the listener is on, beside an ordinary console error that is no
+  // refusal and must not count.
+  const real = globalThis.fetch;
+  globalThis.fetch = fakeFetch();
+  t.after(() => { globalThis.fetch = real; });
+  const realLog = console.log;
+  const lines = [];
+  console.log = (s) => lines.push(s);
+  t.after(() => { console.log = realLog; });
+
+  const said = (text) => ({ type: () => "error", text: () => text });
+  const page = {
+    async goto() {
+      page._onConsole?.(said("Failed to load resource: the server responded with a status of 404"));
+      page._onConsole?.(said("Refused to execute inline script because it violates the following Content Security Policy directive: \"script-src 'self'\"."));
+      return { ok: () => true, status: () => 200 };
+    },
+    async close() {}, async evaluate() { return null; }, async $() { return null; },
+    on(event, cb) { if (event === "console") page._onConsole = cb; },
+    context: () => ({ browser: () => browser }),
+  };
+  const browser = { async newPage() { return page; }, async close() {} };
+  const o = OPTS(); o.browser = browser;
+
+  assert.equal(await runSuite(o), 1, "a refusal did not count as one failure");
+  const line = lines.find(l => l.includes("refused by its content policy: "));
+  assert.ok(line && line.includes("Refused to execute inline script"), "the failure did not name what was refused");
+  assert.ok(!line.includes("Failed to load resource"), "an ordinary console error was read as a refusal");
+});
+
 test("a page with no failed requests is not marked as one", async (t) => {
   // The counter-example to the test above: the default fake page's on() is a no-op, so the
   // requestfailed listener is registered but never invoked, and `missing` stays empty.

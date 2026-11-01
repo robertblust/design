@@ -4,13 +4,15 @@
 // token; /logout forgets both tokens and ends the session; a token that has lapsed is not sent,
 // and the question goes as a visitor's under a line that Sonnet 5 answers.
 // Without data-issuer the four words are not the panel's and nothing of this happens.
-import { test, before, after } from "node:test";
+import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { withPolicy } from "../lib/csp.mjs";
+import { watchPolicy } from "./fixtures/policy.mjs";
 import { TERMINAL } from "./fixtures/terminal.mjs";
 import { startIssuer } from "./fixtures/issuer.mjs";
 
@@ -24,6 +26,9 @@ const page = (attrs) => `<!doctype html><html lang="en"><head><meta charset="utf
 const posted = [];
 let answer = null;
 let server, base, browser, issuer;
+// What the pages' content policy refused; every page here runs under the one `design sync` writes.
+let refused;
+afterEach(() => { assert.deepEqual(refused.splice(0), []); });
 
 before(async () => {
   issuer = await startIssuer();
@@ -41,7 +46,7 @@ before(async () => {
       });
       return;
     }
-    const files = { "/": ["text/html", page(signIn)], "/deep/page": ["text/html", page(signIn)], "/plain": ["text/html", page("")], "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")] };
+    const files = { "/": ["text/html", withPolicy(page(signIn))], "/deep/page": ["text/html", withPolicy(page(signIn))], "/plain": ["text/html", withPolicy(page(""))], "/chat.js": ["text/javascript", asset("chat.js")], "/chat.css": ["text/css", asset("chat.css")] };
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { "content-type": hit[0] }); res.end(hit[1]);
@@ -49,6 +54,7 @@ before(async () => {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${server.address().port}`;
   browser = await chromium.launch();
+  refused = watchPolicy(browser);
 });
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); await issuer.close(); });
 

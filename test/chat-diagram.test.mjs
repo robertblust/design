@@ -1,13 +1,15 @@
 // The widget drawing a picture, in Chromium: a page carrying chat.js is served with a chat
 // endpoint that answers from a script, so what is tested is the widget and Mermaid, the real
 // vendored file, and nothing of a chat host. The pure parts are in chat.test.mjs.
-import { test, before, after } from "node:test";
+import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { withPolicy } from "../lib/csp.mjs";
+import { watchPolicy } from "./fixtures/policy.mjs";
 import { renderPicture } from "../lib/render/processes.mjs";
 import { TERMINAL } from "./fixtures/terminal.mjs";
 
@@ -34,12 +36,15 @@ const BUILT = PAGE.replace('<p>A page.</p>', `<p>A page.</p><div style="height:3
 const state = { events: [], mermaid: true };
 const sse = (events) => events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 let server, base, browser;
+// What the pages' content policy refused; every page here runs under the one `design sync` writes.
+let refused;
+afterEach(() => { assert.deepEqual(refused.splice(0), []); });
 
 before(async () => {
   server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (req.method === "POST" && url === "/chat") { res.writeHead(200, { "content-type": "text/event-stream" }); res.end(sse(state.events)); return; }
-    const files = { "/": ["text/html", PAGE], "/built": ["text/html", BUILT], "/chat.js": ["text/javascript", asset("chat.js")], "/modal.js": ["text/javascript", asset("modal.js")], "/modal.css": ["text/css", asset("modal.css")], "/chat.css": ["text/css", asset("chat.css")] };
+    const files = { "/": ["text/html", withPolicy(PAGE)], "/built": ["text/html", withPolicy(BUILT)], "/chat.js": ["text/javascript", asset("chat.js")], "/modal.js": ["text/javascript", asset("modal.js")], "/modal.css": ["text/css", asset("modal.css")], "/chat.css": ["text/css", asset("chat.css")] };
     if (state.mermaid) files["/mermaid.min.js"] = ["text/javascript", asset("mermaid.min.js")];
     const hit = files[url];
     if (!hit) { res.writeHead(404); res.end(); return; }
@@ -48,6 +53,7 @@ before(async () => {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   base = `http://127.0.0.1:${server.address().port}`;
   browser = await chromium.launch();
+  refused = watchPolicy(browser);
 });
 after(async () => { await browser.close(); await new Promise((r) => server.close(r)); });
 
