@@ -69,7 +69,7 @@ The family's one modal: everything a page opens over itself opens here, the grap
 
 ## Chat
 
-A button at the foot of a page and the terminal it opens over the site's chat service, a card on a desk and a sheet on a phone. A deck shows the button on a desk and not on a phone, where its transport takes the bottom edge ([Decks](decks.md#transport)). The endpoint and the model page are named on the script's own tag. Source: [assets/chat.css](../../assets/chat.css), [assets/chat.js](../../assets/chat.js), whose header gives the tag.
+A button at the foot of a page and the terminal it opens over the site's chat service, a card on a desk and a sheet on a phone. A deck shows the button on a desk and not on a phone, where its transport takes the bottom edge ([Decks](decks.md#transport)). The endpoint and the model page are named on the script's own tag. Where the tag names more than one chat host, `data-chat-backends`, the command line's `/backend` lets the reader choose which answers, the keys line names the choice and the browser keeps it. Source: [assets/chat.css](../../assets/chat.css), [assets/chat.js](../../assets/chat.js), whose header gives the tag.
 
 A scrollbar inside the panel is the terminal's too: `--t-dim` on no track, set once on the panel and inherited by the log, a wide table, a picture's box and the input. It shows where a browser draws a scrollbar at all times, as one on Windows does, and would otherwise paint its own pale bar down a dark panel.
 

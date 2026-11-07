@@ -31,6 +31,13 @@ test("a script's hash is over its text as the parser hands it on, with every lin
   assert.equal(scriptHash("a();\r\nb();\rc();"), scriptHash("a();\nb();\nc();"));
 });
 
+test("a script may send to every backend the chat tag names beside its own host", () => {
+  const chat = '<script src="chat.js" data-chat="https://chat.example.test/chat" data-chat-backends="google=https://chat.example.test/chat azure=https://chat.azure.example.test/chat"></script>';
+  assert.match(policyFor(head(chat)), /; connect-src 'self' https:\/\/chat\.example\.test https:\/\/chat\.azure\.example\.test; /);
+  const own = '<script src="chat.js" data-chat="/chat" data-chat-backends="google=/chat azure=/chat-azure"></script>';
+  assert.match(policyFor(head(own)), /; connect-src 'self'; /, "a path of the page's own adds no origin");
+});
+
 test("a script may send to the page's own origin and to the chat host and the identity service its chat tag names, and nowhere else", () => {
   const chat = '<script src="chat.js" data-chat="https://chat.example.test/chat" data-issuer="https://id.example.test" data-client="1"></script>';
   assert.match(policyFor(head(chat)), /; connect-src 'self' https:\/\/chat\.example\.test https:\/\/id\.example\.test; /);

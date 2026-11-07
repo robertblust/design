@@ -151,11 +151,11 @@
       claim: { partial: ["Partly backed", "The model's pages say only part of this."], contradicted: ["Contradicted", "The model's pages say otherwise."], absent: ["Not backed", "The model's pages don't say this."], unsourced: ["Not backed", "No page the chat read says this."] },
       claimsOne: "1 statement here isn't fully backed by the model's pages.", claimsMany: "{n} statements here aren't fully backed by the model's pages.",
       keys: { send: "enter send", last: "↑ last question", pick: "{range} pick", help: "/help", chosen: "{model} · {effort}" },
-      menu: { model: "Choose a model", effort: "Choose an effort" },
+      menu: { model: "Choose a model", effort: "Choose an effort", backend: "Choose a backend" },
       signInHint: "Sign in with /login to choose a model.",
       lapsedHint: "Your sign-in has expired, so {model} answers now. Sign in again with /login to choose a model.",
       effortHint: "The effort can be chosen once your sign-in grants a model.",
-      help: [["/new", "start a new conversation (also /clear)"], ["/login", "sign in, to choose a model"], ["/logout", "sign out"], ["/model", "choose the model that answers"], ["/effort", "choose how long it thinks"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
+      help: [["/new", "start a new conversation (also /clear)"], ["/login", "sign in, to choose a model"], ["/logout", "sign out"], ["/model", "choose the model that answers"], ["/effort", "choose how long it thinks"], ["/backend", "choose which cloud answers"], ["/help", "this list"], ["{range}", "pick from the menu above"], ["↑", "your last question back into the line"]],
       tryLabel: "Try", askNext: "Ask next",
       versions: "meta-model {core} · model {sha}", versionsModel: "model {sha}",
       graph: { head: "graph · {title}", failed: "The graph could not be drawn here; the model page has it." },
@@ -214,11 +214,11 @@
       claim: { partial: ["Teilweise belegt", "Die Seiten des Modells sagen das nur zum Teil."], contradicted: ["Widerspricht dem Modell", "Die Seiten des Modells sagen etwas anderes."], absent: ["Nicht belegt", "Die Seiten des Modells sagen das nicht."], unsourced: ["Nicht belegt", "Keine Seite, die der Chat gelesen hat, sagt das."] },
       claimsOne: "Eine Aussage in dieser Antwort ist durch die Seiten des Modells nicht vollständig belegt.", claimsMany: "{n} Aussagen in dieser Antwort sind durch die Seiten des Modells nicht vollständig belegt.",
       keys: { send: "Enter senden", last: "↑ letzte Frage", pick: "{range} wählen", help: "/help", chosen: "{model} · {effort}" },
-      menu: { model: "Modell wählen", effort: "Aufwand wählen" },
+      menu: { model: "Modell wählen", effort: "Aufwand wählen", backend: "Backend wählen" },
       signInHint: "Melde dich mit /login an, um ein Modell zu wählen.",
       lapsedHint: "Deine Anmeldung ist abgelaufen, darum antwortet jetzt {model}. Melde dich mit /login wieder an, um ein Modell zu wählen.",
       effortHint: "Den Aufwand kannst du wählen, sobald deine Anmeldung ein Modell erlaubt.",
-      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "deine letzte Frage zurück in die Zeile"]],
+      help: [["/new", "ein neues Gespräch beginnen (auch /clear)"], ["/login", "anmelden, um ein Modell zu wählen"], ["/logout", "abmelden"], ["/model", "das antwortende Modell wählen"], ["/effort", "wählen, wie lange es nachdenkt"], ["/backend", "wählen, welche Cloud antwortet"], ["/help", "diese Liste"], ["{range}", "aus dem Menü darüber wählen"], ["↑", "deine letzte Frage zurück in die Zeile"]],
       tryLabel: "Probier mal", askNext: "Frag weiter",
       versions: "Meta-Modell {core} · Modell {sha}", versionsModel: "Modell {sha}",
       graph: { head: "Graph · {title}", failed: "Der Graph liess sich hier nicht zeichnen; die Modellseite zeigt ihn." },
@@ -938,7 +938,25 @@
   function command(text){
     var t = String(text == null ? "" : text).trim().toLowerCase();
     if (t === "/new" || t === "/clear") return "new";
-    return t === "/help" || t === "/login" || t === "/logout" || t === "/model" || t === "/effort" ? t.slice(1) : null;
+    return t === "/help" || t === "/login" || t === "/logout" || t === "/model" || t === "/effort" || t === "/backend" ? t.slice(1) : null;
+  }
+
+  // ─── Choosing the backend ─────────────────────────────────────────────────────────────────
+  // A tag may name more than one chat host, `data-chat-backends="google=https://… azure=https://…"`,
+  // space-separated name=url pairs, so a site that runs the same chat on two clouds lets a reader
+  // choose which answers. The first pair is the tag's own `data-chat`, so a page that names the
+  // attribute wrongly, or names one host alone, offers no choice rather than a wrong one; a url is
+  // absolute https or a path of the page's own, which is what the policy lets the page send to.
+  function backendsOf(attr, endpoint){
+    var out = [], parts = String(attr == null ? "" : attr).trim().split(/\s+/).filter(Boolean);
+    for (var i = 0; i < parts.length; i++) {
+      var at = parts[i].indexOf("=");
+      if (at <= 0) return [];
+      var name = parts[i].slice(0, at), url = parts[i].slice(at + 1);
+      if (!url || !(url.charAt(0) === "/" || /^https:\/\//.test(url))) return [];
+      out.push({ name: name, url: url });
+    }
+    return out.length > 1 && out[0].url === endpoint ? out : [];
   }
 
   // ─── Sign-in ──────────────────────────────────────────────────────────────────────────────
@@ -1117,7 +1135,7 @@
   // The rows a number picks, as the keys line and /help name them: none, one, or a range.
   function rangeOf(n){ return n > 1 ? "1-" + n : n === 1 ? "1" : ""; }
 
-  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, CHAT_MODELS: CHAT_MODELS, CHAT_EFFORTS: CHAT_EFFORTS, grantedModels: grantedModels, authorizeUrl: authorizeUrl, returnOf: returnOf, lapsed: lapsed, claimsOf: claimsOf, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
+  window.rbChat = { md: md, readEvents: readEvents, strings: strings, link: link, refocus: refocus, asked: asked, linkQuestion: linkQuestion, nameLinks: nameLinks, heard: heard, when: when, refusalText: refusalText, citeLine: citeLine, iconOf: iconOf, pick: pick, unasked: unasked, sayIn: sayIn, asTitles: asTitles, answerLang: answerLang, spread: spread, mentioned: mentioned, mermaidConfig: mermaidConfig, nodeElement: nodeElement, diagramCaption: diagramCaption, nodeHref: nodeHref, oriented: oriented, follow: follow, place: place, placed: placed, lockupOf: lockupOf, command: command, backendsOf: backendsOf, CHAT_MODELS: CHAT_MODELS, CHAT_EFFORTS: CHAT_EFFORTS, grantedModels: grantedModels, authorizeUrl: authorizeUrl, returnOf: returnOf, lapsed: lapsed, claimsOf: claimsOf, picked: picked, tryPick: tryPick, connected: connected, tryRows: tryRows, commitOf: commitOf, seconds: seconds, rangeOf: rangeOf, versionsOf: versionsOf, graphHref: graphHref, entityOf: entityOf, graphTarget: graphTarget };
 
   // ─── The page ─────────────────────────────────────────────────────────────────────────────
   var tag = document.currentScript;
@@ -1692,6 +1710,19 @@
   // names something that is not an absolute https URL, and then every message goes to ENDPOINT.
   var DIRECT = (function(d){ try { return d && new URL(d).protocol === "https:" ? d : null; } catch (e) { return null; } })(tag.dataset.chatDirect);
   var SIGN_WORDS = ["/login", "/logout", "/model", "/effort"];
+  // The chat hosts the tag names beside its own, where it names any, and the one the reader chose
+  // by name, kept in the browser as the size is: a choice about where a question goes rather than
+  // part of a conversation. A kept name the tag no longer names falls back to the tag's own host.
+  var BACKENDS = backendsOf(tag.dataset.chatBackends, ENDPOINT), BACKEND_KEY = "chat-backend";
+  function backendNow(){
+    if (!BACKENDS.length) return null;
+    var name = null;
+    try { name = localStorage.getItem(BACKEND_KEY); } catch (e) {}
+    for (var i = 0; i < BACKENDS.length; i++) if (BACKENDS[i].name === name) return BACKENDS[i];
+    return BACKENDS[0];
+  }
+  function endpointNow(){ var b = backendNow(); return b ? b.url : ENDPOINT; }
+  function hostNow(){ try { return new URL(endpointNow(), location.href).host; } catch (e) { return HOST; } }
   // A reader who cancels at the login, or whom it refuses, comes back with `error` and the state
   // instead of a code, and that is a return too.
   var came = !SITE ? null : param(location.search, "error") !== null ? { error: param(location.search, "error"), state: param(location.search, "state") } : returnOf(location.href);
@@ -1869,6 +1900,8 @@
       if (r[0] === "{range}" && !menuRows.length) return;
       // The sign-in's four words only where the tag names an identity service.
       if (!SITE && SIGN_WORDS.indexOf(r[0]) >= 0) return;
+      // /backend only where the tag names more than one chat host.
+      if (!BACKENDS.length && r[0] === "/backend") return;
       var line = el("p");
       line.appendChild(el("span", "rbchat-help-k", r[0].replace("{range}", rangeOf(menuRows.length))));
       line.appendChild(el("span", "rbchat-help-d", r[1]));
@@ -2227,7 +2260,7 @@
   // The notice, in the intro, under its rail: first that an AI answers and not a person, the sentence
   // the EU AI Act asks a chat to say before the first message, then where the message goes, and the
   // privacy page.
-  function writeNotice(){ if (!notice) return; var s = strings(langNow()); notice.innerHTML = '<b class="rbchat-ai">' + esc(s.ai) + "</b> " + esc(s.notice).replace("{host}", "<code>" + esc(HOST) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>"; }
+  function writeNotice(){ if (!notice) return; var s = strings(langNow()); notice.innerHTML = '<b class="rbchat-ai">' + esc(s.ai) + "</b> " + esc(s.notice).replace("{host}", "<code>" + esc(hostNow()) + "</code>") + ' <a href="' + esc(s.privacyHref) + '">' + esc(s.privacy) + "</a>"; }
   function relabel(){
     var s = strings(langNow());
     button.querySelector("span").textContent = s.open; button.setAttribute("aria-label", s.open);
@@ -2274,8 +2307,8 @@
   function keysLine(){
     if (!keysEl) return;
     var k = strings(langNow()).keys;
-    var who = readerName(), c = chosen(false);
-    var parts = (who ? [who] : []).concat(c ? [chosenText(c.model, c.effort)] : []).concat([k.send, k.last]).concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
+    var who = readerName(), c = chosen(false), b = backendNow();
+    var parts = (who ? [who] : []).concat(c ? [chosenText(c.model, c.effort)] : []).concat(b && b !== BACKENDS[0] ? [b.name] : []).concat([k.send, k.last]).concat(menuRows.length ? [k.pick.replace("{range}", rangeOf(menuRows.length))] : []).concat([k.help]);
     keysEl.textContent = parts.join("  \u00b7  ");
   }
 
@@ -2505,6 +2538,27 @@
     menuChoice = { rows: labels, was: was, menu: m, values: values, pick: picks };
     keysLine();
   }
+  // /backend, where the tag names backends: the menu of their names, the current one ticked. A
+  // row picked, by its number or a click, is kept by name; the notice and the keys line follow.
+  function backendChooser(){
+    var now = backendNow(), s = strings(langNow());
+    var box = el("div", "rbchat-choose"), head = el("p", "rbchat-label", s.menu.backend);
+    head.setAttribute("data-menu", "backend");
+    box.appendChild(head);
+    var was = menuChoice && menuChoice.rows === menuRows ? menuChoice.was : menuRows;
+    var names = BACKENDS.map(function(b){ return b.name; });
+    var m = menu(box, BACKENDS.map(function(b){ return [b.name, null, { current: b === now, pick: function(){ picks(b.name); } }]; }), 0);
+    function picks(name){
+      try { localStorage.setItem(BACKEND_KEY, name); } catch (e) {}
+      m.classList.add("rbchat-spent");
+      if (menuChoice && menuChoice.rows === menuRows && menuChoice.menu === m) { menuRows = menuChoice.was; menuChoice = null; }
+      writeNotice(); keysLine();
+    }
+    log.appendChild(box); log.scrollTop = log.scrollHeight;
+    menuRows = names;
+    menuChoice = { rows: names, was: was, menu: m, values: names, pick: picks };
+    keysLine();
+  }
   // The model and effort that answered, beside the cite line, or on a line of their own under an
   // answer that cited nothing; the server names them in `done.by`, and an older one names none.
   function byOf(data){ return data && data.by && typeof data.by.model === "string" && typeof data.by.effort === "string" ? { model: data.by.model, effort: data.by.effort } : null; }
@@ -2665,6 +2719,9 @@
       else chooser(cmd);
       return;
     }
+    // /backend is the panel's only where the tag names more than one chat host; without that it
+    // is sent as any question is.
+    if (BACKENDS.length && cmd === "backend") { input.value = ""; backendChooser(); return; }
     var text = picked(typed, menuRows);
     // A number that picks a row of the model or effort menu is the choice, and nothing is sent.
     if (menuChoice && menuChoice.rows === menuRows && text !== typed) { input.value = ""; menuChoice.pick(menuChoice.values[menuRows.indexOf(text)]); return; }
@@ -2676,7 +2733,9 @@
     // The model and effort it goes with, a visitor's none; above `low` to the host's own address
     // where the tag names one, and given the time a long answer takes.
     var choice = token ? chosen(true) : null, high = !!choice && choice.effort !== CHAT_EFFORTS[0];
-    var to = high && DIRECT ? DIRECT : ENDPOINT;
+    // The tag's own host, or the backend the reader chose; the service's own address stands in
+    // for the tag's own host alone, since another backend is reached at its own address already.
+    var to = high && DIRECT && backendNow() === (BACKENDS[0] || null) ? DIRECT : endpointNow();
     // The menus above stay, dimmed, and their rows still send; the next answer draws its own.
     spend(); qBox = null;
     reading = null;
