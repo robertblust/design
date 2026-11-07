@@ -15,7 +15,7 @@ const src = fs.readFileSync(path.join(PKG, "assets", "chat.js"), "utf8");
 globalThis.window = globalThis;
 globalThis.document = { currentScript: null, documentElement: { lang: "en" } };
 new Function(src)();
-const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang, CHAT_MODELS, CHAT_EFFORTS, grantedModels, authorizeUrl, returnOf, lapsed, claimsOf } = globalThis.rbChat;
+const { md, readEvents, strings, link, refocus, asked, linkQuestion, nameLinks, heard, when, refusalText, citeLine, iconOf, pick, unasked, spread, mentioned, mermaidConfig, nodeElement, diagramCaption, nodeHref, oriented, follow, place, placed, lockupOf, command, picked, tryRows, tryPick, connected, commitOf, seconds, rangeOf, versionsOf, graphHref, entityOf, graphTarget, sayIn, asTitles, answerLang, CHAT_MODELS, CHAT_EFFORTS, grantedModels, authorizeUrl, returnOf, lapsed, claimsOf, backendsOf } = globalThis.rbChat;
 
 test("the subset renders, and everything is escaped first", () => {
   assert.equal(md("One **bold** and *it* and `x<y`."), "<p>One <strong>bold</strong> and <em>it</em> and <code>x&lt;y</code>.</p>");
@@ -877,6 +877,28 @@ test("the command line also knows /login, /logout, /model and /effort", () => {
   for (const t of ["/models", "/login now", "/ effort", "login"]) assert.equal(command(t), null, t);
 });
 
+test("the command line also knows /backend, and nothing that only begins with it", () => {
+  assert.equal(command("/backend"), "backend");
+  assert.equal(command(" /BACKEND "), "backend");
+  for (const t of ["/backends", "/backend azure", "backend"]) assert.equal(command(t), null, t);
+});
+
+test("backendsOf reads the tag's name=url pairs, the first being the tag's own endpoint", () => {
+  assert.deepEqual(backendsOf("google=https://a.test/chat azure=https://b.test/chat", "https://a.test/chat"),
+    [{ name: "google", url: "https://a.test/chat" }, { name: "azure", url: "https://b.test/chat" }]);
+  assert.deepEqual(backendsOf("google=/chat azure=/chat-azure", "/chat"), [{ name: "google", url: "/chat" }, { name: "azure", url: "/chat-azure" }]);
+});
+
+test("backendsOf is empty where the attribute is absent, malformed or does not name the tag's endpoint first", () => {
+  assert.deepEqual(backendsOf(null, "/chat"), []);
+  assert.deepEqual(backendsOf("", "/chat"), []);
+  assert.deepEqual(backendsOf("google=https://a.test/chat", "https://c.test/chat"), [], "the first pair is not the endpoint");
+  assert.deepEqual(backendsOf("azure=https://b.test/chat google=https://a.test/chat", "https://a.test/chat"), [], "the endpoint is not first");
+  assert.deepEqual(backendsOf("google=https://a.test/chat azure", "https://a.test/chat"), [], "a pair without =");
+  assert.deepEqual(backendsOf("google=https://a.test/chat azure=http://b.test/chat", "https://a.test/chat"), [], "a url that is neither https nor the page's own path");
+  assert.deepEqual(backendsOf("google=https://a.test/chat", "https://a.test/chat"), [], "one backend is no choice");
+});
+
 const ROLES = "urn:zitadel:iam:org:project:roles";
 
 test("a reader granted a role in this site's org may pick its model, Sonnet 5 first", () => {
@@ -1093,7 +1115,7 @@ test("every new sentence exists in both languages", () => {
     assert.equal(s.hello.length, 2);
     assert.equal(s.helloHost.length, 2);
     for (const k of ["send", "last", "pick", "help"]) assert.ok(s.keys[k], `${lang}.keys.${k}`);
-    assert.equal(s.help.length, 8);
+    assert.equal(s.help.length, 9);
     for (const k of ["metaModel", "metaModelGets", "process", "processGets", "list", "listGets"]) assert.ok(s.try[k], `${lang}.try.${k}`);
     for (const t of ["kpi", "seat", "product", "decision", "value"]) assert.ok(s.try.lists[t], `${lang}.try.lists.${t}`);
   }
