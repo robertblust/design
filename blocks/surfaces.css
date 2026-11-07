@@ -46,7 +46,9 @@
         transition:border-color .15s ease, background-color .15s ease}
   .ln-s:hover{border-color:var(--c-mid)}
   .ln-s:focus-visible{outline:2px solid var(--c-mid); outline-offset:2px}
-  .ln-s .nm{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:1.02rem}
+  /* A name may hold a host longer than the column, chat.azure.companygraph.io; it wraps inside the
+     card rather than widening the page, which the shared page check refuses. */
+  .ln-s .nm{font-family:"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif; font-weight:700; font-size:1.02rem; min-width:0; overflow-wrap:anywhere}
   /* An address, so mono: it is a record value, not prose. */
   .ln-s .host{font-family:"Plex Mono", ui-monospace, Menlo, monospace; font-size:.72rem; color:var(--dim);
               overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
