@@ -82,8 +82,8 @@ test("every asset is non-empty", () => {
     }
 });
 
-test("the vendored d3 is the pinned 7.9.0 build", () => {
-  assert.match(asset("assets/d3.v7.min.js"), /\/\/ https:\/\/d3js\.org v7\.9\.0/);
+test("the vendored d3 is the pinned 7.9.2 build", () => {
+  assert.match(asset("assets/d3.v7.min.js"), /\/\/ https:\/\/d3js\.org v7\.9\.2/);
 });
 
 test("the prose list declares its own display and list-style", () => {

@@ -10,8 +10,8 @@ a site in the same group, because every one of these licenses asks for its notic
 copy, and a site that takes a group is a copy.
 
 - assets/d3.v7.min.js, unmodified
-  Upstream: D3 7.9.0 — https://d3js.org
-  Copyright 2010-2023 Mike Bostock
+  Upstream: D3 7.9.2 — https://d3js.org
+  Copyright 2010-2026 Mike Bostock
   License: ISC, in assets/d3.LICENSE.txt
 
 - assets/mermaid.min.js, unmodified
