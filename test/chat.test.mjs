@@ -903,7 +903,7 @@ const ROLES = "urn:zitadel:iam:org:project:roles";
 
 test("a reader granted a role in this site's org may pick its model, Sonnet 5 first", () => {
   assert.deepEqual(grantedModels({ [ROLES]: { opus: { o1: "x" } } }, "o1"), ["claude-sonnet-5", "claude-opus-5-5"]);
-  assert.deepEqual(grantedModels({ [ROLES]: { haiku: { o1: "x" }, opus: { o1: "x" }, fable: { o1: "x" } } }, "o1"), ["claude-sonnet-5", "claude-opus-5-5", "claude-fable-5-1", "claude-haiku-5-5"]);
+  assert.deepEqual(grantedModels({ [ROLES]: { haiku: { o1: "x" }, opus: { o1: "x" }, fable: { o1: "x" } } }, "o1"), ["claude-sonnet-5", "claude-opus-5-5", "claude-fable-5-2", "claude-haiku-5-5"]);
 });
 
 test("a role granted in another org grants nothing here", () => {
@@ -912,7 +912,7 @@ test("a role granted in another org grants nothing here", () => {
 
 test("a role prefix names the roles of one site", () => {
   const claims = { [ROLES]: { opus: { o1: "x" }, "blust.ch:fable": { o1: "x" } } };
-  assert.deepEqual(grantedModels(claims, "o1", "blust.ch:"), ["claude-sonnet-5", "claude-fable-5-1"]);
+  assert.deepEqual(grantedModels(claims, "o1", "blust.ch:"), ["claude-sonnet-5", "claude-fable-5-2"]);
   assert.deepEqual(grantedModels(claims, "o1"), ["claude-sonnet-5", "claude-opus-5-5"]);
 });
 
@@ -923,7 +923,7 @@ test("an absent, odd or inherited claim grants Sonnet 5 alone", () => {
 });
 
 test("the models and efforts are chat-server's table", () => {
-  assert.deepEqual(CHAT_MODELS.map((m) => m.id), ["claude-sonnet-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-1", "claude-haiku-5-5"]);
+  assert.deepEqual(CHAT_MODELS.map((m) => m.id), ["claude-sonnet-5", "claude-sonnet-5-5", "claude-opus-5-5", "claude-fable-5-2", "claude-haiku-5-5"]);
   assert.deepEqual(CHAT_MODELS.map((m) => m.role), [null, "sonnet-5-5", "opus", "fable", "haiku"]);
   assert.deepEqual(CHAT_EFFORTS, ["low", "medium", "high", "xhigh", "max"]);
 });

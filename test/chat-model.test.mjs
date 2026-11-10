@@ -190,7 +190,7 @@ test("visitorModelSaysLogin: signed out, /model and /effort say to sign in and d
 test("revokedChoiceFallsBack: a remembered model the sign-in no longer grants goes as Sonnet 5, and an unknown effort as low", async () => {
   const { page: p, context } = await arrive("/", OPUS);
   await login(p);
-  await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-fable-5-1", effort: "medium" })));
+  await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-fable-5-2", effort: "medium" })));
   await ask(p, "What is an owner?");
   assert.equal(posted[0].body.model, "claude-sonnet-5");
   assert.equal(posted[0].body.effort, "medium");
@@ -199,6 +199,17 @@ test("revokedChoiceFallsBack: a remembered model the sign-in no longer grants go
   await ask(p, "And who leads it?");
   assert.equal(posted[1].body.effort, "low");
   assert.deepEqual(await choice(p), { model: "claude-sonnet-5", effort: "low" });
+  await context.close();
+});
+
+test("renamedChoiceCarriesOver: a remembered Fable 5.1 goes as Fable 5.2 where the sign-in grants fable", async () => {
+  const { page: p, context } = await arrive("/", { fable: { "org-1": "example.test" } });
+  await login(p);
+  await p.evaluate(() => localStorage.setItem("chat-choice", JSON.stringify({ model: "claude-fable-5-1", effort: "high" })));
+  await ask(p, "What is an owner?");
+  assert.equal(posted[0].body.model, "claude-fable-5-2");
+  assert.equal(posted[0].body.effort, "high", "the effort the reader chose stays");
+  assert.deepEqual(await choice(p), { model: "claude-fable-5-2", effort: "high" }, "the remembered choice is written as its successor");
   await context.close();
 });
 
