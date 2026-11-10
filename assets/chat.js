@@ -968,9 +968,13 @@
     { id: "claude-sonnet-5", label: "Sonnet 5", role: null },
     { id: "claude-sonnet-5-5", label: "Sonnet 5.5", role: "sonnet-5-5" },
     { id: "claude-opus-5-5", label: "Opus 5.5", role: "opus" },
-    { id: "claude-fable-5-1", label: "Fable 5.1", role: "fable" },
+    { id: "claude-fable-5-2", label: "Fable 5.2", role: "fable" },
     { id: "claude-haiku-5-5", label: "Haiku 5.5", role: "haiku" }
   ];
+  // A model the table no longer offers, by the model that took its place under the same role. A
+  // reader's remembered choice is read through it, so a reader who chose the one they were granted
+  // keeps choosing it when it is replaced, rather than going back to Sonnet 5 without a word.
+  var RENAMED_MODELS = { "claude-fable-5-1": "claude-fable-5-2" };
   var CHAT_EFFORTS = ["low", "medium", "high", "xhigh", "max"];
   var ROLES_CLAIM = "urn:zitadel:iam:org:project:roles";
   function own(o, k){ return o !== null && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, k); }
@@ -2497,7 +2501,8 @@
     var c = null;
     try { c = JSON.parse(localStorage.getItem(CHOICE_KEY) || "null"); } catch (e) {}
     var held = grantedModels(claimsOf(s.id), SITE.org, SITE.prefix);
-    var got = { model: own(c, "model") && held.indexOf(c.model) >= 0 ? c.model : CHAT_MODELS[0].id, effort: hasRole(held) && own(c, "effort") && CHAT_EFFORTS.indexOf(c.effort) >= 0 ? c.effort : CHAT_EFFORTS[0] };
+    var was = own(c, "model") ? (own(RENAMED_MODELS, c.model) ? RENAMED_MODELS[c.model] : c.model) : null;
+    var got = { model: was !== null && held.indexOf(was) >= 0 ? was : CHAT_MODELS[0].id, effort: hasRole(held) && own(c, "effort") && CHAT_EFFORTS.indexOf(c.effort) >= 0 ? c.effort : CHAT_EFFORTS[0] };
     if (fix && c && (c.model !== got.model || c.effort !== got.effort)) { try { localStorage.setItem(CHOICE_KEY, JSON.stringify(got)); } catch (e) {} }
     return got;
   }
